@@ -1143,6 +1143,7 @@ void CacheSimulation::instrument(){
         }
 
         // Check if block is part of gather-scatter loop
+        // KNC only
         if(bb->getInstruction(0)->isScatterGatherOp()) {
             // verify loop pattern
             PRINT_INFOR("Found scatter-gather block");
@@ -1179,7 +1180,14 @@ void CacheSimulation::instrument(){
                     }
 
                 }
-                if (memop->isMemoryOperation()) {
+                // KNL implementation (not KNC)
+                if (memop->isScatterGatherOp()) {
+                  bufferVectorEntry(memop, InstLocation_prior, memop, threadReg, stats, blockSeq, memopSeq);
+                  initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock, leader, threadReg, noData, simulationStruct, blockSeq);
+                  ++memopIdInBlock;
+                  ++memopSeq;
+                }
+                else if (memop->isMemoryOperation()) {
 
                     if(memop->isLoad()) {
                         instrumentMemop(bb, memop, LOAD, blockSeq, threadReg, stats, memopIdInBlock, memopSeq);
