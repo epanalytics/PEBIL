@@ -407,6 +407,7 @@ void BasicBlockCounter::instrument()
         printStaticFilePerInstruction(getExtension(), allBlocks, allBlockIds, allBlockLineInfos, allBlocks->size());
     } else {
         printStaticFile(getExtension(), allBlocks, allBlockIds, allBlockLineInfos, allBlocks->size());
+	printCallTreeInfo(getExtension(), allBlocks, allBlockIds, allBlockLineInfos, allBlocks->size());
     }
 
     delete[] nostring;
