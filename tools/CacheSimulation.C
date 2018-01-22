@@ -82,36 +82,40 @@ void CacheSimulation::includeLoopBlocks(BasicBlock* bb) {
             }  
         }
 
-        uint64_t* innermostBasicBlocksForGroup;
-        innermostBasicBlocksForGroup = new uint64_t[tmpInnermostBasicBlocksForGroup->size()];
-        for(uint32_t i=0;i<tmpInnermostBasicBlocksForGroup->size();i++){
-            innermostBasicBlocksForGroup[i] = (*tmpInnermostBasicBlocksForGroup)[i];
-        }
+        if(!nestedLoopGrouping.get(topLoopID)) {
+            uint64_t* innermostBasicBlocksForGroup;
+            innermostBasicBlocksForGroup = new uint64_t[tmpInnermostBasicBlocksForGroup->size()];
+            for(uint32_t i=0;i<tmpInnermostBasicBlocksForGroup->size();i++){
+                innermostBasicBlocksForGroup[i] = (*tmpInnermostBasicBlocksForGroup)[i];
+            }
 
-        NestedLoopStruct* currLoopStats = new NestedLoopStruct;
-        currLoopStats->GroupId = topLoopID;
-        currLoopStats->InnerLevelSize = CountNumBBAdded; //tmpInnermostBasicBlocksForGroup->size();
-        currLoopStats->GroupCount = 0;
-        currLoopStats->InnerLevelBasicBlocks = innermostBasicBlocksForGroup;
-        if(!nestedLoopGrouping.get(topLoopID))
+            NestedLoopStruct* currLoopStats = new NestedLoopStruct;
+            currLoopStats->GroupId = topLoopID;
+            currLoopStats->InnerLevelSize = CountNumBBAdded; //tmpInnermostBasicBlocksForGroup->size();
+            currLoopStats->GroupCount = 0;
+            currLoopStats->InnerLevelBasicBlocks = innermostBasicBlocksForGroup;
             nestedLoopGrouping.insert(topLoopID,currLoopStats);
+        }
 
         // TODO: Should I delete the hashes/vectors used for book keeping of figuring out loop structure ?
         delete[] allBlocks;
         delete tmpInnermostBasicBlocksForGroup;
        // delete MainNode;
     } else {
-        uint64_t* innermostBasicBlocksForGroup;
-        innermostBasicBlocksForGroup=new uint64_t;  
-        *innermostBasicBlocksForGroup=(bb->getHashCode().getValue()); // Since we know this is only a BB, just adding this BB.
-        NestedLoopStruct* currLoopStats = new NestedLoopStruct;
-        currLoopStats->GroupId = (bb->getHashCode().getValue());
-        currLoopStats->InnerLevelSize = 1;
-        currLoopStats->GroupCount = 0;
-        currLoopStats->InnerLevelBasicBlocks = innermostBasicBlocksForGroup;
-        nestedLoopGrouping.insert(bb->getHashCode().getValue(),currLoopStats); // Only 1 BB, so third term is 1.
-        if( !(mapBBToGroupId.get(bb->getHashCode().getValue())) )
+        if( !(mapBBToGroupId.get(bb->getHashCode().getValue())) ) {
             mapBBToGroupId.insert(bb->getHashCode().getValue(),bb->getHashCode().getValue()); 
+            if( !(nestedLoopGrouping.get(bb->getHashCode().getValue())) ) {
+                uint64_t* innermostBasicBlocksForGroup;
+                innermostBasicBlocksForGroup=new uint64_t;  
+                *innermostBasicBlocksForGroup=(bb->getHashCode().getValue()); // Since we know this is only a BB, just adding this BB.
+                NestedLoopStruct* currLoopStats = new NestedLoopStruct;
+                currLoopStats->GroupId = (bb->getHashCode().getValue());
+                currLoopStats->InnerLevelSize = 1;
+                currLoopStats->GroupCount = 0;
+                currLoopStats->InnerLevelBasicBlocks = innermostBasicBlocksForGroup;
+                nestedLoopGrouping.insert(bb->getHashCode().getValue(),currLoopStats); // Only 1 BB, so third term is 1.
+            } // not in nestedLoopGrouping 
+        } // not in mapBBToGroupId
     } // not in loop
 
 }
@@ -175,6 +179,7 @@ void CacheSimulation::filterBBs(){
     }
 
     // Default Behavior
+    ASSERT(blocksToInst.size() && "Cache Simulation did not find any blocks to instrument.");
     if (!blocksToInst.size()){
         // for executables, instrument everything
         if (getElfFile()->isExecutable()){
