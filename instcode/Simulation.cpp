@@ -530,7 +530,10 @@ extern "C" {
 
                     uint64_t groupidx = stats->GroupIds[bbid];
                     if (Sampler->ExceedsAccessLimit(s->Counters[idx])
-                    || (Sampler->ExceedsAccessLimit(stats->NLStats[groupidx].GroupCount)) ){
+                    || (s->LoopInclusion &&
+                        (Sampler->ExceedsAccessLimit(
+                        stats->NLStats[groupidx].GroupCount)
+                        ))){
 
                         uint64_t k1 = GENERATE_KEY(midx, PointType_buffercheck);
                         uint64_t k2 = GENERATE_KEY(midx, PointType_bufferinc);
@@ -754,6 +757,7 @@ extern "C" {
                 << "# sampleoff     = " << Sampler->SampleOff << ENDL
                 << "# numcache      = " << CountCacheStructures << ENDL
                 << "# perinsn       = " << (stats->PerInstruction? "yes" : "no") << ENDL
+                << "# lpi           = " << (stats->LoopInclusion? "yes" : "no") << ENDL
                 << "# countimage    = " << dec << AllData->CountImages() << ENDL
                 << "# countthread   = " << dec << AllData->CountThreads() << ENDL
                 << "# masterthread  = " << hex << AllData->GetThreadSequence(pthread_self()) << ENDL
@@ -793,6 +797,7 @@ extern "C" {
                 << "# sampleoff     = " << Sampler->SampleOff << ENDL
                 << "# numcache      = " << CountCacheStructures << ENDL
                 << "# perinsn       = " << (stats->PerInstruction? "yes" : "no") << ENDL
+                << "# lpi           = " << (stats->LoopInclusion? "yes" : "no") << ENDL
                 << "# countimage    = " << dec << AllData->CountImages() << ENDL
                 << "# countthread   = " << dec << AllData->CountThreads() << ENDL
                 << "# masterthread  = " << hex << AllData->GetThreadSequence(pthread_self()) << ENDL
@@ -1847,7 +1852,6 @@ bool SamplingMethod::CurrentlySampling(uint64_t count){
 
 bool SamplingMethod::ExceedsAccessLimit(uint64_t count){
     bool res = false;
-    return false;
     if (AccessLimit > 0 && count > AccessLimit){
         res = true;
     }
@@ -2680,8 +2684,11 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in,
 
 uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access){
     if(access->type == MEM_ENTRY) {
+        debug(inform << "Processing MEM_ENTRY with address " << hex << 
+          (access->address) << "(" << dec << access->memseq << ")" << ENDL);
         return processAddress(stats_in, access->address, access->memseq, access->loadstoreflag);
     } else if(access->type == VECTOR_ENTRY) {
+        debug(inform << "Processing VECTOR_ENTRY " << ENDL;); 
         // FIXME
         // Unsure how the mask and index vector are being set up. For now,
         // I'm assuming that the last significant bit of the mask corresponds

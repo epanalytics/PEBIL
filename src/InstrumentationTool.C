@@ -577,7 +577,7 @@ bool InstrumentationTool::singleArgCheck(void* arg, uint32_t mask, const char* n
 
 bool InstrumentationTool::verifyArgs(){
     singleArgCheck((void*)phaseNo, PEBIL_OPT_PHS, "--phs");
-    //singleArgCheck((void*)loopIncl, PEBIL_OPT_LPI, "--lpi");
+    singleArgCheck((void*)loopIncl, PEBIL_OPT_LPI, "--lpi");
     //singleArgCheck((void*)printDetail, PEBIL_OPT_DTL, "--dtl");
     singleArgCheck((void*)inputFile, PEBIL_OPT_INP, "--inp");
     singleArgCheck((void*)dfpFile, PEBIL_OPT_DFP, "--dfp");
@@ -598,7 +598,7 @@ void InstrumentationTool::init(char* ext){
 }
 
 void InstrumentationTool::initToolArgs(bool lpi, bool dtl, bool doi, uint32_t phase, char* inp, char* dfp, char* trk){
-    loopIncl = true;
+    loopIncl = lpi;
     printDetail = true;
     doIntro = doi;
     phaseNo = phase;

@@ -641,7 +641,7 @@ void CacheSimulation::initializeBlockInfo(BasicBlock* bb,
                          uint64_t noData,
                          SimpleHash<uint64_t>& mapBBToIdxOfGroup,
                          SimpleHash<uint32_t>& mapBBToArrayIdx,
-                         uint32_t countBBInstrumented) {
+                         uint32_t* countBBInstrumented) {
     allBlocks.append(bb);
     allBlockIds.append(blockInd);
 
@@ -649,8 +649,12 @@ void CacheSimulation::initializeBlockInfo(BasicBlock* bb,
 
     uint64_t hashValue = bb->getHashCode().getValue();
     uint64_t addr = bb->getProgramAddress();        
-    uint64_t groupId = mapBBToIdxOfGroup.getVal(hashValue);
-    mapBBToArrayIdx.insert(hashValue,countBBInstrumented);
+    uint64_t groupId = 0;
+    if(mapBBToIdxOfGroup.get(hashValue)) {
+        groupId = mapBBToIdxOfGroup.getVal(hashValue);
+        mapBBToArrayIdx.insert(hashValue, *countBBInstrumented);
+        *countBBInstrumented += 1;
+    }
 
     initializeReservedData(
         getInstDataAddress() + (uint64_t)stats.Hashes + blockSeq*sizeof(uint64_t),
@@ -1013,6 +1017,7 @@ void CacheSimulation::instrument(){
         stats.PerInstruction = false;
         stats.BlockCount = blockSeq;
     }
+    stats.LoopInclusion = loopIncl;
     stats.NestedLoopCount = GroupIdsVec.size();
 
     // allocate Counters and SimulationStats contiguously to
@@ -1137,8 +1142,7 @@ void CacheSimulation::instrument(){
         // initialize block info
         if (!isPerInstruction()){
             initializeBlockInfo(bb, blockInd, stats, func, blockSeq,
-                noData, mapBBToIdxOfGroup, mapBBToArrayIdx, countBBInstrumented);
-            countBBInstrumented+=1;
+                noData, mapBBToIdxOfGroup, mapBBToArrayIdx, &countBBInstrumented);
         }
 
         uint32_t threadReg = X86_REG_INVALID;
@@ -1242,9 +1246,8 @@ void CacheSimulation::instrument(){
             InnerLevelBasicBlocks) );
 
         uint64_t addrCurrInnerLevelBasicBlocks = (uint64_t)tmpInnerLevelBasicBlocksPtr;
-            //currNestLoopStatsInstance + offsetof(NestedLoopStruct,InnerLevelBasicBlocks);
-            //// assuming already all data is in uint64_t.
-
+        //currNestLoopStatsInstance + offsetof(NestedLoopStruct,InnerLevelBasicBlocks);
+        //// assuming already all data is in uint64_t.
         uint64_t* currInnerLevelBasicBlocks = myNestedLoopStruct->InnerLevelBasicBlocks;
         for(uint32_t j=0; j < myNestedLoopStruct->InnerLevelSize; j++){
             uint64_t tempBlkId = (uint64_t) mapBBToArrayIdx.getVal(currInnerLevelBasicBlocks[j]);

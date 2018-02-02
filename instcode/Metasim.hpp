@@ -97,6 +97,9 @@ typedef struct {
     image_key_t imageid;
     bool Initialized;
     bool PerInstruction;
+    bool LoopInclusion; // when terminating sampling for a block,
+                        // do this for all blocks within the loop
+                        // Note: includes all other blocks in the loop
     bool Master;
     uint32_t Phase;
     uint32_t InstructionCount;

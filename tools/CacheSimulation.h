@@ -47,7 +47,7 @@ private:
 
     void initializeInstructionInfo(X86Instruction*,uint32_t,SimulationStats&,Function*,BasicBlock*,uint32_t,uint32_t,uint32_t,uint32_t,uint64_t,uint64_t,uint64_t);
     void initializeBlockInfo(BasicBlock*,uint32_t,SimulationStats&,Function*,uint32_t,uint64_t,
-        SimpleHash<uint64_t>&,SimpleHash<uint32_t>&, uint32_t);
+        SimpleHash<uint64_t>&,SimpleHash<uint32_t>&, uint32_t*);
 
     void setupBufferEntry(InstrumentationSnippet*,uint32_t,uint32_t,uint32_t,uint32_t, SimulationStats&);
     void writeBufferBase(InstrumentationSnippet*,uint32_t,uint32_t,enum EntryType, uint8_t,uint32_t);
