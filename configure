@@ -635,6 +635,7 @@ ADAMANT_LIBS_BUILD
 ADAMANT_HEADER_FLAGS
 EGREP
 GREP
+PEBIL_CXX_BINDINGS
 PEBIL_STATIC_BUILD
 MPICXX
 MPIFC
@@ -697,6 +698,7 @@ ac_user_opts='
 enable_option_checking
 enable_mpi
 enable_static
+enable_mpicxxbind
 enable_adamant
 enable_mpiinit_check
 with_throttler_headers
@@ -1335,6 +1337,7 @@ Optional Features:
                           libraries [yes]
   --enable-static         Build a statically-linked pebil executable in
                           addition to a dynamically-linked executable [yes]
+  --enable-mpicxxbind     Assume C++ bindings during build [yes]
   --enable-adamant        enable adamant [yes]
   --enable-mpiinit-check  Disable output file printing in inst libraries
                           unless mpi_init is executed [no]
@@ -5050,6 +5053,18 @@ if test "$static_ok" != "no"; then
    PEBIL_STATIC_BUILD="yes"
 else
    PEBIL_STATIC_BUILD="no"
+fi
+
+
+# Check whether --enable-mpicxxbind was given.
+if test "${enable_mpicxxbind+set}" = set; then :
+  enableval=$enable_mpicxxbind; mpicxxbind_ok=$enableval
+fi
+
+if test "$mpicxxbind_ok" != "no"; then
+  PEBIL_CXX_BINDINGS="yes"
+else
+  PEBIL_CXX_BINDINGS="no"
 fi
 
 

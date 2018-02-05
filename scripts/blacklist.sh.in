@@ -30,15 +30,20 @@ trivialprog_FC="\
 #endif\n\
       end"
 
+DO_CXX=@PEBIL_CXX_BINDINGS@
+
 # CC blacklist
 echo -e "$trivialprog_CC" > "$tmp_file".c
 @MPICC@ @MPI_FLAGS@ @MPILIBS@ -o "$tmp_file"_c "$tmp_file".c
 object-blacklist "$tmp_file"_c > "$list_intermed"
 
 # CXX blacklist
-echo -e "$trivialprog_CXX" > "$tmp_file".cxx
-@MPICXX@ @MPI_FLAGS@ @MPILIBS@ -o "$tmp_file"_cxx "$tmp_file".cxx
-object-blacklist "$tmp_file"_cxx >> "$list_intermed"
+if [ "$DO_CXX" == "yes" ]
+then
+  echo -e "$trivialprog_CXX" > "$tmp_file".cxx
+  @MPICXX@ @MPI_FLAGS@ @MPILIBS@ -o "$tmp_file"_cxx "$tmp_file".cxx
+  object-blacklist "$tmp_file"_cxx >> "$list_intermed"
+fi
 
 # FC blacklist
 echo -e "$trivialprog_FC" > "$tmp_file"_f90.c
