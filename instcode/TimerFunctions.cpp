@@ -42,10 +42,11 @@ static uint32_t shutoffIters=100;
 // please set FTIMER_THRESHOLD env variable to control the number of
 // milliseconds per visit.
 static uint32_t timingThreshold=5000;
+static uint32_t timerCPUFreq=2200000000;
 
-
-// Gordon
-#define CLOCK_RATE_HZ 2300000000
+// HPE EPYC: note that if the env variable is not defined, we default to 
+//    what is defined here:
+#define CLOCK_RATE_HZ 2200000000
 // Clark
 //#define CLOCK_RATE_HZ 2 600 079 000
 
@@ -98,8 +99,7 @@ FunctionTimers* GenerateFunctionTimers(FunctionTimers* timers, uint32_t typ, ima
     retval->functionTimerLast = new uint64_t[retval->functionCount];
     retval->inFunction = new uint32_t[retval->functionCount];
     retval->functionEntryCounts = new uint64_t[retval->functionCount];
-    retval->functionShutoff = new uint32_t[retval->functionCount];
-    
+    retval->functionShutoff = new uint32_t[retval->functionCount]; 
 
     memset(retval->functionTimerAccum, 0, sizeof(*retval->functionTimerAccum) * retval->functionCount);
     memset(retval->functionTimerLast, 0, sizeof(*retval->functionTimerLast) * retval->functionCount);
@@ -115,6 +115,13 @@ FunctionTimers* GenerateFunctionTimers(FunctionTimers* timers, uint32_t typ, ima
       shutoffFunctionTimers=0;
     }
 
+    if (ReadEnvUint32("TIMER_CPU_FREQ", &timerCPUFreq)) {
+	warn << "Got custom TIMER_CPU_FREQ ***(in MHz)** from the user :: " << timerCPUFreq << endl;
+	// convert timerCPUFreq from MHz to Hz
+	timerCPUFreq=timerCPUFreq*1000;
+    } else {	
+      timerCPUFreq=CLOCK_RATE_HZ;
+    }
     if(shutoffFunctionTimers) {
       if (!ReadEnvUint32("FTIMER_ITERS", &shutoffIters)){
 	shutoffIters=100;
@@ -209,7 +216,7 @@ extern "C"
 
 	if(shutoffFunctionTimers) {
 	  if (timers->functionEntryCounts[funcIndex] % shutoffIters == 0) {
-	    double timePerVisit=((double)timers->functionTimerAccum[funcIndex])/((double)timers->functionEntryCounts[funcIndex])/CLOCK_RATE_HZ;
+	    double timePerVisit=((double)timers->functionTimerAccum[funcIndex])/((double)timers->functionEntryCounts[funcIndex])/timerCPUFreq;
 	    
 	    if(timePerVisit < (((double)timingThreshold)/1000000.0)) {
 	      uint64_t this_key=GENERATE_KEY(funcIndex, PointType_functionExit);
@@ -315,7 +322,7 @@ extern "C"
         }
 
 
-        fprintf(outFile, "App timestamp time: %lld %lld %f\n", timers->appTimeStart, appTimeEnd, (double)(appTimeEnd - timers->appTimeStart) / CLOCK_RATE_HZ);
+        fprintf(outFile, "App timestamp time: %lld %lld %f\n", timers->appTimeStart, appTimeEnd, (double)(appTimeEnd - timers->appTimeStart) / timerCPUFreq);
         fprintf(outFile, "App timeofday time: %lld %lld %f\n", timers->appTimeOfDayStart.tv_sec, tvEnd.tv_sec, diffTime(timers->appTimeOfDayStart, tvEnd));
         // for each image
         //   for each function
@@ -334,9 +341,9 @@ extern "C"
                     FunctionTimers* timers = AllData->GetData(*iit, *tit);
 		    
 		    if(timers->functionShutoff[funcIndex]==1) {
-		      fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: %lld\t*\t", *tit, (double)(timers->functionTimerAccum[funcIndex]) / CLOCK_RATE_HZ, timers->functionEntryCounts[funcIndex]);
+		      fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: %lld\t*\t", *tit, (double)(timers->functionTimerAccum[funcIndex]) / timerCPUFreq, timers->functionEntryCounts[funcIndex]);
 		    } else {
-		      fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: %lld\t", *tit, (double)(timers->functionTimerAccum[funcIndex]) / CLOCK_RATE_HZ, timers->functionEntryCounts[funcIndex]);
+		      fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: %lld\t", *tit, (double)(timers->functionTimerAccum[funcIndex]) / timerCPUFreq, timers->functionEntryCounts[funcIndex]);
 		    }
 		    
                 }

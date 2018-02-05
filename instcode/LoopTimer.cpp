@@ -16,13 +16,23 @@
 #include <unistd.h>
 #include <assert.h>
 
+#include <vector>
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+#include <string>
 
+// HPE EPYC: note that if the env variable is not defined, we default to                                            
+//    what is defined here:
+static uint32_t timerCPUFreq=2200000000;
 
 DataManager<LoopTimers*>* AllData = NULL;
 
+// HPE Epyc
+#define CLOCK_RATE_HZ 2200000000
 // Clark
-#define CLOCK_RATE_HZ 2600079000
+//#define CLOCK_RATE_HZ 2600079000
 
 // Xeon Phi Max Rate
 //#define CLOCK_RATE_HZ 1333332000
@@ -59,6 +69,16 @@ LoopTimers* GenerateLoopTimers(LoopTimers* timers, uint32_t typ, image_key_t iid
 
     memset(retval->loopTimerAccum, 0, sizeof(uint64_t) * retval->loopCount);
     memset(retval->loopTimerLast, 0, sizeof(uint64_t) * retval->loopCount);
+
+    if (ReadEnvUint32("TIMER_CPU_FREQ", &timerCPUFreq)) {
+        warn << "Got custom TIMER_CPU_FREQ ***(in MHz)** from the user :: " << timerCPUFreq << endl;
+        // convert timerCPUFreq from MHz to Hz
+        timerCPUFreq=timerCPUFreq*1000;
+    } else {
+        timerCPUFreq=CLOCK_RATE_HZ;
+    }
+
+
     return retval;
 }
 
@@ -190,7 +210,7 @@ extern "C"
                 fprintf(outFile, "0x%llx:0x%llx:\n", imgHash, loopHash);
                 for (set<thread_key_t>::iterator tit = AllData->allthreads.begin(); tit != AllData->allthreads.end(); ++tit) {
                     LoopTimers* timers = AllData->GetData(*iit, *tit);
-                    fprintf(outFile, "\tThread: 0x%llx\tTime: %f\n", *tit, (double)(timers->loopTimerAccum[loopIndex]) / CLOCK_RATE_HZ);
+                    fprintf(outFile, "\tThread: 0x%llx\tTime: %f\n", *tit, (double)(timers->loopTimerAccum[loopIndex]) / timerCPUFreq);
                 }
             }
         }
@@ -200,4 +220,106 @@ extern "C"
         return NULL;
     }
 };
+
+
+// helpers borrowed from Simulation.cpp
+
+bool ParsePositiveInt32(string token, uint32_t* value){
+    return ParseInt32(token, value, 1);
+}
+                
+// returns true on success... allows things to continue on failure if desired
+bool ParseInt32(string token, uint32_t* value, uint32_t min){
+    int32_t val;
+    uint32_t mult = 1;
+    bool ErrorFree = true;
+  
+    istringstream stream(token);
+    if (stream >> val){
+        if (!stream.eof()){
+            char c;
+            stream.get(c);
+
+            c = ToLowerCase(c);
+            if (c == 'k'){
+                mult = KILO;
+            } else if (c == 'm'){
+                mult = MEGA;
+            } else if (c == 'g'){
+                mult = GIGA;
+            } else {
+                ErrorFree = false;
+            }
+
+            if (!stream.eof()){
+                stream.get(c);
+
+                c = ToLowerCase(c);
+                if (c != 'b'){
+                    ErrorFree = false;
+                }
+            }
+        }
+    }
+
+    if (val < min){
+        ErrorFree = false;
+    }
+
+    (*value) = (val * mult);
+    return ErrorFree;
+}
+
+// returns true on success... allows things to continue on failure if desired
+bool ParsePositiveInt32Hex(string token, uint32_t* value){
+    int32_t val;
+    bool ErrorFree = true;
+   
+    istringstream stream(token);
+
+    char c1, c2;
+    stream.get(c1);
+    if (!stream.eof()){
+        stream.get(c2);
+    }
+
+    if (c1 != '0' || c2 != 'x'){
+        stream.putback(c1);
+        stream.putback(c2);        
+    }
+
+    stringstream ss;
+    ss << hex << token;
+    if (ss >> val){
+    }
+
+    if (val <= 0){
+        ErrorFree = false;
+    }
+
+    (*value) = val;
+    return ErrorFree;
+}
+
+
+char ToLowerCase(char c){
+    if (c < 'a'){
+        c += ('a' - 'A');
+    }
+    return c;
+}
+
+bool ReadEnvUint32(string name, uint32_t* var){
+    char* e = getenv(name.c_str());
+    if (e == NULL){
+        return false;
+        inform << "unable to find " << name << " in environment" << ENDL;
+    }
+    string s (e);
+    if (!ParseInt32(s, var, 0)){
+        return false;
+        inform << "unable to parse " << name << " in environment" << ENDL;
+    }
+    return true;
+}
 
