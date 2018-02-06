@@ -110,7 +110,7 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--trk <tracking/file>] : path to a tracking file\n");
     fprintf(stderr,"\t\t[--perinsn] : gather statistics per instruction if a tool supports it\n");
     fprintf(stderr,"\t\t[--dtl] : " DEPRECATED_MESSAGE "\n");
-    fprintf(stderr,"\t\t[--lpi] : " DEPRECATED_MESSAGE "\n");
+    fprintf(stderr,"\t\t[--lpi] : loop inclusion: if sampling is turned off for a block, turn off sampling for all other blocks in the same loop.\n");
     fprintf(stderr,"\t\t[--phs <phase_no>] : " DEPRECATED_MESSAGE " (if given, must be == 1)\n");
     fprintf(stderr,"\t\t[--dfp <pattern/file>] : " DEPRECATED_MESSAGE "\n");
     fprintf(stderr,"\t\t[--dmp <off|on|nosim>] : " DEPRECATED_MESSAGE "\n");
@@ -119,7 +119,7 @@ void printUsage(const char* msg = NULL){
 }
 
 void printSuccess(){
-    PRINT_INFOR("******** Instrumentation Successfull ********");
+    PRINT_INFOR("******** Instrumentation Successful ********");
 }
 
 void printDone(){
