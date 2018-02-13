@@ -159,7 +159,7 @@ void CacheSimulation::filterBBs(){
             // Second number, if present, is image id
             if(err == 2 && getElfFile()->getUniqueId() != imgHash)
                 continue;
-
+            
             BasicBlock* bb = findExposedBasicBlock(*hashCode);
             delete hashCode;
 
@@ -549,7 +549,10 @@ void CacheSimulation::initializeInstructionInfo(
         uint32_t threadReg,
         uint64_t noData,
         uint64_t simulationStruct,
-        uint64_t blockSeq
+        uint64_t blockSeq,
+        SimpleHash<uint64_t>& mapBBToIdxOfGroup,
+        SimpleHash<uint32_t>& mapBBToArrayIdx,
+        uint32_t* countBBInstrumented
         )
 {
     if (isPerInstruction()){
@@ -560,7 +563,19 @@ void CacheSimulation::initializeInstructionInfo(
         HashCode* hc = memop->generateHashCode(bb);
         uint64_t hashValue = hc->getValue();
         uint64_t addr = memop->getProgramAddress();
+        uint64_t groupId = 0;
+        uint64_t bbHashValue = bb->getHashCode().getValue();
         delete hc;
+        // Map is by block id, even with --perinsn
+        if(mapBBToIdxOfGroup.get(bbHashValue)){
+            groupId = mapBBToIdxOfGroup.getVal(bbHashValue);
+            if (!mapBBToArrayIdx.get(bbHashValue)) {
+                mapBBToArrayIdx.insert(bbHashValue, *countBBInstrumented);
+            }
+        }
+        *countBBInstrumented += 1;
+
+
 
         initializeReservedData(
             getInstDataAddress() + (uint64_t)stats.Hashes + memopSeq*sizeof(uint64_t),
@@ -598,6 +613,11 @@ void CacheSimulation::initializeInstructionInfo(
             getInstDataAddress() + (uint64_t)stats.Counters + (memopSeq * sizeof(uint64_t)),
             sizeof(uint64_t),
             &temp64);
+
+        initializeReservedData(
+            getInstDataAddress() + (uint64_t)stats.GroupIds + (memopSeq * sizeof(uint64_t)),
+            sizeof(uint64_t),
+            &groupId);
 
         uint32_t temp32 = 1;
         initializeReservedData(
@@ -653,8 +673,9 @@ void CacheSimulation::initializeBlockInfo(BasicBlock* bb,
     if(mapBBToIdxOfGroup.get(hashValue)) {
         groupId = mapBBToIdxOfGroup.getVal(hashValue);
         mapBBToArrayIdx.insert(hashValue, *countBBInstrumented);
-        *countBBInstrumented += 1;
     }
+    *countBBInstrumented += 1;
+
 
     initializeReservedData(
         getInstDataAddress() + (uint64_t)stats.Hashes + blockSeq*sizeof(uint64_t),
@@ -896,13 +917,18 @@ void CacheSimulation::instrumentScatterGather(Loop* lp,
         SimulationStats& stats,
         Function* func,
         uint64_t noData,
-        uint64_t simulationStruct)
+        uint64_t simulationStruct,
+        SimpleHash<uint64_t>& mapBBToIdxOfGroup,
+        SimpleHash<uint32_t>& mapBBToArrayIdx,
+        uint32_t* countBBInstrumented
+        )
 {
     // instrument every source path to loop
     BasicBlock* head = lp->getHead();
     X86Instruction* vectorMemOp = head->getInstruction(0);
     initializeInstructionInfo(vectorMemOp, 0, stats, func, head,
-        memseq, 0, 0, threadReg, noData, simulationStruct, blockSeq);
+        memseq, 0, 0, threadReg, noData, simulationStruct, blockSeq,
+        mapBBToIdxOfGroup, mapBBToArrayIdx, countBBInstrumented);
 
     Vector<BasicBlock*> entryInterpositions;
     uint32_t nsources = head->getNumberOfSources();
@@ -971,6 +997,7 @@ void CacheSimulation::instrument(){
     Vector<uint64_t> GroupIdsVec;
     SimpleHash<uint64_t> groupsInitialized;
     SimpleHash<uint64_t> mapBBToIdxOfGroup;
+
     for (uint32_t i = 0; i < getNumberOfExposedBasicBlocks(); i++){
         BasicBlock* bb = getExposedBasicBlock(i);
         if(blocksToInst.get(bb->getHashCode().getValue())){
@@ -983,11 +1010,13 @@ void CacheSimulation::instrument(){
                     groupsInitialized.insert(myGroupId, myGroupId);    
                     GroupIdsVec.insert(myGroupId, GroupIdsVec.size());
                 }
+                //TODO: Not sure using GroupIdsVec.size()-1 is the safest
                 if(!mapBBToIdxOfGroup.get(bb->getHashCode().getValue()))
                     mapBBToIdxOfGroup.insert(bb->getHashCode().getValue(),(GroupIdsVec.size()-1));
             }
         }
     }
+
 
     // Setup null lineinfo value
     uint64_t noData = reserveDataOffset(strlen(NOSTRING) + 1);
@@ -1160,7 +1189,9 @@ void CacheSimulation::instrument(){
             // instrument outside of loop
             FlowGraph* fg = bb->getFlowGraph();
             Loop* lp = fg->getInnermostLoopForBlock(bb->getIndex());
-            instrumentScatterGather(lp, blockSeq, memopSeq, threadReg, stats, func, noData, simulationStruct);
+            instrumentScatterGather(lp, blockSeq, memopSeq, threadReg, stats, 
+              func, noData, simulationStruct, 
+              mapBBToIdxOfGroup, mapBBToArrayIdx, &countBBInstrumented);
             ++memopSeq; // FIXME move inside call if we instrument more than one scatter-gather
 
             // advance blocks to end of loop
@@ -1192,7 +1223,8 @@ void CacheSimulation::instrument(){
                 // KNL implementation (not KNC)
                 if (memop->isScatterGatherOp()) {
                   bufferVectorEntry(memop, InstLocation_prior, memop, threadReg, stats, blockSeq, memopSeq);
-                  initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock, leader, threadReg, noData, simulationStruct, blockSeq);
+                  initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock, leader, threadReg, noData, simulationStruct, blockSeq,
+                      mapBBToIdxOfGroup, mapBBToArrayIdx, &countBBInstrumented);
                   ++memopIdInBlock;
                   ++memopSeq;
                 }
@@ -1202,7 +1234,9 @@ void CacheSimulation::instrument(){
                         instrumentMemop(bb, memop, LOAD, blockSeq, threadReg, stats, memopIdInBlock, memopSeq);
   
                         initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock,
-                            leader, threadReg, noData, simulationStruct, blockSeq);
+                            leader, threadReg, noData, simulationStruct, blockSeq,
+                            mapBBToIdxOfGroup, mapBBToArrayIdx, 
+                            &countBBInstrumented);
   
                         ++memopIdInBlock;
                         ++memopSeq;
@@ -1212,7 +1246,9 @@ void CacheSimulation::instrument(){
                         instrumentMemop(bb, memop, STORE, blockSeq, threadReg, stats, memopIdInBlock, memopSeq);
   
                         initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock,
-                            leader, threadReg, noData, simulationStruct, blockSeq);
+                            leader, threadReg, noData, simulationStruct, blockSeq,
+                            mapBBToIdxOfGroup, mapBBToArrayIdx, 
+                            &countBBInstrumented);
   
   
                         ++memopIdInBlock;
@@ -1223,9 +1259,11 @@ void CacheSimulation::instrument(){
                     instrumentMemop(bb, memop, PREFETCH, blockSeq, threadReg, stats, memopIdInBlock, memopSeq);
 
                     initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock,
-                        leader, threadReg, noData, simulationStruct, blockSeq);
-                        ++memopIdInBlock;
-                        ++memopSeq;
+                        leader, threadReg, noData, simulationStruct, blockSeq,
+                        mapBBToIdxOfGroup, mapBBToArrayIdx, 
+                        &countBBInstrumented);
+                     ++memopIdInBlock;
+                     ++memopSeq;
                 }
             }
         }

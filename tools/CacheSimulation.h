@@ -45,7 +45,10 @@ private:
     void instrumentExitPoint();
     void grabScratchRegisters(X86Instruction*,InstLocations,uint32_t*,uint32_t*,uint32_t*);
 
-    void initializeInstructionInfo(X86Instruction*,uint32_t,SimulationStats&,Function*,BasicBlock*,uint32_t,uint32_t,uint32_t,uint32_t,uint64_t,uint64_t,uint64_t);
+    void initializeInstructionInfo(X86Instruction*,uint32_t,SimulationStats&,
+      Function*,BasicBlock*,uint32_t,uint32_t,uint32_t,uint32_t,uint64_t,
+      uint64_t,uint64_t,
+      SimpleHash<uint64_t>&, SimpleHash<uint32_t>&, uint32_t*);
     void initializeBlockInfo(BasicBlock*,uint32_t,SimulationStats&,Function*,uint32_t,uint64_t,
         SimpleHash<uint64_t>&,SimpleHash<uint32_t>&, uint32_t*);
 
@@ -53,7 +56,9 @@ private:
     void writeBufferBase(InstrumentationSnippet*,uint32_t,uint32_t,enum EntryType, uint8_t,uint32_t);
     void insertBufferClear(uint32_t,X86Instruction*,InstLocations,uint64_t,uint32_t,SimulationStats&);
     void bufferVectorEntry(X86Instruction*,InstLocations,X86Instruction*,uint32_t,SimulationStats&,uint32_t,uint32_t);
-    void instrumentScatterGather(Loop*, uint32_t,uint32_t,uint32_t,SimulationStats&,Function*,uint64_t,uint64_t);
+    void instrumentScatterGather(Loop*, uint32_t,uint32_t,uint32_t,
+      SimulationStats&,Function*,uint64_t,uint64_t,
+      SimpleHash<uint64_t>&, SimpleHash<uint32_t>&, uint32_t*);
     void instrumentMemop(BasicBlock*,X86Instruction*,uint8_t,uint64_t,uint32_t,SimulationStats&,uint32_t,uint32_t);
     void initializeLineInfo(SimulationStats&, Function*, BasicBlock*, uint32_t, uint64_t);
     void writeStaticFile();

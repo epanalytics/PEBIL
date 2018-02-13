@@ -489,7 +489,7 @@ extern "C" {
                 for(uint32_t i = 0; i < (stats->NestedLoopCount); i++){
                     uint64_t* currInnerLevelBasicBlocks = stats->NLStats[i].InnerLevelBasicBlocks; 
                     for(uint32_t j = 0; j < stats->NLStats[i].InnerLevelSize; j++){
-                        if(stats->NLStats[i].GroupCount < stats->Counters[currInnerLevelBasicBlocks[j]] )
+                        if((stats->NLStats[i].GroupCount < stats->Counters[currInnerLevelBasicBlocks[j]]) && (stats->Types[currInnerLevelBasicBlocks[j]] == CounterType_basicblock))
                            stats->NLStats[i].GroupCount = stats->Counters[currInnerLevelBasicBlocks[j]];
                     }
                 }               
@@ -523,9 +523,12 @@ extern "C" {
 
                     debug(inform << "Slot " << dec << j
                           << TAB << "Thread " << dec << AllData->GetThreadSequence(pthread_self())
-                          << TAB << "BLock " << bbid
+                          << TAB << "Block " << bbid
+                          << TAB << "Index " << idx
+                          << TAB << "Group " << stats->GroupIds[bbid]
                           << TAB << "Counter " << s->Counters[bbid]
                           << TAB << "Real " << s->Counters[idx]
+                          << TAB << "GroupCount " << stats->NLStats[stats->GroupIds[bbid]].GroupCount
                           << ENDL);
 
                     uint64_t groupidx = stats->GroupIds[bbid];
