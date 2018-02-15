@@ -871,7 +871,7 @@ public:
             stats[0][i] = dat;
         }
 
-        pthread_mutex_init(&countlock, NULL);
+        pthread_mutex_init(&lock, NULL);
     }
 
     ~FastData(){
