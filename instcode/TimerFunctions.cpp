@@ -116,7 +116,7 @@ FunctionTimers* GenerateFunctionTimers(FunctionTimers* timers, uint32_t typ, ima
     }
 
     if (ReadEnvUint32("TIMER_CPU_FREQ", &timerCPUFreq)) {
-	warn << "Got custom TIMER_CPU_FREQ ***(in MHz)** from the user :: " << timerCPUFreq << endl;
+	inform << "Got custom TIMER_CPU_FREQ ***(in MHz)** from the user :: " << timerCPUFreq << endl;
 	// convert timerCPUFreq from MHz to Hz
 	timerCPUFreq=timerCPUFreq*1000;
     } else {	

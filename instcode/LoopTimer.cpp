@@ -71,7 +71,7 @@ LoopTimers* GenerateLoopTimers(LoopTimers* timers, uint32_t typ, image_key_t iid
     memset(retval->loopTimerLast, 0, sizeof(uint64_t) * retval->loopCount);
 
     if (ReadEnvUint32("TIMER_CPU_FREQ", &timerCPUFreq)) {
-        warn << "Got custom TIMER_CPU_FREQ ***(in MHz)** from the user :: " << timerCPUFreq << endl;
+        inform << "Got custom TIMER_CPU_FREQ ***(in MHz)** from the user :: " << timerCPUFreq << endl;
         // convert timerCPUFreq from MHz to Hz
         timerCPUFreq=timerCPUFreq*1000;
     } else {
