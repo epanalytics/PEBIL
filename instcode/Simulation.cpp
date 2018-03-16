@@ -1011,8 +1011,14 @@ extern "C" {
                             // potentially shutting off instrumention in a block while a thread is midway through
                             if (AllData->CountThreads() == 1){
                                 if(CacheSimulation){
-                                    if (root->GetAccessCount(bbid) % st->MemopsPerBlock[bbid] != 0){
-                                        inform << "bbid " << dec << bbid << " image " << hex << (*iit) << " accesses " << dec << root->GetAccessCount(bbid) << " memops " << st->MemopsPerBlock[bbid] << ENDL;
+                                    if (root->GetAccessCount(bbid) % 
+                                      st->MemopsPerBlock[bbid] != 0){
+                                        inform << "bbid " << dec << bbid << 
+                                          " image " << hex << (*iit) << 
+                                          " accesses " << dec << 
+                                            root->GetAccessCount(bbid) << 
+                                          " memops " << st->MemopsPerBlock[bbid]
+                                          << ENDL;
                                     }
                                     assert(root->GetAccessCount(bbid) % st->MemopsPerBlock[bbid] == 0);
                                 }

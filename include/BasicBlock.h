@@ -231,6 +231,7 @@ public:
     bool isReachable() { return !isNoPath(); }
     bool endsWithCall();
     bool endsWithReturn();
+    bool endsWithUnconditionalBranch();
     bool endsWithControl();
 
     HashCode getHashCode() { return hashCode; }

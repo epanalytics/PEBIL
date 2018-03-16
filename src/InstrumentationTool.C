@@ -1324,7 +1324,25 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>* 
                 if (functionSymbol && functionSymbol->getSymbolName()){
                     callTgtName = functionSymbol->getSymbolName();
                 }
+            } else if (bb->endsWithUnconditionalBranch()) {
+                callTgtAddr = bb->getExitInstruction()->getTargetAddress();
+
+                // If target is within this function, it is not a function  
+                // call; Reset it
+                // If NOT, treat as a function call
+                if(bb->getFunction()->isInRange(callTgtAddr)) {
+                    callTgtAddr = 0;
+                } else {
+                    Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(callTgtAddr);
+                    if (functionSymbol && functionSymbol->getSymbolName()){
+                        callTgtName = functionSymbol->getSymbolName();
+                    } else {
+                        PRINT_WARN(7, "BB has unconditional branch to "
+                          "a nameless function");
+                    }
+                } 
             }
+
             fprintf(staticFD, "\t+ipa\t%#llx\t%s # %#llx\n", callTgtAddr, callTgtName, bb->getHashCode().getValue());
 
             fprintf(staticFD, "\t+bin\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", 
@@ -1682,7 +1700,7 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
 	      (uint32_t)ins->isLoad(), (uint32_t)ins->isStore(), (uint32_t)ins->isMemoryOperation(), (uint32_t)ins->isSoftwarePrefetch(), (uint32_t)ins->isScatterGatherOp(), (uint32_t)ins->isVectorMaskOp(), (uint32_t)ins->isHelperMove(), hashValue);
       
       if (ins->isMemoryOperation()){
-	ASSERT(ins->isLoad() || ins->isStore());
+	        ASSERT(ins->isLoad() || ins->isStore());
       }
       
       memopavg = (float)ins->getNumberOfMemoryBytes();
@@ -1692,13 +1710,13 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
       uint64_t loopHead = 0;
       uint64_t parentHead = 0;
       if (loop){
-	HashCode* headHash = loop->getHead()->getLeader()->generateHashCode(loop->getHead());
-	HashCode* parentHash = f->getFlowGraph()->getParentLoop(loop->getIndex())->getHead()->getLeader()->generateHashCode(f->getFlowGraph()->getParentLoop(loop->getIndex())->getHead());
-	loopHead = headHash->getValue();
-	parentHead = parentHash->getValue();
+	        HashCode* headHash = loop->getHead()->getLeader()->generateHashCode(loop->getHead());
+	        HashCode* parentHash = f->getFlowGraph()->getParentLoop(loop->getIndex())->getHead()->getLeader()->generateHashCode(f->getFlowGraph()->getParentLoop(loop->getIndex())->getHead());
+	        loopHead = headHash->getValue();
+	        parentHead = parentHash->getValue();
 	
-	delete headHash;
-	delete parentHash;
+	        delete headHash;
+	        delete parentHash;
       }
       fprintf(staticFD, "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, parentHead, hashValue);
       
@@ -1706,12 +1724,11 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
       fprintf(staticFD, "\t+dud");
       uint32_t currDist = ins->getDefUseDist();
       if (currDist){
-	
-	int intOp, fpOp, memOp;
-	intOp = ins->isIntegerOperation();
-	fpOp = ins->isFloatPOperation();
-	memOp = ins->isMemoryOperation();
-	fprintf(staticFD, "\t%d:%d:%d:%d", currDist, intOp, fpOp, memOp);
+	        int intOp, fpOp, memOp;
+	        intOp = ins->isIntegerOperation();
+	        fpOp = ins->isFloatPOperation();
+	        memOp = ins->isMemoryOperation();
+	        fprintf(staticFD, "\t%d:%d:%d:%d", currDist, intOp, fpOp, memOp);
       }
       fprintf(staticFD, " # %#llx\n", hashValue);
       
@@ -1720,11 +1737,28 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
       uint64_t callTgtAddr = 0;
       char* callTgtName = INFO_UNKNOWN;
       if (ins->isCall()){
-	callTgtAddr = ins->getTargetAddress();
-	Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(callTgtAddr);
-	if (functionSymbol && functionSymbol->getSymbolName()){
-	  callTgtName = functionSymbol->getSymbolName();
-	}
+	        callTgtAddr = ins->getTargetAddress();
+	        Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(callTgtAddr);
+	        if (functionSymbol && functionSymbol->getSymbolName()){
+	          callTgtName = functionSymbol->getSymbolName();
+	        }
+      } else if (ins->isUnconditionalBranch()) {
+          callTgtAddr = ins->getTargetAddress();
+
+          // If target is within this function, it is not a function  
+          // call; Reset it
+          // If NOT, treat as a function call
+          if(f->isInRange(callTgtAddr)) {
+              callTgtAddr = 0;
+          } else {
+              Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(callTgtAddr);
+              if (functionSymbol && functionSymbol->getSymbolName()){
+                  callTgtName = functionSymbol->getSymbolName();
+              } else {
+                  PRINT_WARN(7, "BB has unconditional branch to "
+                    "a nameless function");
+              }
+          } 
       }
       fprintf(staticFD, "\t+ipa\t%#llx\t%s # %#llx\n", callTgtAddr, callTgtName, hashValue);
       

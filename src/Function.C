@@ -302,6 +302,17 @@ bool Function::containsCallToRange(uint64_t lowAddr, uint64_t highAddr){
     return false;
 }
 
+// Return true if a given address is within range of the function
+bool Function::isInRange(uint64_t addr){
+    //PRINT_INFOR("ACC: -- Checking if 0x%x is in range of <0x%x, 0x%x>", addr,
+    //  getBaseAddress(), getBaseAddress() + getSizeInBytes());
+    if ((addr >= getBaseAddress()) && (addr < (getBaseAddress() + 
+      getSizeInBytes()))){
+        return true;
+    }
+    return false;
+}
+
 uint32_t Function::getAllInstructions(X86Instruction** allinsts, uint32_t nexti){
     uint32_t instructionCount = 0;
     for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){

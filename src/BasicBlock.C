@@ -145,6 +145,10 @@ bool BasicBlock::endsWithReturn(){
     return instructions.back()->isReturn();
 }
 
+bool BasicBlock::endsWithUnconditionalBranch(){
+    return instructions.back()->isUnconditionalBranch();
+}
+
 std::map<uint32_t, uint32_t>* BasicBlock::getOperandLengthCounts(){
     std::map<uint32_t, uint32_t>* retval = new std::map<uint32_t, uint32_t>();
 

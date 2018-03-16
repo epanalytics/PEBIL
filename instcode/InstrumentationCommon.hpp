@@ -413,13 +413,21 @@ extern "C" {
         for(int i = 0; i < n; ++i) {
             fprintf(stderr, "%s\n", symbols[i]);
         }
-        
     }
     
     static void segfault_handler(int signo, siginfo_t* siginf, void* context)
     {
         fprintf(stderr, "Received signal %d SIGSEGV\n", signo);
         fprintf(stderr, "At address 0x%llx\n", siginf->si_addr);
+
+       /* Debug info for more complex back traces 
+        fprintf(stderr, "ACC:\n");
+        register int64_t* sp asm ("rsp");
+        for(int i = 0; i < 512; ++i) {
+            fprintf(stderr, "%d: 0x%llx\n", i, (*(sp + i)));
+        }
+        fprintf(stderr, "ACC end\n");
+       */
 
         print_backtrace();
 

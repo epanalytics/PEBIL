@@ -94,6 +94,7 @@ public:
 
     bool hasCompleteDisassembly();
     bool containsCallToRange(uint64_t lowAddr, uint64_t highAddr);
+    bool isInRange(uint64_t addr);
 
     bool callsSelf();
     bool hasSelfDataReference();
