@@ -72,6 +72,14 @@ else
 fi
 AC_SUBST(PEBIL_STATIC_BUILD)
 
+AC_ARG_ENABLE(mpicxxbind, AC_HELP_STRING([--enable-mpicxxbind], [Assume C++ bindings during build [yes]]), mpicxxbind_ok=$enableval)
+if test "$mpicxxbind_ok" != "no"; then
+  PEBIL_CXX_BINDINGS="yes"
+else
+  PEBIL_CXX_BINDINGS="no"
+fi
+AC_SUBST(PEBIL_CXX_BINDINGS)
+
 AC_ARG_ENABLE(adamant, AC_HELP_STRING([--enable-adamant], [enable adamant [yes]]), adamant_ok=$enableval)
 AC_CHECK_HEADERS([adm.h],
   [

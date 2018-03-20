@@ -16,6 +16,7 @@ typedef struct {
     uint64_t* functionEntryCounts;
     uint32_t* functionShutoff;
     uint64_t* functionTimerLast;
+    
     uint32_t* inFunction;
     uint64_t appTimeStart;
     struct timeval appTimeOfDayStart;

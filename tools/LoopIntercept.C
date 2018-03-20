@@ -273,8 +273,9 @@ void LoopIntercept::instrument(){
 
     // Recreate indices from loopsFound
     numLoops = 0;
-    for (uint32_t i = 0; i < loopsFound.size(); i++){
-        loops[getLoopHash(i)] = numLoops++;
+    for (std::map<uint64_t, Loop*>::iterator ii = loopsFound.begin(); ii != loopsFound.end(); ii++){
+        uint64_t hash = (*ii).first;
+        loops[hash] = numLoops++;
     }
 
     // Create input struct
