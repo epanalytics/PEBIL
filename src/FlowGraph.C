@@ -1319,8 +1319,8 @@ void FlowGraph::computeLiveness(){
                             PRINT_OUT("%d ", (*it));
                         }
                         PRINT_OUT("\n");
-                        uses->print("uses");
-                        defs->print("defs");
+                        uses[i]->print("uses");
+                        defs[i]->print("defs");
                         //PRINT_REG_LIST(uses, maxElts, i);
                         //PRINT_REG_LIST(defs, maxElts, i);
                     }
@@ -1339,10 +1339,10 @@ void FlowGraph::computeLiveness(){
             PRINT_DEBUG_LIVE_REGS("before in[n] = use[n] U (out[n] - def[n])");
             DEBUG_LIVE_REGS(
                             {
-                    ins.print("ins");
-                    uses->print("uses");
-                    defs->print("defs");
-                    outs.print("outs");
+                    ins[i].print("ins");
+                    uses[i]->print("uses");
+                    defs[i]->print("defs");
+                    outs[i].print("outs");
                 }
             )
             //PRINT_REG_LIST(ins, maxElts, i);

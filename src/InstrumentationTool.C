@@ -597,7 +597,7 @@ void InstrumentationTool::init(char* ext){
     extension = ext;
 }
 
-void InstrumentationTool::initToolArgs(bool lpi, bool dtl, bool doi, uint32_t phase, char* inp, char* dfp, char* trk){
+void InstrumentationTool::initToolArgs(bool lpi, bool dtl, bool doi, uint32_t phase, char* inp, char* dfp, char* trk, char* inv){
     loopIncl = lpi;
     printDetail = true;
     doIntro = doi;
@@ -605,6 +605,9 @@ void InstrumentationTool::initToolArgs(bool lpi, bool dtl, bool doi, uint32_t ph
     inputFile = inp;
     dfpFile = dfp;
     trackFile = trk;
+    inv_reg = inv;
+
+    PRINT_OUT("Invalidated register: %s \n", (inv == NULL ? "none" : inv));
 }
 
 bool InstrumentationTool::hasThreadEvidence(){
@@ -676,7 +679,7 @@ void InstrumentationTool::instrumentEmbeddedElf(){
 
     char* inp_arg = this->inputFile;
     instTool->init(NULL);
-    instTool->initToolArgs(false, false, false, 0, inp_arg, NULL, NULL);
+    instTool->initToolArgs(false, false, false, 0, inp_arg, NULL, NULL, NULL);
     ASSERT(instTool->verifyArgs());
 
     instTool->setMasterImage(true);

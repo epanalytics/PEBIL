@@ -40,7 +40,6 @@ extern "C" {
     DECLARE_INST_CLASS(DeadRegisterSquasher);
 };
 #endif
-
 #include <set>
 
 using namespace std;
@@ -233,6 +232,7 @@ int main(int argc,char* argv[]){
     DEFINE_ARG(phs);
     DEFINE_ARG(dfp);
     DEFINE_ARG(out);
+    DEFINE_ARG(inv);
 
 #define FLAG_OPTION(__name, __char) {#__name, no_argument, &__name ## _flag, __char}
 #define ARG_OPTION(__name, __char) {#__name, required_argument, 0, __char}
@@ -247,7 +247,7 @@ int main(int argc,char* argv[]){
         ARG_OPTION(typ, 'y'), ARG_OPTION(tool, 't'), ARG_OPTION(tlib, 'O'), ARG_OPTION(inp, 'p'), ARG_OPTION(trk, 'k'), 
         ARG_OPTION(lnc, 'n'), ARG_OPTION(inf, 'z'), ARG_OPTION(app, 'a'), ARG_OPTION(lib, 'l'),
         ARG_OPTION(ext, 'x'), ARG_OPTION(fbl, 'b'), ARG_OPTION(dmp, 'm'), ARG_OPTION(phs, 'f'), ARG_OPTION(dfp, 'g'),
-        ARG_OPTION(out, 'o'),
+        ARG_OPTION(out, 'o'), ARG_OPTION(inv, 'i'),
         {0,              0,                 0,              0},
     };
 
@@ -288,6 +288,7 @@ int main(int argc,char* argv[]){
         SET_ARGPTR(phs, 'f')
         SET_ARGPTR(dfp, 'g')
         SET_ARGPTR(out, 'o')
+        SET_ARGPTR(inv, 'i')
 
         /* this shouldn't happen, but handle it anyway */
         else {
@@ -575,7 +576,7 @@ int main(int argc,char* argv[]){
             instTool->initToolArgs(lpi_flag == 0 ? false : true,
                                    dtl_flag == 0 ? false : true,
                                    doi_flag == 0 ? false : true,
-                                   phaseNo, inp_arg, dfp_arg, trk_arg);
+                                   phaseNo, inp_arg, dfp_arg, trk_arg, inv_arg);
             if (!instTool->verifyArgs()){
                 printUsage("argument missing/incorrect");
             }

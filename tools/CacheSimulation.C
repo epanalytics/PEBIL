@@ -207,7 +207,6 @@ CacheSimulation::CacheSimulation(ElfFile* elf)
    // PRINT_WARN(20,"\n\t WARNING: sizeof(BufferEntry) is not checked for being power of two!!! ");
 }
 
-
 CacheSimulation::~CacheSimulation(){
 }
 
@@ -333,6 +332,10 @@ void CacheSimulation::insertBufferClear(
     inv->insert(X86_REG_AX);
     inv->insert(X86_REG_SP);
     inv->insert(X86_REG_BP);
+    if (inv_reg) {
+        inv->insert(get_reg());
+    }
+
     if (threadReg != X86_REG_INVALID){
         inv->insert(threadReg);
         sr1 = threadReg;
@@ -740,6 +743,10 @@ void CacheSimulation::grabScratchRegisters(
     // Invalidate non-gprs FIXME just allocate a bitset without them
     for (uint32_t k = X86_64BIT_GPRS; k < X86_ALU_REGS; k++){
         inv->insert(k);
+    }
+    
+    if (inv_reg) {
+        inv->insert(get_reg());
     }
 
     // Look for dead registers in remaining valid
@@ -1320,3 +1327,42 @@ void CacheSimulation::writeStaticFile() {
     delete[] extension;
 }
 
+uint32_t CacheSimulation::get_reg() {
+    ASSERT(inv_reg);
+
+    if (!strcmp(inv_reg, "r8")) {
+        return X86_REG_R8;
+    } else if (!strcmp(inv_reg, "r9")) {
+        return X86_REG_R9;
+    } else if (!strcmp(inv_reg, "r10")) {
+        return X86_REG_R10;
+    } else if (!strcmp(inv_reg, "r11")) {
+        return X86_REG_R11;
+    } else if (!strcmp(inv_reg, "r12")) {
+        return X86_REG_R12;
+    } else if (!strcmp(inv_reg, "r13")) {
+        return X86_REG_R13;
+    } else if (!strcmp(inv_reg, "r14")) {
+        return X86_REG_R14;
+    } else if (!strcmp(inv_reg, "r15")) {
+        return X86_REG_R15;
+    } else if (!strcmp(inv_reg, "ax")) {
+        return X86_REG_AX;
+    } else if (!strcmp(inv_reg, "bx")) {
+        return X86_REG_BX;
+    } else if (!strcmp(inv_reg, "cx")) {
+        return X86_REG_CX;
+    } else if (!strcmp(inv_reg, "dx")) {
+        return X86_REG_DX;
+    } else if (!strcmp(inv_reg, "sp")) {
+        return X86_REG_SP;
+    } else if (!strcmp(inv_reg, "bp")) {
+        return X86_REG_BP;
+    } else if (!strcmp(inv_reg, "si")) {
+        return X86_REG_SI;
+    } else if (!strcmp(inv_reg, "di")) {
+        return X86_REG_DI;
+    } else {
+        return X86_REG_INVALID;
+    }
+}

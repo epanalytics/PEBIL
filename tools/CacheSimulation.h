@@ -63,6 +63,8 @@ private:
     void initializeLineInfo(SimulationStats&, Function*, BasicBlock*, uint32_t, uint64_t);
     void writeStaticFile();
 
+    uint32_t get_reg();
+
     inline bool usePIC() { return isThreadedMode() || isMultiImage(); }
 public:
     CacheSimulation(ElfFile* elf);
