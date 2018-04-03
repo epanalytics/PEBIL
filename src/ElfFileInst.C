@@ -1359,6 +1359,11 @@ InstrumentationPoint* ElfFileInst::addInstrumentationPoint(Base* instpoint, Inst
     (*instrumentationPoints).append(newpoint);
 
     ASSERT((*instrumentationPoints).back());
+
+    if (saveAll) {
+        newpoint->setSaveAll();
+    }
+
     return (*instrumentationPoints).back();
 }
 
@@ -1821,6 +1826,7 @@ ElfFileInst::ElfFileInst(ElfFile* elf){
     multipleImages = false;
     perInstruction = false;
     libraryList = NULL;
+    saveAll = false;
 }
 
 void ElfFileInst::setInputFunctions(char* inputFuncList){

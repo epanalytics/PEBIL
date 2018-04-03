@@ -236,7 +236,7 @@ uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* ins
 #ifdef PROTECT_RAW_SNIPPETS
     FlagsProtectionMethods protectionMethod = getFlagsProtectionMethod();
 
-    bool stackIsSafe = true;
+    bool stackIsSafe = !getSaveAll();
     TextObject* to = point->getContainer();
     ASSERT(to->getType() == PebilClassType_Function);
     Function* f = (Function*)to;
@@ -244,12 +244,12 @@ uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* ins
     if (f->hasLeafOptimization() || bb->isEntry()){
         stackIsSafe = false;
     }
-    if (instrumentation->getType() == PebilClassType_InstrumentationFunction &&
-        ((InstrumentationFunction*)instrumentation)->hasSkipWrapper()){
+    if (getSaveAll() || (instrumentation->getType() == PebilClassType_InstrumentationFunction &&
+        ((InstrumentationFunction*)instrumentation)->hasSkipWrapper())){
         stackIsSafe = true;
     } 
 
-    bool protectStack = false;
+    bool protectStack = getSaveAll();
     if (protectionMethod != FlagsProtectionMethod_none || !stackIsSafe){
         protectStack = true;
     }
@@ -977,7 +977,7 @@ Vector<X86Instruction*>* InstrumentationPoint::swapInstructionsAtPoint(Vector<X8
     return func->swapInstructions(getInstSourceAddress(), replacements);
 }
 
-BitSet<uint32_t>* getProtectedRegs(InstLocations loc, X86Instruction* xins, Vector<X86Instruction*>* insert, BitSet<uint32_t>* borrowedRegs){
+BitSet<uint32_t>* getProtectedRegs(InstLocations loc, X86Instruction* xins, Vector<X86Instruction*>* insert, BitSet<uint32_t>* borrowedRegs, bool saveAll){
     BitSet<uint32_t>* n = new BitSet<uint32_t>(X86_ALU_REGS);
 
     InstLocations proxyLoc = InstLocation_prior;
@@ -995,7 +995,7 @@ BitSet<uint32_t>* getProtectedRegs(InstLocations loc, X86Instruction* xins, Vect
                 continue;
             }
 
-            if (proxyLoc == InstLocation_prior && !xins->isRegDeadIn(j) && defs->containsRegister(j)){
+            if (proxyLoc == InstLocation_prior && (!xins->isRegDeadIn(j) || saveAll) && defs->containsRegister(j)){
                 n->insert(j);
             }
 
@@ -1003,7 +1003,7 @@ BitSet<uint32_t>* getProtectedRegs(InstLocations loc, X86Instruction* xins, Vect
             //   - defined by the instrumentation AND
             //   - live in the fallthrough target
             //if(proxyLoc == InstLocation_after && defs->containsRegister(j) && !xins->isRegDeadOut(j)) {
-            if (proxyLoc == InstLocation_after && defs->containsRegister(j) && fallthroughIns != NULL && !fallthroughIns->isRegDeadIn(j)){
+            if (proxyLoc == InstLocation_after && defs->containsRegister(j) && fallthroughIns != NULL && (!fallthroughIns->isRegDeadIn(j) || saveAll)){
                 n->insert(j);
             }
         }
@@ -1027,7 +1027,7 @@ BitSet<uint32_t>* InstrumentationPoint::getProtectedRegisters(){
         insns->append(getPostcursorInstruction(i));
     }
 
-    BitSet<uint32_t>* p = getProtectedRegs(getInstLocation(), point, insns, borrowedRegs);
+    BitSet<uint32_t>* p = getProtectedRegs(getInstLocation(), point, insns, borrowedRegs, getSaveAll());
     delete insns;
 
     return p;
@@ -1187,6 +1187,8 @@ InstrumentationPoint::InstrumentationPoint(Base* pt, Instrumentation* inst, Inst
     trampolineOffset = 0;
     priority = InstPriority_regular;
     offsetFromPoint = 0;
+
+    saveAll = false;
 
     verify();
 }

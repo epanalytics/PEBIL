@@ -95,6 +95,7 @@ private:
     bool hybridOffloadMode;
     bool multipleImages;
     bool perInstruction;
+    bool saveAll;
 
     ProgramHeader* instSegment;
 
@@ -220,6 +221,8 @@ public:
     bool isMultiImage() { return multipleImages; }
     void setPerInstruction() { perInstruction = true; }
     bool isPerInstruction() { return perInstruction; }
+    void setSaveAll() { saveAll = true; }
+    bool isSaveAll() { return saveAll; }
 
     char* getApplicationName() { return elfFile->getAppName(); }
     uint32_t getApplicationSize() { return elfFile->getFileSize(); }

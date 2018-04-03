@@ -215,6 +215,7 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(hybrid);
     DEFINE_FLAG(images);
     DEFINE_FLAG(perinsn);
+    DEFINE_FLAG(saveall);
 
 #define DEFINE_ARG(__name) char* __name ## _arg = NULL
     DEFINE_ARG(typ); // char* typ_arg = NULL;
@@ -240,7 +241,7 @@ int main(int argc,char* argv[]){
         /* These options set a flag. */
         FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'),
         FLAG_OPTION(version, 'V'), FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), FLAG_OPTION(threaded, 'P'),
-        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'),
+        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'),
 
         /* These options take an argument
            We distinguish them by their indices. */
@@ -607,6 +608,10 @@ int main(int argc,char* argv[]){
 
             if (perinsn_flag){
                 instTool->setPerInstruction();
+            }
+
+            if (saveall_flag) {
+                instTool->setSaveAll();
             }
             
             ASSERT(instTool);
