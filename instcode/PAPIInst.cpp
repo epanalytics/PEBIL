@@ -9,11 +9,12 @@
  * events compatibility.
  *
  * Usage example:
- * pebil --tool LoopIntercept --app bench --inp outer.loops --lnc libpapiinst.so,libpapi.so
+ * pebil --tool LoopIntercept --app bench --inp outer.loops --lnc libpapiinst.so,libpapi.so 
  * export HWC0=PAPI_TOT_INS
  * export HWC1=PAPI_TOT_CYC
+ * export HWC_SET_NUMBER=0  (0 if you want to call the set 0, but can use any int)
  * ./bench.lpiinst
- * grep Thread bench.meta_0.lpiinst | awk '{print $3/$4}' # compute IPC of loops
+ * grep Thread bench.set_0.meta_0.lpiinst | awk '{print $3/$4}' # compute IPC of loops
  */
 
 #include <InstrumentationCommon.hpp>
@@ -27,8 +28,13 @@
 #include <sys/un.h>
 #include <papi.h>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 
 #include <PAPIInst.hpp>
+
+static uint32_t timerCPUFreq=2200000000;
+static uint32_t hwcSetNumber=0;
 
 // Clark
 #define CLOCK_RATE_HZ 2600079000
@@ -63,6 +69,17 @@ PAPIInst* GeneratePAPIInst(PAPIInst* counters, uint32_t typ, image_key_t iid, th
   memset(retval->loopTimerLast, 0, sizeof(uint64_t) * retval->loopCount);
   /* loop timer additions done */
     
+  if (ReadEnvUint32("TIMER_CPU_FREQ", &timerCPUFreq)) {
+      inform << "Got custom TIMER_CPU_FREQ ***(in MHz)** from the user :: " << timerCPUFreq << endl;
+      // convert timerCPUFreq from MHz to Hz
+      timerCPUFreq=timerCPUFreq*1000;
+  } else {
+      timerCPUFreq=CLOCK_RATE_HZ;
+  }
+
+  if (ReadEnvUint32("HWC_SET_NUMBER", &hwcSetNumber)) {
+      inform << "Got hardware counter set number from user :: " << hwcSetNumber << endl;
+  }
 
   return retval;
 }
@@ -205,7 +222,6 @@ extern "C"
 
   void* tool_image_fini(image_key_t* key)
   {
-    fprintf(stderr, "tool_image_fini\n");
     image_key_t iid = *key;
 
     if (AllData == NULL){
@@ -213,28 +229,29 @@ extern "C"
       return NULL;
     }
 
-    fprintf(stderr, "Getting counters\n");
     PAPIInst* counters = AllData->GetData(iid, pthread_self());
     if (counters == NULL){
       ErrorExit("Cannot retrieve image data using key " << dec << (*key), MetasimError_NoImage);
       return NULL;
     }
 
-    fprintf(stderr, "Have counters, checking if master\n");
     if (!counters->master){
       fprintf(stderr, "Image is not master, skipping\n");
       return NULL;
     }
 
     char outFileName[1024];
-    sprintf(outFileName, "%s.meta_%0d.%s", counters->application, GetTaskId(), counters->extension);
+    // want a different name ending than lpiinst - from counters->extension
+    //sprintf(outFileName, "%s.meta_%0d.%s", counters->application, GetTaskId(), counters->extension);
+    sprintf(outFileName, "%s.set_%0d.meta_%0d.%s", counters->application, hwcSetNumber, GetTaskId(), "lppapiinst");
+
     FILE* outFile = fopen(outFileName, "w");
     if (!outFile){
       cerr << "error: cannot open output file %s" << outFileName << ENDL;
       exit(-1);
     }
 
-    fprintf(outFile,"# Application\t ThreadID\t LoopID");
+    //print title of PAPI event names
     char EventName[512];
     int i,j,retval;
     char** units;
@@ -253,69 +270,154 @@ extern "C"
 	  exit(-1);
 	}
 	strncpy(units[i],evinfo.units,PAPI_MIN_STR_LEN);
-	fprintf(outFile,"\t %s",EventName);
+	fprintf(outFile,"%s ",EventName);
       }
-    fprintf(outFile,"\t LoopTime");
     fprintf(outFile,"\n");
-				
-    for (set<image_key_t>::iterator iit = AllData->allimages.begin(); iit != AllData->allimages.end(); ++iit) 
-      {
+
+    //print image hex: loop hex:
+    //then next line is Thread: threadhex Time: time hwc values
+    // to match lpiinst style (hwc values is addition for papi version)
+    for (set<image_key_t>::iterator iit = AllData->allimages.begin(); iit != AllData->allimages.end(); ++iit) {
 	PAPIInst* imageData = AllData->GetData(*iit, pthread_self());
-       	
+        uint64_t imgHash = *iit; 	
 	uint64_t* loopHashes = imageData->loopHashes;
 	uint64_t loopCount = imageData->loopCount;
 		
-	for (uint64_t loopIndex = 0; loopIndex < loopCount; ++loopIndex)
-	  {
+	for (uint64_t loopIndex = 0; loopIndex < loopCount; ++loopIndex) {
 	    uint64_t loopHash = loopHashes[loopIndex];
-	    //   fprintf(outFile, "0x%llx\n", loopHash);
-	    for (set<thread_key_t>::iterator tit = AllData->allthreads.begin(); tit != AllData->allthreads.end(); ++tit)
-	      {
-		counters = AllData->GetData(*iit, *tit);
-				    
-		//fprintf(outFile, "Thread: 0x%llx\n", *tit);
-		fprintf(outFile, "%s\t 0x%llx\t 0x%llx", counters->application, *tit, loopHash);
+	    fprintf(outFile, "0x%llx:0x%llx:\n", imgHash, loopHash);
+	    for (set<thread_key_t>::iterator tit = AllData->allthreads.begin(); tit != AllData->allthreads.end(); ++tit) {
+		PAPIInst* icounters = AllData->GetData(*iit, *tit);
+		fprintf(outFile, "\tThread: 0x%llx Time: %f ", *tit, (double)(icounters->loopTimerAccum[loopIndex]) / timerCPUFreq);
 		
-		//fprintf(outFile, "\tThread: 0x");
 		int hwc;
 		double scaledValue;
-		for(hwc = 0; hwc < counters->num; ++hwc)
-		  {
-		    PAPI_event_code_to_name(*(counters->events+hwc),EventName);
-		    retval = PAPI_get_event_info(*(counters->events+hwc),&evinfo);
-		    if (retval != PAPI_OK)
-		      {
+		for(hwc = 0; hwc < icounters->num; ++hwc) {
+		    PAPI_event_code_to_name(*(icounters->events+hwc),EventName);
+		    retval = PAPI_get_event_info(*(icounters->events+hwc),&evinfo);
+		    if (retval != PAPI_OK) {
 			cerr<<"\n\t Error getting event info\n";
 			exit(-1);
-		      }
+		    }
 				      
-		    if(strstr(units[hwc],"nJ"))
-		      {
-			scaledValue=(double)( counters->accumValues[loopIndex][hwc] /(1.0e9) );
-			fprintf(outFile, "@@ %s\t0x%llx", counters->application, loopHash);
-			fprintf(outFile,"\t %s",EventName);
-			fprintf(outFile,"\t%.4f \n",scaledValue);
-		
-			// calculate the watts
-			double watts=scaledValue/((double)(counters->loopTimerAccum[loopIndex]) / CLOCK_RATE_HZ);
-			fprintf(outFile, "@@ %s\t0x%llx", counters->application, loopHash);
-			fprintf(outFile,"\t %s_watts",EventName);
+		    if(strstr(units[hwc],"nJ")) {
+			scaledValue=(double)( icounters->accumValues[loopIndex][hwc] /(1.0e9) );
+			double watts=scaledValue/((double)(icounters->loopTimerAccum[loopIndex]) / CLOCK_RATE_HZ);
 			fprintf(outFile,"\t%.4f \n",watts);
-		      }
-		    else
-		      {
-			fprintf(outFile,"\t%lld",counters->accumValues[loopIndex][hwc]);
-		      } 
-		  }
-		fprintf(outFile, "\t%f", (double)(counters->loopTimerAccum[loopIndex]) / CLOCK_RATE_HZ);
+		    }
+		    else {
+			fprintf(outFile,"\t%lld",icounters->accumValues[loopIndex][hwc]);
+		    } 
+		}
 		fprintf(outFile, "\n");
-	      }
-	  }
-      }
+	    }
+	}
+    }
 
     fflush(outFile);
     fclose(outFile);
-    fprintf(stderr, "end tool_image_fini\n");
     return NULL;
   }
 };
+
+// helpers borrowed from Simulation.cpp
+
+bool ParsePositiveInt32(string token, uint32_t* value){
+    return ParseInt32(token, value, 1);
+}
+                
+// returns true on success... allows things to continue on failure if desired
+bool ParseInt32(string token, uint32_t* value, uint32_t min){
+    int32_t val;
+    uint32_t mult = 1;
+    bool ErrorFree = true;
+  
+    istringstream stream(token);
+    if (stream >> val){
+        if (!stream.eof()){
+            char c;
+            stream.get(c);
+
+            c = ToLowerCase(c);
+            if (c == 'k'){
+                mult = KILO;
+            } else if (c == 'm'){
+                mult = MEGA;
+            } else if (c == 'g'){
+                mult = GIGA;
+            } else {
+                ErrorFree = false;
+            }
+
+            if (!stream.eof()){
+                stream.get(c);
+
+                c = ToLowerCase(c);
+                if (c != 'b'){
+                    ErrorFree = false;
+                }
+            }
+        }
+    }
+
+    if (val < min){
+        ErrorFree = false;
+    }
+
+    (*value) = (val * mult);
+    return ErrorFree;
+}
+
+// returns true on success... allows things to continue on failure if desired
+bool ParsePositiveInt32Hex(string token, uint32_t* value){
+    int32_t val;
+    bool ErrorFree = true;
+   
+    istringstream stream(token);
+
+    char c1, c2;
+    stream.get(c1);
+    if (!stream.eof()){
+        stream.get(c2);
+    }
+
+    if (c1 != '0' || c2 != 'x'){
+        stream.putback(c1);
+        stream.putback(c2);        
+    }
+
+    stringstream ss;
+    ss << hex << token;
+    if (ss >> val){
+    }
+
+    if (val <= 0){
+        ErrorFree = false;
+    }
+
+    (*value) = val;
+    return ErrorFree;
+}
+
+
+char ToLowerCase(char c){
+    if (c < 'a'){
+        c += ('a' - 'A');
+    }
+    return c;
+}
+
+bool ReadEnvUint32(string name, uint32_t* var){
+    char* e = getenv(name.c_str());
+    if (e == NULL){
+        return false;
+        inform << "unable to find " << name << " in environment" << ENDL;
+    }
+    string s (e);
+    if (!ParseInt32(s, var, 0)){
+        return false;
+        inform << "unable to parse " << name << " in environment" << ENDL;
+    }
+    return true;
+}
+
