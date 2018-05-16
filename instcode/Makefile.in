@@ -1,11 +1,19 @@
 STATIC_INST_LIB  = @PEBIL_STATIC_BUILD@
 PEBIL_MIC_LIBS_BUILD = @PEBIL_MIC_LIBS_BUILD@
 ADAMANT_LIBS_BUILD = @ADAMANT_LIBS_BUILD@
+PEBIL_PAPI_BUILD = @PEBIL_PAPI_BUILD@
+PAPI_PATH = @PAPI_PATH@
 PEBIL_LIBS = 
 ifeq ($(STATIC_INST_LIB),yes)
 	PEBIL_LIBS = libtimer.a  libclassifier.a  libpfreq.a  libtautrace.a  libcounter.a  libsimulator.a
+	ifeq ($(PEBIL_PAPI_BUILD),yes)
+		PEBIL_LIBS += libpapiinst.a
+	endif
 else
 	PEBIL_LIBS = libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libsimulator.so
+	ifeq ($(PEBIL_PAPI_BUILD),yes)
+		PEBIL_LIBS += libpapiinst.so
+	endif
 endif
 
 LIBDIR      = ../lib
@@ -36,6 +44,10 @@ AR          = ar rcs
 REUSE_LIBS  = -L../external/ReuseDistance -lReuseDistance
 REUSE_MIC_LIBS  = -L../external/ReuseDistanceForMIC -lReuseDistance
 EXTRA_INC   = -I../instcode -I../external/ReuseDistance
+
+ifeq ($(PEBIL_PAPI_BUILD),yes)
+	EXTRA_INC += $(PAPI_PATH)
+endif
 
 COMMON_OBJS = $(LIBDIR)/InstrumentationCommon.o
 COMMON_OBJS_MIC = $(MICLIBDIR)/InstrumentationCommon.o
