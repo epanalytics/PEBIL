@@ -46,7 +46,7 @@ REUSE_MIC_LIBS  = -L../external/ReuseDistanceForMIC -lReuseDistance
 EXTRA_INC   = -I../instcode -I../external/ReuseDistance
 
 ifeq ($(PEBIL_PAPI_BUILD),yes)
-	EXTRA_INC += $(PAPI_PATH)
+	EXTRA_INC += -I$(PAPI_PATH)/include
 endif
 
 COMMON_OBJS = $(LIBDIR)/InstrumentationCommon.o
