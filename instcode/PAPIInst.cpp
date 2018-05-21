@@ -1,23 +1,25 @@
 /*
  * PAPI Loop Instrumentation
- * The instrumentation reads the env var HWC0, HWC1, ... up to HWC31, in the order,
+ * The instrumentation reads the env var HWC0, HWC1, ... up to HWC31, in this order,
  * but stops at the first that is not defined (no gaps allowed).
  * The env variables should be set to PAPI present events, e.g. PAPI_TOT_CYC.
  * Then, for each loop instrumented, the value of the counters specified is accumulated
- * and reported on at the end of execution. The valses are printed in a meta_%.lpiinst file.
- * There is no check that events are compatible, please use the papi_event_chooser to verify
- * events compatibility.
+ * and reported on at the end of execution.
+ * There is no check that events are compatible, please use the papi_event_chooser to verify events compatibility.
  *
  * Usage example:
- * pebil --tool LoopIntercept --app bench --inp outer.loops --lnc libpapiinst.so,libpapi.so 
+ *
+ * pebil --tool LoopIntercept --app bench --inp outer.loops --lnc libpapiinst.so,/opt/papi/lib/libpapi.so 
+ *
  * export HWC0=PAPI_TOT_INS
  * export HWC1=PAPI_TOT_CYC
  * export HWC_SET_NUMBER=0  (0 if you want to call the set 0, but can use any int)
  * ./bench.lpiinst
- * grep Thread bench.set_0.meta_0.lpiinst | awk '{print $3/$4}' # compute IPC of loops
+ * Should see output files like: bench.set_0.meta_0.lppapiinst 
  */
 
 #include <InstrumentationCommon.hpp>
+#include <PAPIInst.hpp>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,16 +33,12 @@
 #include <fstream>
 #include <sstream>
 
-#include <PAPIInst.hpp>
-
 static uint32_t timerCPUFreq=2200000000;
 static uint32_t hwcSetNumber=0;
 
-// Clark
-#define CLOCK_RATE_HZ 2600079000
+#define CLOCK_RATE_HZ 2600079000 // Clark
+//#define CLOCK_RATE_HZ 1333332000 // Xeon Phi Max Rate
 
-// Xeon Phi Max Rate
-//#define CLOCK_RATE_HZ 1333332000
 inline uint64_t read_timestamp_counter(){
   unsigned low, high;
   __asm__ volatile ("rdtsc" : "=a" (low), "=d"(high));
@@ -60,14 +58,15 @@ PAPIInst* GeneratePAPIInst(PAPIInst* counters, uint32_t typ, image_key_t iid, th
   retval->loopHashes = counters->loopHashes;
   retval->tmpValues= new values_t[retval->loopCount];
   retval->accumValues = new values_t[retval->loopCount];
+  retval->entryCounts = new uint64_t[retval->loopCount];
   retval->num = 0;
 
-  /* loop timer additions */
   retval->loopTimerAccum = new uint64_t[retval->loopCount];
   retval->loopTimerLast = new uint64_t[retval->loopCount];
+  
   memset(retval->loopTimerAccum, 0, sizeof(uint64_t) * retval->loopCount);
   memset(retval->loopTimerLast, 0, sizeof(uint64_t) * retval->loopCount);
-  /* loop timer additions done */
+  memset(retval->entryCounts, 0, sizeof(uint64_t) * retval->loopCount);
     
   if (ReadEnvUint32("TIMER_CPU_FREQ", &timerCPUFreq)) {
       inform << "Got custom TIMER_CPU_FREQ ***(in MHz)** from the user :: " << timerCPUFreq << endl;
@@ -85,11 +84,9 @@ PAPIInst* GeneratePAPIInst(PAPIInst* counters, uint32_t typ, image_key_t iid, th
 }
 
 void DeletePAPIInst(PAPIInst* counters){
-  /* loop timer additions */
   delete counters->loopTimerAccum;
   delete counters->loopTimerLast;
-  /* loop timer additions done */
-
+  delete counters->entryCounts;
 }
 
 uint64_t ReferencePAPIInst(PAPIInst* counters){
@@ -99,18 +96,15 @@ uint64_t ReferencePAPIInst(PAPIInst* counters){
 extern "C"
 {
   int32_t loop_entry(uint32_t loopIndex, image_key_t* key) {
-    //fprintf(stderr, "loop_entry\n");
     thread_key_t tid = pthread_self();
 
     PAPIInst* counters = AllData->GetData(*key, pthread_self());
     assert(counters != NULL);
-
-    /* loop timer additions */
     assert(counters->loopTimerLast != NULL);
     counters->loopTimerLast[loopIndex] = read_timestamp_counter();
-    /* loop timer additions done */
+    counters->entryCounts[loopIndex]++;
 
-    // AT: Initialize PAPI for each thread.
+    //Initialize PAPI for each thread.
     if(!counters->num) {
       fprintf(stderr, "Initializing PAPI for thread:  0x%llx \n", tid);
       while(counters->num < MAX_HWC) {
@@ -132,36 +126,26 @@ extern "C"
     }
 
     PAPI_start_counters(counters->events, counters->num);
-
-    //fprintf(stderr, "End loop_entry\n");
     return 0;
   }
 
   int32_t loop_exit(uint32_t loopIndex, image_key_t* key) {
-    //fprintf(stderr, "loop_exit\n");
     thread_key_t tid = pthread_self();
-
     PAPIInst* counters = AllData->GetData(*key, pthread_self());
-
     PAPI_stop_counters(counters->tmpValues[loopIndex], counters->num);
 
-    /* loop timer additions */
     uint64_t now = read_timestamp_counter();
     uint64_t last = counters->loopTimerLast[loopIndex];
     counters->loopTimerAccum[loopIndex] += now - last;
-    /* loop timer additions done */
 
     for(int i=0;i<counters->num;i++)
       counters->accumValues[loopIndex][i]+=counters->tmpValues[loopIndex][i];
 
-    //fprintf(stderr, "End loop_exit\n");
     return 0;
   }
 
   void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* isThreadedModeFlag) {
-    //fprintf(stderr, "tool_dynamic_init\n");
     InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
-    //InitializeDynamicInstrumentation(count, dyn);
     return NULL;
   }
 
@@ -185,7 +169,6 @@ extern "C"
 
   void* tool_image_init(void* args, image_key_t* key, ThreadData* td) {
 
-    //fprintf(stderr, "tool_image_init\n");
     PAPIInst* counters = (PAPIInst*)args;
 
     set<uint64_t> inits;
@@ -213,10 +196,9 @@ extern "C"
 	PAPI_event_name_to_code(hwc_name,counters->events+counters->num);
 	++counters->num;
       } else
-	break;
+	   break;
     }
 
-    //fprintf(stderr, "end tool_image_init\n");
     return NULL;
   }
 
@@ -241,8 +223,7 @@ extern "C"
     }
 
     char outFileName[1024];
-    // want a different name ending than lpiinst - from counters->extension
-    //sprintf(outFileName, "%s.meta_%0d.%s", counters->application, GetTaskId(), counters->extension);
+    // want a different name ending than lpiinst - from counters->extension - hard code "lppapiinst" in place of counters->extension
     sprintf(outFileName, "%s.set_%0d.meta_%0d.%s", counters->application, hwcSetNumber, GetTaskId(), "lppapiinst");
 
     FILE* outFile = fopen(outFileName, "w");
@@ -255,13 +236,10 @@ extern "C"
     char EventName[512];
     int i,j,retval;
     char** units;
-    // AT: changed the counters->num to MAX_HWC
     units=new char*[MAX_HWC];
-    //units=new char*[counters->num];
     PAPI_event_info_t evinfo;
 	
-    for(i=0;i<counters->num;i++)
-      {
+    for(i=0;i<counters->num;i++) {
 	units[i]=new char[PAPI_MIN_STR_LEN];
 	PAPI_event_code_to_name(*(counters->events+i),EventName);
 	retval = PAPI_get_event_info(*(counters->events+i),&evinfo);
@@ -271,7 +249,7 @@ extern "C"
 	}
 	strncpy(units[i],evinfo.units,PAPI_MIN_STR_LEN);
 	fprintf(outFile,"%s ",EventName);
-      }
+    }
     fprintf(outFile,"\n");
 
     //print image hex: loop hex:
@@ -288,7 +266,7 @@ extern "C"
 	    fprintf(outFile, "0x%llx:0x%llx:\n", imgHash, loopHash);
 	    for (set<thread_key_t>::iterator tit = AllData->allthreads.begin(); tit != AllData->allthreads.end(); ++tit) {
 		PAPIInst* icounters = AllData->GetData(*iit, *tit);
-		fprintf(outFile, "\tThread: 0x%llx Time: %f ", *tit, (double)(icounters->loopTimerAccum[loopIndex]) / timerCPUFreq);
+		fprintf(outFile, "\tThread: 0x%llx Time: %f Entries: %lld ", *tit, (double)(icounters->loopTimerAccum[loopIndex]) / timerCPUFreq, icounters->entryCounts[loopIndex]);
 		
 		int hwc;
 		double scaledValue;
@@ -303,10 +281,10 @@ extern "C"
 		    if(strstr(units[hwc],"nJ")) {
 			scaledValue=(double)( icounters->accumValues[loopIndex][hwc] /(1.0e9) );
 			double watts=scaledValue/((double)(icounters->loopTimerAccum[loopIndex]) / CLOCK_RATE_HZ);
-			fprintf(outFile,"\t%.4f \n",watts);
+			fprintf(outFile,"%.4f ",watts);
 		    }
 		    else {
-			fprintf(outFile,"\t%lld",icounters->accumValues[loopIndex][hwc]);
+			fprintf(outFile,"%lld ",icounters->accumValues[loopIndex][hwc]);
 		    } 
 		}
 		fprintf(outFile, "\n");

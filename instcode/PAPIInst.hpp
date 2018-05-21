@@ -24,6 +24,7 @@ typedef struct {
     uint64_t* loopHashes;
     uint64_t* loopTimerAccum;
     uint64_t* loopTimerLast;
+    uint64_t* entryCounts;
     int events[MAX_HWC];
     values_t* tmpValues;
     values_t* accumValues;
