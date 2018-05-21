@@ -17,18 +17,20 @@ using namespace std;
 typedef long long values_t[MAX_HWC];
 
 typedef struct {
-    bool master;
-    char* application;
-    char* extension;
-    uint64_t loopCount;
-    uint64_t* loopHashes;
-    uint64_t* loopTimerAccum;
-    uint64_t* loopTimerLast;
-    uint64_t* entryCounts;
-    int events[MAX_HWC];
-    values_t* tmpValues;
-    values_t* accumValues;
-    int num;
+  bool master;
+  char* application;
+  char* extension;
+  uint64_t loopCount;
+  uint64_t* loopHashes;
+  uint64_t* loopTimerAccum;
+  uint64_t* loopTimerLast;
+  int events[MAX_HWC];
+  values_t* tmpValues;
+  values_t* accumValues;
+  int num;
+  int papiMeasurementsStarted;
+  int currentlyMeasuring;
+  std::set<int> activeLoops;
 } PAPIInst;
 
 static char ToLowerCase(char c);
