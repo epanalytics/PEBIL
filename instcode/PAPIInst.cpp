@@ -176,7 +176,7 @@ extern "C"
       //fprintf(stderr, "Initializing PAPI for thread:  0x%llx \n", tid);
       while(counters->num < MAX_HWC) {
 	char hwc_var[32];
-	sprintf(hwc_var, "HWC%d", counters->num);
+	sprintf(hwc_var, "PEBIL_HWC%d", counters->num);
 	char* hwc_name = getenv(hwc_var);
 	if(hwc_name) {
 	  int retval = PAPI_event_name_to_code(hwc_name, counters->events+counters->num);
@@ -282,7 +282,7 @@ extern "C"
 
     while(counters->num<MAX_HWC) {
       char hwc_var[32];
-      sprintf(hwc_var,"HWC%d",counters->num);
+      sprintf(hwc_var,"PEBIL_HWC%d",counters->num);
       char* hwc_name = getenv(hwc_var);
       if(hwc_name) {
 	PAPI_event_name_to_code(hwc_name,counters->events+counters->num);
