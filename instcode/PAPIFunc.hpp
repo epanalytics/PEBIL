@@ -15,19 +15,24 @@
 typedef long long values_t[MAX_HWC];
 
 typedef struct {
-    bool master;
-    char* application;
-    char* extension;
-    uint64_t functionCount;
-    char** functionNames;
-    uint64_t* functionTimerAccum;
-    uint64_t* functionTimerLast;
-    uint64_t* functionEntryCounts;
-    uint32_t* inFunction;
-    int events[MAX_HWC];
-    values_t* tmpValues;
-    values_t* accumValues;
-    int num;
+  bool master;
+  char* application;
+  char* extension;
+  uint64_t functionCount;
+  char** functionNames;
+  uint64_t* functionTimerAccum;
+  uint64_t* functionTimerLast;
+  uint64_t* functionEntryCounts;
+  uint32_t* inFunctionP;
+  int events[MAX_HWC];
+  values_t* tmpValues;
+  values_t* accumValues;
+  int num;
+  int papiMeasurementsStarted;
+  int currentlyMeasuring;
+  int eventSet;
+  int eventCode;
+  std::set<int> activeFunctions;
 } FunctionPAPI;
 
 static char ToLowerCase(char c);

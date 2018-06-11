@@ -279,7 +279,7 @@ extern "C"
       fprintf(stderr,"PAPI initialization failed");
       return NULL;
     }
-
+    /*
     while(counters->num<MAX_HWC) {
       char hwc_var[32];
       sprintf(hwc_var,"PEBIL_HWC%d",counters->num);
@@ -290,7 +290,7 @@ extern "C"
       } else
 	break;
     }
-
+    */
     //fprintf(stderr, "end tool_image_init\n");
     return NULL;
   }
