@@ -1,3 +1,4 @@
+
 /*
  * PAPI Loop Instrumentation
  * The instrumentation reads the env var PEBIL_HWC0, PEBIL_HWC1, ... up to PEBIL_HWC31, 
@@ -46,12 +47,14 @@
 
 #include <PAPIInst.hpp>
 
-static uint32_t timerCPUFreq=320000000;
+// mandel's CPU Frequency: you can either hard-code the frequency here
+// or use the PEBIL_TIMER_CPU_FREQ env var.
+static uint32_t timerCPUFreq=3200000000;
+#define CLOCK_RATE_HZ 3200000000
+
 static uint32_t hwcSetNumber=0;
 static uint32_t disableNesting=0;
 
-// mandel
-#define CLOCK_RATE_HZ 3200000000
 // Xeon Phi Max Rate
 //#define CLOCK_RATE_HZ 1333332000
 
@@ -63,7 +66,8 @@ inline uint64_t read_timestamp_counter(){
 
 DataManager<PAPIInst*>* AllData = NULL;
 
-PAPIInst* GeneratePAPIInst(PAPIInst* counters, uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage) {
+PAPIInst* GeneratePAPIInst(PAPIInst* counters, uint32_t typ, image_key_t iid,
+			   thread_key_t tid, image_key_t firstimage) {
 
   PAPIInst* retval;
   retval = new PAPIInst();
@@ -77,6 +81,7 @@ PAPIInst* GeneratePAPIInst(PAPIInst* counters, uint32_t typ, image_key_t iid, th
   retval->num = 0;
   retval->papiMeasurementsStarted=0;
   retval->currentlyMeasuring=0;
+  retval->eventSet=PAPI_NULL;
 
   /* loop timer additions */
   retval->loopTimerAccum = new uint64_t[retval->loopCount];
@@ -92,7 +97,8 @@ PAPIInst* GeneratePAPIInst(PAPIInst* counters, uint32_t typ, image_key_t iid, th
    * CPU frequency only; i.e., no need to set this to individual scaled CPU frequencies.
    */
   if (ReadEnvUint32("PEBIL_TIMER_CPU_FREQ", &timerCPUFreq)) {
-    inform << "Received custom PEBIL_TIMER_CPU_FREQ ***(in MHz)** from the user :: " << timerCPUFreq << endl;
+    inform << "Received custom PEBIL_TIMER_CPU_FREQ ***(in MHz)** from the user :: " <<
+      timerCPUFreq << endl;
     // convert timerCPUFreq from MHz to Hz
     timerCPUFreq=timerCPUFreq*1000;
   } else {
@@ -136,33 +142,36 @@ uint64_t ReferencePAPIInst(PAPIInst* counters){
 extern "C"
 {
   int32_t loop_entry(uint32_t loopIndex, image_key_t* key) {
-    //fprintf(stderr, "loop_entry:: %d\n", loopIndex);
     thread_key_t tid = pthread_self();
 
     PAPIInst* counters = AllData->GetData(*key, pthread_self());
     assert(counters != NULL);
 
+    int eventSet=counters->eventSet;
+    
     // see if there are any active loops
     if(counters->currentlyMeasuring!=0) {
+      // read the counters and associate the counter values to all the active loops
+      //PAPI_stop_counters(counters->tmpValues[loopIndex], counters->num);
+      // using the low-level PAPI call to control overhead
+      PAPI_read(eventSet, counters->tmpValues[loopIndex]);
       // if the nested measurements are allowed
       if(!disableNesting) {
-	// read the counters and associate the counter values to all the active loops
-	PAPI_stop_counters(counters->tmpValues[loopIndex], counters->num);
-	for (std::set<int>::iterator it=counters->activeLoops.begin(); it!=counters->activeLoops.end(); ++it)
+	for (std::set<int>::iterator it=counters->activeLoops.begin();
+	     it!=counters->activeLoops.end(); ++it)
+
 	  for(int i=0;i<counters->num;i++)
 	    counters->accumValues[*it][i]+=counters->tmpValues[loopIndex][i];
       } else {
-	cerr << "Error: PEBIL_DISABLE_NESTING is set to " << disableNesting << ". But the set of loops provided for measurements are nested.\nPlease provide non-nested set of loops for measurements." << ENDL;
+	cerr << "Error: PEBIL_DISABLE_NESTING is set to " << disableNesting << ". " <<
+	  "But the set of loops provided for measurements are nested.\n" <<
+	  "Please provide non-nested set of loops for measurements." << ENDL;
 	exit(-1);
       }
-    } else {
-      //fprintf(stderr, "No active loops!\n");
-    } 
+    }
   
-
     // increment the currentlyMeasuring count
     counters->currentlyMeasuring++;
-    //fprintf(stderr, "currentlyMeasuring:: %d\n", counters->currentlyMeasuring);
     // insert this loop to the actively measuring set
     counters->activeLoops.insert(loopIndex);
     
@@ -173,7 +182,21 @@ extern "C"
 
     // AT: Initialize PAPI for each thread.
     if(!counters->num) {
-      //fprintf(stderr, "Initializing PAPI for thread:  0x%llx \n", tid);
+      /* Initialization */
+      int retval=PAPI_library_init(PAPI_VER_CURRENT);
+      if (retval != PAPI_VER_CURRENT) {
+	fprintf(stderr, "PAPI library init error!\n");
+	exit(1);
+      }
+      
+      /* Create the Event Set */      
+      if (PAPI_create_eventset(&eventSet) != PAPI_OK) {
+	fprintf(stderr, "PAPI create event set error!\n");
+	exit(1);
+      }
+      
+      int eventCode=counters->eventCode;
+      
       while(counters->num < MAX_HWC) {
 	char hwc_var[32];
 	sprintf(hwc_var, "PEBIL_HWC%d", counters->num);
@@ -181,41 +204,72 @@ extern "C"
 	if(hwc_name) {
 	  int retval = PAPI_event_name_to_code(hwc_name, counters->events+counters->num);
           if(retval != PAPI_OK) {
-	    fprintf(stderr, "Unable to determine code for hwc %d: %s, %d\n", counters->num, hwc_name, retval);
+	    fprintf(stderr, "Unable to determine code for hwc %d: %s, %d\n",
+		    counters->num, hwc_name, retval);
           } else {
 	    fprintf(stderr, "Thread 0x%llx parsed counter %s\n", tid, hwc_name);
           }
+	  if (PAPI_add_event(eventSet, *(counters->events+counters->num)) != PAPI_OK) {
+	    fprintf(stderr, "PAPI add event error! Either the specified counter(s) not available or compatible.\n");
+	    exit(1);
+	  }
 	  ++counters->num;
-	} else
-	  break;
+	} else {
+	  if(counters->num == 0) {
+	    fprintf(stderr, "No counters defined in the env. Adding PAPI_TOT_CYC as default. \n");
+	    PAPI_add_event(eventSet, PAPI_TOT_CYC);
+	    *(counters->events+counters->num)=PAPI_TOT_CYC;
+	    ++counters->num;
+	  } else {
+	    break;
+	  }
+	}
+	fprintf(stderr, "Parsed %d counters for thread: 0x%llx\n", counters->num, tid);
       }
-      fprintf(stderr, "Parsed %d counters for thread: 0x%llx\n", counters->num, tid);
     }
 
     // start the counters
-    PAPI_start_counters(counters->events, counters->num);
-    //fprintf(stderr, "End loop_entry\n");
+    // if this is the first entry, start the measurements
+    if(counters->papiMeasurementsStarted==0) {
+      
+      /* not doing the checking; not good, but checking for overhead */
+      PAPI_start(eventSet);
+      /* with the check; uncomment for debugging purposes. */
+      /*
+	if (PAPI_start(eventSet) != PAPI_OK) {
+	fprintf(stderr, "Error in PAPI start!\n");
+	exit(1);
+	}
+      */
+      // indicate that the measurements have started 
+      counters->papiMeasurementsStarted=1;
+    } else {
+      // else reset the counters (again doing it without the check)
+      PAPI_reset(eventSet);
+    }
+    counters->eventSet = eventSet;
+
     return 0;
   }
 
   int32_t loop_exit(uint32_t loopIndex, image_key_t* key) {
-    //fprintf(stderr, "loop_exit\n");
     
+    uint64_t now =read_timestamp_counter();
     thread_key_t tid = pthread_self();
 
     PAPIInst* counters = AllData->GetData(*key, pthread_self());
 
-    // immediately stop the counter
-    PAPI_stop_counters(counters->tmpValues[loopIndex], counters->num);
+    int eventSet=counters->eventSet;
+    PAPI_read(eventSet, counters->tmpValues[loopIndex]);
+    
     /* loop timer additions */
-    uint64_t now = read_timestamp_counter();
     uint64_t last = counters->loopTimerLast[loopIndex];
     counters->loopTimerAccum[loopIndex] += now - last;
     /* loop timer additions done */
     
     // add the read counters to all active loops
-    for (std::set<int>::iterator it=counters->activeLoops.begin(); it!=counters->activeLoops.end(); ++it) {
-      //fprintf(stderr, "Loop: %d is active. \n", (*it));
+    for (std::set<int>::iterator it=counters->activeLoops.begin();
+	 it!=counters->activeLoops.end(); ++it) {
       for(int i=0;i<counters->num;i++) {
 	counters->accumValues[*it][i]+=counters->tmpValues[loopIndex][i];
       }
@@ -228,13 +282,13 @@ extern "C"
     
     // if there are active loops remaining, we will need to restart the counters
     if(counters->currentlyMeasuring!=0) {
-      PAPI_start_counters(counters->events, counters->num);
+      PAPI_reset(eventSet);
     }
+
     return 0;
   }
 
   void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* isThreadedModeFlag) {
-    //fprintf(stderr, "tool_dynamic_init\n");
     InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
     //InitializeDynamicInstrumentation(count, dyn);
     return NULL;
@@ -249,7 +303,9 @@ extern "C"
       if(isThreadedMode())	
 	AllData->AddThread(tid);
     } else {
-      ErrorExit("Calling PEBIL thread initialization library for thread " << hex << tid << " but no images have been initialized.", MetasimError_NoThread);
+      ErrorExit("Calling PEBIL thread initialization library for thread " <<
+		hex << tid << " but no images have been initialized.",
+		MetasimError_NoThread);
     }
     return NULL;
   }
@@ -260,7 +316,6 @@ extern "C"
 
   void* tool_image_init(void* args, image_key_t* key, ThreadData* td) {
 
-    //fprintf(stderr, "tool_image_init\n");
     PAPIInst* counters = (PAPIInst*)args;
 
     set<uint64_t> inits;
@@ -279,19 +334,7 @@ extern "C"
       fprintf(stderr,"PAPI initialization failed");
       return NULL;
     }
-    /*
-    while(counters->num<MAX_HWC) {
-      char hwc_var[32];
-      sprintf(hwc_var,"PEBIL_HWC%d",counters->num);
-      char* hwc_name = getenv(hwc_var);
-      if(hwc_name) {
-	PAPI_event_name_to_code(hwc_name,counters->events+counters->num);
-	++counters->num;
-      } else
-	break;
-    }
-    */
-    //fprintf(stderr, "end tool_image_init\n");
+    
     return NULL;
   }
 
@@ -317,7 +360,8 @@ extern "C"
 
     char outFileName[1024];
     // want a different name ending than lpiinst - from counters->extension
-    sprintf(outFileName, "%s.set_%0d.meta_%0d.%s", counters->application, hwcSetNumber, GetTaskId(), "lppapiinst");
+    sprintf(outFileName, "%s.set_%0d.meta_%0d.%s", counters->application, hwcSetNumber,
+	    GetTaskId(), "lppapiinst");
 
     FILE* outFile = fopen(outFileName, "w");
     if (!outFile){
@@ -360,9 +404,12 @@ extern "C"
       for (uint64_t loopIndex = 0; loopIndex < loopCount; ++loopIndex) {
 	uint64_t loopHash = loopHashes[loopIndex];
 	fprintf(outFile, "0x%llx:0x%llx:\n", imgHash, loopHash);
-	for (set<thread_key_t>::iterator tit = AllData->allthreads.begin(); tit != AllData->allthreads.end(); ++tit) {
+	for (set<thread_key_t>::iterator tit = AllData->allthreads.begin();
+	     tit != AllData->allthreads.end(); ++tit) {
 	  PAPIInst* icounters = AllData->GetData(*iit, *tit);
-	  fprintf(outFile, "\tThread: 0x%llx Time: %f ", *tit, (double)(icounters->loopTimerAccum[loopIndex]) / timerCPUFreq);
+	  fprintf(outFile, "\tThread: 0x%llx Time: %f ",
+		  *tit,
+		  (double)(icounters->loopTimerAccum[loopIndex]) / timerCPUFreq);
 		
 	  int hwc;
 	  double scaledValue;

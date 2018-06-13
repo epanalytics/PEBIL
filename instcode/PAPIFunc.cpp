@@ -145,17 +145,18 @@ extern "C"
       
       /* with the check; uncomment for debugging purposes */
       /*
-      if (PAPI_read(eventSet, counters->tmpValues[funcIndex]) != PAPI_OK)
+	if (PAPI_read(eventSet, counters->tmpValues[funcIndex]) != PAPI_OK)
 	{
-	  fprintf(stderr, "Error reading the values!\n");
-	  exit(1);
+	fprintf(stderr, "Error reading the values!\n");
+	exit(1);
 	} else {
 	// move the reset to the end of this function
 	//PAPI_reset(eventSet);
-      }
+	}
       */
       // associate the counter values to all the active functions
-      for (std::set<int>::iterator it=counters->activeFunctions.begin(); it!=counters->activeFunctions.end(); ++it) {
+      for (std::set<int>::iterator it=counters->activeFunctions.begin();
+	   it!=counters->activeFunctions.end(); ++it) {
 	for(int i=0;i<counters->num;i++) {
 	  counters->accumValues[*it][i]+=counters->tmpValues[funcIndex][i];
 	}
@@ -171,7 +172,6 @@ extern "C"
     if(!counters->num) {
 
       /* Initialization */
-      fprintf(stderr,"Initialization\n");
       int retval=PAPI_library_init(PAPI_VER_CURRENT);
       if (retval != PAPI_VER_CURRENT) {
 	fprintf(stderr, "PAPI library init error!\n");
@@ -192,12 +192,13 @@ extern "C"
 	if(hwc_name) {
 	  int retval = PAPI_event_name_to_code(hwc_name, counters->events+counters->num);
 	  if(retval != PAPI_OK) {
-	    fprintf(stderr, "Unable to determine code for hwc %d: %s, %d\n", counters->num, hwc_name, retval);
+	    fprintf(stderr, "Unable to determine code for hwc %d: %s, %d\n",
+		    counters->num, hwc_name, retval);
 	  } else {
 	    fprintf(stderr, "Thread 0x%llx parsed counter %s\n", tid, hwc_name);
 	  }
 	  if (PAPI_add_event(eventSet, *(counters->events+counters->num)) != PAPI_OK) {
-	    fprintf(stderr, "PAPI add event error!\n");
+	    fprintf(stderr, "PAPI add event error! Either the specified counter(s) not available or compatible.\n");
 	    exit(1);
 	  }
 	  ++counters->num;
@@ -227,10 +228,10 @@ extern "C"
       PAPI_start(eventSet);
       /* with the check; uncomment for debugging purposes. */
       /*
-      if (PAPI_start(eventSet) != PAPI_OK) {
+	if (PAPI_start(eventSet) != PAPI_OK) {
 	fprintf(stderr, "Error in PAPI start!\n");
 	exit(1);
-      }
+	}
       */
       // indicate that the measurements have started 
       counters->papiMeasurementsStarted=1;
@@ -270,16 +271,14 @@ extern "C"
 
     
     --recDepth;
-    //fprintf(stderr, "exit function:: %s : %d\n", counters->functionNames[funcIndex],recDepth);
     if(recDepth == 0) {
-      //uint64_t now = read_timestamp_counter();
-      //PAPI_stop_counters(counters->tmpValues[funcIndex], counters->num);
-      //PAPI_read(eventSet, counters->tmpValues[funcIndex]);
       uint64_t last = counters->functionTimerLast[funcIndex];
       
       counters->functionTimerAccum[funcIndex] += now - last;
       counters->functionTimerLast[funcIndex] = now;
-      for (std::set<int>::iterator it=counters->activeFunctions.begin(); it!=counters->activeFunctions.end(); ++it) {
+      for (std::set<int>::iterator it=counters->activeFunctions.begin();
+	   it!=counters->activeFunctions.end(); ++it) {
+
 	for(int i=0;i<counters->num;i++) {
 	  counters->accumValues[*it][i]+=counters->tmpValues[funcIndex][i];
 	}

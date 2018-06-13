@@ -1537,20 +1537,20 @@ void InstrumentationTool::printCallTreeInfo(const char* extension, Vector<Base*>
 	it != callTreeInfo.end(); ++it)
       {
 	//dotStream << it->first << " ";
-	std::cout << it->first << ":: ";
+	//std::cout << it->first << ":: ";
 	std::set<std::string> entries=(std::set<std::string>)it->second;
 	for(std::set<std::string>::const_iterator itset = entries.begin();
 	    itset != entries.end(); ++itset)
 	  {
 	    dotStream << "\"" << it->first << "\"" << " -> " << "\"" << *itset << "\"" << std::endl; 
-	    std::cout << *itset << ", ";
+	    //std::cout << *itset << ", ";
 	  }
 	//dotStream << ";" << std::endl;
-	std::cout << std::endl;
+	//std::cout << std::endl;
       }
     
     dotStream <<  "} " << std::endl;
-    std::cout << dotStream.str();
+    //std::cout << dotStream.str();
     fprintf(staticFD, "%s \n",  dotStream.str().c_str());
 
 

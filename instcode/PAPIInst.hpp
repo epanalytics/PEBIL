@@ -30,6 +30,8 @@ typedef struct {
   int num;
   int papiMeasurementsStarted;
   int currentlyMeasuring;
+  int eventSet;
+  int eventCode;
   std::set<int> activeLoops;
 } PAPIInst;
 
