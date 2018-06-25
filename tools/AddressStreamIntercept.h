@@ -18,21 +18,51 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _CacheSimulation_h_
-#define _CacheSimulation_h_
+#ifndef _AddressStreamIntercept_h_
+#define _AddressStreamIntercept_h_
 
 #include <InstrumentationTool.h>
 #include <SimpleHash.h>
-#include <SimulationStats.hpp>
+#include <AddressStreamStats.hpp>
 
 
-class CacheSimulation : public InstrumentationTool {
+class AddressStreamIntercept : public InstrumentationTool {
 private:
-    InstrumentationFunction* simFunc;
+    InstrumentationFunction* memBufferFunc;
     InstrumentationFunction* exitFunc;
     InstrumentationFunction* entryFunc;
 
     SimpleHash<BasicBlock*> blocksToInst;
+
+    bool includeLoads = true;
+    bool includeStores = true;
+    bool includeSWPrefetches = true;
+
+    uint64_t nullLineInfoValue = 0;
+    uint64_t simulationStatsOffset = 0;
+
+    void allocateNullLineInfoValue();
+    void allocateSimulationStats(uint64_t);
+
+    uint64_t getNullLineInfoValue();
+    uint32_t getNumberOfBlocksToInstrument();
+    uint32_t getNumberOfMemopsToInstrument();
+    uint64_t getSimulationStatsOffset();
+
+    bool ifInstrumentingInstruction(X86Instruction*);
+    bool ifInstrumentingLoads() { return includeLoads; }
+    bool ifInstrumentingStores() { return includeStores; }
+    bool ifInstrumentingSWPrefetches() { return includeSWPrefetches; }
+
+    void initializeBlocksToInst();
+    void initializeFirstBufferEntry(BufferEntry&);
+    void initializeSimulationStats(SimulationStats&, Vector<uint64_t>&, 
+      SimpleHash<uint64_t>&, SimpleHash<uint64_t>&);
+    
+    void instrumentEntryPoint();
+    void instrumentExitPoint();
+
+
     SimpleHash<NestedLoopStruct*> nestedLoopGrouping;
     SimpleHash<uint64_t> mapBBToGroupId;
 
@@ -40,10 +70,8 @@ private:
     Vector<uint32_t> allBlockIds;
     Vector<LineInfo*> allBlockLineInfos;
 
-    void filterBBs();
+
     void includeLoopBlocks(BasicBlock*);
-    void instrumentEntryPoint();
-    void instrumentExitPoint();
     void grabScratchRegisters(X86Instruction*,InstLocations,uint32_t*,uint32_t*,uint32_t*);
 
     void initializeInstructionInfo(X86Instruction*,uint32_t,SimulationStats&,
@@ -68,17 +96,17 @@ private:
 
     inline bool usePIC() { return isThreadedMode() || isMultiImage(); }
 public:
-    CacheSimulation(ElfFile* elf);
-    ~CacheSimulation();
+    AddressStreamIntercept(ElfFile* elf);
+    ~AddressStreamIntercept();
 
     void declare();
     void instrument();
 
-    const char* briefName() { return "CacheSimulation"; }
-    const char* defaultExtension() { return "siminst"; }
+    const char* briefName() { return "AddressStreamIntercept"; }
+    const char* defaultExtension() { return "addstrinst"; }
     uint32_t allowsArgs() { return PEBIL_OPT_LPI | PEBIL_OPT_DTL | PEBIL_OPT_PHS | PEBIL_OPT_DFP; }
     uint32_t requiresArgs() { return PEBIL_OPT_INP; }
 };
 
 
-#endif /* _CacheSimulation_h_ */
+#endif /* _AddressStreamIntercept_h_ */

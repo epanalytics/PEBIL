@@ -22,8 +22,8 @@
 #define _Simulation_hpp_
 
 #include <string>
-#include <Metasim.hpp>
-#include <SimulationStats.hpp>
+//#include <Metasim.hpp>
+#include <AddressStreamStats.hpp>
 
 using namespace std;
 
