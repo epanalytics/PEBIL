@@ -26,8 +26,8 @@
 #include <iostream>
 #include <set>
 
-#define debug(...) __VA_ARGS__
-//#define debug(...)
+//#define debug(...) __VA_ARGS__
+#define debug(...)
 
 typedef uint64_t image_key_t;
 typedef pthread_t thread_key_t;

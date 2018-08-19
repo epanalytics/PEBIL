@@ -23,6 +23,7 @@
 
 #include <InstrumentationTool.h>
 #include <SimpleHash.h>
+#include <Vector.h>
 #include <AddressStreamStats.hpp>
 
 
@@ -32,7 +33,12 @@ private:
     InstrumentationFunction* exitFunc;
     InstrumentationFunction* entryFunc;
 
-    SimpleHash<BasicBlock*> blocksToInst;
+    SimpleHash<BasicBlock*> blocksToInstHash;   // <hash, BB*>
+    Vector<BasicBlock*> blocksToInst;      // All BBs to instrument
+                                           // Should probably be kept sorted
+
+    SimpleHash<NestedLoopStruct*> nestedLoopGrouping;
+    SimpleHash<uint64_t> mapBBToGroupId;
 
     bool includeLoads = true;
     bool includeStores = true;
@@ -47,6 +53,7 @@ private:
     uint64_t getNullLineInfoValue();
     uint32_t getNumberOfBlocksToInstrument();
     uint32_t getNumberOfMemopsToInstrument();
+    uint64_t getNumberOfMemopsToInstrument(X86Instruction*);
     uint64_t getSimulationStatsOffset();
 
     bool ifInstrumentingInstruction(X86Instruction*);
@@ -62,13 +69,9 @@ private:
     void instrumentEntryPoint();
     void instrumentExitPoint();
 
-
-    SimpleHash<NestedLoopStruct*> nestedLoopGrouping;
-    SimpleHash<uint64_t> mapBBToGroupId;
-
-    Vector<Base*> allBlocks;
-    Vector<uint32_t> allBlockIds;
-    Vector<LineInfo*> allBlockLineInfos;
+//    Vector<Base*> allBlocks;
+ //   Vector<uint32_t> allBlockIds;
+//    Vector<LineInfo*> allBlockLineInfos;
 
 
     void includeLoopBlocks(BasicBlock*);
@@ -78,7 +81,7 @@ private:
       Function*,BasicBlock*,uint32_t,uint32_t,uint32_t,uint32_t,uint64_t,
       uint64_t,uint64_t,
       SimpleHash<uint64_t>&, SimpleHash<uint32_t>&, uint32_t*);
-    void initializeBlockInfo(BasicBlock*,uint32_t,SimulationStats&,Function*,uint32_t,uint64_t,
+    void initializeBlockInfo(BasicBlock*,SimulationStats&,Function*,uint32_t,uint64_t,
         SimpleHash<uint64_t>&,SimpleHash<uint32_t>&, uint32_t*);
 
     void setupBufferEntry(InstrumentationSnippet*,uint32_t,uint32_t,uint32_t,uint32_t, SimulationStats&);

@@ -1,8 +1,8 @@
 #ifndef _AddressStreamStats_hpp_
 #define _AddressStreamStats_hpp_
 
-#define debug(...) __VA_ARGS__
-//#define debug(...)
+//#define debug(...) __VA_ARGS__
+#define debug(...)
 
 enum EntryType: uint8_t {
   MEM_ENTRY = 0,
@@ -57,9 +57,10 @@ typedef struct {
                         // Note: includes all other blocks in the loop
     bool Master;
     uint32_t Phase;
-    uint32_t MemopCount;
-    uint32_t BlockCount;
     uint32_t AllocCount;
+    uint32_t BlockCount;
+    uint32_t GroupCount;
+    uint32_t MemopCount;
     char* Application;
     char* Extension;
 
@@ -81,9 +82,12 @@ typedef struct {
     MemoryStreamHandler** Handlers;
     ReuseDistance** RHandlers;
 
+    // per-group data
+//    uint32_t GroupSize;
+    uint64_t* GroupCounters;
 
-    uint64_t NestedLoopCount;
-    NestedLoopStruct* NLStats;
+    //uint64_t NestedLoopCount;
+    //NestedLoopStruct* NLStats;
 
 } SimulationStats;
 

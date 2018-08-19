@@ -485,7 +485,7 @@ extern "C" {
                     sd = stats->RHandlers[SpatialHandlerIndex];
                     ProcessSpatialBuffer(sd, numElements, iid, tid);
                 }
-
+/*
                 for(uint32_t i = 0; i < (stats->NestedLoopCount); i++){
                     uint64_t* currInnerLevelBasicBlocks = 
                       stats->NLStats[i].InnerLevelBasicBlocks; 
@@ -497,6 +497,19 @@ extern "C" {
                           CounterType_basicblock))
                             stats->NLStats[i].GroupCount = 
                             stats->Counters[currInnerLevelBasicBlocks[j]];
+                    }
+                }               
+*/
+                for(uint32_t i = 0; i < (stats->BlockCount); i++) {
+                    uint32_t idx = i;
+                    if (stats->Types[i] == CounterType_instruction) {
+                        idx = stats->Counters[i];
+                    }
+
+                    uint64_t blocksGroupId = stats->GroupIds[i]; 
+                    uint64_t blockCount = stats->Counters[idx];
+                    if(stats->GroupCounters[blocksGroupId] < blockCount) {
+                        stats->GroupCounters[blocksGroupId] = blockCount;
                     }
                 }               
             } 
@@ -534,15 +547,14 @@ extern "C" {
                           << TAB << "Group " << stats->GroupIds[bbid]
                           << TAB << "Counter " << s->Counters[bbid]
                           << TAB << "Real " << s->Counters[idx]
-                          << TAB << "GroupCount " << stats->NLStats[stats->GroupIds[bbid]].GroupCount
+//                          << TAB << "GroupCount " << stats->NLStats[stats->GroupIds[bbid]].GroupCount
+                          << TAB << "GroupCount " << stats->GroupCounters[stats->GroupIds[bbid]]
                           << ENDL);
 
                     uint64_t groupidx = stats->GroupIds[bbid];
                     if (Sampler->ExceedsAccessLimit(s->Counters[idx])
-                    || (s->LoopInclusion &&
-                        (Sampler->ExceedsAccessLimit(
-                        stats->NLStats[groupidx].GroupCount)
-                        ))){
+                      || (s->LoopInclusion && (Sampler->ExceedsAccessLimit(
+                      stats->GroupCounters[groupidx])))){
 
                         uint64_t k1 = GENERATE_KEY(midx, PointType_buffercheck);
                         uint64_t k2 = GENERATE_KEY(midx, PointType_bufferinc);
@@ -2701,6 +2713,10 @@ uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access){
     if(access->type == MEM_ENTRY) {
         debug(inform << "Processing MEM_ENTRY with address " << hex << 
           (access->address) << "(" << dec << access->memseq << ")" << ENDL);
+        if (access->memseq > 255) {
+            inform << "Processing MEM_ENTRY with address " << hex << 
+              (access->address) << "(" << dec << access->memseq << ")" << ENDL;
+        }
         return processAddress(stats_in, access->address, access->memseq, access->loadstoreflag);
     } else if(access->type == VECTOR_ENTRY) {
         debug(inform << "Processing VECTOR_ENTRY " << ENDL;); 
@@ -2759,6 +2775,8 @@ SimulationStats* GenerateCacheStats(SimulationStats* stats, uint32_t typ, image_
     else
         stats->AllocCount = stats->BlockCount;
 
+    std::cout << "ACC: AllocCount = " << std::dec << stats->AllocCount << 
+      std::endl;
     if(EitherAddressRangeOrSimulation){
         stats->Stats = new StreamStats*[CountMemoryHandlers];
         bzero(stats->Stats, sizeof(StreamStats*) * CountMemoryHandlers);    
