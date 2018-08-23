@@ -36,13 +36,6 @@ class StreamStats;
 class MemoryStreamHandler;
 class ReuseDistance;
 
-typedef struct{
-    uint64_t GroupId; // for now, same as BB-ID/ Top-most loop of 
-    uint32_t InnerLevelSize;
-    uint64_t GroupCount;
-    uint64_t* InnerLevelBasicBlocks; // Since there can be >1 
-} NestedLoopStruct;
-
 typedef struct {
     // memory buffer
     BufferEntry* Buffer;
@@ -83,11 +76,7 @@ typedef struct {
     ReuseDistance** RHandlers;
 
     // per-group data
-//    uint32_t GroupSize;
     uint64_t* GroupCounters;
-
-    //uint64_t NestedLoopCount;
-    //NestedLoopStruct* NLStats;
 
 } SimulationStats;
 

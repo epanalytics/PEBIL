@@ -37,8 +37,7 @@ private:
     Vector<BasicBlock*> blocksToInst;      // All BBs to instrument
                                            // Should probably be kept sorted
 
-    SimpleHash<NestedLoopStruct*> nestedLoopGrouping;
-    SimpleHash<uint64_t> mapBBToGroupId;
+    SimpleHash<uint64_t> mapBBToGroupId;  // <hash, GroupId>
 
     bool includeLoads = true;
     bool includeStores = true;
@@ -52,6 +51,7 @@ private:
 
     uint64_t getNullLineInfoValue();
     uint32_t getNumberOfBlocksToInstrument();
+    uint64_t getNumberOfGroups();
     uint32_t getNumberOfMemopsToInstrument();
     uint64_t getNumberOfMemopsToInstrument(X86Instruction*);
     uint64_t getSimulationStatsOffset();
@@ -63,8 +63,8 @@ private:
 
     void initializeBlocksToInst();
     void initializeFirstBufferEntry(BufferEntry&);
-    void initializeSimulationStats(SimulationStats&, Vector<uint64_t>&, 
-      SimpleHash<uint64_t>&, SimpleHash<uint64_t>&);
+    void initializeGroups();
+    void initializeSimulationStats(SimulationStats&);
     
     void instrumentEntryPoint();
     void instrumentExitPoint();
@@ -79,18 +79,15 @@ private:
 
     void initializeInstructionInfo(X86Instruction*,uint32_t,SimulationStats&,
       Function*,BasicBlock*,uint32_t,uint32_t,uint32_t,uint32_t,uint64_t,
-      uint64_t,uint64_t,
-      SimpleHash<uint64_t>&, SimpleHash<uint32_t>&, uint32_t*);
-    void initializeBlockInfo(BasicBlock*,SimulationStats&,Function*,uint32_t,uint64_t,
-        SimpleHash<uint64_t>&,SimpleHash<uint32_t>&, uint32_t*);
+      uint64_t,uint64_t, uint32_t*);
+    void initializeBlockInfo(BasicBlock*,SimulationStats&,Function*,uint32_t,uint64_t,uint32_t*);
 
     void setupBufferEntry(InstrumentationSnippet*,uint32_t,uint32_t,uint32_t,uint32_t, SimulationStats&);
     void writeBufferBase(InstrumentationSnippet*,uint32_t,uint32_t,enum EntryType, uint8_t,uint32_t);
     void insertBufferClear(uint32_t,X86Instruction*,InstLocations,uint64_t,uint32_t,SimulationStats&);
     void bufferVectorEntry(X86Instruction*,InstLocations,X86Instruction*,uint32_t,SimulationStats&,uint32_t,uint32_t);
     void instrumentScatterGather(Loop*, uint32_t,uint32_t,uint32_t,
-      SimulationStats&,Function*,uint64_t,uint64_t,
-      SimpleHash<uint64_t>&, SimpleHash<uint32_t>&, uint32_t*);
+      SimulationStats&,Function*,uint64_t,uint64_t,uint32_t*);
     void instrumentMemop(BasicBlock*,X86Instruction*,uint8_t,uint64_t,uint32_t,SimulationStats&,uint32_t,uint32_t);
     void initializeLineInfo(SimulationStats&, Function*, BasicBlock*, uint32_t, uint64_t);
     void writeStaticFile();

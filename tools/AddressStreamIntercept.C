@@ -142,6 +142,23 @@ uint32_t AddressStreamIntercept::getNumberOfBlocksToInstrument() {
     return blocksToInst.size();
 }
 
+// Get number of groups created
+uint64_t AddressStreamIntercept::getNumberOfGroups() {
+    // Go through mapBBToGrouId and find maximum group id
+    // Group IDs start at 0, so add one to final number
+    uint64_t maxId = 0;
+    ASSERT(mapBBToGroupId.size() > 0);
+    uint64_t* allIds = mapBBToGroupId.values();
+
+    for (uint32_t i = 0; i < mapBBToGroupId.size(); i++) {
+        if (allIds[i] > maxId) {
+            maxId = allIds[i];
+        }
+    } // For each BB's group id
+
+    return (maxId + 1);
+}
+
 // Get the number of memops to instrument
 // Note: Some insns can contain multiple memops!
 uint32_t AddressStreamIntercept::getNumberOfMemopsToInstrument(){
@@ -316,10 +333,59 @@ void AddressStreamIntercept::initializeFirstBufferEntry(BufferEntry& intro){
     intro.__buf_capacity = BUFFER_ENTRIES;
 }
 
+// Initialize groups for sampling (blocks that are turned on and off together)
+// In this function, we assume that all blocks in the same loop are in the 
+// same group
+void AddressStreamIntercept::initializeGroups() {
+    // Start group ids at 0
+    uint64_t nextGroupId = 0;   // Increases when a new groupd is created
+    uint64_t currGroupId = 0;   // current group ID
+    // This is a temporary structure to help create mapBBToGroupId
+    // (Theoretically, blocks that aren't going to be instrumented could go in
+    // mapBBToGroupId, but for now we will limit that structure to only blocks
+    // that will be instrumented)
+    SimpleHash<uint64_t> mapBBHeadsToGroupId;
+
+    std::cout << "ACC: Initialize groups" << std::endl;
+    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
+        BasicBlock* bb = blocksToInst[blockInd];
+        ASSERT((blocksToInstHash.get(bb->getHashCode().getValue())))
+        std::cout << "ACC: Adding block 0x" << std::hex << 
+            bb->getHashCode().getValue() << "to groups" << std::endl;
+        // If the BB has already been added to map, then done!
+        // If not, then figure out which group it should be in
+        if (!mapBBToGroupId.get(bb->getHashCode().getValue())) {
+            // If the BB is in a loop, see if that loop head has a group
+            if (bb->isInLoop()){
+                FlowGraph* fg = bb->getFlowGraph();
+                Loop* lp = fg->getInnermostLoopForBlock(bb->getIndex());
+        
+                BasicBlock* headBB = lp->getHead(); 
+                uint64_t topLoopId = headBB->getHashCode().getValue();
+                // If this group has an ID, get the group ID
+                if (mapBBHeadsToGroupId.get(topLoopId)) {
+                    currGroupId = mapBBHeadsToGroupId.getVal(topLoopId);
+                } else {
+                    // Else, create a new group
+                    currGroupId = nextGroupId;
+                    nextGroupId++;
+                    mapBBHeadsToGroupId.insert(topLoopId, currGroupId);
+                }
+
+            } else { 
+                // Else, bb is not in a loop and create a new group
+                currGroupId = nextGroupId;
+                nextGroupId++;
+            } // bb is in loop
+
+            // Add this BB to map
+            mapBBToGroupId.insert(bb->getHashCode().getValue(), currGroupId);
+        } // BB has group Id
+    } // for each block
+} 
+
 // Allocate and initialize pointers for the runtime Simulation Stats structure
-void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats,
-  Vector<uint64_t>& GroupIdsVec, SimpleHash<uint64_t>& groupsInitialized,
-  SimpleHash<uint64_t>& mapBBToIdxOfGroup){
+void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
 
     // Allocate Memory Buffer
     // first entry in buffer is treated specially
@@ -347,7 +413,9 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats,
     stats.MemopCount = getNumberOfMemopsToInstrument();
     std::cout << "ACC: Setting MemopCount to " << std::dec << stats.MemopCount
       << std::endl;
-    stats.GroupCount = GroupIdsVec.size();
+    stats.GroupCount = getNumberOfGroups();
+    std::cout << "ACC: Setting GroupCount to " << std::dec << stats.GroupCount
+      << std::endl;
 
     // Allocate Counters and SimulationStats contiguously to
     // avoid an extra memory ref in counter updates
@@ -608,11 +676,16 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats,
                       (uint64_t)stats.Hashes + memopSeq*sizeof(uint64_t),
                       sizeof(uint64_t), &hashValue);
 
-                    if(mapBBToIdxOfGroup.get(bbHashValue)) {
-                        groupId = mapBBToIdxOfGroup.getVal(bbHashValue);
+                    if(mapBBToGroupId.get(bbHashValue)) {
+                        groupId = mapBBToGroupId.getVal(bbHashValue);
                     } else {
                         groupId = 0;
                     }
+
+                    std::cout << "ACC: Setting Block ( 0x" << std::hex << 
+                      hashValue << " ) to group " << std::dec << groupId 
+                      << std::endl;
+
                     initializeReservedData(getInstDataAddress() + 
                       (uint64_t)stats.GroupIds + (memopSeq * sizeof(uint64_t)),
                       sizeof(uint64_t),&groupId);
@@ -628,8 +701,8 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats,
               sizeof(uint64_t), &hashValue);
 
 
-            if(mapBBToIdxOfGroup.get(hashValue)) {
-                groupId = mapBBToIdxOfGroup.getVal(hashValue);
+            if(mapBBToGroupId.get(hashValue)) {
+                groupId = mapBBToGroupId.getVal(hashValue);
             } else {
                 groupId = 0;
             }
@@ -664,46 +737,6 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats,
 
 
     stats.Stats = NULL;
-
-
-//    stats.NestedLoopCount = GroupIdsVec.size();
-
-
-    // Initialize stats.NLStats
-//    stats.NLStats = (NestedLoopStruct*)reserveDataOffset(
-//        stats.NestedLoopCount * sizeof(NestedLoopStruct));
-//    initializeReservedPointer(
-//        (uint64_t)stats.NLStats,
-//        statsOffset + offsetof(SimulationStats,NLStats));    
-
-//    for(uint32_t i = 0; i < GroupIdsVec.size(); i++){
-//        uint64_t myGroupId = GroupIdsVec[i];
-//        NestedLoopStruct* myNestedLoopStruct = nestedLoopGrouping.getVal(myGroupId);
-
-//        uint64_t currNestLoopStatsInstance =
-//            ((uint64_t)stats.NLStats + (i * sizeof(NestedLoopStruct)));
-        
-        // Mostly dont need this since GroupIds are already stored!! 
-//        uint64_t currGroupId = myNestedLoopStruct->GroupId;
-//        initializeReservedData(
-//            getInstDataAddress() + currNestLoopStatsInstance + offsetof(NestedLoopStruct,GroupId),
-//            sizeof(uint64_t),
-//            (void*)(&currGroupId));
-
-//        uint64_t temp = getInstDataAddress() + currNestLoopStatsInstance;
-//        uint64_t tmpCount = 0;
-//        initializeReservedData(
-//            getInstDataAddress() + currNestLoopStatsInstance + offsetof(NestedLoopStruct,GroupCount),
-//            sizeof(uint64_t),
-//            (void*)(&tmpCount));
-        
-//        // Mostly dont need this since GroupIds are already stored!! 
-//        uint64_t currInnerLevelSize = myNestedLoopStruct->InnerLevelSize;
-//        initializeReservedData(
-//            getInstDataAddress() + currNestLoopStatsInstance + offsetof(NestedLoopStruct,InnerLevelSize),
-//            sizeof(uint32_t),
-//            (void*)(&currInnerLevelSize));
-//    }
 
     // Finally initialize SimulationStats
     initializeReservedData(
@@ -757,18 +790,11 @@ void AddressStreamIntercept::instrumentExitPoint() {
 }
 
 
-
-
-
-
 // Also include any block that is in this loop (including child loops)
 void AddressStreamIntercept::includeLoopBlocks(BasicBlock* bb) {
     if (bb->isInLoop()){
-        // For now use the BB-ID of top-most loop as hash-key of the group.
-        // Should change this by generating a new hash.
         SimpleHash<Loop*> loopsToCheck;
         Vector<Loop*> loopsVec;
-        Vector<uint64_t> BB_NestedLoop;
 
         FlowGraph* fg = bb->getFlowGraph();
         Loop* lp = fg->getInnermostLoopForBlock(bb->getIndex());
@@ -780,57 +806,15 @@ void AddressStreamIntercept::includeLoopBlocks(BasicBlock* bb) {
 
         for (uint32_t k = 0; k < lp->getNumberOfBlocks(); k++){
             uint64_t code = allBlocks[k]->getHashCode().getValue();
-            BB_NestedLoop.insert(allBlocks[k]->getHashCode().getValue(),k);
         //    blocksToInstHash.insert(code, allBlocks[k]);
         }                      
-        
-        Vector<uint64_t>* tmpInnermostBasicBlocksForGroup; 
-        tmpInnermostBasicBlocksForGroup=new Vector<uint64_t>;
-
-        uint32_t CountNumBBAdded=0;
-        for(uint32_t i=0; i < BB_NestedLoop.size(); i++){
-            if( !(mapBBToGroupId.get(BB_NestedLoop[i])) ){
-                mapBBToGroupId.insert(BB_NestedLoop[i],topLoopID); 
-                tmpInnermostBasicBlocksForGroup->insert(BB_NestedLoop[i],tmpInnermostBasicBlocksForGroup->size());
-                CountNumBBAdded++;
-            }  
-        }
-
-        if(!nestedLoopGrouping.get(topLoopID)) {
-            uint64_t* innermostBasicBlocksForGroup;
-            innermostBasicBlocksForGroup = new uint64_t[tmpInnermostBasicBlocksForGroup->size()];
-            for(uint32_t i=0;i<tmpInnermostBasicBlocksForGroup->size();i++){
-                innermostBasicBlocksForGroup[i] = (*tmpInnermostBasicBlocksForGroup)[i];
-            }
-
-            NestedLoopStruct* currLoopStats = new NestedLoopStruct;
-            currLoopStats->GroupId = topLoopID;
-            currLoopStats->InnerLevelSize = CountNumBBAdded; //tmpInnermostBasicBlocksForGroup->size();
-            currLoopStats->GroupCount = 0;
-            currLoopStats->InnerLevelBasicBlocks = innermostBasicBlocksForGroup;
-            nestedLoopGrouping.insert(topLoopID,currLoopStats);
-        }
-
         // TODO: Should I delete the hashes/vectors used for book keeping of figuring out loop structure ?
         delete[] allBlocks;
-        delete tmpInnermostBasicBlocksForGroup;
-       // delete MainNode;
-    } else {
+    }/* else {
         if( !(mapBBToGroupId.get(bb->getHashCode().getValue())) ) {
             mapBBToGroupId.insert(bb->getHashCode().getValue(),bb->getHashCode().getValue()); 
-            if( !(nestedLoopGrouping.get(bb->getHashCode().getValue())) ) {
-                uint64_t* innermostBasicBlocksForGroup;
-                innermostBasicBlocksForGroup=new uint64_t;  
-                *innermostBasicBlocksForGroup=(bb->getHashCode().getValue()); // Since we know this is only a BB, just adding this BB.
-                NestedLoopStruct* currLoopStats = new NestedLoopStruct;
-                currLoopStats->GroupId = (bb->getHashCode().getValue());
-                currLoopStats->InnerLevelSize = 1;
-                currLoopStats->GroupCount = 0;
-                currLoopStats->InnerLevelBasicBlocks = innermostBasicBlocksForGroup;
-                nestedLoopGrouping.insert(bb->getHashCode().getValue(),currLoopStats); // Only 1 BB, so third term is 1.
-            } // not in nestedLoopGrouping 
         } // not in mapBBToGroupId
-    } // not in loop
+    } */// not in loop
 
 }
 
@@ -1058,10 +1042,6 @@ void AddressStreamIntercept::instrumentMemop(
         uint32_t memopIdInBlock,
         uint32_t memopSeq){
 
-    std::cout << "ACC: Instrumenting Memop " << std::dec << memopIdInBlock
-      << " in block " << std::hex << bb->getHashCode().getValue() 
-      << " which is memopSeq " << std::dec << memopSeq << std::endl;
-
     // First we build the actual instrumentation point
     InstrumentationSnippet* snip = addInstrumentationSnippet();
     InstrumentationPoint* pt = addInstrumentationPoint(memop, snip, InstrumentationMode_trampinline, InstLocation_prior);
@@ -1129,8 +1109,6 @@ void AddressStreamIntercept::initializeInstructionInfo(
         uint64_t noData,
         uint64_t simulationStruct,
         uint64_t blockSeq,
-        SimpleHash<uint64_t>& mapBBToIdxOfGroup,
-        SimpleHash<uint32_t>& mapBBToArrayIdx,
         uint32_t* countBBInstrumented
         )
 {
@@ -1144,15 +1122,9 @@ void AddressStreamIntercept::initializeInstructionInfo(
         uint64_t bbHashValue = bb->getHashCode().getValue();
         delete hc;
         // Map is by block id, even with --perinsn
-        if(mapBBToIdxOfGroup.get(bbHashValue)){
-            groupId = mapBBToIdxOfGroup.getVal(bbHashValue);
-            if (!mapBBToArrayIdx.get(bbHashValue)) {
-                std::cout << "ACC: Adding " << std::hex << bbHashValue
-                  << " to mapBBToArrayIdx" << std::endl;
-                mapBBToArrayIdx.insert(bbHashValue, *countBBInstrumented);
-            }
+        if(mapBBToGroupId.get(bbHashValue)){
+            groupId = mapBBToGroupId.getVal(bbHashValue);
         }
-        *countBBInstrumented += 1;
 
         if (memopIdInBlock == 0){
 
@@ -1171,8 +1143,6 @@ void AddressStreamIntercept::initializeBlockInfo(BasicBlock* bb,
                          Function* func,
                          uint32_t blockSeq,
                          uint64_t noData,
-                         SimpleHash<uint64_t>& mapBBToIdxOfGroup,
-                         SimpleHash<uint32_t>& mapBBToArrayIdx,
                          uint32_t* countBBInstrumented) {
 
     //initializeLineInfo(stats, func, bb, blockSeq, noData);
@@ -1180,9 +1150,8 @@ void AddressStreamIntercept::initializeBlockInfo(BasicBlock* bb,
     uint64_t hashValue = bb->getHashCode().getValue();
     uint64_t addr = bb->getProgramAddress();        
     uint64_t groupId = 0;
-    if(mapBBToIdxOfGroup.get(hashValue)) {
-        groupId = mapBBToIdxOfGroup.getVal(hashValue);
-        mapBBToArrayIdx.insert(hashValue, *countBBInstrumented);
+    if(mapBBToGroupId.get(hashValue)) {
+        groupId = mapBBToGroupId.getVal(hashValue);
     }
     *countBBInstrumented += 1;
 
@@ -1399,8 +1368,6 @@ void AddressStreamIntercept::instrumentScatterGather(Loop* lp,
         Function* func,
         uint64_t noData,
         uint64_t simulationStruct,
-        SimpleHash<uint64_t>& mapBBToIdxOfGroup,
-        SimpleHash<uint32_t>& mapBBToArrayIdx,
         uint32_t* countBBInstrumented
         )
 {
@@ -1408,8 +1375,8 @@ void AddressStreamIntercept::instrumentScatterGather(Loop* lp,
     BasicBlock* head = lp->getHead();
     X86Instruction* vectorMemOp = head->getInstruction(0);
     initializeInstructionInfo(vectorMemOp, 0, stats, func, head,
-        memseq, 0, 0, threadReg, noData, simulationStruct, blockSeq,
-        mapBBToIdxOfGroup, mapBBToArrayIdx, countBBInstrumented);
+      memseq, 0, 0, threadReg, noData, simulationStruct, blockSeq,
+      countBBInstrumented);
 
     Vector<BasicBlock*> entryInterpositions;
     uint32_t nsources = head->getNumberOfSources();
@@ -1439,63 +1406,44 @@ void AddressStreamIntercept::instrumentScatterGather(Loop* lp,
         // TODO
     }
 
-
 }
 
 void AddressStreamIntercept::instrument(){
+    // Required in every tool
     InstrumentationTool::instrument();
+
+    // Initialize the blocksToInst vector (which blocks are we instrumenting?)
     initializeBlocksToInst();
 
+    /*** TODO ACC --> Can this be moved? ***/
     if (dfpFile){
-        PRINT_WARN(20, "--dfp is an accepted argument but it does nothing. range finding is done for every block included in the simulation by default");
+        PRINT_WARN(20, "--dfp is an accepted argument but it does nothing. "
+          "range finding is done for every block included in the simulation "
+          "by default");
     }
 
-
-    /*** ACC --> Refactor Groups ***/
-    Vector<uint64_t> GroupIdsVec;
-    SimpleHash<uint64_t> groupsInitialized;
-    SimpleHash<uint64_t> mapBBToIdxOfGroup;
-
-
-    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
-        BasicBlock* bb = blocksToInst[blockInd];
-        if(blocksToInstHash.get(bb->getHashCode().getValue())){
-
-            uint64_t myGroupId, myGroupStatsSize;
-            if(mapBBToGroupId.get(bb->getHashCode().getValue())) {
-                myGroupId = mapBBToGroupId.getVal(bb->getHashCode().getValue());
-                NestedLoopStruct* myNestedLoopStruct = nestedLoopGrouping.getVal(myGroupId);
-
-                if(!groupsInitialized.exists(myGroupId, myGroupId)){
-                    groupsInitialized.insert(myGroupId, myGroupId);
-                    GroupIdsVec.insert(myGroupId, GroupIdsVec.size());
-                }
-                //TODO: Not sure using GroupIdsVec.size()-1 is the safest
-                if(!mapBBToIdxOfGroup.get(bb->getHashCode().getValue()))
-                    mapBBToIdxOfGroup.insert(bb->getHashCode().getValue(),(GroupIdsVec.size()-1));
-            }
-        }
-    }
+    // Sampling can be turned on and off in groups. Initialize those groups.
+    initializeGroups();
 
     // Allocate space for null line info value
     allocateNullLineInfoValue();
 
     // Analyze code for thread registers
     std::set<Base*> functionsToInst;
+    std::map<uint64_t, ThreadRegisterMap*>* functionThreading;
     for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
         BasicBlock* bb = blocksToInst[blockInd];
         Function* f = (Function*)bb->getLeader()->getContainer();
         functionsToInst.insert(f);
     }
-
-    std::map<uint64_t, ThreadRegisterMap*>* functionThreading;
     if (usePIC()){
         functionThreading = threadReadyCode(functionsToInst);
     }
 
+    // Initialize SimulationStats, the data structure that will be passed
+    // to the runtime library to help collect runtime info
     SimulationStats stats;
-    initializeSimulationStats(stats, GroupIdsVec, groupsInitialized, 
-      mapBBToIdxOfGroup);
+    initializeSimulationStats(stats);
 
     // Add arguments to instrumentation functions
     entryFunc->addArgument(getSimulationStatsOffset());
@@ -1515,46 +1463,43 @@ void AddressStreamIntercept::instrument(){
     uint32_t blockSeq = 0;
     uint32_t memopSeq = 0;
     uint32_t countBBInstrumented = 0;
-    SimpleHash<uint32_t> mapBBToArrayIdx;
-    //for (uint32_t blockInd = 0; blockInd < blocksToInstHash.size(); blockInd++){
-    //    BasicBlock* bb = blocksToInst[blockInd];
-    //for(std::vector<BasicBlock*>::const_iterator it = blocksToInst.begin();
-    //  it != blocksToInst.end(); it++) {
-    //    BasicBlock* bb = (*it);
     for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
         BasicBlock* bb = blocksToInst[blockInd];
         Function* func = (Function*)bb->getLeader()->getContainer();
 
         // Double-check that we want to instrument this block
-        ASSERT((blocksToInstHash.get(bb->getHashCode().getValue())) && "Rogue "              "block cound in blocksToInst array.");
+        ASSERT((blocksToInstHash.get(bb->getHashCode().getValue())) && "Rogue "
+          "block cound in blocksToInst array.");
 
-        // initialize block info
-        if (!isPerInstruction()){
-            initializeBlockInfo(bb, stats, func, blockSeq,
-                getNullLineInfoValue(), mapBBToIdxOfGroup, mapBBToArrayIdx, &countBBInstrumented);
+        if (!isPerInstruction()) {
+            initializeBlockInfo(bb, stats, func, blockSeq, getNullLineInfoValue(), &countBBInstrumented);
         }
-
+        
         uint32_t threadReg = X86_REG_INVALID;
         if (usePIC()){
             ThreadRegisterMap* threadMap = (*functionThreading)[func->getBaseAddress()];
             threadReg = threadMap->getThreadRegister(bb);
         }
 
-        // Check if block is part of gather-scatter loop
-        // KNC only
         if(bb->getInstruction(0)->isScatterGatherOp()) {
             // verify loop pattern
             PRINT_INFOR("Found scatter-gather block");
 
+            // Check if block is part of gather-scatter loop
+            // KNC only
+            ASSERT((!(bb->getInstruction(0)->isScatterGatherOp())) && 
+              "Address Stream Intercept found a scatter-gather block like "
+              "that of KNC code. This code is deprecated.");
+
             // instrument outside of loop
             FlowGraph* fg = bb->getFlowGraph();
             Loop* lp = fg->getInnermostLoopForBlock(bb->getIndex());
-            instrumentScatterGather(lp, blockSeq, memopSeq, threadReg, stats, 
-              func, getNullLineInfoValue(), simulationStruct, 
-              mapBBToIdxOfGroup, mapBBToArrayIdx, &countBBInstrumented);
+            instrumentScatterGather(lp, blockSeq, memopSeq, threadReg, stats,
+              func, getNullLineInfoValue(), simulationStruct,
+              &countBBInstrumented);
             ++memopSeq; // FIXME move inside call if we instrument more than one scatter-gather
 
-            // advance blocks to end of loop 
+            // advance blocks to end of loop
             // FIXME Check to see if this line is still right.
             blockSeq += lp->getNumberOfBlocks()-1;
             continue;
@@ -1566,6 +1511,10 @@ void AddressStreamIntercept::instrument(){
                 X86Instruction* memop = bb->getInstruction(insIndex);
 
                 if (memop->isMemoryOperation() || memop->isSoftwarePrefetch()){
+                // If this is the beginning of a new block, then we need to:
+                //   1. Insert a counter for this block
+                //   2. Insert runtime code to check to see if this block will
+                //      overflow the buffer
 
                     if (memopIdInBlock == 0){
 
@@ -1574,30 +1523,25 @@ void AddressStreamIntercept::instrument(){
                             if (usePIC()) counterOffset -= simulationStruct;
                             InstrumentationTool::insertBlockCounter(counterOffset, bb, true, threadReg);
                         }
-
                         insertBufferClear(bb->getNumberOfMemoryOps() + bb->getNumberOfSWPrefetches(), memop, InstLocation_prior, blockSeq, threadReg, stats);
 
                         leader = memopSeq;
                     }
-
                 }
+
                 // KNL implementation (not KNC)
                 if (memop->isScatterGatherOp()) {
                   bufferVectorEntry(memop, InstLocation_prior, memop, threadReg, stats, blockSeq, memopSeq);
-                  initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock, leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq,
-                      mapBBToIdxOfGroup, mapBBToArrayIdx, &countBBInstrumented);
+                  initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock, leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq, &countBBInstrumented);
                   ++memopIdInBlock;
                   ++memopSeq;
-                }
-                else if (memop->isMemoryOperation()) {
+                } else if (memop->isMemoryOperation()) {
 
                     if(memop->isLoad()) {
                         instrumentMemop(bb, memop, LOAD, blockSeq, threadReg, stats, memopIdInBlock, memopSeq);
   
                         initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock,
-                            leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq,
-                            mapBBToIdxOfGroup, mapBBToArrayIdx, 
-                            &countBBInstrumented);
+                            leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq, &countBBInstrumented);
   
                         ++memopIdInBlock;
                         ++memopSeq;
@@ -1607,9 +1551,7 @@ void AddressStreamIntercept::instrument(){
                         instrumentMemop(bb, memop, STORE, blockSeq, threadReg, stats, memopIdInBlock, memopSeq);
   
                         initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock,
-                            leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq,
-                            mapBBToIdxOfGroup, mapBBToArrayIdx, 
-                            &countBBInstrumented);
+                            leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq, &countBBInstrumented);
   
   
                         ++memopIdInBlock;
@@ -1620,9 +1562,7 @@ void AddressStreamIntercept::instrument(){
                     instrumentMemop(bb, memop, PREFETCH, blockSeq, threadReg, stats, memopIdInBlock, memopSeq);
 
                     initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock,
-                        leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq,
-                        mapBBToIdxOfGroup, mapBBToArrayIdx, 
-                        &countBBInstrumented);
+                        leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq, &countBBInstrumented);
                      ++memopIdInBlock;
                      ++memopSeq;
                 }
