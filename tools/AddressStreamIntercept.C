@@ -1108,8 +1108,7 @@ void AddressStreamIntercept::initializeInstructionInfo(
         uint32_t threadReg,
         uint64_t noData,
         uint64_t simulationStruct,
-        uint64_t blockSeq,
-        uint32_t* countBBInstrumented
+        uint64_t blockSeq
         )
 {
     if (isPerInstruction()){
@@ -1136,25 +1135,6 @@ void AddressStreamIntercept::initializeInstructionInfo(
 
         } 
     }
-}
-
-void AddressStreamIntercept::initializeBlockInfo(BasicBlock* bb,
-                         SimulationStats& stats,
-                         Function* func,
-                         uint32_t blockSeq,
-                         uint64_t noData,
-                         uint32_t* countBBInstrumented) {
-
-    //initializeLineInfo(stats, func, bb, blockSeq, noData);
-
-    uint64_t hashValue = bb->getHashCode().getValue();
-    uint64_t addr = bb->getProgramAddress();        
-    uint64_t groupId = 0;
-    if(mapBBToGroupId.get(hashValue)) {
-        groupId = mapBBToGroupId.getVal(hashValue);
-    }
-    *countBBInstrumented += 1;
-
 }
 
 void AddressStreamIntercept::grabScratchRegisters(
@@ -1367,16 +1347,14 @@ void AddressStreamIntercept::instrumentScatterGather(Loop* lp,
         SimulationStats& stats,
         Function* func,
         uint64_t noData,
-        uint64_t simulationStruct,
-        uint32_t* countBBInstrumented
+        uint64_t simulationStruct
         )
 {
     // instrument every source path to loop
     BasicBlock* head = lp->getHead();
     X86Instruction* vectorMemOp = head->getInstruction(0);
     initializeInstructionInfo(vectorMemOp, 0, stats, func, head,
-      memseq, 0, 0, threadReg, noData, simulationStruct, blockSeq,
-      countBBInstrumented);
+      memseq, 0, 0, threadReg, noData, simulationStruct, blockSeq);
 
     Vector<BasicBlock*> entryInterpositions;
     uint32_t nsources = head->getNumberOfSources();
@@ -1462,7 +1440,6 @@ void AddressStreamIntercept::instrument(){
     uint64_t simulationStruct = getSimulationStatsOffset();
     uint32_t blockSeq = 0;
     uint32_t memopSeq = 0;
-    uint32_t countBBInstrumented = 0;
     for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
         BasicBlock* bb = blocksToInst[blockInd];
         Function* func = (Function*)bb->getLeader()->getContainer();
@@ -1471,101 +1448,92 @@ void AddressStreamIntercept::instrument(){
         ASSERT((blocksToInstHash.get(bb->getHashCode().getValue())) && "Rogue "
           "block cound in blocksToInst array.");
 
-        if (!isPerInstruction()) {
-            initializeBlockInfo(bb, stats, func, blockSeq, getNullLineInfoValue(), &countBBInstrumented);
-        }
-        
         uint32_t threadReg = X86_REG_INVALID;
         if (usePIC()){
             ThreadRegisterMap* threadMap = (*functionThreading)[func->getBaseAddress()];
             threadReg = threadMap->getThreadRegister(bb);
         }
 
-        if(bb->getInstruction(0)->isScatterGatherOp()) {
-            // verify loop pattern
-            PRINT_INFOR("Found scatter-gather block");
+        // Check if block is part of gather-scatter loop
+        // KNC only
+        ASSERT((!(bb->getInstruction(0)->isScatterGatherOp())) && 
+          "Address Stream Intercept found a scatter-gather block like "
+          "that of KNC code. This code is deprecated.");
 
-            // Check if block is part of gather-scatter loop
-            // KNC only
-            ASSERT((!(bb->getInstruction(0)->isScatterGatherOp())) && 
-              "Address Stream Intercept found a scatter-gather block like "
-              "that of KNC code. This code is deprecated.");
+        uint32_t memopIdInBlock = 0;
+        uint32_t leader = 0;
+        for (uint32_t insIndex = 0; insIndex < bb->getNumberOfInstructions(); 
+          insIndex++){
+            X86Instruction* memop = bb->getInstruction(insIndex);
 
-            // instrument outside of loop
-            FlowGraph* fg = bb->getFlowGraph();
-            Loop* lp = fg->getInnermostLoopForBlock(bb->getIndex());
-            instrumentScatterGather(lp, blockSeq, memopSeq, threadReg, stats,
-              func, getNullLineInfoValue(), simulationStruct,
-              &countBBInstrumented);
-            ++memopSeq; // FIXME move inside call if we instrument more than one scatter-gather
-
-            // advance blocks to end of loop
-            // FIXME Check to see if this line is still right.
-            blockSeq += lp->getNumberOfBlocks()-1;
-            continue;
-        } else {
-
-            uint32_t memopIdInBlock = 0;
-            uint32_t leader = 0;
-            for (uint32_t insIndex = 0; insIndex < bb->getNumberOfInstructions(); insIndex++){
-                X86Instruction* memop = bb->getInstruction(insIndex);
-
-                if (memop->isMemoryOperation() || memop->isSoftwarePrefetch()){
-                // If this is the beginning of a new block, then we need to:
-                //   1. Insert a counter for this block
-                //   2. Insert runtime code to check to see if this block will
-                //      overflow the buffer
-
-                    if (memopIdInBlock == 0){
-
-                        if (!isPerInstruction()){
-                            uint64_t counterOffset = (uint64_t)stats.Counters + (blockSeq * sizeof(uint64_t));
-                            if (usePIC()) counterOffset -= simulationStruct;
-                            InstrumentationTool::insertBlockCounter(counterOffset, bb, true, threadReg);
-                        }
-                        insertBufferClear(bb->getNumberOfMemoryOps() + bb->getNumberOfSWPrefetches(), memop, InstLocation_prior, blockSeq, threadReg, stats);
-
-                        leader = memopSeq;
+            // If this is the beginning of a new block, then we need to:
+            //   1. Insert a counter for this block
+            //   2. Insert runtime code to check to see if this block will
+            //      overflow the buffer
+            if (ifInstrumentingInstruction(memop) && ((memopIdInBlock == 0))){
+                if (!isPerInstruction()){
+                    uint64_t counterOffset = (uint64_t)stats.Counters + 
+                      (blockSeq * sizeof(uint64_t));
+                    if (usePIC()) { 
+                        counterOffset -= simulationStruct;
                     }
+                    InstrumentationTool::insertBlockCounter(counterOffset, 
+                      bb, true, threadReg);
                 }
 
-                // KNL implementation (not KNC)
-                if (memop->isScatterGatherOp()) {
-                  bufferVectorEntry(memop, InstLocation_prior, memop, threadReg, stats, blockSeq, memopSeq);
-                  initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock, leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq, &countBBInstrumented);
-                  ++memopIdInBlock;
-                  ++memopSeq;
-                } else if (memop->isMemoryOperation()) {
+                // TODO ACC: Get cleaner number of memops
+                insertBufferClear(bb->getNumberOfMemoryOps() + 
+                  bb->getNumberOfSWPrefetches(), memop, InstLocation_prior, 
+                  blockSeq, threadReg, stats);
 
-                    if(memop->isLoad()) {
-                        instrumentMemop(bb, memop, LOAD, blockSeq, threadReg, stats, memopIdInBlock, memopSeq);
-  
-                        initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock,
-                            leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq, &countBBInstrumented);
-  
-                        ++memopIdInBlock;
-                        ++memopSeq;
-                    }
-  
-                    if(memop->isStore()) {
-                        instrumentMemop(bb, memop, STORE, blockSeq, threadReg, stats, memopIdInBlock, memopSeq);
-  
-                        initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock,
-                            leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq, &countBBInstrumented);
-  
-  
-                        ++memopIdInBlock;
-                        ++memopSeq;
-                    } //store
-                } //memop
-                else if(memop->isSoftwarePrefetch()) {
-                    instrumentMemop(bb, memop, PREFETCH, blockSeq, threadReg, stats, memopIdInBlock, memopSeq);
+                leader = memopSeq;
+            }
 
-                    initializeInstructionInfo(memop, insIndex, stats, func, bb, memopSeq, memopIdInBlock,
-                        leader, threadReg, getNullLineInfoValue(), simulationStruct, blockSeq, &countBBInstrumented);
-                     ++memopIdInBlock;
-                     ++memopSeq;
+            // KNL implementation (not KNC)
+            if (memop->isScatterGatherOp()) {
+              bufferVectorEntry(memop, InstLocation_prior, memop, threadReg, 
+                stats, blockSeq, memopSeq);
+              initializeInstructionInfo(memop, insIndex, stats, func, bb, 
+                memopSeq, memopIdInBlock, leader, threadReg, 
+                getNullLineInfoValue(), simulationStruct, blockSeq);
+              ++memopIdInBlock;
+              ++memopSeq;
+            } else if (memop->isMemoryOperation()) {
+
+                if(memop->isLoad()) {
+                    instrumentMemop(bb, memop, LOAD, blockSeq, threadReg, 
+                      stats, memopIdInBlock, memopSeq);
+  
+                    initializeInstructionInfo(memop, insIndex, stats, func, bb,
+                      memopSeq, memopIdInBlock, leader, threadReg, 
+                      getNullLineInfoValue(), simulationStruct, blockSeq);
+  
+                    ++memopIdInBlock;
+                    ++memopSeq;
                 }
+  
+                if(memop->isStore()) {
+                    instrumentMemop(bb, memop, STORE, blockSeq, threadReg, 
+                      stats, memopIdInBlock, memopSeq);
+  
+                    initializeInstructionInfo(memop, insIndex, stats, func, bb,
+                      memopSeq, memopIdInBlock, leader, threadReg, 
+                      getNullLineInfoValue(), simulationStruct, blockSeq);
+  
+  
+                    ++memopIdInBlock;
+                    ++memopSeq;
+                } //store
+            } //memop
+            else if(memop->isSoftwarePrefetch()) {
+                instrumentMemop(bb, memop, PREFETCH, blockSeq, threadReg, 
+                  stats, memopIdInBlock, memopSeq);
+
+                initializeInstructionInfo(memop, insIndex, stats, func, bb, 
+                  memopSeq, memopIdInBlock, leader, threadReg, 
+                  getNullLineInfoValue(), simulationStruct, blockSeq);
+                 ++memopIdInBlock;
+                 ++memopSeq;
             }
         }
         blockSeq++;
