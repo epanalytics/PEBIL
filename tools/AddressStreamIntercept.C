@@ -1096,47 +1096,6 @@ void AddressStreamIntercept::instrumentMemop(
     //snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, threadid), true));
 }
 
-void AddressStreamIntercept::initializeInstructionInfo(
-        X86Instruction* memop,
-        uint32_t instructionIdx,
-        SimulationStats& stats,
-        Function* func,
-        BasicBlock* bb,
-        uint32_t memopSeq,
-        uint32_t memopIdInBlock,
-        uint32_t leader,
-        uint32_t threadReg,
-        uint64_t noData,
-        uint64_t simulationStruct,
-        uint64_t blockSeq
-        )
-{
-    if (isPerInstruction()){
-        //initializeLineInfo(stats, func, bb, memopSeq, noData);
-
-        HashCode* hc = memop->generateHashCode(bb);
-        uint64_t hashValue = hc->getValue();
-        uint64_t addr = memop->getProgramAddress();
-        uint64_t groupId = 0;
-        uint64_t bbHashValue = bb->getHashCode().getValue();
-        delete hc;
-        // Map is by block id, even with --perinsn
-        if(mapBBToGroupId.get(bbHashValue)){
-            groupId = mapBBToGroupId.getVal(bbHashValue);
-        }
-
-        if (memopIdInBlock == 0){
-
-            uint64_t counterOffset = (uint64_t)stats.Counters + (memopSeq * sizeof(uint64_t));
-            if (usePIC()){
-                counterOffset -= simulationStruct;
-            }
-            InstrumentationTool::insertBlockCounter(counterOffset, bb, true, threadReg);
-
-        } 
-    }
-}
-
 void AddressStreamIntercept::grabScratchRegisters(
         X86Instruction* instRefPoint,
         InstLocations loc,
@@ -1353,8 +1312,6 @@ void AddressStreamIntercept::instrumentScatterGather(Loop* lp,
     // instrument every source path to loop
     BasicBlock* head = lp->getHead();
     X86Instruction* vectorMemOp = head->getInstruction(0);
-    initializeInstructionInfo(vectorMemOp, 0, stats, func, head,
-      memseq, 0, 0, threadReg, noData, simulationStruct, blockSeq);
 
     Vector<BasicBlock*> entryInterpositions;
     uint32_t nsources = head->getNumberOfSources();
@@ -1471,15 +1428,17 @@ void AddressStreamIntercept::instrument(){
             //   2. Insert runtime code to check to see if this block will
             //      overflow the buffer
             if (ifInstrumentingInstruction(memop) && ((memopIdInBlock == 0))){
-                if (!isPerInstruction()){
+                uint32_t counterSeq = blockSeq;
+                if (isPerInstruction()){
+                    counterSeq = memopSeq;
+                } 
                     uint64_t counterOffset = (uint64_t)stats.Counters + 
-                      (blockSeq * sizeof(uint64_t));
+                      (counterSeq * sizeof(uint64_t));
                     if (usePIC()) { 
                         counterOffset -= simulationStruct;
                     }
                     InstrumentationTool::insertBlockCounter(counterOffset, 
                       bb, true, threadReg);
-                }
 
                 // TODO ACC: Get cleaner number of memops
                 insertBufferClear(bb->getNumberOfMemoryOps() + 
@@ -1493,9 +1452,6 @@ void AddressStreamIntercept::instrument(){
             if (memop->isScatterGatherOp()) {
               bufferVectorEntry(memop, InstLocation_prior, memop, threadReg, 
                 stats, blockSeq, memopSeq);
-              initializeInstructionInfo(memop, insIndex, stats, func, bb, 
-                memopSeq, memopIdInBlock, leader, threadReg, 
-                getNullLineInfoValue(), simulationStruct, blockSeq);
               ++memopIdInBlock;
               ++memopSeq;
             } else if (memop->isMemoryOperation()) {
@@ -1504,9 +1460,6 @@ void AddressStreamIntercept::instrument(){
                     instrumentMemop(bb, memop, LOAD, blockSeq, threadReg, 
                       stats, memopIdInBlock, memopSeq);
   
-                    initializeInstructionInfo(memop, insIndex, stats, func, bb,
-                      memopSeq, memopIdInBlock, leader, threadReg, 
-                      getNullLineInfoValue(), simulationStruct, blockSeq);
   
                     ++memopIdInBlock;
                     ++memopSeq;
@@ -1516,9 +1469,6 @@ void AddressStreamIntercept::instrument(){
                     instrumentMemop(bb, memop, STORE, blockSeq, threadReg, 
                       stats, memopIdInBlock, memopSeq);
   
-                    initializeInstructionInfo(memop, insIndex, stats, func, bb,
-                      memopSeq, memopIdInBlock, leader, threadReg, 
-                      getNullLineInfoValue(), simulationStruct, blockSeq);
   
   
                     ++memopIdInBlock;
@@ -1529,15 +1479,12 @@ void AddressStreamIntercept::instrument(){
                 instrumentMemop(bb, memop, PREFETCH, blockSeq, threadReg, 
                   stats, memopIdInBlock, memopSeq);
 
-                initializeInstructionInfo(memop, insIndex, stats, func, bb, 
-                  memopSeq, memopIdInBlock, leader, threadReg, 
-                  getNullLineInfoValue(), simulationStruct, blockSeq);
                  ++memopIdInBlock;
                  ++memopSeq;
             }
         }
         blockSeq++;
-    }
+    } // for each block
 
 
     if (usePIC()){

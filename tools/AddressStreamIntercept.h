@@ -77,10 +77,6 @@ private:
     void includeLoopBlocks(BasicBlock*);
     void grabScratchRegisters(X86Instruction*,InstLocations,uint32_t*,uint32_t*,uint32_t*);
 
-    void initializeInstructionInfo(X86Instruction*,uint32_t,SimulationStats&,
-      Function*,BasicBlock*,uint32_t,uint32_t,uint32_t,uint32_t,uint64_t,
-      uint64_t,uint64_t);
-
     void setupBufferEntry(InstrumentationSnippet*,uint32_t,uint32_t,uint32_t,uint32_t, SimulationStats&);
     void writeBufferBase(InstrumentationSnippet*,uint32_t,uint32_t,enum EntryType, uint8_t,uint32_t);
     void insertBufferClear(uint32_t,X86Instruction*,InstLocations,uint64_t,uint32_t,SimulationStats&);
