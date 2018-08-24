@@ -52,7 +52,8 @@ private:
     uint64_t getNullLineInfoValue();
     uint32_t getNumberOfBlocksToInstrument();
     uint64_t getNumberOfGroups();
-    uint32_t getNumberOfMemopsToInstrument();
+    uint64_t getNumberOfMemopsToInstrument();
+    uint64_t getNumberOfMemopsToInstrument(BasicBlock*);
     uint64_t getNumberOfMemopsToInstrument(X86Instruction*);
     uint64_t getSimulationStatsOffset();
 
@@ -73,16 +74,12 @@ private:
  //   Vector<uint32_t> allBlockIds;
 //    Vector<LineInfo*> allBlockLineInfos;
 
-
-    void includeLoopBlocks(BasicBlock*);
     void grabScratchRegisters(X86Instruction*,InstLocations,uint32_t*,uint32_t*,uint32_t*);
 
     void setupBufferEntry(InstrumentationSnippet*,uint32_t,uint32_t,uint32_t,uint32_t, SimulationStats&);
     void writeBufferBase(InstrumentationSnippet*,uint32_t,uint32_t,enum EntryType, uint8_t,uint32_t);
     void insertBufferClear(uint32_t,X86Instruction*,InstLocations,uint64_t,uint32_t,SimulationStats&);
     void bufferVectorEntry(X86Instruction*,InstLocations,X86Instruction*,uint32_t,SimulationStats&,uint32_t,uint32_t);
-    void instrumentScatterGather(Loop*, uint32_t,uint32_t,uint32_t,
-      SimulationStats&,Function*,uint64_t,uint64_t);
     void instrumentMemop(BasicBlock*,X86Instruction*,uint8_t,uint64_t,uint32_t,SimulationStats&,uint32_t,uint32_t);
     void initializeLineInfo(SimulationStats&, Function*, BasicBlock*, uint32_t, uint64_t);
     void writeStaticFile();

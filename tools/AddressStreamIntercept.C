@@ -161,17 +161,27 @@ uint64_t AddressStreamIntercept::getNumberOfGroups() {
 
 // Get the number of memops to instrument
 // Note: Some insns can contain multiple memops!
-uint32_t AddressStreamIntercept::getNumberOfMemopsToInstrument(){
+uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(){
 
-    uint32_t numMemops = 0;
+    uint64_t numMemops = 0;
     for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
         BasicBlock* bb = blocksToInst[blockInd];
         ASSERT(blocksToInstHash.get(bb->getHashCode().getValue()));
+        numMemops += getNumberOfMemopsToInstrument(bb);
+    }
 
-            for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
-                X86Instruction* memop = bb->getInstruction(j);
-                numMemops += getNumberOfMemopsToInstrument(memop);
-            }
+    return numMemops;
+}
+
+// Get the number of memops to instrument in a block
+// Note: Some insns can contain multiple memops!
+uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(BasicBlock* bb){
+
+    uint64_t numMemops = 0;
+
+    for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
+        X86Instruction* memop = bb->getInstruction(j);
+        numMemops += getNumberOfMemopsToInstrument(memop);
     }
 
     return numMemops;
@@ -261,9 +271,6 @@ void AddressStreamIntercept::initializeBlocksToInst(){
                 continue;
             }
             blocksToInstHash.insert(bb->getHashCode().getValue(), bb);
-
-            //TODO Refactor group stuff
-            includeLoopBlocks(bb);
 
             // By default, also insert blocks in the same loop
             // TODO: Shut this off with a flag
@@ -789,35 +796,6 @@ void AddressStreamIntercept::instrumentExitPoint() {
     }
 }
 
-
-// Also include any block that is in this loop (including child loops)
-void AddressStreamIntercept::includeLoopBlocks(BasicBlock* bb) {
-    if (bb->isInLoop()){
-        SimpleHash<Loop*> loopsToCheck;
-        Vector<Loop*> loopsVec;
-
-        FlowGraph* fg = bb->getFlowGraph();
-        Loop* lp = fg->getInnermostLoopForBlock(bb->getIndex());
-        BasicBlock** allBlocks = new BasicBlock*[lp->getNumberOfBlocks()];
-        lp->getAllBlocks(allBlocks);
-        
-        BasicBlock* HeadBB=lp->getHead(); 
-        uint64_t topLoopID=HeadBB->getHashCode().getValue();
-
-        for (uint32_t k = 0; k < lp->getNumberOfBlocks(); k++){
-            uint64_t code = allBlocks[k]->getHashCode().getValue();
-        //    blocksToInstHash.insert(code, allBlocks[k]);
-        }                      
-        // TODO: Should I delete the hashes/vectors used for book keeping of figuring out loop structure ?
-        delete[] allBlocks;
-    }/* else {
-        if( !(mapBBToGroupId.get(bb->getHashCode().getValue())) ) {
-            mapBBToGroupId.insert(bb->getHashCode().getValue(),bb->getHashCode().getValue()); 
-        } // not in mapBBToGroupId
-    } */// not in loop
-
-}
-
 void AddressStreamIntercept::initializeLineInfo(
         SimulationStats& stats,
         Function* func,
@@ -1299,50 +1277,6 @@ void AddressStreamIntercept::bufferVectorEntry(
 
 }
 
-void AddressStreamIntercept::instrumentScatterGather(Loop* lp,
-        uint32_t blockSeq,
-        uint32_t memseq,
-        uint32_t threadReg,
-        SimulationStats& stats,
-        Function* func,
-        uint64_t noData,
-        uint64_t simulationStruct
-        )
-{
-    // instrument every source path to loop
-    BasicBlock* head = lp->getHead();
-    X86Instruction* vectorMemOp = head->getInstruction(0);
-
-    Vector<BasicBlock*> entryInterpositions;
-    uint32_t nsources = head->getNumberOfSources();
-    for(int srci = 0; srci < nsources; ++srci) {
-        BasicBlock* source = head->getSourceBlock(srci);
-        if(lp->isBlockIn(source->getIndex()))
-            continue;
-
-        // fallthrough
-        if(source->getBaseAddress() + source->getNumberOfBytes() == head->getBaseAddress()) {
-            // instrument after exit instruction of source
-            uint32_t numMemops = 1;
-            insertBufferClear(numMemops, source->getExitInstruction(), InstLocation_after, blockSeq, threadReg, stats);
-            
-            // write a buffer entry for gather-scatter ops in loop
-            bufferVectorEntry(source->getExitInstruction(), InstLocation_after, vectorMemOp, threadReg, stats, blockSeq, memseq);
-
-        } else {
-            entryInterpositions.append(source);
-        }
-    }
-    FlowGraph* fg = head->getFlowGraph();
-    for(int srci = 0; srci < entryInterpositions.size(); ++srci) {
-        BasicBlock* source = entryInterpositions[srci];
-        BasicBlock* interp = initInterposeBlock(fg, source->getIndex(), head->getIndex());
-        // instrument before exit instruction of interp
-        // TODO
-    }
-
-}
-
 void AddressStreamIntercept::instrument(){
     // Required in every tool
     InstrumentationTool::instrument();
@@ -1432,18 +1366,16 @@ void AddressStreamIntercept::instrument(){
                 if (isPerInstruction()){
                     counterSeq = memopSeq;
                 } 
-                    uint64_t counterOffset = (uint64_t)stats.Counters + 
-                      (counterSeq * sizeof(uint64_t));
-                    if (usePIC()) { 
-                        counterOffset -= simulationStruct;
-                    }
-                    InstrumentationTool::insertBlockCounter(counterOffset, 
-                      bb, true, threadReg);
+                uint64_t counterOffset = (uint64_t)stats.Counters + 
+                  (counterSeq * sizeof(uint64_t));
+                if (usePIC()) { 
+                    counterOffset -= simulationStruct;
+                }
+                InstrumentationTool::insertBlockCounter(counterOffset, bb, 
+                  true, threadReg);
 
-                // TODO ACC: Get cleaner number of memops
-                insertBufferClear(bb->getNumberOfMemoryOps() + 
-                  bb->getNumberOfSWPrefetches(), memop, InstLocation_prior, 
-                  blockSeq, threadReg, stats);
+                insertBufferClear(getNumberOfMemopsToInstrument(bb), memop, 
+                  InstLocation_prior, blockSeq, threadReg, stats);
 
                 leader = memopSeq;
             }
