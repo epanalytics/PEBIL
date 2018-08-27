@@ -201,6 +201,7 @@ uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(X86Instruction*
     if (insn->isSoftwarePrefetch() && ifInstrumentingSWPrefetches()){
         numMemops++;
     }
+    //TODO: Are ScatterGather ops included in Loads and Stores?
 
     return numMemops;
 }
@@ -753,6 +754,140 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
 
 }
 
+// checks if buffer is full and conditionally clears it
+// with the memBufferFunc
+void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
+  InstLocations loc, uint32_t threadReg, SimulationStats& stats,
+  uint64_t blockSeq, uint32_t numMemops) {
+
+    // grab 2 scratch registers
+    // TODO ACC: Is there a way to clean up the registers?
+    uint32_t sr1 = X86_REG_INVALID, sr2 = X86_REG_INVALID;
+    BitSet<uint32_t>* inv = new BitSet<uint32_t>(X86_ALU_REGS);
+    inv->insert(X86_REG_AX);
+    inv->insert(X86_REG_SP);
+    inv->insert(X86_REG_BP);
+    if (inv_reg) {
+        inv->insert(get_reg());
+    }
+
+    if (threadReg != X86_REG_INVALID){
+        inv->insert(threadReg);
+        sr1 = threadReg;
+    }
+    for (uint32_t k = X86_64BIT_GPRS; k < X86_ALU_REGS; k++){
+        inv->insert(k);
+    }
+    BitSet<uint32_t>* dead = inst->getDeadRegIn(inv, 2);
+    ASSERT(dead->size() >= 2);
+    for (uint32_t k = 0; k < X86_64BIT_GPRS; k++){
+        if (dead->contains(k)){
+            if (sr1 == X86_REG_INVALID){
+                sr1 = k;
+            } else if (sr2 == X86_REG_INVALID){
+                sr2 = k;
+                break;
+            }
+        }
+    }
+    ASSERT(sr1 != X86_REG_INVALID && sr2 != X86_REG_INVALID);
+    delete inv;
+    delete dead;
+
+    // Create Instrumentation Point that will call the memBufferFunc
+    InstrumentationPoint* pt = addInstrumentationPoint(inst, memBufferFunc, 
+      InstrumentationMode_tramp, loc);
+    pt->setPriority(InstPriority_userinit);
+    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_buffercheck), true);
+
+    // Create instructions that will determine if we dump the buffer and call
+    // the runtime function
+    Vector<X86Instruction*>* bufferDumpInstructions = new 
+      Vector<X86Instruction*>();
+
+    // if thread data addr is not in sr1 already, load it
+    if (threadReg == X86_REG_INVALID && usePIC()){
+        Vector<X86Instruction*>* tdata = storeThreadData(sr2, sr1);
+        for (uint32_t k = 0; k < tdata->size(); k++){
+            bufferDumpInstructions->append((*tdata)[k]);
+        }
+        delete tdata;
+    }
+
+    // put current buffer into sr2
+    if (usePIC()){
+        // sr2 =((SimulationStats)sr1)->Buffer
+        bufferDumpInstructions->append(X86InstructionFactory64::
+          emitMoveRegaddrImmToReg(sr1, offsetof(SimulationStats, Buffer), sr2));
+    } else {
+        // sr2 = stats.Buffer
+        bufferDumpInstructions->append(X86InstructionFactory64::
+          emitMoveImmToReg(getInstDataAddress() + (uint64_t)stats.Buffer, sr2));
+    }
+    // sr2 = ((BufferEntry)sr2)->__buf_current
+    bufferDumpInstructions->append(X86InstructionFactory64::
+      emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_current), sr2));                            
+    // compare current buffer+blockMemops to buffer max
+    bufferDumpInstructions->append(X86InstructionFactory64::emitCompareImmReg(
+      BUFFER_ENTRIES - numMemops, sr2));
+
+    // jump to non-buffer-jump code
+    bufferDumpInstructions->append(X86InstructionFactory::emitBranchJL(
+      Size__64_bit_inst_function_call_support));
+  
+    // Add the instructions to the instrumentation point  
+    ASSERT(bufferDumpInstructions);
+    while (bufferDumpInstructions->size()){
+        pt->addPrecursorInstruction(bufferDumpInstructions->remove(0));
+    }
+    delete bufferDumpInstructions;
+
+    // Increment current buffer size
+    // If we include the buffer increment as part of the buffer check, it 
+    // increments the buffer pointer even when we try to disable this point 
+    // during buffer clearing. So, create a new snippet to increment it
+    InstrumentationSnippet* snip = addInstrumentationSnippet();
+    pt = addInstrumentationPoint(inst, snip, InstrumentationMode_inline, loc);
+    pt->setPriority(InstPriority_regular);
+    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_bufferinc), true);
+
+    // sr1 = stats
+    if (threadReg == X86_REG_INVALID && usePIC()){
+        Vector<X86Instruction*>* tdata = storeThreadData(sr2, sr1);
+        for (uint32_t k = 0; k < tdata->size(); k++){
+            snip->addSnippetInstruction((*tdata)[k]);
+        }
+        delete tdata;
+    }
+
+    if (usePIC()){
+        // sr2 = ((SimulationStats*)sr1)->Buffer
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveRegaddrImmToReg(sr1, offsetof(SimulationStats, Buffer), sr2));
+
+        // ((BufferEntry*)sr2)->__buf_current++
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitAddImmToRegaddrImm(numMemops, sr2, offsetof(BufferEntry, 
+          __buf_current)));
+    } else {
+        // stats.Buffer[0].__buf_current++
+        uint64_t currentOffset = (uint64_t)stats.Buffer + 
+          offsetof(BufferEntry, __buf_current);
+        snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToMem(
+          numMemops, getInstDataAddress() + currentOffset));
+    }
+}
+
+void AddressStreamIntercept::insertAddressCollection(
+        BasicBlock* bb,
+        X86Instruction* memop,
+        uint32_t threadReg,
+        SimulationStats& stats,
+        uint32_t blockSeq,
+        uint32_t memSeq) {
+    return;
+}
+
 // Instrument the program entry with a function to initialize the Address 
 // stream tool
 void AddressStreamIntercept::instrumentEntryPoint() {
@@ -847,125 +982,6 @@ void AddressStreamIntercept::initializeLineInfo(
         getInstDataAddress() + funcname,
         strlen(func->getName()) + 1,
         (void*)func->getName());
-}
-
-// checks if buffer is full and conditionally clears it
-void AddressStreamIntercept::insertBufferClear(
-        uint32_t numMemops,
-        X86Instruction* inst,
-        InstLocations loc,
-        uint64_t blockSeq,
-        uint32_t threadReg,
-        SimulationStats& stats)
-{
-
-
-    // grab 2 scratch registers
-    uint32_t sr1 = X86_REG_INVALID, sr2 = X86_REG_INVALID;
-    BitSet<uint32_t>* inv = new BitSet<uint32_t>(X86_ALU_REGS);
-    inv->insert(X86_REG_AX);
-    inv->insert(X86_REG_SP);
-    inv->insert(X86_REG_BP);
-    if (inv_reg) {
-        inv->insert(get_reg());
-    }
-
-    if (threadReg != X86_REG_INVALID){
-        inv->insert(threadReg);
-        sr1 = threadReg;
-    }
-    for (uint32_t k = X86_64BIT_GPRS; k < X86_ALU_REGS; k++){
-        inv->insert(k);
-    }
-    BitSet<uint32_t>* dead = inst->getDeadRegIn(inv, 2);
-    ASSERT(dead->size() >= 2);
-    for (uint32_t k = 0; k < X86_64BIT_GPRS; k++){
-        if (dead->contains(k)){
-            if (sr1 == X86_REG_INVALID){
-                sr1 = k;
-            } else if (sr2 == X86_REG_INVALID){
-                sr2 = k;
-                break;
-            }
-        }
-    }
-    ASSERT(sr1 != X86_REG_INVALID && sr2 != X86_REG_INVALID);
-    delete inv;
-    delete dead;
-
-    // Create Instrumentation Point
-    InstrumentationPoint* pt = addInstrumentationPoint(inst, memBufferFunc, InstrumentationMode_tramp, loc);
-    pt->setPriority(InstPriority_userinit);
-    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_buffercheck), true);
-    Vector<X86Instruction*>* bufferDumpInstructions = new Vector<X86Instruction*>();
-
-    // if thread data addr is not in sr1 already, load it
-    if (threadReg == X86_REG_INVALID && usePIC()){
-        Vector<X86Instruction*>* tdata = storeThreadData(sr2, sr1);
-        for (uint32_t k = 0; k < tdata->size(); k++){
-            bufferDumpInstructions->append((*tdata)[k]);
-        }
-        delete tdata;
-    }
-
-    // put current buffer into sr2
-    if (usePIC()){
-        // sr2 =((SimulationStats)sr1)->Buffer
-        bufferDumpInstructions->append(X86InstructionFactory64::emitMoveRegaddrImmToReg(sr1, offsetof(SimulationStats, Buffer), sr2));
-    } else {
-        // sr2 = stats.Buffer
-        bufferDumpInstructions->append(X86InstructionFactory64::emitMoveImmToReg(getInstDataAddress() + (uint64_t)stats.Buffer, sr2));
-    }
-    // sr2 = ((BufferEntry)sr2)->__buf_current
-    bufferDumpInstructions->append(X86InstructionFactory64::emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_current), sr2));                            
-
-    // compare current buffer+blockMemops to buffer max
-    bufferDumpInstructions->append(X86InstructionFactory64::emitCompareImmReg(BUFFER_ENTRIES - numMemops, sr2));
-
-    // jump to non-buffer-jump code
-    bufferDumpInstructions->append(X86InstructionFactory::emitBranchJL(Size__64_bit_inst_function_call_support));
-
-    ASSERT(bufferDumpInstructions);
-    while (bufferDumpInstructions->size()){
-        pt->addPrecursorInstruction(bufferDumpInstructions->remove(0));
-    }
-    delete bufferDumpInstructions;
-
-    // Increment current buffer size
-    // if we include the buffer increment as part of the buffer check, it increments
-    // the buffer pointer even when we try to disable this point during buffer clearing
-    InstrumentationSnippet* snip = addInstrumentationSnippet();
-    pt = addInstrumentationPoint(inst, snip, InstrumentationMode_inline, loc);
-    pt->setPriority(InstPriority_regular);
-    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_bufferinc), true);
-
-    // sr1 = stats
-    if (threadReg == X86_REG_INVALID && usePIC()){
-        Vector<X86Instruction*>* tdata = storeThreadData(sr2, sr1);
-        for (uint32_t k = 0; k < tdata->size(); k++){
-            snip->addSnippetInstruction((*tdata)[k]);
-        }
-        delete tdata;
-    }
-
-    if (usePIC()){
-        // sr2 = ((SimulationStats*)sr1)->Buffer
-        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegaddrImmToReg(
-            sr1,
-            offsetof(SimulationStats, Buffer),
-            sr2));
-        // ((BufferEntry*)sr2)->__buf_current++
-        snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToRegaddrImm(
-            numMemops,
-            sr2,
-            offsetof(BufferEntry, __buf_current)));
-    } else {
-        // stats.Buffer[0].__buf_current++
-        uint64_t currentOffset = (uint64_t)stats.Buffer + offsetof(BufferEntry, __buf_current);
-        snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToMem(
-            numMemops,
-            getInstDataAddress() + currentOffset));
-    }
 }
 
 void AddressStreamIntercept::writeBufferBase(
@@ -1341,7 +1357,8 @@ void AddressStreamIntercept::instrument(){
 
         uint32_t threadReg = X86_REG_INVALID;
         if (usePIC()){
-            ThreadRegisterMap* threadMap = (*functionThreading)[func->getBaseAddress()];
+            ThreadRegisterMap* threadMap = (*functionThreading)[
+              func->getBaseAddress()];
             threadReg = threadMap->getThreadRegister(bb);
         }
 
@@ -1356,11 +1373,12 @@ void AddressStreamIntercept::instrument(){
         for (uint32_t insIndex = 0; insIndex < bb->getNumberOfInstructions(); 
           insIndex++){
             X86Instruction* memop = bb->getInstruction(insIndex);
+            uint64_t numMemopsInBlock = getNumberOfMemopsToInstrument(bb);
 
             // If this is the beginning of a new block, then we need to:
             //   1. Insert a counter for this block
             //   2. Insert runtime code to check to see if this block will
-            //      overflow the buffer
+            //      overflow the buffer (this will call the memBufferFunc)
             if (ifInstrumentingInstruction(memop) && ((memopIdInBlock == 0))){
                 uint32_t counterSeq = blockSeq;
                 if (isPerInstruction()){
@@ -1374,8 +1392,8 @@ void AddressStreamIntercept::instrument(){
                 InstrumentationTool::insertBlockCounter(counterOffset, bb, 
                   true, threadReg);
 
-                insertBufferClear(getNumberOfMemopsToInstrument(bb), memop, 
-                  InstLocation_prior, blockSeq, threadReg, stats);
+                insertBufferClear(memop, InstLocation_prior, threadReg, stats,
+                  blockSeq, numMemopsInBlock);
 
                 leader = memopSeq;
             }

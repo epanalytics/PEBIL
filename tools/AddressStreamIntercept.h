@@ -67,6 +67,11 @@ private:
     void initializeGroups();
     void initializeSimulationStats(SimulationStats&);
     
+    void insertBufferClear(X86Instruction*, InstLocations, uint32_t, 
+      SimulationStats&, uint64_t, uint32_t);
+    void insertAddressCollection(BasicBlock*,X86Instruction*,uint32_t,
+      SimulationStats&,uint32_t,uint32_t);
+
     void instrumentEntryPoint();
     void instrumentExitPoint();
 
@@ -78,7 +83,6 @@ private:
 
     void setupBufferEntry(InstrumentationSnippet*,uint32_t,uint32_t,uint32_t,uint32_t, SimulationStats&);
     void writeBufferBase(InstrumentationSnippet*,uint32_t,uint32_t,enum EntryType, uint8_t,uint32_t);
-    void insertBufferClear(uint32_t,X86Instruction*,InstLocations,uint64_t,uint32_t,SimulationStats&);
     void bufferVectorEntry(X86Instruction*,InstLocations,X86Instruction*,uint32_t,SimulationStats&,uint32_t,uint32_t);
     void instrumentMemop(BasicBlock*,X86Instruction*,uint8_t,uint64_t,uint32_t,SimulationStats&,uint32_t,uint32_t);
     void initializeLineInfo(SimulationStats&, Function*, BasicBlock*, uint32_t, uint64_t);
