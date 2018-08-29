@@ -26,8 +26,7 @@ typedef struct {
         uint64_t address;        // value simulated
         struct VectorAddress vectorAddress;
     };
-//    uint64_t    threadid;        // Error-checking
-//    uint64_t    programAddress;  // only used for adamant
+    //uint64_t    threadid;        // Error-checking
 } BufferEntry;
 #define __buf_current  address
 #define __buf_capacity memseq

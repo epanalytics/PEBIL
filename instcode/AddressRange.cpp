@@ -531,14 +531,14 @@ extern "C" {
 
                     // if max block count is reached, disable all buffer-related points related to this block
                     uint32_t idx = bbid;
-                    uint32_t midx = bbid;
+                    uint32_t gidx = stats->GroupIds[bbid];
 
                     if (s->Types[bbid] == CounterType_instruction){
                         idx = s->Counters[bbid];
                     }
-                    if (s->PerInstruction){
-                        midx = s->MemopIds[bbid];
-                    }
+                  //  if (s->PerInstruction){
+                  //      midx = s->MemopIds[bbid];
+                  //  }
 
                     debug(inform << "Slot " << dec << j
                           << TAB << "Thread " << dec << AllData->GetThreadSequence(pthread_self())
@@ -555,10 +555,11 @@ extern "C" {
                     if (Sampler->ExceedsAccessLimit(s->Counters[idx])
                       || (s->LoopInclusion && (Sampler->ExceedsAccessLimit(
                       stats->GroupCounters[groupidx])))){
+                        // TODO midx should probably be GroupId now
 
-                        uint64_t k1 = GENERATE_KEY(midx, PointType_buffercheck);
-                        uint64_t k2 = GENERATE_KEY(midx, PointType_bufferinc);
-                        uint64_t k3 = GENERATE_KEY(midx, PointType_bufferfill);
+                        uint64_t k1 = GENERATE_KEY(gidx, PointType_buffercheck);
+                        uint64_t k2 = GENERATE_KEY(gidx, PointType_bufferinc);
+                        uint64_t k3 = GENERATE_KEY(gidx, PointType_bufferfill);
 
                         if (NonmaxKeys->count(k3) > 0){
 

@@ -54,20 +54,11 @@ int compareBBHash(const void* lhs, const void* rhs) {
     BasicBlock* rightBB = (BasicBlock*)rhs;
     if(leftBB->getHashCode().getValue() < 
       rightBB->getHashCode().getValue()) {
-        std::cout << "ACC: 0x" << std::hex << leftBB->getHashCode().getValue() 
-          << " is LESS THAN 0x" << rightBB->getHashCode().getValue() 
-          << std::endl;
         return 1;
     } else if (leftBB->getHashCode().getValue() == 
       rightBB->getHashCode().getValue()) {
-        std::cout << "ACC: 0x" << std::hex << leftBB->getHashCode().getValue() 
-          << " is EQUAL TO 0x" << rightBB->getHashCode().getValue() 
-          << std::endl;
         return 0;
     } else {
-        std::cout << "ACC: 0x" << std::hex << leftBB->getHashCode().getValue() 
-          << " is MORE THAN 0x" << rightBB->getHashCode().getValue() 
-          << std::endl;
         return -1;
     }
 }
@@ -103,6 +94,65 @@ void AddressStreamIntercept::allocateSimulationStats(uint64_t extra) {
     simulationStatsOffset = reserveDataOffset(sizeof(SimulationStats) + extra);
 //                         (sizeof(uint64_t) * stats.BlockCount));
 
+}
+
+// Fills a MEM_ENTRY buffer entry
+void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction* 
+  memop, uint32_t threadReg, SimulationStats& stats, uint32_t blockSeq,  
+  uint32_t memopSeq, uint32_t memopIdInBlock, uint8_t loadstoreflag){
+
+    // First we build the actual instrumentation point
+    InstrumentationSnippet* snip = addInstrumentationSnippet();
+    InstrumentationPoint* pt = addInstrumentationPoint(memop, snip, 
+      InstrumentationMode_trampinline, InstLocation_prior);
+    pt->setPriority(InstPriority_low);
+    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_bufferfill), true);
+
+    // Then we fill the snippet with instructions
+    // Code requires three scratch registers so grab 3
+    uint32_t sr1 = X86_REG_INVALID;  // thread register
+    uint32_t sr2 = X86_REG_INVALID;
+    uint32_t sr3 = X86_REG_INVALID;
+
+    // check if sr1 is already set for us
+    if (threadReg != X86_REG_INVALID){
+        sr1 = threadReg;
+    }
+    grabScratchRegisters(memop, InstLocation_prior, &sr1, &sr2, &sr3);
+    ASSERT(sr1 != X86_REG_INVALID && sr2 != X86_REG_INVALID && 
+      sr3 != X86_REG_INVALID);
+
+    // if thread data addr is not in sr1 already, load it
+    // sr1 = stats
+    if (threadReg == X86_REG_INVALID && usePIC()){
+        Vector<X86Instruction*>* tdata = storeThreadData(sr2, sr1);
+        for (uint32_t k = 0; k < tdata->size(); k++){
+            snip->addSnippetInstruction((*tdata)[k]);
+        }
+        delete tdata;
+    }
+
+    // Set sr2 to point to the location of our buffer entry. We currently do
+    // not increase __buf_current here, so we must keep track of which memop 
+    // we are isntrumenting.
+    // Also note that __but_current gets increased BEFORE the addresses are 
+    // collected. Thus, the index must go backwards
+    uint32_t memopsInBlock = getNumberOfMemopsToInstrument(bb);
+    ASSERT(memopIdInBlock < memopsInBlock);
+    int32_t bufferIndex = memopIdInBlock - memopsInBlock + 1;
+    setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, bufferIndex);
+
+    writeBufferEntry(snip, memopSeq, sr2, sr3, MEM_ENTRY, loadstoreflag);
+
+    // set address
+    Vector<X86Instruction*>* addrStore = X86InstructionFactory64::
+      emitAddressComputation(memop, sr3);
+    while (!(*addrStore).empty()){
+        snip->addSnippetInstruction((*addrStore).remove(0));
+    }
+    delete addrStore;
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, address), true));
 }
 
 // Declare libraries and runtime functions
@@ -206,6 +256,46 @@ uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(X86Instruction*
     return numMemops;
 }
 
+uint32_t AddressStreamIntercept::getOffLimitsRegister() {
+    ASSERT(inv_reg);
+
+    if (!strcmp(inv_reg, "r8")) {
+        return X86_REG_R8;
+    } else if (!strcmp(inv_reg, "r9")) {
+        return X86_REG_R9;
+    } else if (!strcmp(inv_reg, "r10")) {
+        return X86_REG_R10;
+    } else if (!strcmp(inv_reg, "r11")) {
+        return X86_REG_R11;
+    } else if (!strcmp(inv_reg, "r12")) {
+        return X86_REG_R12;
+    } else if (!strcmp(inv_reg, "r13")) {
+        return X86_REG_R13;
+    } else if (!strcmp(inv_reg, "r14")) {
+        return X86_REG_R14;
+    } else if (!strcmp(inv_reg, "r15")) {
+        return X86_REG_R15;
+    } else if (!strcmp(inv_reg, "ax")) {
+        return X86_REG_AX;
+    } else if (!strcmp(inv_reg, "bx")) {
+        return X86_REG_BX;
+    } else if (!strcmp(inv_reg, "cx")) {
+        return X86_REG_CX;
+    } else if (!strcmp(inv_reg, "dx")) {
+        return X86_REG_DX;
+    } else if (!strcmp(inv_reg, "sp")) {
+        return X86_REG_SP;
+    } else if (!strcmp(inv_reg, "bp")) {
+        return X86_REG_BP;
+    } else if (!strcmp(inv_reg, "si")) {
+        return X86_REG_SI;
+    } else if (!strcmp(inv_reg, "di")) {
+        return X86_REG_DI;
+    } else {
+        return X86_REG_INVALID;
+    }
+}
+
 uint64_t AddressStreamIntercept::getSimulationStatsOffset() {
   
     if(simulationStatsOffset == 0) { 
@@ -224,7 +314,6 @@ bool AddressStreamIntercept::ifInstrumentingInstruction(X86Instruction*
     }
     return false;
 }
-
 
 // Read input file and create a list of blocks to instrument
 // initializes blocksToInstHash
@@ -301,7 +390,6 @@ void AddressStreamIntercept::initializeBlocksToInst(){
     // Initialize BlocksToInst
     BasicBlock** blocksInHash = blocksToInstHash.values();
     ASSERT((blocksInHash != NULL) && "Could not find blocks to instrument.");
-    std::cout << "ACC: Creating BlocksToInst" << std::endl;
     for (uint32_t i = 0; i < blocksToInstHash.size(); i++){
         BasicBlock* bb = blocksInHash[i];
         //blocksToInst.push_back(bb);
@@ -309,11 +397,8 @@ void AddressStreamIntercept::initializeBlocksToInst(){
         blocksToInst.insertSorted(bb, compareBaseAddress);
     }
     
-    std::cout << "ACC: Printing BlocksToInst" << std::endl;
     for (uint32_t i = 0; i < blocksToInst.size(); i++){
         BasicBlock* bb = blocksToInst[i];
-        std::cout << "ACC: Block " << i << " is block 0x" << std::hex <<
-          bb->getHashCode().getValue() << std::endl;
     }
 
 /*** ACC --> Remove this code? ***/
@@ -354,12 +439,9 @@ void AddressStreamIntercept::initializeGroups() {
     // that will be instrumented)
     SimpleHash<uint64_t> mapBBHeadsToGroupId;
 
-    std::cout << "ACC: Initialize groups" << std::endl;
     for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
         BasicBlock* bb = blocksToInst[blockInd];
         ASSERT((blocksToInstHash.get(bb->getHashCode().getValue())))
-        std::cout << "ACC: Adding block 0x" << std::hex << 
-            bb->getHashCode().getValue() << "to groups" << std::endl;
         // If the BB has already been added to map, then done!
         // If not, then figure out which group it should be in
         if (!mapBBToGroupId.get(bb->getHashCode().getValue())) {
@@ -419,11 +501,7 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
     stats.Master = isMasterImage();
     stats.Phase = phaseNo;
     stats.MemopCount = getNumberOfMemopsToInstrument();
-    std::cout << "ACC: Setting MemopCount to " << std::dec << stats.MemopCount
-      << std::endl;
     stats.GroupCount = getNumberOfGroups();
-    std::cout << "ACC: Setting GroupCount to " << std::dec << stats.GroupCount
-      << std::endl;
 
     // Allocate Counters and SimulationStats contiguously to
     // avoid an extra memory ref in counter updates
@@ -439,7 +517,6 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
     // Set Buffer pointer
     initializeReservedPointer((uint64_t)stats.Buffer,
         statsOffset + offsetof(SimulationStats, Buffer));
-
 
     // Set string metadata
     char* appName = getElfFile()->getAppName();
@@ -458,15 +535,16 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
       (void*)extName);
 
     // Per-Memop Data
-    // Initialize just pointer for now
-    // Data initializing will happen later 
+    // Initialize per-memop data pointers
 #define INIT_INSN_ELEMENT(__typ, __nam)\
-    stats.__nam = (__typ*)reserveDataOffset(stats.MemopCount * sizeof(__typ));  \
-    initializeReservedPointer((uint64_t)stats.__nam, statsOffset + offsetof(SimulationStats, __nam))
+    stats.__nam = (__typ*)reserveDataOffset(stats.MemopCount * sizeof(__typ)); \
+    initializeReservedPointer((uint64_t)stats.__nam, statsOffset + \
+      offsetof(SimulationStats, __nam))
 
     INIT_INSN_ELEMENT(uint64_t, BlockIds);
     INIT_INSN_ELEMENT(uint64_t, MemopIds);
 
+    // Initialize per-memop data
     // Initialize BlockIds
     // If perinsn, give each memop a unique ID
     uint64_t blockSeq = 0;
@@ -475,33 +553,19 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
         BasicBlock* bb = blocksToInst[blockInd];
         Function* func = (Function*)bb->getLeader()->getContainer();
 
-        // Check if we should skip this block
-        if (!blocksToInstHash.get(bb->getHashCode().getValue()))
-            continue;
-
         // Go through each memop
         // NOTE: Some insns have multiple memops!
         for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
             X86Instruction* memop = bb->getInstruction(j);
             for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
             {
+                uint64_t initialBlockId = blockSeq;
                 if (isPerInstruction()) {
-                    initializeReservedData(getInstDataAddress() + 
-                      (uint64_t)stats.BlockIds + memopSeq*sizeof(uint64_t), 
-                      sizeof(uint64_t), &memopSeq);
-                } else {
-                    initializeReservedData(getInstDataAddress() + 
-                      (uint64_t)stats.BlockIds + memopSeq*sizeof(uint64_t), 
-                      sizeof(uint64_t), &blockSeq);
+                    initialBlockId = memopSeq;
                 }
-
-                // Also initialize memop ids. These are currnetly only
-                // used in perinsn code and should probably be refactored
-                // TODO Refactor this
-                //initializeReservedData(getInstDataAddress() + 
-                //  (uint64_t)stats.MemopIds + memopSeq*sizeof(uint64_t), 
-                //  sizeof(uint64_t), &blockSeq);
-
+                initializeReservedData(getInstDataAddress() + 
+                  (uint64_t)stats.BlockIds + memopSeq * sizeof(uint64_t), 
+                  sizeof(uint64_t), &initialBlockId);
                 memopSeq++;
             }
         }
@@ -690,10 +754,6 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
                         groupId = 0;
                     }
 
-                    std::cout << "ACC: Setting Block ( 0x" << std::hex << 
-                      hashValue << " ) to group " << std::dec << groupId 
-                      << std::endl;
-
                     initializeReservedData(getInstDataAddress() + 
                       (uint64_t)stats.GroupIds + (memopSeq * sizeof(uint64_t)),
                       sizeof(uint64_t),&groupId);
@@ -714,9 +774,6 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
             } else {
                 groupId = 0;
             }
-
-            std::cout << "ACC: Setting Block ( 0x" << std::hex << hashValue << 
-              " ) to group " << std::dec << groupId << std::endl;
 
             initializeReservedData(getInstDataAddress() + 
               (uint64_t)stats.GroupIds + (blockSeq * sizeof(uint64_t)),
@@ -768,7 +825,7 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
     inv->insert(X86_REG_SP);
     inv->insert(X86_REG_BP);
     if (inv_reg) {
-        inv->insert(get_reg());
+        inv->insert(getOffLimitsRegister());
     }
 
     if (threadReg != X86_REG_INVALID){
@@ -860,6 +917,7 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
         delete tdata;
     }
 
+    // TODO ACC Can we move the increment to collectMemEntry?
     if (usePIC()){
         // sr2 = ((SimulationStats*)sr1)->Buffer
         snip->addSnippetInstruction(X86InstructionFactory64::
@@ -878,419 +936,45 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
     }
 }
 
-void AddressStreamIntercept::insertAddressCollection(
-        BasicBlock* bb,
-        X86Instruction* memop,
-        uint32_t threadReg,
-        SimulationStats& stats,
-        uint32_t blockSeq,
-        uint32_t memSeq) {
+// Insert instrumentation to collect each address from the memop
+// There can me more than one type of memop in an instruction, so insert 
+// instrumentation for each type
+void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb, 
+  X86Instruction* memop, uint32_t threadReg, SimulationStats& stats, 
+  uint32_t blockSeq, uint32_t memopSeq, uint32_t memopIdInBlock) {
+
+    // KNL implementation (not KNC)
+    if (memop->isScatterGatherOp()) {
+        PRINT_WARN(20, "Found a Scatter or Gather Memory Op. Code is currently "
+          "broken. This op will be skipped.");
+      //bufferVectorEntry(memop, InstLocation_prior, memop, threadReg, 
+      //  stats, blockSeq, memopSeq);
+      return;
+    } 
+  
+    if(memop->isLoad() && ifInstrumentingLoads()) {
+        collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
+          memopIdInBlock, LOAD);
+        memopIdInBlock++;
+        memopSeq++;
+    }
+
+    if(memop->isStore() && ifInstrumentingStores()) {
+        collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
+          memopIdInBlock, STORE);
+        memopIdInBlock++;
+        memopSeq++;
+    } 
+
+    if(memop->isSoftwarePrefetch() && ifInstrumentingSWPrefetches()) {
+        PRINT_WARN(20, "Found a Prefetch Memory Op. Code is currently "
+          "broken. This op will be skipped.");
+        //instrumentMemop(bb, memop, PREFETCH, blockSeq, threadReg, stats, 
+        //  memopIdInBlock, memopSeq);
+        return;
+    }
+
     return;
-}
-
-// Instrument the program entry with a function to initialize the Address 
-// stream tool
-void AddressStreamIntercept::instrumentEntryPoint() {
-     if (isMultiImage()){
-        for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
-            Function* f = getExposedFunction(i);
-
-            InstrumentationPoint* point = addInstrumentationPoint(
-                f, entryFunc, InstrumentationMode_tramp, InstLocation_prior);
-
-            ASSERT(point);
-            point->setPriority(InstPriority_sysinit);
-            if (!point->getInstBaseAddress()){
-                PRINT_ERROR("Cannot find an instrumentation point at the entry "
-                  "function");
-            }            
-
-            dynamicPoint(point, getElfFile()->getUniqueId(), true);
-        }
-    } else {
-        InstrumentationPoint* point = addInstrumentationPoint(
-            getProgramEntryBlock(), entryFunc, InstrumentationMode_tramp);
-        ASSERT(point);
-        point->setPriority(InstPriority_sysinit);
-        if (!point->getInstBaseAddress()){
-            PRINT_ERROR("Cannot find an instrumentation point at the entry "
-              "function");
-        }
-    }
-}
-
-// Instrument the program exit with a function to finalize the address stream 
-// tool
-void AddressStreamIntercept::instrumentExitPoint() {
-    InstrumentationPoint* point = addInstrumentationPoint(
-        getProgramExitBlock(), exitFunc, InstrumentationMode_tramp);
-    ASSERT(point);
-    point->setPriority(InstPriority_sysinit);
-    if (!point->getInstBaseAddress()){
-        PRINT_ERROR("Cannot find an instrumentation point at the exit function");
-    }
-}
-
-void AddressStreamIntercept::initializeLineInfo(
-        SimulationStats& stats,
-        Function* func,
-        BasicBlock* bb,
-        uint32_t blockSeq,
-        uint64_t noData) {
-
-    LineInfo* li = NULL;
-    LineInfoFinder* lineInfoFinder = NULL;
-
-    if (hasLineInformation()){
-        lineInfoFinder = getLineInfoFinder();
-    }
-
-    if (lineInfoFinder){
-        li = lineInfoFinder->lookupLineInfo(bb);
-    }
-    //allBlockLineInfos.append(li);
-
-    if (li){
-        uint32_t line = li->GET(lr_line);
-        initializeReservedData(
-            getInstDataAddress() + (uint64_t)stats.Lines + sizeof(uint32_t)*blockSeq,
-            sizeof(uint32_t),
-            &line);
-
-        uint64_t filename = reserveDataOffset(strlen(li->getFileName()) + 1);
-        initializeReservedPointer(
-            filename,
-            (uint64_t)stats.Files + blockSeq*sizeof(char*));
-        initializeReservedData(
-            getInstDataAddress() + filename,
-            strlen(li->getFileName()) + 1,
-            (void*)li->getFileName());
-    } else {
-        uint32_t temp32 = 0;
-        initializeReservedData(
-            getInstDataAddress() + (uint64_t)stats.Lines + sizeof(uint32_t)*blockSeq,
-            sizeof(uint32_t),
-            &temp32);
-        initializeReservedPointer(
-            noData,
-            (uint64_t)stats.Files + blockSeq*sizeof(char*));
-    }
-    uint64_t funcname = reserveDataOffset(strlen(func->getName()) + 1);
-    initializeReservedPointer(funcname,
-        (uint64_t)stats.Functions + blockSeq*sizeof(char*));
-    initializeReservedData(
-        getInstDataAddress() + funcname,
-        strlen(func->getName()) + 1,
-        (void*)func->getName());
-}
-
-void AddressStreamIntercept::writeBufferBase(
-        InstrumentationSnippet* snip,
-        uint32_t sr2,
-        uint32_t sr3,
-        enum EntryType type,
-        uint8_t loadstoreflag,
-        uint32_t memseq) {
-
-    // set entry type
-    //snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToReg(type, sr3));
-    //snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, type), true));
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToRegaddrImm(
-        type,
-        sizeof(type),
-        sr2,
-        offsetof(BufferEntry, type)));
-
-    // set Load-store flag
-    //snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToReg(loadstoreflag, sr3));
-    //snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, loadstoreflag), true));
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToRegaddrImm(
-        loadstoreflag,
-        sizeof(loadstoreflag),
-        sr2,
-        offsetof(BufferEntry, loadstoreflag)));
-
-    // set imageid
-    uint64_t imageHash = getElfFile()->getUniqueId();
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImm64ToReg(imageHash, sr3));
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, imageid), true));
-
-    // set memseq
-    //snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToReg(memseq, sr3));
-    //snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, memseq), true));
-    //
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToRegaddrImm(
-        memseq,
-        sr2,
-        offsetof(BufferEntry, memseq)));
-}
-
-// Fills a buffer entry for memop
-void AddressStreamIntercept::instrumentMemop(
-        BasicBlock* bb,
-        X86Instruction* memop,
-        uint8_t loadstoreflag,
-        uint64_t blockSeq,
-        uint32_t threadReg,
-        SimulationStats& stats,
-        uint32_t memopIdInBlock,
-        uint32_t memopSeq){
-
-    // First we build the actual instrumentation point
-    InstrumentationSnippet* snip = addInstrumentationSnippet();
-    InstrumentationPoint* pt = addInstrumentationPoint(memop, snip, InstrumentationMode_trampinline, InstLocation_prior);
-    pt->setPriority(InstPriority_low);
-    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_bufferfill), true);
-
-    // Then we fill the snippet with instructions
-
-    // grab 3 scratch registers
-    uint32_t sr1 = X86_REG_INVALID, sr2 = X86_REG_INVALID, sr3 = X86_REG_INVALID;
-    // check if sr1 is already set for us
-    if (threadReg != X86_REG_INVALID){
-        sr1 = threadReg;
-    }
-    grabScratchRegisters(memop, InstLocation_prior, &sr1, &sr2, &sr3);
-    ASSERT(sr1 != X86_REG_INVALID && sr2 != X86_REG_INVALID && sr3 != X86_REG_INVALID);
-
-    // if thread data addr is not in sr1 already, load it
-    // sr1 = stats
-    if (threadReg == X86_REG_INVALID && usePIC()){
-        Vector<X86Instruction*>* tdata = storeThreadData(sr2, sr1);
-        for (uint32_t k = 0; k < tdata->size(); k++){
-            snip->addSnippetInstruction((*tdata)[k]);
-        }
-        delete tdata;
-    }
-
-    ASSERT(memopIdInBlock < bb->getNumberOfMemoryOps() + bb->getNumberOfSWPrefetches()
-);
-    setupBufferEntry(snip, 1+memopIdInBlock-(bb->getNumberOfMemoryOps() + bb->getNumberOfSWPrefetches()), sr1, sr2, sr3, stats);
-    if (loadstoreflag == PREFETCH) {
-      writeBufferBase(snip, sr2, sr3, PREFETCH_ENTRY, LOAD, memopSeq);
-    } else {
-      writeBufferBase(snip, sr2, sr3, MEM_ENTRY, loadstoreflag, memopSeq);
-    }
-
-    // set address
-    Vector<X86Instruction*>* addrStore = X86InstructionFactory64::emitAddressComputation(memop, sr3);
-    while (!(*addrStore).empty()){
-        snip->addSnippetInstruction((*addrStore).remove(0));
-    }
-    delete addrStore;
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, address), true));
-
-    // Only for adamant
-    //uint64_t programAddress = memop->getProgramAddress();
-    //snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToReg(programAddress, sr3));
-    //snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, programAddress), true));  
-
-    // Only for debugging
-    //snip->addSnippetInstruction(X86InstructionFactory64::emitMoveThreadIdToReg(sr3));
-    //snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, threadid), true));
-}
-
-void AddressStreamIntercept::grabScratchRegisters(
-        X86Instruction* instRefPoint,
-        InstLocations loc,
-        uint32_t* sr1,
-        uint32_t* sr2,
-        uint32_t* sr3) {
-
-    // start with all gpu regs except ax and sp
-    BitSet<uint32_t>* inv = new BitSet<uint32_t>(X86_ALU_REGS);
-    inv->insert(X86_REG_AX);
-    inv->insert(X86_REG_SP);
-
-    // invalidate presets TODO other regs
-    if(sr1 && *sr1 != X86_REG_INVALID) {
-       inv->insert(*sr1);
-    }
-
-    // invalidate any registers used by this instruction FIXME why?
-    RegisterSet* regused = instRefPoint->getUnusableRegisters();
-    for (uint32_t k = 0; k < X86_64BIT_GPRS; k++){
-        if (regused->containsRegister(k)){
-            inv->insert(k);
-        }
-    }
-    delete regused;
-
-    // Invalidate non-gprs FIXME just allocate a bitset without them
-    for (uint32_t k = X86_64BIT_GPRS; k < X86_ALU_REGS; k++){
-        inv->insert(k);
-    }
-    
-    if (inv_reg) {
-        inv->insert(get_reg());
-    }
-
-    // Look for dead registers in remaining valid
-    BitSet<uint32_t>* dead = NULL;
-    if(loc == InstLocation_prior)
-        dead = instRefPoint->getDeadRegIn(inv, 3);
-    else if(loc == InstLocation_after)
-        dead = instRefPoint->getDeadRegOut(inv, 3);
-    else
-        assert(0 && "Invalid inst location");
-
-    for (uint32_t k = 0; k < X86_64BIT_GPRS; k++){
-        if (dead->contains(k)){
-            if (sr1 && *sr1 == X86_REG_INVALID){
-                *sr1 = k;
-            } else if (sr2 && *sr2 == X86_REG_INVALID){
-                *sr2 = k;
-            } else if (sr3 && *sr3 == X86_REG_INVALID){
-                *sr3 = k;
-                break;
-            }
-        }
-    }
-    delete inv;
-    delete dead;
-
-}
-
-void AddressStreamIntercept::setupBufferEntry(
-        InstrumentationSnippet* snip,
-        uint32_t bufferIdx,
-        uint32_t sr1,
-        uint32_t sr2,
-        uint32_t sr3,
-        SimulationStats& stats) {
-
-    // sr2 = start of buffer
-    if (usePIC()){
-        // sr2 = ((SimulationStats*)sr1)->Buffer
-        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegaddrImmToReg(sr1, offsetof(SimulationStats, Buffer), sr2));
-    } else {
-        // sr2 = stats.Buffer
-        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToReg(getInstDataAddress() + (uint64_t)stats.Buffer, sr2));
-    }
-
-    // sr3 = ((BufferEntry*)sr2)->__buf_current;
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_current), sr3));
-    // sr3 = sr3 + sizeof(BuffestEntry)
-    snip->addSnippetInstruction(X86InstructionFactory64::emitRegImmMultReg(sr3, sizeof(BufferEntry), sr3)); 
-    // sr3 holds the offset (in bytes) of the access
-
-    // sr2 = pointer to memop's buffer entry
-    snip->addSnippetInstruction(X86InstructionFactory64::emitLoadEffectiveAddress(
-        sr2, sr3, 1, sizeof(BufferEntry) * bufferIdx, sr2, true, true));
-
-}
-
-
-void AddressStreamIntercept::bufferVectorEntry(
-        X86Instruction* instRefPoint,
-        InstLocations   loc,
-        X86Instruction* vectorIns,
-        uint32_t        threadReg,
-        SimulationStats& stats,
-        uint32_t blockSeq,
-        uint32_t memseq) {
-
-    // First we build the actual instrumentation point
-    InstrumentationSnippet* snip = addInstrumentationSnippet();
-    InstrumentationPoint* point = addInstrumentationPoint(
-        instRefPoint, snip, InstrumentationMode_trampinline, loc);
-    point->setPriority(InstPriority_low);
-    dynamicPoint(point, GENERATE_KEY(blockSeq, PointType_bufferfill), true);
-
-    uint32_t sr1 = X86_REG_INVALID, sr2 = X86_REG_INVALID, sr3 = X86_REG_INVALID;
-    if(threadReg != X86_REG_INVALID)
-        sr1 = threadReg;
-    grabScratchRegisters(instRefPoint, loc, &sr1, &sr2, &sr3);
-    assert(sr1 != X86_REG_INVALID && sr2 != X86_REG_INVALID && sr3 != X86_REG_INVALID);
-
-    // sr1 = stats
-    if(threadReg == X86_REG_INVALID && usePIC()) {
-        Vector<X86Instruction*>* insns = storeThreadData(sr2, sr1);
-        for(uint32_t ins = 0; ins < insns->size(); ++ins) {
-            snip->addSnippetInstruction((*insns)[ins]);
-        }
-        delete insns;
-    }
-
-    setupBufferEntry(snip, 0, sr1, sr2, sr3, stats);
-    int8_t loadstoreflag;
-    if(vectorIns->isLoad())
-        loadstoreflag = LOAD;
-    else if(vectorIns->isStore())
-        loadstoreflag = STORE;
-    else
-        assert(0);
-    writeBufferBase(snip, sr2, sr3, VECTOR_ENTRY, loadstoreflag, memseq);
-
-    OperandX86* vectorOp = NULL;
-    // vgatherdps (%r14,%zmm0,8), %zmm2 {k4}
-    if(vectorIns->isLoad()) {
-        Vector<OperandX86*>* ops = vectorIns->getSourceOperands();
-        assert(ops->size() == 1);
-        vectorOp = (*ops)[0];
-        delete ops;
-    } else if(vectorIns->isStore()) {
-        vectorOp = vectorIns->getDestOperand();
-        assert(vectorOp);
-    } else assert(0);
-    assert(vectorOp->getType() == UD_OP_MEM);
-
-    uint32_t zmmReg  = vectorOp->getIndexRegister();
-    uint32_t baseReg = vectorOp->getBaseRegister();
-    uint8_t scale   = vectorOp->GET(scale);
-    if(scale == 0) scale = 1;
-    uint32_t kreg    = vectorIns->getVectorMaskRegister();
-    uint32_t offset = vectorOp->getValue();
-
-    // write base and/or offset
-    if(baseReg != X86_REG_INVALID) {
-        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(
-            baseReg,
-            sr2,
-            offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, base),
-            true));
-        if(offset) {
-            snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToRegaddrImm(
-                offset,
-                sr2,
-                offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, base)));
-        }
-    } else {
-        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToRegaddrImm(
-            offset,
-            sr2,
-            offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, base)));
-    }
-
-    // write scale
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToRegaddrImm(
-        scale,
-        sizeof(scale),
-        sr2,
-        offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, scale)));
-
-    // write mask
-    //   kmov k, sr3
-    //   store sr3
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveKToReg(kreg, sr3));
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(
-        sr3,
-        sr2,
-        offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
-        true));
-
-    // write index vector
-    Vector<X86Instruction*>* insns = X86InstructionFactory64::emitUnalignedPackstoreRegaddrImm(
-        zmmReg,
-        X86_REG_K0,
-        sr2,
-        offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, indexVector));
-
-    for(int idx = 0; idx < insns->size(); ++idx) {
-        snip->addSnippetInstruction((*insns)[idx]);
-    }
-    delete insns;
-
 }
 
 void AddressStreamIntercept::instrument(){
@@ -1369,69 +1053,41 @@ void AddressStreamIntercept::instrument(){
           "that of KNC code. This code is deprecated.");
 
         uint32_t memopIdInBlock = 0;
-        uint32_t leader = 0;
+        uint64_t numMemopsInBlock = getNumberOfMemopsToInstrument(bb);
         for (uint32_t insIndex = 0; insIndex < bb->getNumberOfInstructions(); 
           insIndex++){
             X86Instruction* memop = bb->getInstruction(insIndex);
-            uint64_t numMemopsInBlock = getNumberOfMemopsToInstrument(bb);
 
-            // If this is the beginning of a new block, then we need to:
-            //   1. Insert a counter for this block
-            //   2. Insert runtime code to check to see if this block will
-            //      overflow the buffer (this will call the memBufferFunc)
-            if (ifInstrumentingInstruction(memop) && ((memopIdInBlock == 0))){
-                uint32_t counterSeq = blockSeq;
-                if (isPerInstruction()){
-                    counterSeq = memopSeq;
-                } 
-                uint64_t counterOffset = (uint64_t)stats.Counters + 
-                  (counterSeq * sizeof(uint64_t));
-                if (usePIC()) { 
-                    counterOffset -= simulationStruct;
+            if (ifInstrumentingInstruction(memop)) {
+                // If this is the beginning of a new block, then we need to:
+                //   1. Insert a counter for this block
+                //   2. Insert runtime code to check to see if this block will
+                //      overflow the buffer (this will call the memBufferFunc)
+                if ((memopIdInBlock == 0)){
+                    uint32_t counterSeq = blockSeq;
+                    if (isPerInstruction()){
+                        counterSeq = memopSeq;
+                    } 
+                    uint64_t counterOffset = (uint64_t)stats.Counters + 
+                      (counterSeq * sizeof(uint64_t));
+                    if (usePIC()) { 
+                        counterOffset -= simulationStruct;
+                    }
+                    InstrumentationTool::insertBlockCounter(counterOffset, bb, 
+                      true, threadReg);
+
+                    insertBufferClear(memop, InstLocation_prior, threadReg,
+                     stats, blockSeq, numMemopsInBlock);
                 }
-                InstrumentationTool::insertBlockCounter(counterOffset, bb, 
-                  true, threadReg);
-
-                insertBufferClear(memop, InstLocation_prior, threadReg, stats,
-                  blockSeq, numMemopsInBlock);
-
-                leader = memopSeq;
-            }
-
-            // KNL implementation (not KNC)
-            if (memop->isScatterGatherOp()) {
-              bufferVectorEntry(memop, InstLocation_prior, memop, threadReg, 
-                stats, blockSeq, memopSeq);
-              ++memopIdInBlock;
-              ++memopSeq;
-            } else if (memop->isMemoryOperation()) {
-
-                if(memop->isLoad()) {
-                    instrumentMemop(bb, memop, LOAD, blockSeq, threadReg, 
-                      stats, memopIdInBlock, memopSeq);
-  
-  
-                    ++memopIdInBlock;
-                    ++memopSeq;
-                }
-  
-                if(memop->isStore()) {
-                    instrumentMemop(bb, memop, STORE, blockSeq, threadReg, 
-                      stats, memopIdInBlock, memopSeq);
-  
-  
-  
-                    ++memopIdInBlock;
-                    ++memopSeq;
-                } //store
-            } //memop
-            else if(memop->isSoftwarePrefetch()) {
-                instrumentMemop(bb, memop, PREFETCH, blockSeq, threadReg, 
-                  stats, memopIdInBlock, memopSeq);
-
-                 ++memopIdInBlock;
-                 ++memopSeq;
-            }
+                // Collect addresses from this instruction     
+                insertAddressCollection(bb, memop, threadReg, stats, blockSeq,
+                  memopSeq, memopIdInBlock);
+                
+                // Increment memopSeq and memopIdInBlock
+                uint64_t numMemopsInInsn = getNumberOfMemopsToInstrument(memop);
+                memopSeq += numMemopsInInsn;
+                memopIdInBlock += numMemopsInInsn;
+            } 
         }
         blockSeq++;
     } // for each block
@@ -1442,6 +1098,165 @@ void AddressStreamIntercept::instrument(){
     }
     writeStaticFile();
     ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase order must be observed"); 
+}
+
+// Instrument the program entry with a function to initialize the Address 
+// stream tool
+void AddressStreamIntercept::instrumentEntryPoint() {
+     if (isMultiImage()){
+        for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+            Function* f = getExposedFunction(i);
+
+            InstrumentationPoint* point = addInstrumentationPoint(
+                f, entryFunc, InstrumentationMode_tramp, InstLocation_prior);
+
+            ASSERT(point);
+            point->setPriority(InstPriority_sysinit);
+            if (!point->getInstBaseAddress()){
+                PRINT_ERROR("Cannot find an instrumentation point at the entry "
+                  "function");
+            }            
+
+            dynamicPoint(point, getElfFile()->getUniqueId(), true);
+        }
+    } else {
+        InstrumentationPoint* point = addInstrumentationPoint(
+            getProgramEntryBlock(), entryFunc, InstrumentationMode_tramp);
+        ASSERT(point);
+        point->setPriority(InstPriority_sysinit);
+        if (!point->getInstBaseAddress()){
+            PRINT_ERROR("Cannot find an instrumentation point at the entry "
+              "function");
+        }
+    }
+}
+
+// Instrument the program exit with a function to finalize the address stream 
+// tool
+void AddressStreamIntercept::instrumentExitPoint() {
+    InstrumentationPoint* point = addInstrumentationPoint(
+        getProgramExitBlock(), exitFunc, InstrumentationMode_tramp);
+    ASSERT(point);
+    point->setPriority(InstPriority_sysinit);
+    if (!point->getInstBaseAddress()){
+        PRINT_ERROR("Cannot find an instrumentation point at the exit function");
+    }
+}
+
+// Grab 3 scratch registers to use for instrumentation
+void AddressStreamIntercept::grabScratchRegisters(X86Instruction* instRefPoint,
+  InstLocations loc, uint32_t* sr1, uint32_t* sr2, uint32_t* sr3) {
+
+    // start with all gpu regs except ax and sp
+    BitSet<uint32_t>* inv = new BitSet<uint32_t>(X86_ALU_REGS);
+    inv->insert(X86_REG_AX);
+    inv->insert(X86_REG_SP);
+
+    // invalidate presets TODO other regs
+    if(sr1 && *sr1 != X86_REG_INVALID) {
+       inv->insert(*sr1);
+    }
+
+    // invalidate any registers used by this instruction FIXME why?
+    RegisterSet* regused = instRefPoint->getUnusableRegisters();
+    for (uint32_t k = 0; k < X86_64BIT_GPRS; k++){
+        if (regused->containsRegister(k)){
+            inv->insert(k);
+        }
+    }
+    delete regused;
+
+    // Invalidate non-gprs FIXME just allocate a bitset without them
+    for (uint32_t k = X86_64BIT_GPRS; k < X86_ALU_REGS; k++){
+        inv->insert(k);
+    }
+    
+    if (inv_reg) {
+        inv->insert(getOffLimitsRegister());
+    }
+
+    // Look for dead registers in remaining valid
+    BitSet<uint32_t>* dead = NULL;
+    if(loc == InstLocation_prior)
+        dead = instRefPoint->getDeadRegIn(inv, 3);
+    else if(loc == InstLocation_after)
+        dead = instRefPoint->getDeadRegOut(inv, 3);
+    else
+        assert(0 && "Invalid inst location");
+
+    for (uint32_t k = 0; k < X86_64BIT_GPRS; k++){
+        if (dead->contains(k)){
+            if (sr1 && *sr1 == X86_REG_INVALID){
+                *sr1 = k;
+            } else if (sr2 && *sr2 == X86_REG_INVALID){
+                *sr2 = k;
+            } else if (sr3 && *sr3 == X86_REG_INVALID){
+                *sr3 = k;
+                break;
+            }
+        }
+    }
+    delete inv;
+    delete dead;
+
+}
+
+void AddressStreamIntercept::setSr2ToBufferEntry(SimulationStats& stats, 
+  InstrumentationSnippet* snip, uint32_t sr1, uint32_t sr2, uint32_t sr3, 
+  int32_t bufferIndex) {
+
+    // sr2 = start of buffer
+    if (usePIC()){
+        // sr2 = ((SimulationStats*)sr1)->Buffer
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveRegaddrImmToReg(sr1, offsetof(SimulationStats, Buffer), sr2));
+    } else {
+        // sr2 = stats.Buffer
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveImmToReg(getInstDataAddress() + (uint64_t)stats.Buffer, sr2));
+    }
+
+    // sr3 = ((BufferEntry*)sr2)->__buf_current;
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_current), sr3));
+
+    // sr3 = sr3 + sizeof(BufferEntry)
+    // sr3 holds the offset (in bytes) of the access
+    snip->addSnippetInstruction(X86InstructionFactory64::emitRegImmMultReg(sr3,
+      sizeof(BufferEntry), sr3)); 
+
+
+    // sr2 = pointer to memop's buffer entry
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitLoadEffectiveAddress(sr2, sr3, 1, sizeof(BufferEntry) * bufferIndex, 
+      sr2, true, true));
+
+}
+
+void AddressStreamIntercept::writeBufferEntry(InstrumentationSnippet* snip, 
+  uint32_t memseq, uint32_t sr2, uint32_t sr3, enum EntryType type, 
+  uint8_t loadstoreflag) {
+
+    // set entry type
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveImmToRegaddrImm(type, sizeof(type), sr2, offsetof(BufferEntry, 
+      type)));
+
+    // set Load-store flag
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveImmToRegaddrImm(loadstoreflag, sizeof(loadstoreflag), sr2, 
+      offsetof(BufferEntry, loadstoreflag)));
+
+    // set imageid
+    uint64_t imageHash = getElfFile()->getUniqueId();
+    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImm64ToReg(
+      imageHash, sr3));
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, imageid), true));
+
+    // set memseq
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveImmToRegaddrImm(memseq, sr2, offsetof(BufferEntry, memseq)));
 }
 
 void AddressStreamIntercept::writeStaticFile() {
@@ -1506,42 +1321,153 @@ void AddressStreamIntercept::writeStaticFile() {
     delete[] extension;
 }
 
-uint32_t AddressStreamIntercept::get_reg() {
-    ASSERT(inv_reg);
+void AddressStreamIntercept::initializeLineInfo(SimulationStats& stats, 
+  Function* func, BasicBlock* bb, uint32_t blockSeq, uint64_t noData) {
 
-    if (!strcmp(inv_reg, "r8")) {
-        return X86_REG_R8;
-    } else if (!strcmp(inv_reg, "r9")) {
-        return X86_REG_R9;
-    } else if (!strcmp(inv_reg, "r10")) {
-        return X86_REG_R10;
-    } else if (!strcmp(inv_reg, "r11")) {
-        return X86_REG_R11;
-    } else if (!strcmp(inv_reg, "r12")) {
-        return X86_REG_R12;
-    } else if (!strcmp(inv_reg, "r13")) {
-        return X86_REG_R13;
-    } else if (!strcmp(inv_reg, "r14")) {
-        return X86_REG_R14;
-    } else if (!strcmp(inv_reg, "r15")) {
-        return X86_REG_R15;
-    } else if (!strcmp(inv_reg, "ax")) {
-        return X86_REG_AX;
-    } else if (!strcmp(inv_reg, "bx")) {
-        return X86_REG_BX;
-    } else if (!strcmp(inv_reg, "cx")) {
-        return X86_REG_CX;
-    } else if (!strcmp(inv_reg, "dx")) {
-        return X86_REG_DX;
-    } else if (!strcmp(inv_reg, "sp")) {
-        return X86_REG_SP;
-    } else if (!strcmp(inv_reg, "bp")) {
-        return X86_REG_BP;
-    } else if (!strcmp(inv_reg, "si")) {
-        return X86_REG_SI;
-    } else if (!strcmp(inv_reg, "di")) {
-        return X86_REG_DI;
-    } else {
-        return X86_REG_INVALID;
+    LineInfo* li = NULL;
+    LineInfoFinder* lineInfoFinder = NULL;
+
+    if (hasLineInformation()){
+        lineInfoFinder = getLineInfoFinder();
     }
+
+    if (lineInfoFinder){
+        li = lineInfoFinder->lookupLineInfo(bb);
+    }
+
+    if (li){
+        uint32_t line = li->GET(lr_line);
+        initializeReservedData(getInstDataAddress() + (uint64_t)stats.Lines + 
+          sizeof(uint32_t) * blockSeq, sizeof(uint32_t), &line);
+
+        uint64_t filename = reserveDataOffset(strlen(li->getFileName()) + 1);
+        initializeReservedPointer(filename, (uint64_t)stats.Files + blockSeq * 
+          sizeof(char*));
+        initializeReservedData(getInstDataAddress() + filename, strlen(
+          li->getFileName()) + 1, (void*)li->getFileName());
+    } else {
+        uint32_t temp32 = 0;
+        initializeReservedData(getInstDataAddress() + (uint64_t)stats.Lines + 
+          sizeof(uint32_t) * blockSeq, sizeof(uint32_t), &temp32);
+        initializeReservedPointer(noData, (uint64_t)stats.Files + blockSeq * 
+          sizeof(char*));
+    }
+    uint64_t funcname = reserveDataOffset(strlen(func->getName()) + 1);
+    initializeReservedPointer(funcname, (uint64_t)stats.Functions + blockSeq * 
+      sizeof(char*));
+    initializeReservedData(getInstDataAddress() + funcname, strlen(
+      func->getName()) + 1, (void*)func->getName());
 }
+
+/* TODO To be implemented later
+void AddressStreamIntercept::bufferVectorEntry(
+        X86Instruction* instRefPoint,
+        InstLocations   loc,
+        X86Instruction* vectorIns,
+        uint32_t        threadReg,
+        SimulationStats& stats,
+        uint32_t blockSeq,
+        uint32_t memseq) {
+
+    // First we build the actual instrumentation point
+    InstrumentationSnippet* snip = addInstrumentationSnippet();
+    InstrumentationPoint* point = addInstrumentationPoint(
+        instRefPoint, snip, InstrumentationMode_trampinline, loc);
+    point->setPriority(InstPriority_low);
+    dynamicPoint(point, GENERATE_KEY(blockSeq, PointType_bufferfill), true);
+
+    uint32_t sr1 = X86_REG_INVALID, sr2 = X86_REG_INVALID, sr3 = X86_REG_INVALID;
+    if(threadReg != X86_REG_INVALID)
+        sr1 = threadReg;
+    grabScratchRegisters(instRefPoint, loc, &sr1, &sr2, &sr3);
+    assert(sr1 != X86_REG_INVALID && sr2 != X86_REG_INVALID && sr3 != X86_REG_INVALID);
+
+    // sr1 = stats
+    if(threadReg == X86_REG_INVALID && usePIC()) {
+        Vector<X86Instruction*>* insns = storeThreadData(sr2, sr1);
+        for(uint32_t ins = 0; ins < insns->size(); ++ins) {
+            snip->addSnippetInstruction((*insns)[ins]);
+        }
+        delete insns;
+    }
+
+    setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, 0);
+    int8_t loadstoreflag;
+    if(vectorIns->isLoad())
+        loadstoreflag = LOAD;
+    else if(vectorIns->isStore())
+        loadstoreflag = STORE;
+    else
+        assert(0);
+    writeBufferEntry(snip, memseq, sr2, sr3, VECTOR_ENTRY, loadstoreflag);
+
+    OperandX86* vectorOp = NULL;
+    // vgatherdps (%r14,%zmm0,8), %zmm2 {k4}
+    if(vectorIns->isLoad()) {
+        Vector<OperandX86*>* ops = vectorIns->getSourceOperands();
+        assert(ops->size() == 1);
+        vectorOp = (*ops)[0];
+        delete ops;
+    } else if(vectorIns->isStore()) {
+        vectorOp = vectorIns->getDestOperand();
+        assert(vectorOp);
+    } else assert(0);
+    assert(vectorOp->getType() == UD_OP_MEM);
+
+    uint32_t zmmReg  = vectorOp->getIndexRegister();
+    uint32_t baseReg = vectorOp->getBaseRegister();
+    uint8_t scale   = vectorOp->GET(scale);
+    if(scale == 0) scale = 1;
+    uint32_t kreg    = vectorIns->getVectorMaskRegister();
+    uint32_t offset = vectorOp->getValue();
+
+    // write base and/or offset
+    if(baseReg != X86_REG_INVALID) {
+        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(
+            baseReg,
+            sr2,
+            offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, base),
+            true));
+        if(offset) {
+            snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToRegaddrImm(
+                offset,
+                sr2,
+                offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, base)));
+        }
+    } else {
+        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToRegaddrImm(
+            offset,
+            sr2,
+            offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, base)));
+    }
+
+    // write scale
+    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToRegaddrImm(
+        scale,
+        sizeof(scale),
+        sr2,
+        offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, scale)));
+
+    // write mask
+    //   kmov k, sr3
+    //   store sr3
+    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveKToReg(kreg, sr3));
+    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(
+        sr3,
+        sr2,
+        offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
+        true));
+
+    // write index vector
+    Vector<X86Instruction*>* insns = X86InstructionFactory64::emitUnalignedPackstoreRegaddrImm(
+        zmmReg,
+        X86_REG_K0,
+        sr2,
+        offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, indexVector));
+
+    for(int idx = 0; idx < insns->size(); ++idx) {
+        snip->addSnippetInstruction((*insns)[idx]);
+    }
+    delete insns;
+
+} */
