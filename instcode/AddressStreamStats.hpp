@@ -58,7 +58,6 @@ typedef struct {
 
     // per-memop data
     uint64_t* BlockIds;   // Indices into per-block data, like counter
-    uint64_t* MemopIds;   // Not entirely sure what this is used for
 
     // per-block data
     CounterTypes* Types; // ??

@@ -474,6 +474,230 @@ void AddressStreamIntercept::initializeGroups() {
     } // for each block
 } 
 
+void AddressStreamIntercept::initializePerBlockData(SimulationStats& stats) {
+
+    // Initialize the Types and Counters
+    // Counters set up like BasicBlockCounter Counters
+    // The first instruction (memop) in the block keeps the count
+    // The other instructions (memops) hold the index to of the first insn
+    // The first memop is CounterTypes_basicBlock
+    // Other memops in the block are type CounterTypes_instruction
+    // Also collect number of memops per block
+    uint64_t blockSeq = 0;
+    uint64_t memopSeq = 0;
+    CounterTypes counterType = CounterType_basicblock;
+    uint64_t firstMemopId = 0;
+    bool isFirstMemopInBlock = false;
+    uint64_t initCounterValue = 0;
+    uint64_t counterIndex = 0;
+    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
+        BasicBlock* bb = blocksToInst[blockInd];
+        Function* func = (Function*)bb->getLeader()->getContainer();
+
+        // Go through each memop
+        isFirstMemopInBlock = true;
+        for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
+            X86Instruction* memop = bb->getInstruction(j);
+            for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
+            { 
+                if (isFirstMemopInBlock || !(isPerInstruction())) {
+                    firstMemopId = memopSeq;
+                    counterType = CounterType_basicblock;
+                    initCounterValue = 0;
+                } else {
+                    counterType = CounterType_instruction;
+                    initCounterValue = firstMemopId;
+                }
+                if (isPerInstruction()) {
+                    counterIndex = memopSeq;
+                } else {
+                    counterIndex = blockSeq;
+                }
+                initializeReservedData(getInstDataAddress() + 
+                  (uint64_t)stats.Types + (counterIndex * sizeof(CounterTypes)),
+                  sizeof(CounterTypes), &counterType);
+                initializeReservedData(getInstDataAddress() + 
+                  (uint64_t)stats.Counters + (counterIndex * sizeof(uint64_t)),
+                  sizeof(uint64_t), &initCounterValue);
+                memopSeq++;
+                isFirstMemopInBlock = false;
+            }
+        }
+        blockSeq++;
+    }
+
+    // Collect number of memops per block (with perinsn, we separate out each
+    // memop from the insn, so set numMemops to 1)
+    blockSeq = 0;
+    memopSeq = 0;
+    uint32_t numMemopsInBlock = 0;
+    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
+        BasicBlock* bb = blocksToInst[blockInd];
+        Function* func = (Function*)bb->getLeader()->getContainer();
+
+        numMemopsInBlock = 0;
+        for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
+            X86Instruction* memop = bb->getInstruction(j);
+            for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
+            { 
+                // If perinsn, then set each to 1. Must go through with
+                // sequence number
+                if (isPerInstruction()) {
+                    numMemopsInBlock = 1;
+                    initializeReservedData(getInstDataAddress() + 
+                      (uint64_t)stats.MemopsPerBlock + 
+                      memopSeq*sizeof(uint32_t), sizeof(uint32_t), 
+                      &numMemopsInBlock);
+              } 
+              numMemopsInBlock++;
+              memopSeq++;
+           }
+        }
+        // In not perinsn, then we set it to the number of memop
+        if(!isPerInstruction()) {
+            initializeReservedData(getInstDataAddress() + 
+              (uint64_t)stats.MemopsPerBlock + blockSeq*sizeof(uint32_t),
+              sizeof(uint32_t), &numMemopsInBlock);
+        }
+        blockSeq++;
+    }
+
+    // Initialize Files, Lines, and Functions
+    blockSeq = 0;
+    memopSeq = 0;
+    uint64_t noData = getNullLineInfoValue();
+    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
+        BasicBlock* bb = blocksToInst[blockInd];
+        Function* func = (Function*)bb->getLeader()->getContainer();
+
+        for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
+            X86Instruction* memop = bb->getInstruction(j);
+            for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
+            { 
+                // If perinsn, then set Line Info by memopSeq
+                if (isPerInstruction()) {
+                    initializeLineInfo(stats, func, bb, memopSeq, noData);
+                }
+                memopSeq++;
+           }
+        }
+        // In not perinsn, then we set it by blockSeq
+        if(!isPerInstruction()) {
+            initializeLineInfo(stats, func, bb, blockSeq, noData);
+        }
+        blockSeq++;
+    }
+
+    // Initialize Hashes and Groups
+    blockSeq = 0;
+    memopSeq = 0;
+    uint64_t hashValue = 0;
+    uint64_t bbHashValue = 0;
+    uint64_t groupId = 0;
+
+    initializeReservedData(
+      getInstDataAddress() + (uint64_t)stats.GroupIds + (memopSeq * sizeof(uint64_t)),
+      sizeof(uint64_t),
+      &groupId);
+
+    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
+        BasicBlock* bb = blocksToInst[blockInd];
+        Function* func = (Function*)bb->getLeader()->getContainer();
+
+        bbHashValue = bb->getHashCode().getValue();
+        // If perInsn, then need to give the memops hash value
+        if (isPerInstruction()) {
+            for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
+                X86Instruction* memop = bb->getInstruction(j);
+                for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); 
+                  m++) { 
+                    HashCode* memopHashCode = memop->generateHashCode(bb);
+                    hashValue = memopHashCode->getValue();
+                    initializeReservedData(getInstDataAddress() + 
+                      (uint64_t)stats.Hashes + memopSeq*sizeof(uint64_t),
+                      sizeof(uint64_t), &hashValue);
+
+                    if(mapBBToGroupId.get(bbHashValue)) {
+                        groupId = mapBBToGroupId.getVal(bbHashValue);
+                    } else {
+                        groupId = 0;
+                    }
+
+                    initializeReservedData(getInstDataAddress() + 
+                      (uint64_t)stats.GroupIds + (memopSeq * sizeof(uint64_t)),
+                      sizeof(uint64_t),&groupId);
+                    memopSeq++;
+                    delete memopHashCode;
+                }
+            }
+        } else {
+            // In not perinsn, then just set it to the block hash
+            hashValue = bbHashValue;
+            initializeReservedData(getInstDataAddress() + 
+              (uint64_t)stats.Hashes + blockSeq*sizeof(uint64_t), 
+              sizeof(uint64_t), &hashValue);
+
+
+            if(mapBBToGroupId.get(hashValue)) {
+                groupId = mapBBToGroupId.getVal(hashValue);
+            } else {
+                groupId = 0;
+            }
+
+            initializeReservedData(getInstDataAddress() + 
+              (uint64_t)stats.GroupIds + (blockSeq * sizeof(uint64_t)),
+              sizeof(uint64_t),&groupId);
+        }
+        blockSeq++;
+    }
+}
+
+void AddressStreamIntercept::initializePerGroupData(SimulationStats& stats) {
+
+    // Initialize GroupCounts
+    uint64_t initGroupCount = 0;
+    for (uint64_t groupSeq = 0; groupSeq < stats.GroupCount; groupSeq++){
+        initializeReservedData(getInstDataAddress() + 
+          (uint64_t)stats.GroupCounters + groupSeq*sizeof(uint64_t), 
+          sizeof(uint64_t), &initGroupCount);
+    }
+}
+
+void AddressStreamIntercept::initializePerMemopData(SimulationStats& stats) {
+
+    // Initialize BlockIds
+    // If perinsn, give each memop a unique ID
+    uint64_t blockSeq = 0;
+    uint64_t memopSeq = 0;
+    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
+        BasicBlock* bb = blocksToInst[blockInd];
+        Function* func = (Function*)bb->getLeader()->getContainer();
+
+        // Double-Check that the blocksToInst vector is correct
+        ASSERT(blocksToInstHash.get(bb->getHashCode().getValue()) && "Found "
+          "rogue block. Exitting.");
+
+        // Go through each memop
+        // NOTE: Some insns have multiple memops!
+        for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
+            X86Instruction* memop = bb->getInstruction(j);
+            for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
+            {
+                uint64_t initialBlockId = blockSeq;
+                if (isPerInstruction()) {
+                    initialBlockId = memopSeq;
+                }
+                initializeReservedData(getInstDataAddress() + 
+                  (uint64_t)stats.BlockIds + memopSeq * sizeof(uint64_t), 
+                  sizeof(uint64_t), &initialBlockId);
+                memopSeq++;
+            }
+        }
+        blockSeq++;
+    }
+}
+
+
 // Allocate and initialize pointers for the runtime Simulation Stats structure
 void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
 
@@ -542,273 +766,47 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
       offsetof(SimulationStats, __nam))
 
     INIT_INSN_ELEMENT(uint64_t, BlockIds);
-    INIT_INSN_ELEMENT(uint64_t, MemopIds);
 
     // Initialize per-memop data
-    // Initialize BlockIds
-    // If perinsn, give each memop a unique ID
-    uint64_t blockSeq = 0;
-    uint64_t memopSeq = 0;
-    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
-        BasicBlock* bb = blocksToInst[blockInd];
-        Function* func = (Function*)bb->getLeader()->getContainer();
-
-        // Go through each memop
-        // NOTE: Some insns have multiple memops!
-        for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
-            X86Instruction* memop = bb->getInstruction(j);
-            for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
-            {
-                uint64_t initialBlockId = blockSeq;
-                if (isPerInstruction()) {
-                    initialBlockId = memopSeq;
-                }
-                initializeReservedData(getInstDataAddress() + 
-                  (uint64_t)stats.BlockIds + memopSeq * sizeof(uint64_t), 
-                  sizeof(uint64_t), &initialBlockId);
-                memopSeq++;
-            }
-        }
-        blockSeq++;
-    }
-
+    initializePerMemopData(stats);
 
     // Per-Block Data
-    // Again, just initialize the point
-    // Data to be initialized later
+    // Initialize per-block data pointers
 #define INIT_BLOCK_ELEMENT(__typ, __nam)\
-    stats.__nam = (__typ*)reserveDataOffset(stats.BlockCount * sizeof(__typ));  \
-    initializeReservedPointer((uint64_t)stats.__nam, statsOffset + offsetof(SimulationStats, __nam))
+    stats.__nam = (__typ*)reserveDataOffset(stats.BlockCount * sizeof(__typ)); \
+    initializeReservedPointer((uint64_t)stats.__nam, statsOffset + \
+      offsetof(SimulationStats, __nam))
 
     INIT_BLOCK_ELEMENT(CounterTypes, Types);
-    // Counters alread initialized
+    // Counters already initialized
     INIT_BLOCK_ELEMENT(uint32_t, MemopsPerBlock);
     INIT_BLOCK_ELEMENT(char*, Files);
     INIT_BLOCK_ELEMENT(uint32_t, Lines);
     INIT_BLOCK_ELEMENT(char*, Functions);
     INIT_BLOCK_ELEMENT(uint64_t, Hashes);
-    //ACC UNUSED
+    // TODO ACC UNUSED
     INIT_BLOCK_ELEMENT(uint64_t, Addresses);
     INIT_BLOCK_ELEMENT(uint64_t, GroupIds);
 
-    // Initialize the Types and Counters
-    // Counters set up like BasicBlockCounter Counters
-    // The first instruction (memop) in the block keeps the count
-    // The other instructions (memops) hold the index to of the first insn
-    // The first memop is CounterTypes_basicBlock
-    // Other memops in the block are type CounterTypes_instruction
-    // Also collect number of memops per block
-    CounterTypes counterType = CounterType_basicblock;
-    uint64_t firstMemopId = 0;
-    bool isFirstMemopInBlock = false;
-    blockSeq = 0;
-    memopSeq = 0;
-    uint64_t initCounterValue = 0;
-    uint64_t counterIndex = 0;
-    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
-        BasicBlock* bb = blocksToInst[blockInd];
-        Function* func = (Function*)bb->getLeader()->getContainer();
-
-        // Check if we should skip this block
-        if (!blocksToInstHash.get(bb->getHashCode().getValue()))
-            continue;
-
-        // Go through each memop
-        isFirstMemopInBlock = true;
-        for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
-            X86Instruction* memop = bb->getInstruction(j);
-            for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
-            { 
-                if (isFirstMemopInBlock || !(isPerInstruction())) {
-                    firstMemopId = memopSeq;
-                    counterType = CounterType_basicblock;
-                    initCounterValue = 0;
-                } else {
-                    counterType = CounterType_instruction;
-                    initCounterValue = firstMemopId;
-                }
-                if (isPerInstruction()) {
-                    counterIndex = memopSeq;
-                } else {
-                    counterIndex = blockSeq;
-                }
-                initializeReservedData(getInstDataAddress() + 
-                  (uint64_t)stats.Types + (counterIndex * sizeof(CounterTypes)),
-                  sizeof(CounterTypes), &counterType);
-                initializeReservedData(getInstDataAddress() + 
-                  (uint64_t)stats.Counters + (counterIndex * sizeof(uint64_t)),
-                  sizeof(uint64_t), &initCounterValue);
-                memopSeq++;
-                isFirstMemopInBlock = false;
-            }
-        }
-        blockSeq++;
-    }
-
-    // Collect number of memops per block (with perinsn, we separate out each
-    // memop from the insn, so set numMemops to 1)
-    blockSeq = 0;
-    memopSeq = 0;
-    uint32_t numMemopsInBlock = 0;
-    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
-        BasicBlock* bb = blocksToInst[blockInd];
-        Function* func = (Function*)bb->getLeader()->getContainer();
-
-        // Check if we should skip this block
-        if (!blocksToInstHash.get(bb->getHashCode().getValue()))
-            continue;
-
-        numMemopsInBlock = 0;
-        for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
-            X86Instruction* memop = bb->getInstruction(j);
-            for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
-            { 
-                // If perinsn, then set each to 1. Must go through with
-                // sequence number
-                if (isPerInstruction()) {
-                    numMemopsInBlock = 1;
-                    initializeReservedData(getInstDataAddress() + 
-                      (uint64_t)stats.MemopsPerBlock + 
-                      memopSeq*sizeof(uint32_t), sizeof(uint32_t), 
-                      &numMemopsInBlock);
-              } 
-              numMemopsInBlock++;
-              memopSeq++;
-           }
-        }
-        // In not perinsn, then we set it to the number of memop
-        if(!isPerInstruction()) {
-            initializeReservedData(getInstDataAddress() + 
-              (uint64_t)stats.MemopsPerBlock + blockSeq*sizeof(uint32_t),
-              sizeof(uint32_t), &numMemopsInBlock);
-        }
-        blockSeq++;
-    }
-
-    // Initialize Files, Lines, and Functions
-    blockSeq = 0;
-    memopSeq = 0;
-    uint64_t noData = getNullLineInfoValue();
-    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
-        BasicBlock* bb = blocksToInst[blockInd];
-        Function* func = (Function*)bb->getLeader()->getContainer();
-
-        // Check if we should skip this block
-        if (!blocksToInstHash.get(bb->getHashCode().getValue()))
-            continue;
-
-        for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
-            X86Instruction* memop = bb->getInstruction(j);
-            for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
-            { 
-                // If perinsn, then set Line Info by memopSeq
-                if (isPerInstruction()) {
-                    initializeLineInfo(stats, func, bb, memopSeq, noData);
-                }
-                memopSeq++;
-           }
-        }
-        // In not perinsn, then we set it by blockSeq
-        if(!isPerInstruction()) {
-            initializeLineInfo(stats, func, bb, blockSeq, noData);
-        }
-        blockSeq++;
-    }
-
-    // Initialize Hashes and Groups
-    blockSeq = 0;
-    memopSeq = 0;
-    uint64_t hashValue = 0;
-    uint64_t bbHashValue = 0;
-    uint64_t groupId = 0;
-
-    initializeReservedData(
-      getInstDataAddress() + (uint64_t)stats.GroupIds + (memopSeq * sizeof(uint64_t)),
-      sizeof(uint64_t),
-      &groupId);
-
-    for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
-        BasicBlock* bb = blocksToInst[blockInd];
-        Function* func = (Function*)bb->getLeader()->getContainer();
-
-        // Check if we should skip this block
-        if (!blocksToInstHash.get(bb->getHashCode().getValue()))
-            continue;
-
-        bbHashValue = bb->getHashCode().getValue();
-        // If perInsn, then need to give the memops hash value
-        if (isPerInstruction()) {
-            for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
-                X86Instruction* memop = bb->getInstruction(j);
-                for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); 
-                  m++) { 
-                    HashCode* memopHashCode = memop->generateHashCode(bb);
-                    hashValue = memopHashCode->getValue();
-                    initializeReservedData(getInstDataAddress() + 
-                      (uint64_t)stats.Hashes + memopSeq*sizeof(uint64_t),
-                      sizeof(uint64_t), &hashValue);
-
-                    if(mapBBToGroupId.get(bbHashValue)) {
-                        groupId = mapBBToGroupId.getVal(bbHashValue);
-                    } else {
-                        groupId = 0;
-                    }
-
-                    initializeReservedData(getInstDataAddress() + 
-                      (uint64_t)stats.GroupIds + (memopSeq * sizeof(uint64_t)),
-                      sizeof(uint64_t),&groupId);
-                    memopSeq++;
-                    delete memopHashCode;
-                }
-            }
-        } else {
-            // In not perinsn, then just set it to the block hash
-            hashValue = bbHashValue;
-            initializeReservedData(getInstDataAddress() + 
-              (uint64_t)stats.Hashes + blockSeq*sizeof(uint64_t), 
-              sizeof(uint64_t), &hashValue);
-
-
-            if(mapBBToGroupId.get(hashValue)) {
-                groupId = mapBBToGroupId.getVal(hashValue);
-            } else {
-                groupId = 0;
-            }
-
-            initializeReservedData(getInstDataAddress() + 
-              (uint64_t)stats.GroupIds + (blockSeq * sizeof(uint64_t)),
-              sizeof(uint64_t),&groupId);
-        }
-        blockSeq++;
-    }
+    // Initialize per-block data
+    initializePerBlockData(stats);
 
     // Per-Group Data
-    // Initialize just pointer for now
-    // Data initializing will happen later 
+    // Initialze per-group data pointers
 #define INIT_INSN_ELEMENT(__typ, __nam)\
-    stats.__nam = (__typ*)reserveDataOffset(stats.GroupCount * sizeof(__typ));  \
-    initializeReservedPointer((uint64_t)stats.__nam, statsOffset + offsetof(SimulationStats, __nam))
+    stats.__nam = (__typ*)reserveDataOffset(stats.GroupCount * sizeof(__typ)); \
+    initializeReservedPointer((uint64_t)stats.__nam, statsOffset + \
+      offsetof(SimulationStats, __nam))
 
     INIT_INSN_ELEMENT(uint64_t, GroupCounters);
-
-    // Initialize GroupCounts
-    uint64_t initGroupCount = 0;
-    for (uint64_t groupSeq = 0; groupSeq < stats.GroupCount; groupSeq++){
-        initializeReservedData(getInstDataAddress() + 
-          (uint64_t)stats.GroupCounters + groupSeq*sizeof(uint64_t), 
-          sizeof(uint64_t), &initGroupCount);
-    }
-
-
-
-    stats.Stats = NULL;
+    
+    // Initialize per-group data
+    initializePerGroupData(stats);
 
     // Finally initialize SimulationStats
-    initializeReservedData(
-        getInstDataAddress() + statsOffset,
-        sizeof(SimulationStats),
-        (void*)(&stats));
-
+    stats.Stats = NULL;
+    initializeReservedData(getInstDataAddress() + statsOffset, 
+      sizeof(SimulationStats), (void*)(&stats));
 }
 
 // checks if buffer is full and conditionally clears it

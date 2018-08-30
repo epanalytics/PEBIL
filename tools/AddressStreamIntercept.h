@@ -76,6 +76,9 @@ private:
     void initializeBlocksToInst();
     void initializeFirstBufferEntry(BufferEntry&);
     void initializeGroups();
+    void initializePerBlockData(SimulationStats&);
+    void initializePerGroupData(SimulationStats&);
+    void initializePerMemopData(SimulationStats&);
     void initializeSimulationStats(SimulationStats&);
  
     // Functions to insert instrumentation   
