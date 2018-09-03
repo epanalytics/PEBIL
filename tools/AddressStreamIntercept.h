@@ -52,11 +52,11 @@ private:
 
     // Functions to allocate space in the instrumented binary
     void allocateNullLineInfoValue();
-    void allocateSimulationStats(uint64_t);
+    void allocateAddressStreamStats(uint64_t);
 
     // Functions to create different kinds of memops
     void collectMemEntry(BasicBlock*, X86Instruction*, uint32_t, 
-      SimulationStats&, uint32_t, uint32_t, uint32_t, uint8_t);
+      AddressStreamStats&, uint32_t, uint32_t, uint32_t, uint8_t);
 
     uint64_t getNullLineInfoValue();
     uint32_t getNumberOfBlocksToInstrument();
@@ -65,7 +65,7 @@ private:
     uint64_t getNumberOfMemopsToInstrument(BasicBlock*);
     uint64_t getNumberOfMemopsToInstrument(X86Instruction*);
     uint32_t getOffLimitsRegister();
-    uint64_t getSimulationStatsOffset();
+    uint64_t getAddressStreamStatsOffset();
 
     bool ifInstrumentingInstruction(X86Instruction*);
     bool ifInstrumentingLoads() { return includeLoads; }
@@ -76,23 +76,23 @@ private:
     void initializeBlocksToInst();
     void initializeFirstBufferEntry(BufferEntry&);
     void initializeGroups();
-    void initializePerBlockData(SimulationStats&);
-    void initializePerGroupData(SimulationStats&);
-    void initializePerMemopData(SimulationStats&);
-    void initializeSimulationStats(SimulationStats&);
+    void initializePerBlockData(AddressStreamStats&);
+    void initializePerGroupData(AddressStreamStats&);
+    void initializePerMemopData(AddressStreamStats&);
+    void initializeAddressStreamStats(AddressStreamStats&);
  
     // Functions to insert instrumentation   
     void insertBufferClear(X86Instruction*, InstLocations, uint32_t, 
-      SimulationStats&, uint64_t, uint32_t);
+      AddressStreamStats&, uint64_t, uint32_t);
     void insertAddressCollection(BasicBlock*, X86Instruction*, uint32_t,
-      SimulationStats&, uint32_t, uint32_t, uint32_t);
+      AddressStreamStats&, uint32_t, uint32_t, uint32_t);
     void instrumentEntryPoint();
     void instrumentExitPoint();
 
     // Common methods for instrumentation functions
     void grabScratchRegisters(X86Instruction*, InstLocations, uint32_t*,
       uint32_t*, uint32_t*);
-    void setSr2ToBufferEntry(SimulationStats&, InstrumentationSnippet*, 
+    void setSr2ToBufferEntry(AddressStreamStats&, InstrumentationSnippet*, 
       uint32_t, uint32_t, uint32_t, int32_t);
     inline bool usePIC() { return isThreadedMode() || isMultiImage(); }
     void writeBufferEntry(InstrumentationSnippet*, uint32_t, uint32_t, uint32_t,
@@ -101,8 +101,8 @@ private:
     void writeStaticFile();
 
     // To be used later
-    //  void bufferVectorEntry(X86Instruction*,InstLocations,X86Instruction*,uint32_t,SimulationStats&,uint32_t,uint32_t);
-    void initializeLineInfo(SimulationStats&, Function*, BasicBlock*, uint32_t, uint64_t);
+    //  void bufferVectorEntry(X86Instruction*,InstLocations,X86Instruction*,uint32_t,AddressStreamStats&,uint32_t,uint32_t);
+    void initializeLineInfo(AddressStreamStats&, Function*, BasicBlock*, uint32_t, uint64_t);
 
 
 public:

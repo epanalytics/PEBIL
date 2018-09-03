@@ -76,7 +76,7 @@ typedef struct {
     // per-group data
     uint64_t* GroupCounters;
 
-} SimulationStats;
+} AddressStreamStats;
 
 #define BUFFER_ENTRY(__stats, __n) (&(__stats->Buffer[__n+1]))
 #define BUFFER_CAPACITY(__stats) (__stats->Buffer[0].__buf_capacity)

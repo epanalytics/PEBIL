@@ -18,11 +18,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _Simulation_hpp_
-#define _Simulation_hpp_
+#ifndef _AddressRange_hpp_
+#define _AddressRange_hpp_
 
 #include <string>
-//#include <Metasim.hpp>
 #include <AddressStreamStats.hpp>
 
 using namespace std;
@@ -88,15 +87,15 @@ static bool ParsePositiveInt32(string token, uint32_t* value);
 static bool ParseInt32(string token, uint32_t* value, uint32_t min);
 static bool ParsePositiveInt32Hex(string token, uint32_t* value);
 static void ReadSettings();
-static SimulationStats* GenerateCacheStats(SimulationStats* stats, uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
-static uint64_t ReferenceCacheStats(SimulationStats* stats);
-static void DeleteCacheStats(SimulationStats* stats);
+static AddressStreamStats* GenerateCacheStats(AddressStreamStats* stats, uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
+static uint64_t ReferenceCacheStats(AddressStreamStats* stats);
+static void DeleteCacheStats(AddressStreamStats* stats);
 static bool ReadEnvUint32(string name, uint32_t* var);
-static void PrintSimulationStats(ofstream& f, SimulationStats* stats, thread_key_t tid, bool perThread);
-static void SimulationFileName(SimulationStats* stats, string& oFile);
-static void ReuseDistFileName(SimulationStats* stats, string& oFle);
-static void SpatialDistFileName(SimulationStats* stats, string& oFile);
-static void RangeFileName(SimulationStats* stats, string& oFile);
+static void PrintAddressStreamStats(ofstream& f, AddressStreamStats* stats, thread_key_t tid, bool perThread);
+static void SimulationFileName(AddressStreamStats* stats, string& oFile);
+static void ReuseDistFileName(AddressStreamStats* stats, string& oFle);
+static void SpatialDistFileName(AddressStreamStats* stats, string& oFile);
+static void RangeFileName(AddressStreamStats* stats, string& oFile);
 
 extern "C" {
     void* tool_mpi_init();
@@ -455,4 +454,4 @@ public:
 };
 
 
-#endif /* _Simulation_hpp_ */
+#endif /* _AddressRange_hpp_ */

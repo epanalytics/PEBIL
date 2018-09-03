@@ -89,16 +89,17 @@ void AddressStreamIntercept::allocateNullLineInfoValue() {
 }
 
 // Allocate space for Simulation Stats Structure
-void AddressStreamIntercept::allocateSimulationStats(uint64_t extra) {
+void AddressStreamIntercept::allocateAddressStreamStats(uint64_t extra) {
     // ACC -- > Assert not allocated
-    simulationStatsOffset = reserveDataOffset(sizeof(SimulationStats) + extra);
+    simulationStatsOffset = reserveDataOffset(sizeof(AddressStreamStats) + 
+      extra);
 //                         (sizeof(uint64_t) * stats.BlockCount));
 
 }
 
 // Fills a MEM_ENTRY buffer entry
 void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction* 
-  memop, uint32_t threadReg, SimulationStats& stats, uint32_t blockSeq,  
+  memop, uint32_t threadReg, AddressStreamStats& stats, uint32_t blockSeq,  
   uint32_t memopSeq, uint32_t memopIdInBlock, uint8_t loadstoreflag){
 
     // First we build the actual instrumentation point
@@ -132,11 +133,9 @@ void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction*
         delete tdata;
     }
 
-    // Set sr2 to point to the location of our buffer entry. We currently do
-    // not increase __buf_current here, so we must keep track of which memop 
-    // we are isntrumenting.
-    // Also note that __but_current gets increased BEFORE the addresses are 
-    // collected. Thus, the index must go backwards
+    // Set sr2 to point to the location of our buffer entry. For performance,
+    // we already have increased __buf_current, so we must keep track of 
+    // which memop we are isntrumenting AND the index must go backwards.
     uint32_t memopsInBlock = getNumberOfMemopsToInstrument(bb);
     ASSERT(memopIdInBlock < memopsInBlock);
     int32_t bufferIndex = memopIdInBlock - memopsInBlock + 1;
@@ -153,14 +152,17 @@ void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction*
     delete addrStore;
     snip->addSnippetInstruction(X86InstructionFactory64::
       emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, address), true));
+
 }
 
 // Declare libraries and runtime functions
 void AddressStreamIntercept::declare(){
     InstrumentationTool::declare();
     
-    // declare any shared library that will contain instrumentation functions
-    declareLibrary(INST_LIB_NAME);
+    // Normally we would declare any shared library that will contain 
+    // instrumentation functions here. However, since we plan to create 
+    // multiple libraries on top of this, we will declare them at 
+    // instrumentation time with --lnc
 
     // declare any instrumentation functions that will be used
     memBufferFunc = declareFunction(SIM_FUNCTION);
@@ -296,11 +298,11 @@ uint32_t AddressStreamIntercept::getOffLimitsRegister() {
     }
 }
 
-uint64_t AddressStreamIntercept::getSimulationStatsOffset() {
+uint64_t AddressStreamIntercept::getAddressStreamStatsOffset() {
   
     if(simulationStatsOffset == 0) { 
         PRINT_ERROR("Never allocated space for the Simulation Stats structure. "
-          "Do this with allocateSimulationStats()");
+          "Do this with allocateAddressStreamStats()");
     }
     return simulationStatsOffset;
 }
@@ -474,7 +476,7 @@ void AddressStreamIntercept::initializeGroups() {
     } // for each block
 } 
 
-void AddressStreamIntercept::initializePerBlockData(SimulationStats& stats) {
+void AddressStreamIntercept::initializePerBlockData(AddressStreamStats& stats) {
 
     // Initialize the Types and Counters
     // Counters set up like BasicBlockCounter Counters
@@ -652,7 +654,7 @@ void AddressStreamIntercept::initializePerBlockData(SimulationStats& stats) {
     }
 }
 
-void AddressStreamIntercept::initializePerGroupData(SimulationStats& stats) {
+void AddressStreamIntercept::initializePerGroupData(AddressStreamStats& stats) {
 
     // Initialize GroupCounts
     uint64_t initGroupCount = 0;
@@ -663,7 +665,7 @@ void AddressStreamIntercept::initializePerGroupData(SimulationStats& stats) {
     }
 }
 
-void AddressStreamIntercept::initializePerMemopData(SimulationStats& stats) {
+void AddressStreamIntercept::initializePerMemopData(AddressStreamStats& stats) {
 
     // Initialize BlockIds
     // If perinsn, give each memop a unique ID
@@ -699,7 +701,8 @@ void AddressStreamIntercept::initializePerMemopData(SimulationStats& stats) {
 
 
 // Allocate and initialize pointers for the runtime Simulation Stats structure
-void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
+void AddressStreamIntercept::initializeAddressStreamStats(AddressStreamStats& 
+  stats) {
 
     // Allocate Memory Buffer
     // first entry in buffer is treated specially
@@ -727,26 +730,26 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
     stats.MemopCount = getNumberOfMemopsToInstrument();
     stats.GroupCount = getNumberOfGroups();
 
-    // Allocate Counters and SimulationStats contiguously to
+    // Allocate Counters and AddressStreamStats contiguously to
     // avoid an extra memory ref in counter updates
     // Pass Counters as extra space to be allocated
-    allocateSimulationStats((sizeof(uint64_t) * stats.BlockCount));
-    uint64_t statsOffset = getSimulationStatsOffset();
+    allocateAddressStreamStats((sizeof(uint64_t) * stats.BlockCount));
+    uint64_t statsOffset = getAddressStreamStatsOffset();
 
     // Set Counters to point to extra space
-    stats.Counters = (uint64_t*)(statsOffset + sizeof(SimulationStats));
+    stats.Counters = (uint64_t*)(statsOffset + sizeof(AddressStreamStats));
     initializeReservedPointer((uint64_t)stats.Counters, statsOffset +
-        offsetof(SimulationStats, Counters));
+        offsetof(AddressStreamStats, Counters));
 
     // Set Buffer pointer
     initializeReservedPointer((uint64_t)stats.Buffer,
-        statsOffset + offsetof(SimulationStats, Buffer));
+        statsOffset + offsetof(AddressStreamStats, Buffer));
 
     // Set string metadata
     char* appName = getElfFile()->getAppName();
     uint64_t app = reserveDataOffset(strlen(appName) + 1);
     initializeReservedPointer(app, statsOffset + 
-      offsetof(SimulationStats, Application));
+      offsetof(AddressStreamStats, Application));
     initializeReservedData(getInstDataAddress() + app, strlen(appName) + 1, 
       (void*)appName);
 
@@ -754,7 +757,7 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
     sprintf(extName, "%s\0", getExtension());
     uint64_t ext = reserveDataOffset(strlen(extName) + 1);
     initializeReservedPointer(ext, statsOffset + 
-      offsetof(SimulationStats, Extension));
+      offsetof(AddressStreamStats, Extension));
     initializeReservedData(getInstDataAddress() + ext, strlen(extName) + 1, 
       (void*)extName);
 
@@ -763,7 +766,7 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
 #define INIT_INSN_ELEMENT(__typ, __nam)\
     stats.__nam = (__typ*)reserveDataOffset(stats.MemopCount * sizeof(__typ)); \
     initializeReservedPointer((uint64_t)stats.__nam, statsOffset + \
-      offsetof(SimulationStats, __nam))
+      offsetof(AddressStreamStats, __nam))
 
     INIT_INSN_ELEMENT(uint64_t, BlockIds);
 
@@ -775,7 +778,7 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
 #define INIT_BLOCK_ELEMENT(__typ, __nam)\
     stats.__nam = (__typ*)reserveDataOffset(stats.BlockCount * sizeof(__typ)); \
     initializeReservedPointer((uint64_t)stats.__nam, statsOffset + \
-      offsetof(SimulationStats, __nam))
+      offsetof(AddressStreamStats, __nam))
 
     INIT_BLOCK_ELEMENT(CounterTypes, Types);
     // Counters already initialized
@@ -796,23 +799,23 @@ void AddressStreamIntercept::initializeSimulationStats(SimulationStats& stats) {
 #define INIT_INSN_ELEMENT(__typ, __nam)\
     stats.__nam = (__typ*)reserveDataOffset(stats.GroupCount * sizeof(__typ)); \
     initializeReservedPointer((uint64_t)stats.__nam, statsOffset + \
-      offsetof(SimulationStats, __nam))
+      offsetof(AddressStreamStats, __nam))
 
     INIT_INSN_ELEMENT(uint64_t, GroupCounters);
     
     // Initialize per-group data
     initializePerGroupData(stats);
 
-    // Finally initialize SimulationStats
+    // Finally initialize AddressStreamStats
     stats.Stats = NULL;
     initializeReservedData(getInstDataAddress() + statsOffset, 
-      sizeof(SimulationStats), (void*)(&stats));
+      sizeof(AddressStreamStats), (void*)(&stats));
 }
 
 // checks if buffer is full and conditionally clears it
 // with the memBufferFunc
 void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
-  InstLocations loc, uint32_t threadReg, SimulationStats& stats,
+  InstLocations loc, uint32_t threadReg, AddressStreamStats& stats,
   uint64_t blockSeq, uint32_t numMemops) {
 
     // grab 2 scratch registers
@@ -871,9 +874,10 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
 
     // put current buffer into sr2
     if (usePIC()){
-        // sr2 =((SimulationStats)sr1)->Buffer
+        // sr2 =((AddressStreamStats)sr1)->Buffer
         bufferDumpInstructions->append(X86InstructionFactory64::
-          emitMoveRegaddrImmToReg(sr1, offsetof(SimulationStats, Buffer), sr2));
+          emitMoveRegaddrImmToReg(sr1, offsetof(AddressStreamStats, Buffer), 
+          sr2));
     } else {
         // sr2 = stats.Buffer
         bufferDumpInstructions->append(X86InstructionFactory64::
@@ -897,7 +901,8 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
     }
     delete bufferDumpInstructions;
 
-    // Increment current buffer size
+    // Increment current buffer size (do this at the basic block level 
+    // instead of at the memop level to improve performance)
     // If we include the buffer increment as part of the buffer check, it 
     // increments the buffer pointer even when we try to disable this point 
     // during buffer clearing. So, create a new snippet to increment it
@@ -915,11 +920,11 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
         delete tdata;
     }
 
-    // TODO ACC Can we move the increment to collectMemEntry?
     if (usePIC()){
-        // sr2 = ((SimulationStats*)sr1)->Buffer
+        // sr2 = ((AddressStreamStats*)sr1)->Buffer
         snip->addSnippetInstruction(X86InstructionFactory64::
-          emitMoveRegaddrImmToReg(sr1, offsetof(SimulationStats, Buffer), sr2));
+          emitMoveRegaddrImmToReg(sr1, offsetof(AddressStreamStats, Buffer), 
+          sr2));
 
         // ((BufferEntry*)sr2)->__buf_current++
         snip->addSnippetInstruction(X86InstructionFactory64::
@@ -938,7 +943,7 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
 // There can me more than one type of memop in an instruction, so insert 
 // instrumentation for each type
 void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb, 
-  X86Instruction* memop, uint32_t threadReg, SimulationStats& stats, 
+  X86Instruction* memop, uint32_t threadReg, AddressStreamStats& stats, 
   uint32_t blockSeq, uint32_t memopSeq, uint32_t memopIdInBlock) {
 
     // KNL implementation (not KNC)
@@ -1007,13 +1012,13 @@ void AddressStreamIntercept::instrument(){
         functionThreading = threadReadyCode(functionsToInst);
     }
 
-    // Initialize SimulationStats, the data structure that will be passed
+    // Initialize AddressStreamStats, the data structure that will be passed
     // to the runtime library to help collect runtime info
-    SimulationStats stats;
-    initializeSimulationStats(stats);
+    AddressStreamStats stats;
+    initializeAddressStreamStats(stats);
 
     // Add arguments to instrumentation functions
-    entryFunc->addArgument(getSimulationStatsOffset());
+    entryFunc->addArgument(getAddressStreamStatsOffset());
     entryFunc->addArgument(imageKey);
     entryFunc->addArgument(threadHash);
     memBufferFunc->addArgument(imageKey);
@@ -1026,7 +1031,7 @@ void AddressStreamIntercept::instrument(){
     //memBufferFunc->assumeNoFunctionFP();
 
     // Begin instrumenting each block in the function
-    uint64_t simulationStruct = getSimulationStatsOffset();
+    uint64_t simulationStruct = getAddressStreamStatsOffset();
     uint32_t blockSeq = 0;
     uint32_t memopSeq = 0;
     for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
@@ -1199,15 +1204,16 @@ void AddressStreamIntercept::grabScratchRegisters(X86Instruction* instRefPoint,
 
 }
 
-void AddressStreamIntercept::setSr2ToBufferEntry(SimulationStats& stats, 
+void AddressStreamIntercept::setSr2ToBufferEntry(AddressStreamStats& stats, 
   InstrumentationSnippet* snip, uint32_t sr1, uint32_t sr2, uint32_t sr3, 
   int32_t bufferIndex) {
 
     // sr2 = start of buffer
     if (usePIC()){
-        // sr2 = ((SimulationStats*)sr1)->Buffer
+        // sr2 = ((AddressStreamStats*)sr1)->Buffer
         snip->addSnippetInstruction(X86InstructionFactory64::
-          emitMoveRegaddrImmToReg(sr1, offsetof(SimulationStats, Buffer), sr2));
+          emitMoveRegaddrImmToReg(sr1, offsetof(AddressStreamStats, Buffer), 
+          sr2));
     } else {
         // sr2 = stats.Buffer
         snip->addSnippetInstruction(X86InstructionFactory64::
@@ -1218,7 +1224,7 @@ void AddressStreamIntercept::setSr2ToBufferEntry(SimulationStats& stats,
     snip->addSnippetInstruction(X86InstructionFactory64::
       emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_current), sr3));
 
-    // sr3 = sr3 + sizeof(BufferEntry)
+    // sr3 = sr3 * sizeof(BufferEntry)
     // sr3 holds the offset (in bytes) of the access
     snip->addSnippetInstruction(X86InstructionFactory64::emitRegImmMultReg(sr3,
       sizeof(BufferEntry), sr3)); 
@@ -1319,7 +1325,7 @@ void AddressStreamIntercept::writeStaticFile() {
     delete[] extension;
 }
 
-void AddressStreamIntercept::initializeLineInfo(SimulationStats& stats, 
+void AddressStreamIntercept::initializeLineInfo(AddressStreamStats& stats, 
   Function* func, BasicBlock* bb, uint32_t blockSeq, uint64_t noData) {
 
     LineInfo* li = NULL;
@@ -1363,7 +1369,7 @@ void AddressStreamIntercept::bufferVectorEntry(
         InstLocations   loc,
         X86Instruction* vectorIns,
         uint32_t        threadReg,
-        SimulationStats& stats,
+        AddressStreamStats& stats,
         uint32_t blockSeq,
         uint32_t memseq) {
 
