@@ -558,7 +558,7 @@ void AddressStreamIntercept::initializePerBlockData(AddressStreamStats& stats) {
         // In not perinsn, then we set it to the number of memop
         if(!isPerInstruction()) {
             initializeReservedData(getInstDataAddress() + 
-              (uint64_t)stats.MemopsPerBlock + blockSeq*sizeof(uint32_t),
+              (uint64_t)stats.MemopsPerBlock + blockSeq * sizeof(uint32_t),
               sizeof(uint32_t), &numMemopsInBlock);
         }
         blockSeq++;

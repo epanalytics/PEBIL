@@ -19,7 +19,7 @@
  */
 
 #include <InstrumentationCommon.hpp>
-#include <AddressRange.hpp>
+#include <CacheSimulation.hpp>
 #include <ReuseDistance.hpp>
 
 #include <stdio.h>
@@ -1250,7 +1250,8 @@ void SimulationFileName(AddressStreamStats* stats, string& oFile){
     oFile.append(".t");
     AppendTasksString(oFile);
     oFile.append(".");
-    oFile.append(stats->Extension);
+    oFile.append("cachesim");
+    //oFile.append(stats->Extension);
 }
 
 
