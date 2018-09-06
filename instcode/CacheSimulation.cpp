@@ -2371,10 +2371,6 @@ uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access){
     if(access->type == MEM_ENTRY) {
         debug(inform << "Processing MEM_ENTRY with address " << hex << 
           (access->address) << "(" << dec << access->memseq << ")" << ENDL);
-        if (access->memseq > 255) {
-            inform << "Processing MEM_ENTRY with address " << hex << 
-              (access->address) << "(" << dec << access->memseq << ")" << ENDL;
-        }
         return processAddress(stats_in, access->address, access->memseq, 
           access->loadstoreflag);
     } 
