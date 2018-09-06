@@ -20,7 +20,6 @@
 
 #include <InstrumentationCommon.hpp>
 #include <AddressRange.hpp>
-//#include <ReuseDistance.hpp>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -469,13 +468,8 @@ extern "C" {
 
                 RangeStats* r = (RangeStats*)s->Stats[RangeHandlerIndex];
                 assert(r);
-                uint64_t aggCountsTemp[s->BlockCount];
-                for (uint32_t i = 0; i < s->BlockCount; i++) {
-                    aggCountsTemp[i] = 0;
-                } 
                 for (uint32_t i = 0; i < r->Capacity; i++){
                     sampledCount += r->Counts[i];
-                    aggCountsTemp[s->BlockIds[i]] += r->Counts[i];
                 }
 
                 for (uint32_t i = 0; i < s->BlockCount; i++){
