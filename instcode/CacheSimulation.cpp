@@ -633,20 +633,27 @@ extern "C" {
                 thread_key_t thread = it->first;
                 AddressStreamStats* s = it->second;
 
-                CacheStats* c = (CacheStats*)s->Stats[0];
+                CacheStats* c = (CacheStats*)(s->Stats[0]);
                 assert(c);
                 for (uint32_t i = 0; i < c->Capacity; i++){
                     sampledCount += c->GetAccessCount(i);
                 }
-
+  
                 for (uint32_t i = 0; i < s->BlockCount; i++){
                     uint32_t idx;
+                    // Don't need to do this loop if this block doesn't have
+                    // any memops
+                    if(s->MemopsPerBlock[i] == 0) {
+                        continue;
+                    }
                     if (s->Types[i] == CounterType_basicblock){
                         idx = i;
                     } else if (s->Types[i] == CounterType_instruction){
                         idx = s->Counters[i];
+                    } else { 
+                        assert(0 && "Improper Type");
                     }
-                        totalMemop += (s->Counters[idx] * s->MemopsPerBlock[i]);
+                    totalMemop += (s->Counters[idx] * s->MemopsPerBlock[i]);
                 }
 
                 inform << "Total memop: " << dec << totalMemop << TAB << 

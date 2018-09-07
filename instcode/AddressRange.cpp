@@ -474,6 +474,11 @@ extern "C" {
 
                 for (uint32_t i = 0; i < s->BlockCount; i++){
                     uint32_t idx;
+                    // Don't need to do this loop if this block doesn't have
+                    // any memops
+                    if(s->MemopsPerBlock[i] == 0) {
+                        continue;
+                    }
                     if (s->Types[i] == CounterType_basicblock){
                         idx = i;
                     } else if (s->Types[i] == CounterType_instruction){

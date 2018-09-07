@@ -244,6 +244,12 @@ uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(X86Instruction*
   insn) {
     uint64_t numMemops = 0;
     // TODO: assert that the insn exists
+
+    // Scatter/Gather ops are currently considered loads and stores    
+    if (insn->isScatterGatherOp()) {
+        return 0;
+    }
+
     if (insn->isLoad() && ifInstrumentingLoads()){
         numMemops++;
     }
