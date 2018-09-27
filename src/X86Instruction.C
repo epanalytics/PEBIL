@@ -1514,6 +1514,18 @@ uint32_t OperandX86::getBytePosition(){
     return GET(position);
 }
 
+bool OperandX86::isIndexRegXMM(){
+    return IS_XMM_REG(GET(index));
+}
+
+bool OperandX86::isIndexRegYMM(){
+    return IS_YMM_REG(GET(index));
+}
+
+bool OperandX86::isIndexRegZMM(){
+    return IS_ZMM_REG(GET(index));
+}
+
 bool OperandX86::isRelative(){
     if (GET(type) == UD_OP_JIMM){
         return true;

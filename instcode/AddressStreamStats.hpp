@@ -12,9 +12,10 @@ enum EntryType: uint8_t {
 
 struct VectorAddress {
     uint32_t indexVector[16];
-    uint64_t base;
     uint8_t  scale;
+    uint64_t base;
     uint64_t mask;
+    uint32_t  numIndices;
 };
 
 typedef struct {
@@ -63,6 +64,9 @@ typedef struct {
     CounterTypes* Types; // ??
     uint64_t* Counters;
     uint32_t* MemopsPerBlock;
+    // True for blocks where dynamic memops cannot be determinied at runtime
+    // (e.g. memops with masks)
+    bool* HasNonDeterministicMemop;
     char** Files;
     uint32_t* Lines;
     char** Functions;

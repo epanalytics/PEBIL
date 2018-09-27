@@ -577,7 +577,11 @@ extern "C" {
                     // threads at any point. potentially shutting off 
                     // instrumention in a block while a thread is midway through
                     // Sanity check data
-                    if (AllData->CountThreads() == 1){
+                    // This assertion becomes FALSE when there are
+                    // multiple addresses processed per address
+                    // (e.g. with scatter/gather)
+                    if (AllData->CountThreads() == 1 && 
+                      !st->HasNonDeterministicMemop[bbid]){
                         if (aggRange->GetAccessCount(bbid) % 
                           st->MemopsPerBlock[bbid] != 0){
                             inform << "bbid " << dec << bbid << " image " << 
@@ -720,27 +724,26 @@ uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
         RangeStats* rs = (RangeStats*)stats;
         rs->Update(memid, addr);
         return 0;
-    } 
-    // TODO To be implemented later
-    /*else if(access->type == VECTOR_ENTRY) {
-        // FIXME
-        // Unsure how the mask and index vector are being set up. For now,
-        // I'm assuming that the last significant bit of the mask corresponds
-        // to the first index (indexVector[0]
+    } else if(access->type == VECTOR_ENTRY) {
         uint64_t currAddr;
-        uint16_t mask = (access->vectorAddress).mask;
         uint32_t memid = (uint32_t)access->memseq;
+        uint16_t mask = (access->vectorAddress).mask;
         RangeStats* rs = (RangeStats*)stats;
-        for (int i = 0; i < 16; i++) {
+
+        for (int i = 0; i < (access->vectorAddress).numIndices; i++) {
           if(mask % 2 == 1)
           {
-            currAddr = (access->vectorAddress).base + (access->vectorAddress).indexVector[i] * (access->vectorAddress).scale;
+            currAddr = (access->vectorAddress).base + 
+              (access->vectorAddress).indexVector[i] * 
+              (access->vectorAddress).scale;
             rs->Update(memid, currAddr);
           }
           mask = (mask >> 1);
         }
         return 0;
-    } else if(access->type == PREFETCH_ENTRY) {
+    } 
+    // TODO To be implemented later
+    /*} else if(access->type == PREFETCH_ENTRY) {
         uint32_t memid = (uint32_t)access->memseq;
         uint64_t addr = access->address;
         if (ExecuteSoftwarePrefetches) {

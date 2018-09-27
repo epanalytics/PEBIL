@@ -175,30 +175,31 @@ const static char* flag_name_map[X86_FLAG_BITS] = { "carry", __flag_reserved, "p
 #define X86_FPREG_XMM13 (13 + X86_64BIT_GPRS)
 #define X86_FPREG_XMM14 (14 + X86_64BIT_GPRS)
 #define X86_FPREG_XMM15 (15 + X86_64BIT_GPRS)
-#define X86_XMM_REGS 16
+#define X86_FPREG_XMM16 (16 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM17 (17 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM18 (18 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM19 (19 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM20 (20 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM21 (21 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM22 (22 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM23 (23 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM24 (24 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM25 (25 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM26 (26 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM27 (27 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM28 (28 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM29 (29 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM30 (30 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM31 (31 + X86_64BIT_GPRS)
+#define X86_XMM_REGS 32
 
 // YMM and ZMM regs are same as XMM
 #define X86_FPREG_YMM0 X86_FPREG_XMM0
 // FIXME fill in copies for rest of regs?
 #define X86_FPREG_ZMM0 X86_FPREG_XMM0
+#define X86_FPREG_ZMM31 X86_FPREG_XMM31
 // FIXME
-#define X86_FPREG_ZMM16 (16 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM17 (17 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM18 (18 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM19 (19 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM20 (20 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM21 (21 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM22 (22 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM23 (23 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM24 (24 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM25 (25 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM26 (26 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM27 (27 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM28 (28 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM29 (29 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM30 (30 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM31 (31 + X86_64BIT_GPRS)
-#define X86_ZMM_REGS 31
+#define X86_ZMM_REGS 32
 
 
 #define X87_REG_ST0 (0 + X86_64BIT_GPRS + X86_ZMM_REGS)
@@ -476,6 +477,9 @@ public:
     uint32_t getIndexRegister();
 
     void touchedRegisters(BitSet<uint32_t>* regs);
+    bool isIndexRegXMM();
+    bool isIndexRegYMM();
+    bool isIndexRegZMM();
     bool isRelative();
     uint32_t getType() { return GET(type); }
     int64_t getValue();

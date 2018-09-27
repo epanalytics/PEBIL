@@ -43,6 +43,7 @@ private:
 
     // Bools to control which memops are instrumented    
     bool includeLoads = true;
+    bool includeScatterGathers = true;
     bool includeStores = true;
     bool includeSWPrefetches = false;
 
@@ -69,6 +70,7 @@ private:
 
     bool ifInstrumentingInstruction(X86Instruction*);
     bool ifInstrumentingLoads() { return includeLoads; }
+    bool ifInstrumentingScatterGathers() { return includeScatterGathers; }
     bool ifInstrumentingStores() { return includeStores; }
     bool ifInstrumentingSWPrefetches() { return includeSWPrefetches; }
 
@@ -89,6 +91,8 @@ private:
     void instrumentEntryPoint();
     void instrumentExitPoint();
 
+    bool isNonDeterministicMemop(X86Instruction*);
+
     // Common methods for instrumentation functions
     void grabScratchRegisters(X86Instruction*, InstLocations, uint32_t*,
       uint32_t*, uint32_t*);
@@ -101,7 +105,8 @@ private:
     void writeStaticFile();
 
     // To be used later
-    //  void bufferVectorEntry(X86Instruction*,InstLocations,X86Instruction*,uint32_t,AddressStreamStats&,uint32_t,uint32_t);
+    void collectVectorEntry(BasicBlock*, X86Instruction*, uint32_t,
+      AddressStreamStats&, uint32_t, uint32_t, uint32_t);
     void initializeLineInfo(AddressStreamStats&, Function*, BasicBlock*, uint32_t, uint64_t);
 
 

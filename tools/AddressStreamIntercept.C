@@ -246,8 +246,8 @@ uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(X86Instruction*
     // TODO: assert that the insn exists
 
     // Scatter/Gather ops are currently considered loads and stores    
-    if (insn->isScatterGatherOp()) {
-        return 0;
+    if (insn->isScatterGatherOp() && ifInstrumentingScatterGathers()) {
+        return 1;
     }
 
     if (insn->isLoad() && ifInstrumentingLoads()){
@@ -536,18 +536,24 @@ void AddressStreamIntercept::initializePerBlockData(AddressStreamStats& stats) {
 
     // Collect number of memops per block (with perinsn, we separate out each
     // memop from the insn, so set numMemops to 1)
+    // Also test if a memop is non-deterministic
     blockSeq = 0;
     memopSeq = 0;
     uint32_t numMemopsInBlock = 0;
+    bool hasNonDeterministicMemop = false;
     for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
         BasicBlock* bb = blocksToInst[blockInd];
         Function* func = (Function*)bb->getLeader()->getContainer();
 
         numMemopsInBlock = 0;
+        hasNonDeterministicMemop = false;
         for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
             X86Instruction* memop = bb->getInstruction(j);
             for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
             { 
+                if (isNonDeterministicMemop(memop)) {
+                    hasNonDeterministicMemop = true;
+                }
                 // If perinsn, then set each to 1. Must go through with
                 // sequence number
                 if (isPerInstruction()) {
@@ -556,6 +562,12 @@ void AddressStreamIntercept::initializePerBlockData(AddressStreamStats& stats) {
                       (uint64_t)stats.MemopsPerBlock + 
                       memopSeq*sizeof(uint32_t), sizeof(uint32_t), 
                       &numMemopsInBlock);
+                    initializeReservedData(getInstDataAddress() + 
+                      (uint64_t)stats.HasNonDeterministicMemop + 
+                      memopSeq*sizeof(bool), sizeof(bool), 
+                      &hasNonDeterministicMemop);
+                    // Reset bool
+                    hasNonDeterministicMemop = false;
               } 
               numMemopsInBlock++;
               memopSeq++;
@@ -566,6 +578,9 @@ void AddressStreamIntercept::initializePerBlockData(AddressStreamStats& stats) {
             initializeReservedData(getInstDataAddress() + 
               (uint64_t)stats.MemopsPerBlock + blockSeq * sizeof(uint32_t),
               sizeof(uint32_t), &numMemopsInBlock);
+            initializeReservedData(getInstDataAddress() + 
+              (uint64_t)stats.HasNonDeterministicMemop + blockSeq * 
+              sizeof(bool), sizeof(bool), &hasNonDeterministicMemop);
         }
         blockSeq++;
     }
@@ -789,6 +804,7 @@ void AddressStreamIntercept::initializeAddressStreamStats(AddressStreamStats&
     INIT_BLOCK_ELEMENT(CounterTypes, Types);
     // Counters already initialized
     INIT_BLOCK_ELEMENT(uint32_t, MemopsPerBlock);
+    INIT_BLOCK_ELEMENT(bool, HasNonDeterministicMemop);
     INIT_BLOCK_ELEMENT(char*, Files);
     INIT_BLOCK_ELEMENT(uint32_t, Lines);
     INIT_BLOCK_ELEMENT(char*, Functions);
@@ -954,11 +970,11 @@ void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb,
 
     // KNL implementation (not KNC)
     if (memop->isScatterGatherOp()) {
-        PRINT_WARN(20, "Found a Scatter or Gather Memory Op. Code is currently "
-          "broken. This op will be skipped.");
-      //bufferVectorEntry(memop, InstLocation_prior, memop, threadReg, 
-      //  stats, blockSeq, memopSeq);
-      return;
+        collectVectorEntry(bb, memop, threadReg, stats, blockSeq, memopSeq, 
+          memopIdInBlock);
+        memopSeq++;
+        memopIdInBlock++;
+        return;
     } 
   
     if(memop->isLoad() && ifInstrumentingLoads()) {
@@ -1152,6 +1168,23 @@ void AddressStreamIntercept::instrumentExitPoint() {
     }
 }
 
+// Checks to see if we cannot decide statically how many addresses will be
+// produced by the memop
+bool AddressStreamIntercept::isNonDeterministicMemop(X86Instruction* memop) {
+    // If the memop is not instrumented, then it produces zero addresses
+    if (!ifInstrumentingInstruction(memop)){
+        return false;
+    }
+
+    // Scatter and gather ops are masked operations and can count anywhere 
+    // from zero to 16 addresses
+    if (memop->isScatterGatherOp() && ifInstrumentingScatterGathers()){
+        return true;
+    }
+
+    return false;
+}
+
 // Grab 3 scratch registers to use for instrumentation
 void AddressStreamIntercept::grabScratchRegisters(X86Instruction* instRefPoint,
   InstLocations loc, uint32_t* sr1, uint32_t* sr2, uint32_t* sr3) {
@@ -1195,12 +1228,13 @@ void AddressStreamIntercept::grabScratchRegisters(X86Instruction* instRefPoint,
 
     for (uint32_t k = 0; k < X86_64BIT_GPRS; k++){
         if (dead->contains(k)){
-            if (sr1 && *sr1 == X86_REG_INVALID){
-                *sr1 = k;
+            // sr3 might need to be 32 bit GPR so assign it first
+            if (sr3 && *sr3 == X86_REG_INVALID){ 
+                *sr3 = k;
             } else if (sr2 && *sr2 == X86_REG_INVALID){
                 *sr2 = k;
-            } else if (sr3 && *sr3 == X86_REG_INVALID){
-                *sr3 = k;
+            } else if (sr1 && *sr1 == X86_REG_INVALID){
+                *sr1 = k;
                 break;
             }
         }
@@ -1369,27 +1403,22 @@ void AddressStreamIntercept::initializeLineInfo(AddressStreamStats& stats,
       func->getName()) + 1, (void*)func->getName());
 }
 
-/* TODO To be implemented later
-void AddressStreamIntercept::bufferVectorEntry(
-        X86Instruction* instRefPoint,
-        InstLocations   loc,
-        X86Instruction* vectorIns,
-        uint32_t        threadReg,
-        AddressStreamStats& stats,
-        uint32_t blockSeq,
-        uint32_t memseq) {
+// TODO To be implemented later
+void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
+  vectorIns, uint32_t threadReg, AddressStreamStats& stats, uint32_t blockSeq,
+  uint32_t memseq, uint32_t memopIdInBlock) {
 
     // First we build the actual instrumentation point
     InstrumentationSnippet* snip = addInstrumentationSnippet();
     InstrumentationPoint* point = addInstrumentationPoint(
-        instRefPoint, snip, InstrumentationMode_trampinline, loc);
+        vectorIns, snip, InstrumentationMode_trampinline, InstLocation_prior);
     point->setPriority(InstPriority_low);
     dynamicPoint(point, GENERATE_KEY(blockSeq, PointType_bufferfill), true);
 
     uint32_t sr1 = X86_REG_INVALID, sr2 = X86_REG_INVALID, sr3 = X86_REG_INVALID;
     if(threadReg != X86_REG_INVALID)
         sr1 = threadReg;
-    grabScratchRegisters(instRefPoint, loc, &sr1, &sr2, &sr3);
+    grabScratchRegisters(vectorIns, InstLocation_prior, &sr1, &sr2, &sr3);
     assert(sr1 != X86_REG_INVALID && sr2 != X86_REG_INVALID && sr3 != X86_REG_INVALID);
 
     // sr1 = stats
@@ -1401,7 +1430,14 @@ void AddressStreamIntercept::bufferVectorEntry(
         delete insns;
     }
 
-    setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, 0);
+    // Set sr2 to point to the location of our buffer entry. For performance,
+    // we already have increased __buf_current, so we must keep track of 
+    // which memop we are isntrumenting AND the index must go backwards.
+    uint32_t memopsInBlock = getNumberOfMemopsToInstrument(bb);
+    ASSERT(memopIdInBlock < memopsInBlock);
+    int32_t bufferIndex = memopIdInBlock - memopsInBlock + 1;
+    setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, bufferIndex);
+    //setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, 0);
     int8_t loadstoreflag;
     if(vectorIns->isLoad())
         loadstoreflag = LOAD;
@@ -1424,60 +1460,65 @@ void AddressStreamIntercept::bufferVectorEntry(
     } else assert(0);
     assert(vectorOp->getType() == UD_OP_MEM);
 
-    uint32_t zmmReg  = vectorOp->getIndexRegister();
+    uint32_t zmmReg = vectorOp->getIndexRegister();
     uint32_t baseReg = vectorOp->getBaseRegister();
-    uint8_t scale   = vectorOp->GET(scale);
+    uint8_t scale = vectorOp->GET(scale);
     if(scale == 0) scale = 1;
-    uint32_t kreg    = vectorIns->getVectorMaskRegister();
+    uint32_t numIndices = 16;        // Default zmm reg
+    uint32_t kreg = vectorIns->getVectorMaskRegister();
     uint32_t offset = vectorOp->getValue();
 
-    // write base and/or offset
-    if(baseReg != X86_REG_INVALID) {
-        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(
-            baseReg,
-            sr2,
-            offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, base),
-            true));
-        if(offset) {
-            snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToRegaddrImm(
-                offset,
-                sr2,
-                offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, base)));
-        }
+    if (vectorOp->isIndexRegYMM()) {
+        numIndices = 8;
+    } else if (vectorOp->isIndexRegXMM()) {
+        numIndices = 4;
     } else {
-        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToRegaddrImm(
-            offset,
-            sr2,
-            offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, base)));
+        assert(vectorOp->isIndexRegZMM());
     }
+  
+    // write base and/or offset
+    // if there is a base register
+    if(baseReg != X86_REG_INVALID) {
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveRegToRegaddrImm(baseReg, sr2, offsetof(BufferEntry, 
+          vectorAddress) + offsetof(VectorAddress, base), true));
+        if(offset) {
+            snip->addSnippetInstruction(X86InstructionFactory64::
+              emitAddImmToRegaddrImm(offset, sr2, offsetof(BufferEntry, 
+              vectorAddress) + offsetof(VectorAddress, base)));
+        }
+    // if no base register
+    } else { 
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveImmToRegaddrImm(offset, sr2, offsetof(BufferEntry, 
+          vectorAddress) + offsetof(VectorAddress, base)));
+    } 
 
     // write scale
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToRegaddrImm(
-        scale,
-        sizeof(scale),
-        sr2,
-        offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, scale)));
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveImmToRegaddrImm(scale, sizeof(scale), sr2, offsetof(BufferEntry, 
+      vectorAddress) + offsetof(VectorAddress, scale)));
+
+    // write numIndices
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveImmToRegaddrImm(numIndices, sr2, 
+      offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, 
+      numIndices)));
 
     // write mask
     //   kmov k, sr3
     //   store sr3
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveKToReg(kreg, sr3));
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToRegaddrImm(
-        sr3,
-        sr2,
-        offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
-        true));
+    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveKToReg(kreg, 
+      sr3));
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, vectorAddress) + 
+      offsetof(VectorAddress, mask), true));
 
     // write index vector
-    Vector<X86Instruction*>* insns = X86InstructionFactory64::emitUnalignedPackstoreRegaddrImm(
-        zmmReg,
-        X86_REG_K0,
-        sr2,
-        offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, indexVector));
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveZmmToUnalignedRegaddrImm(zmmReg, X86_REG_K0, sr2, 
+      offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, 
+      indexVector)));
 
-    for(int idx = 0; idx < insns->size(); ++idx) {
-        snip->addSnippetInstruction((*insns)[idx]);
-    }
-    delete insns;
 
-} */
+} 

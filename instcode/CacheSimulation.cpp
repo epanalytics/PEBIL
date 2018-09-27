@@ -886,7 +886,11 @@ extern "C" {
                     // threads at any point. potentially shutting off 
                     // instrumention in a block while a thread is midway through
                     // Sanity check data
-                    if (AllData->CountThreads() == 1){
+                    // This assertion becomes FALSE when there are
+                    // multiple addresses processed per address 
+                    // (e.g. with scatter/gather)
+                    if ((AllData->CountThreads() == 1) && 
+                      !st->HasNonDeterministicMemop[bbid]){
                         if ((root->GetAccessCount(bbid) % 
                           st->MemopsPerBlock[bbid]) != 0){
                             inform << "bbid " << dec << bbid << " image " << 
@@ -2380,9 +2384,7 @@ uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access){
           (access->address) << "(" << dec << access->memseq << ")" << ENDL);
         return processAddress(stats_in, access->address, access->memseq, 
           access->loadstoreflag);
-    } 
-  /* TO BE IMPLEMENTED LATER
-  else if(access->type == VECTOR_ENTRY) {
+    } else if(access->type == VECTOR_ENTRY) {
         debug(inform << "Processing VECTOR_ENTRY " << ENDL;); 
         // FIXME
         // Unsure how the mask and index vector are being set up. For now,
@@ -2393,19 +2395,22 @@ uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access){
         uint32_t lastReturn = 0;
         uint64_t currAddr;
         uint16_t mask = (access->vectorAddress).mask;
-        for (int i = 0; i < 16; i++) {
+
+        for (int i = 0; i < (access->vectorAddress).numIndices; i++) {
           if(mask % 2 == 1)
           {
-            currAddr = (access->vectorAddress).base + (access->vectorAddress).indexVector[i] * (access->vectorAddress).scale;
-            lastReturn = processAddress(stats_in, currAddr, access->memseq, access->loadstoreflag);
+            currAddr = (access->vectorAddress).base + 
+              (access->vectorAddress).indexVector[i] * 
+              (access->vectorAddress).scale;
+            lastReturn = processAddress(stats_in, currAddr, access->memseq, 
+              access->loadstoreflag);
           }
           mask = (mask >> 1);
         }
-        // Unsure what this return value is used for
-        // (Seems to be related to adamant). Just returning last value from
-        // processAddress
         return lastReturn;
-    } else if(access->type == PREFETCH_ENTRY) {
+    } 
+  /* TO BE IMPLEMENTED LATER
+else if(access->type == PREFETCH_ENTRY) {
       if (ExecuteSoftwarePrefetches) {
         return processAddress(stats_in, access->address, access->memseq, access->loadstoreflag);
       }

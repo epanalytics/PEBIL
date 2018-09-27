@@ -1278,11 +1278,21 @@ decode_vector_modrm_rm(struct ud* u,
   switch(op->offset) {
     case 8 :
       if(u->mvex[0] != 0) {
-        uint8_t acc = get_membytes_accessed(u);
-        int8_t lit = (int8_t)inp_uint8(u);
-        op->lval.sword = acc*lit;
+          uint8_t acc = get_membytes_accessed(u);
+          // Some instructions have special cases for N (acc)
+          // Also, offset size for these is 16 FIXME are other the same?
+          if (u->mnemonic == UD_Ivpscatterdd || u->mnemonic == UD_Ivpscatterdq){
+              acc = 4;
+              op->offset = 16;
+          } else if (u->mnemonic == UD_Ivpscatterqd || u->mnemonic == 
+            UD_Ivpscatterqq) {
+              acc = 8;
+              op->offset = 16;
+          }
+          int8_t lit = (int8_t)inp_uint8(u);
+          op->lval.sword = acc*lit;
       } else {
-        op->lval.ubyte = inp_uint8(u);
+          op->lval.ubyte = inp_uint8(u);
       }
       break;
     case 16: op->lval.uword  = inp_uint16(u);  break;
