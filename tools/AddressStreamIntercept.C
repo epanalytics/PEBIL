@@ -37,9 +37,11 @@
 #define NOSTRING "__pebil_no_string__"
 #define BUFFER_ENTRIES 0x10000
 
-#define PREFETCH 2
 #define LOAD 1
 #define STORE 0
+
+#define NORMAL 0
+#define SWPF   1
 
 extern "C" {
     InstrumentationTool* AddressStreamInterceptMaker(ElfFile* elf){
@@ -100,7 +102,8 @@ void AddressStreamIntercept::allocateAddressStreamStats(uint64_t extra) {
 // Fills a MEM_ENTRY buffer entry
 void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction* 
   memop, uint32_t threadReg, AddressStreamStats& stats, uint32_t blockSeq,  
-  uint32_t memopSeq, uint32_t memopIdInBlock, uint8_t loadstoreflag){
+  uint32_t memopSeq, uint32_t memopIdInBlock, uint8_t swpfflag, uint8_t 
+  loadstoreflag){
 
     // First we build the actual instrumentation point
     InstrumentationSnippet* snip = addInstrumentationSnippet();
@@ -141,7 +144,8 @@ void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction*
     int32_t bufferIndex = memopIdInBlock - memopsInBlock + 1;
     setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, bufferIndex);
 
-    writeBufferEntry(snip, memopSeq, sr2, sr3, MEM_ENTRY, loadstoreflag);
+    writeBufferEntry(snip, memopSeq, sr2, sr3, MEM_ENTRY, swpfflag,
+      loadstoreflag);
 
     // set address
     Vector<X86Instruction*>* addrStore = X86InstructionFactory64::
@@ -245,6 +249,10 @@ uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(X86Instruction*
     uint64_t numMemops = 0;
     // TODO: assert that the insn exists
 
+    // Software Prefetches are considered considered loads
+    if (insn->isSoftwarePrefetch() && ifInstrumentingSWPrefetches()){
+        return 1;
+    }
     // Scatter/Gather ops are currently considered loads and stores    
     if (insn->isScatterGatherOp() && ifInstrumentingScatterGathers()) {
         return 1;
@@ -256,10 +264,6 @@ uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(X86Instruction*
     if (insn->isStore() && ifInstrumentingStores()){
         numMemops++;
     }
-    if (insn->isSoftwarePrefetch() && ifInstrumentingSWPrefetches()){
-        numMemops++;
-    }
-    //TODO: Are ScatterGather ops included in Loads and Stores?
 
     return numMemops;
 }
@@ -968,36 +972,44 @@ void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb,
   X86Instruction* memop, uint32_t threadReg, AddressStreamStats& stats, 
   uint32_t blockSeq, uint32_t memopSeq, uint32_t memopIdInBlock) {
 
+    std::cout << "ACC: InsertAddressCollection" << std::endl;
+    uint8_t normalOrSWPF = NORMAL;
+    if(memop->isSoftwarePrefetch()) {
+        if(ifInstrumentingSWPrefetches()) {
+            std::cout << "ACC: Found SWPF" << std::endl;
+            normalOrSWPF = SWPF;
+        } else {
+            // If we aren't instrumenting software prefetches, then we do
+            // not insert address collection
+            return;
+        }
+    }
+   
+
     // KNL implementation (not KNC)
     if (memop->isScatterGatherOp()) {
         collectVectorEntry(bb, memop, threadReg, stats, blockSeq, memopSeq, 
-          memopIdInBlock);
+          memopIdInBlock, normalOrSWPF);
         memopSeq++;
         memopIdInBlock++;
         return;
     } 
   
     if(memop->isLoad() && ifInstrumentingLoads()) {
+        std::cout << "ACC: isLoad" << std::endl;
         collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
-          memopIdInBlock, LOAD);
+          memopIdInBlock, normalOrSWPF, LOAD);
         memopIdInBlock++;
         memopSeq++;
     }
 
     if(memop->isStore() && ifInstrumentingStores()) {
+        std::cout << "ACC: isStore" << std::endl;
         collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
-          memopIdInBlock, STORE);
+          memopIdInBlock, normalOrSWPF, STORE);
         memopIdInBlock++;
         memopSeq++;
     } 
-
-    if(memop->isSoftwarePrefetch() && ifInstrumentingSWPrefetches()) {
-        PRINT_WARN(20, "Found a Prefetch Memory Op. Code is currently "
-          "broken. This op will be skipped.");
-        //instrumentMemop(bb, memop, PREFETCH, blockSeq, threadReg, stats, 
-        //  memopIdInBlock, memopSeq);
-        return;
-    }
 
     return;
 }
@@ -1059,7 +1071,7 @@ void AddressStreamIntercept::instrument(){
     for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
         BasicBlock* bb = blocksToInst[blockInd];
         Function* func = (Function*)bb->getLeader()->getContainer();
-
+        
         // Double-check that we want to instrument this block
         ASSERT((blocksToInstHash.get(bb->getHashCode().getValue())) && "Rogue "
           "block cound in blocksToInst array.");
@@ -1082,7 +1094,7 @@ void AddressStreamIntercept::instrument(){
         for (uint32_t insIndex = 0; insIndex < bb->getNumberOfInstructions(); 
           insIndex++){
             X86Instruction* memop = bb->getInstruction(insIndex);
-
+  
             if (ifInstrumentingInstruction(memop)) {
                 // If this is the beginning of a new block, then we need to:
                 //   1. Insert a counter for this block
@@ -1279,12 +1291,17 @@ void AddressStreamIntercept::setSr2ToBufferEntry(AddressStreamStats& stats,
 
 void AddressStreamIntercept::writeBufferEntry(InstrumentationSnippet* snip, 
   uint32_t memseq, uint32_t sr2, uint32_t sr3, enum EntryType type, 
-  uint8_t loadstoreflag) {
+  uint8_t swpfflag, uint8_t loadstoreflag) {
 
     // set entry type
     snip->addSnippetInstruction(X86InstructionFactory64::
       emitMoveImmToRegaddrImm(type, sizeof(type), sr2, offsetof(BufferEntry, 
       type)));
+
+    // set software prefetch flag
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveImmToRegaddrImm(swpfflag, sizeof(swpfflag), sr2, 
+      offsetof(BufferEntry, swprefetchflag)));
 
     // set Load-store flag
     snip->addSnippetInstruction(X86InstructionFactory64::
@@ -1406,7 +1423,7 @@ void AddressStreamIntercept::initializeLineInfo(AddressStreamStats& stats,
 // TODO To be implemented later
 void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
   vectorIns, uint32_t threadReg, AddressStreamStats& stats, uint32_t blockSeq,
-  uint32_t memseq, uint32_t memopIdInBlock) {
+  uint32_t memseq, uint32_t memopIdInBlock, uint8_t swpfflag) {
 
     // First we build the actual instrumentation point
     InstrumentationSnippet* snip = addInstrumentationSnippet();
@@ -1445,7 +1462,8 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
         loadstoreflag = STORE;
     else
         assert(0);
-    writeBufferEntry(snip, memseq, sr2, sr3, VECTOR_ENTRY, loadstoreflag);
+    writeBufferEntry(snip, memseq, sr2, sr3, VECTOR_ENTRY, swpfflag,
+      loadstoreflag);
 
     OperandX86* vectorOp = NULL;
     // vgatherdps (%r14,%zmm0,8), %zmm2 {k4}

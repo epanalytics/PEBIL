@@ -45,7 +45,7 @@ private:
     bool includeLoads = true;
     bool includeScatterGathers = true;
     bool includeStores = true;
-    bool includeSWPrefetches = false;
+    bool includeSWPrefetches = true;
 
     // Helpful variables for initializing data structures
     uint64_t nullLineInfoValue = 0;
@@ -57,6 +57,8 @@ private:
 
     // Functions to create different kinds of memops
     void collectMemEntry(BasicBlock*, X86Instruction*, uint32_t, 
+      AddressStreamStats&, uint32_t, uint32_t, uint32_t, uint8_t, uint8_t);
+    void collectVectorEntry(BasicBlock*, X86Instruction*, uint32_t,
       AddressStreamStats&, uint32_t, uint32_t, uint32_t, uint8_t);
 
     uint64_t getNullLineInfoValue();
@@ -100,13 +102,11 @@ private:
       uint32_t, uint32_t, uint32_t, int32_t);
     inline bool usePIC() { return isThreadedMode() || isMultiImage(); }
     void writeBufferEntry(InstrumentationSnippet*, uint32_t, uint32_t, uint32_t,
-      enum EntryType, uint8_t);
+      enum EntryType, uint8_t, uint8_t);
 
     void writeStaticFile();
 
     // To be used later
-    void collectVectorEntry(BasicBlock*, X86Instruction*, uint32_t,
-      AddressStreamStats&, uint32_t, uint32_t, uint32_t);
     void initializeLineInfo(AddressStreamStats&, Function*, BasicBlock*, uint32_t, uint64_t);
 
 

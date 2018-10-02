@@ -454,7 +454,7 @@ bool X86Instruction::isStore(){
     if (CHECK_IMPLICIT_STORE){
         return true;
     }
-    if (isExplicitMemoryOperation()){
+    if (isExplicitMemoryOperation() && !IS_PREFETCH(GET(mnemonic))) {
         OperandX86* mem = getMemoryOperand();
         ASSERT(mem);
         OperandX86* dest = getDestOperand();
@@ -1409,7 +1409,7 @@ bool X86Instruction::isExplicitMemoryOperation(){
     uint32_t memCount = 0;
     for (uint32_t i = 0; i < MAX_OPERANDS; i++){
         if (operands[i] && operands[i]->GET(type) == UD_OP_MEM){
-            if (!IS_LOADADDR(GET(mnemonic)) && !IS_PREFETCH(GET(mnemonic)) && !isNop()){
+            if (!IS_LOADADDR(GET(mnemonic)) && !isNop()){
                 memCount++;
             }
         }

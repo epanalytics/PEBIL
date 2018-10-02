@@ -6,7 +6,6 @@
 
 enum EntryType: uint8_t {
   MEM_ENTRY = 0,
-  PREFETCH_ENTRY,
   VECTOR_ENTRY
 };
 
@@ -19,10 +18,11 @@ struct VectorAddress {
 };
 
 typedef struct {
-    enum EntryType type;
-    uint8_t        loadstoreflag;   // Dirty Caching
-    uint64_t       imageid;         // Multi-image
-    uint64_t       memseq;          // identifies memop in image
+    enum EntryType  type;
+    uint8_t         swprefetchflag;  // Is a software prefetch op
+    uint8_t         loadstoreflag;   // Dirty Caching
+    uint64_t        imageid;         // Multi-image
+    uint64_t        memseq;          // identifies memop in image
     union {
         uint64_t address;        // value simulated
         struct VectorAddress vectorAddress;

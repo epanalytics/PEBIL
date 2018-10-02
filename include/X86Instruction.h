@@ -85,10 +85,23 @@ class TextObject;
 #define IS_ALU_REG(__reg) (IS_GPR(__reg) || IS_XMM_REG(__reg))
 
 #define IS_LOADADDR(__mne) (__mne == UD_Ilea)
-#define IS_PREFETCH(__mne) (__mne == UD_Iprefetch || __mne == UD_Iprefetchnta || __mne == UD_Iprefetcht0 || \
-                            __mne == UD_Iprefetcht1 || __mne == UD_Iprefetcht2 || __mne == UD_Ivprefetchnta || \
-                            __mne == UD_Ivprefetch0 || __mne == UD_Ivprefetch1 || __mne == UD_Ivprefetch2 || \
-                            __mne == UD_Ivprefetchenta || __mne == UD_Ivprefetche0 || __mne == UD_Ivprefetche1 || __mne == UD_Ivprefetche2 )
+#define IS_PREFETCH(__mne) (__mne == UD_Iprefetch || __mne == UD_Iprefetchnta \
+  || __mne == UD_Iprefetcht0 || __mne == UD_Iprefetcht1 || \
+  __mne == UD_Iprefetcht2 || __mne == UD_Ivprefetchnta || \
+  __mne == UD_Ivprefetch0 || __mne == UD_Ivprefetch1 || \
+  __mne == UD_Ivprefetch2 || __mne == UD_Ivprefetchenta || \
+  __mne == UD_Ivprefetche0 || __mne == UD_Ivprefetche1 || \
+   __mne == UD_Ivprefetche2 || \
+  __mne == UD_Ivgatherpf0dpd || __mne == UD_Ivgatherpf0dps || \
+  __mne == UD_Ivgatherpf0qpd || __mne == UD_Ivgatherpf0qps || \
+  __mne == UD_Ivgatherpf0hintdpd || __mne == UD_Ivgatherpf0hintdps || \
+  __mne == UD_Ivscatterpf0dpd ||__mne == UD_Ivscatterpf0dps || \
+  __mne == UD_Ivscatterpf0qpd || __mne == UD_Ivscatterpf0qps || \
+  __mne == UD_Ivscatterpf0hintdpd || __mne == UD_Ivscatterpf0hintdps || \
+  __mne == UD_Ivgatherpf1dpd || __mne == UD_Ivgatherpf1dps || \
+  __mne == UD_Ivgatherpf1qpd || __mne == UD_Ivgatherpf1qps || \
+  __mne == UD_Ivscatterpf1dpd || __mne == UD_Ivscatterpf1dps || \
+  __mne == UD_Ivscatterpf1qpd || __mne == UD_Ivscatterpf1qps)
 
 
 #define __reg_use 0
