@@ -27,9 +27,6 @@ uname -v = #36~14.04.1-Ubuntu SMP Thu Oct 8 10:21:08 UTC 2015
 /usr/bin/oslevel       = unknown
 /bin/universe          = unknown
 
-PATH: @abs_top_builddir@/bin
-PATH: @abs_top_builddir@/scripts
-PATH: @abs_top_builddir@/external/udis86-1.7/udcli
 PATH: /opt/papi/bin
 PATH: /home/ewoodruff/bitbucket/pebil/bin
 PATH: /home/ewoodruff/bitbucket/pebil/scripts
@@ -527,6 +524,7 @@ config.status:673: creating udcli/Makefile
 config.status:673: creating tests/Makefile
 config.status:673: creating docs/Makefile
 config.status:673: creating config.h
+config.status:900: config.h is unchanged
 config.status:946: executing depfiles commands
 
 ## ---------------- ##
