@@ -356,11 +356,13 @@ MAL MISSING PRE SSE?
     <opcode> aso oso rexr rexx rexb ; sse66 0f /3byte=38 09 ; V W ; ; </opcode>
     <opcode> aso oso rexr rexx rexb vexlig ; avxC4 sse66 0f /3byte=38 09 ; V X W ; ; </opcode>
   </instruction>
+
   <instruction mnemonic="palignr">
     <opcode> aso oso rexr rexx rexb ; 0f /3byte=3a 0f ; P Q Ib ; ; </opcode>
     <opcode> aso oso rexr rexx rexb ; sse66 0f /3byte=3a 0f ; V W Ib ; ; </opcode>
     <opcode> aso oso rexr rexx rexb vexlig ; avxC4 sse66 0f /3byte=3a 0f ; V X W Ib ; ; </opcode>
   </instruction>
+
   <instruction mnemonic="phaddd">
     <opcode> aso oso rexr rexx rexb ; 0f /3byte=38 02 ; P Q ; ; </opcode>
     <opcode> aso oso rexr rexx rexb ; sse66 0f /3byte=38 02 ; V W ; ; </opcode>
@@ -5565,10 +5567,6 @@ MAL MISSING PRE SSE?
 
   <instruction mnemonic="vpaddsetsd">
     <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 CD /W=0 ; ZR ZV ZRM ; ; </opcode>
-  </instruction>
-
-  <instruction mnemonic="vpalignr">
-    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=3A 0F ; ZR ZV ZRM ; ; </opcode>
   </instruction>
 
   <instruction mnemonic="vpandd">
