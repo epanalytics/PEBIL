@@ -31,7 +31,6 @@ typedef struct {
 
 class StreamStats;
 class MemoryStreamHandler;
-class ReuseDistance;
 
 typedef struct{
     uint64_t GroupId; // for now, same as BB-ID/ Top-most loop of 
@@ -76,7 +75,6 @@ typedef struct {
     uint64_t* GroupIds;
     StreamStats** Stats; // indexed by handler
     MemoryStreamHandler** Handlers;
-    ReuseDistance** RHandlers;
 
 
     uint64_t NestedLoopCount;

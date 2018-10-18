@@ -18,27 +18,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <InstrumentationCommon.hpp>
-#include <AddressRange.hpp>
+#include <ReuseDistCommon.hpp>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <strings.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
-#include <vector>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <algorithm>
-#include <string.h>
-#include <assert.h>
+// These control reuse distance calculations. Activate this feature by setting 
+// METASIM_REUSE_WINDOW to something other than 0. The design of the reuse 
+// distance tool is such that tracking a large window size isn't a lot more 
+// expensive than a small size. Also this will be rendered relatively useless
+// unless the sampling period (METASIM_SAMPLE_ON) is somewhat large relative 
+// to METASIM_REUSE_WINDOW.
+static uint32_t ReuseWindow = 0;
+static uint32_t ReuseBin = 0;
+static const uint64_t ReuseCleanupMin = 10000000;
+static const double ReusePrintScale = 1.5;
+static const uint32_t ReuseIndivPrint = 32;
+
+static uint32_t LoadStoreLogging = 0;
 
 // global data
 static uint32_t CountMemoryHandlers = 0;
-static uint32_t RangeHandlerIndex = 0;
+static uint32_t CountReuseHandlers = 0;
+static int32_t ReuseHandlerIndex = 0;
 
 static SamplingMethod* Sampler = NULL;
 static DataManager<AddressStreamStats*>* AllData = NULL;
@@ -48,8 +48,12 @@ static set<uint64_t>* NonmaxKeys = NULL;
 // should not be used directly. kept here to be cloned by anyone who needs it
 static MemoryStreamHandler** MemoryHandlers = NULL;
 
-#define synchronize(__locker) __locker->Lock(); for (bool __s = true; \
+static ReuseDistance** ReuseDistanceHandlers = NULL;
+
+
+#define synchronize(__locker) __locker->Lock(); for (bool __s = true;\
   __s == true; __locker->UnLock(), __s = false) 
+
 
 void GetBufferIds(BufferEntry* b, image_key_t* i){
     *i = b->imageid;
@@ -92,7 +96,7 @@ extern "C" {
         SAVE_STREAM_FLAGS(cout);
         inform << "Destroying thread " << hex << tid << ENDL;
 
-        // TODO utilizing finished threads is *buggy*
+        // utilizing finished threads is *buggy*
         /*
         synchronize(AllData){
             AllData->FinishThread(tid);
@@ -102,7 +106,7 @@ extern "C" {
     }
 
     // initializes an image
-    // The mutex assures that the image is initialized exactly once, especially
+    // The mutex assures that the image is initialized exactly once, especially 
     // in the case that multiple threads exist before this image is initialized
     // It should be unnecessary if only a single thread exists because
     // this function kills initialization points
@@ -119,7 +123,7 @@ extern "C" {
         if (AllData == NULL){
             init_signal_handlers();
             ReadSettings();
-            AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats, 
+            AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats,
               DeleteStreamStats, ReferenceStreamStats);
         }
         assert(AllData);
@@ -158,7 +162,7 @@ extern "C" {
                         NonmaxKeys->insert(k);
                     }
                 }
-    
+ 
                 if (Sampler->SampleOn == 0){
                     inform << "Disabling all simulation-related instrumentation"
                       " because METASIM_SAMPLE_ON is set to 0" << ENDL;
@@ -194,32 +198,31 @@ extern "C" {
         return NULL;
     }
 
-    static void ProcessBuffer(image_key_t iid, thread_key_t tid, 
-      MemoryStreamHandler* handler, uint32_t handlerIndex, 
-      uint32_t numElementsInBuffer) {
+    
+    static void ProcessReuseBuffer(ReuseDistance* rd, uint32_t numElements, image_key_t iid, thread_key_t tid){
 
         uint32_t threadSeq = AllData->GetThreadSequence(tid);
         uint32_t numProcessed = 0;
 
         AddressStreamStats** faststats = FastStats->GetBufferStats(tid);
-        //assert(faststats[0]->Stats[handlerIndex]->Verify());
-        uint32_t elementIndex = 0; 
-        for (elementIndex = 0; elementIndex < numElementsInBuffer; 
-          elementIndex++){
-            debug(assert(faststats[elementIndex]));
-            debug(assert(faststats[elementIndex]->Stats));
+        uint32_t bufcur = 0;
+        for (bufcur = 0; bufcur < numElements; bufcur++){
+            debug(assert(faststats[bufcur]));
+            debug(assert(faststats[bufcur]->Stats));
 
-            AddressStreamStats* stats = faststats[elementIndex];
-            StreamStats* ss = stats->Stats[handlerIndex];
+            AddressStreamStats* stats = faststats[bufcur];
 
-            BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
+            BufferEntry* reference = BUFFER_ENTRY(stats, bufcur);
 
             if (reference->imageid == 0){
                 debug(assert(AllData->CountThreads() > 1));
                 continue;
             }
 
-            handler->Process((void*)ss, reference);
+            ReuseEntry entry = ReuseEntry();
+            entry.id = stats->Hashes[stats->BlockIds[reference->memseq]];
+            entry.address=reference->address ;
+            rd->Process(entry);
             numProcessed++;
         }
     }
@@ -270,15 +273,10 @@ extern "C" {
                 BufferEntry* buffer = &(stats->Buffer[1]);
                 // Refresh FastStats so it can be used
                 FastStats->Refresh(buffer, numElements, tid);
-
-                // Process the buffer for each handler (this is general
-                // code for future development...there should only be 
-                // AddressRangeHandlers for now)
-                for (uint32_t i = 0; i < CountMemoryHandlers; i++) {
-                    MemoryStreamHandler* m = stats->Handlers[i];
-                    ProcessBuffer(iid, tid, m, i, numElements);
-                }
-
+                //Don't need to check if ReuseDistance is set anymore
+                ReuseDistance* rd=NULL;
+                rd = stats->RHandlers[ReuseHandlerIndex];
+                ProcessReuseBuffer(rd, numElements, iid, tid);       
                 // Update the GroupCounters for sampling purposes
                 for(uint32_t i = 0; i < (stats->BlockCount); i++) {
                     uint32_t idx = i;
@@ -306,12 +304,12 @@ extern "C" {
 
                     debug(inform << "Memseq " << dec << reference->memseq << 
                       " has " << s->Stats[0]->GetAccessCount(reference->memseq)
-                       << ENDL);
+                      << ENDL);
 
                     uint32_t bbid = s->BlockIds[reference->memseq];
 
                     // if max block count is reached, disable all buffer-related
-                    //  points related to this block
+                    // points related to this block
                     uint32_t idx = bbid;
                     uint32_t gidx = stats->GroupIds[bbid];
 
@@ -325,10 +323,10 @@ extern "C" {
                       << TAB << "Group " << stats->GroupIds[bbid]
                       << TAB << "Counter " << s->Counters[bbid]
                       << TAB << "Real " << s->Counters[idx]
-                      << TAB << "GroupCount " << stats->GroupCounters[gidx] 
+                      << TAB << "GroupCount " << stats->GroupCounters[gidx]
                       << ENDL);
 
-                    if (Sampler->ExceedsAccessLimit(s->Counters[idx]) ||
+                    if (Sampler->ExceedsAccessLimit(s->Counters[idx]) || 
                       (Sampler->ExceedsAccessLimit(stats->GroupCounters[gidx]))
                       ) {
 
@@ -375,12 +373,19 @@ extern "C" {
                     ResumeAllThreads();
                 }
 
-            } else { // if not sampling
+            } else { // if not samping
                 if (Sampler->SwitchesMode(numElements)){
                     SuspendAllThreads(AllData->CountThreads(), 
                       AllData->allthreads.begin(), AllData->allthreads.end());
                     SetDynamicPoints(*NonmaxKeys, true);
                     ResumeAllThreads();
+                }
+
+                // reuse distance handler needs to know that we passed over 
+                // asome addresses
+                if (ReuseWindow){
+                    ReuseDistance* r = stats->RHandlers[ReuseHandlerIndex];
+                    r->SkipAddresses(numElements);
                 }
             }
 
@@ -401,8 +406,8 @@ extern "C" {
         RESTORE_STREAM_FLAGS(cout);
     }
 
-    // Called when the application exits. Collect the rest of the addresses in
-    // the buffer and create the Address Range report
+    // Called when the application exits. Collect the rest of the addresses in 
+    // the buffer
     void* tool_image_fini(image_key_t* key){
         image_key_t iid = *key;
 
@@ -424,7 +429,7 @@ extern "C" {
             return NULL;
         }
 
-        AddressStreamStats* stats = (AddressStreamStats*)AllData->GetData(iid,
+        AddressStreamStats* stats = (AddressStreamStats*)AllData->GetData(iid, 
           pthread_self());
         if (stats == NULL){
             ErrorExit("Cannot retreive image data using key " << dec << (*key),
@@ -444,203 +449,53 @@ extern "C" {
             process_thread_buffer(iid, (*it));
         }
 
-       
-        // Create the Address Range report 
-        ofstream RangeFile;
+        // Create the Reuse Report(s)
         string oFile;
         const char* fileName;
+  
+        if (ReuseWindow){
+            ofstream ReuseDistFile;
+            ReuseDistFileName(stats, oFile);
+            fileName = oFile.c_str();
+            inform << "Printing reuse distance results to " << fileName << ENDL;
+            TryOpen(ReuseDistFile, fileName);
 
-        RangeFileName(stats,oFile);
-        fileName=oFile.c_str();
-        inform << "Printing address range results to " << fileName << ENDL;
-        TryOpen(RangeFile,fileName);
+            for (set<image_key_t>::iterator iit = AllData->allimages.begin(); iit != AllData->allimages.end(); iit++){
+                for(DataManager<AddressStreamStats*>::iterator it = AllData->begin(*iit); it != AllData->end(*iit); ++it) {
 
-        uint64_t sampledCount = 0;
-        uint64_t totalMemop = 0;
-        // Calculate the number of access counts
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
-          iit != AllData->allimages.end(); iit++){
+                    thread_key_t thread = it->first;
+                    AddressStreamStats* s = it->second;
+                    ReuseDistFile << "IMAGE" << TAB << hex << (*iit) << TAB << "THREAD" << TAB << dec << AllData->GetThreadSequence(thread) << ENDL;
             
-            for(DataManager<AddressStreamStats*>::iterator it = 
-              AllData->begin(*iit); it != AllData->end(*iit); ++it) {
-                thread_key_t thread = it->first;
-                AddressStreamStats* s = it->second;
-
-                RangeStats* r = (RangeStats*)s->Stats[RangeHandlerIndex];
-                assert(r);
-                for (uint32_t i = 0; i < r->Capacity; i++){
-                    sampledCount += r->Counts[i];
+                    ReuseDistance* rd = s->RHandlers[ReuseHandlerIndex];
+                    assert(rd);
+                    inform << "Reuse distance bins for " << hex << s->Application << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
+                    rd->Print();
+                    rd->Print(ReuseDistFile, true);
                 }
-
-                for (uint32_t i = 0; i < s->BlockCount; i++){
-                    uint32_t idx;
-                    // Don't need to do this loop if this block doesn't have
-                    // any memops
-                    if(s->MemopsPerBlock[i] == 0) {
-                        continue;
-                    }
-                    if (s->Types[i] == CounterType_basicblock){
-                        idx = i;
-                    } else if (s->Types[i] == CounterType_instruction){
-                        idx = s->Counters[i];
-                    }
-                    totalMemop += (s->Counters[idx] * s->MemopsPerBlock[i]);
-                }
-                
-                inform << "Total memop: " << dec << totalMemop << TAB << 
-                  " sampledCount " << sampledCount << ENDL;
             }
+            ReuseDistFile.close();
         }
-
-        // Print application and address stream information
-        RangeFile
-          << "# appname       = " << stats->Application << ENDL
-          << "# extension     = " << stats->Extension << ENDL
-          << "# rank          = " << dec << GetTaskId() << ENDL
-          << "# ntasks        = " << dec << GetNTasks() << ENDL
-          << "# buffer        = " << BUFFER_CAPACITY(stats) << ENDL
-          << "# total         = " << dec << totalMemop << ENDL
-          << "# processed     = " << dec << sampledCount << " (" 
-          << ((double)sampledCount / (double)totalMemop * 100.0) 
-          << "% of total)" << ENDL
-          << "# samplemax     = " << Sampler->AccessLimit << ENDL
-          << "# sampleon      = " << Sampler->SampleOn << ENDL
-          << "# sampleoff     = " << Sampler->SampleOff << ENDL
-          << "# perinsn       = " << (stats->PerInstruction? "yes" : "no") 
-          << ENDL
-          << "# lpi           = " << (stats->LoopInclusion? "yes" : "no") 
-          << ENDL
-          << "# countimage    = " << dec << AllData->CountImages() << ENDL
-          << "# countthread   = " << dec << AllData->CountThreads() << ENDL
-          << "# masterthread  = " << hex << AllData->GetThreadSequence(
-          pthread_self()) << ENDL
-          << ENDL;
-       
-        // Print information for each image 
-        RangeFile << "# IMG" << TAB << "ImageHash" << TAB << "ImageSequence"
-          << TAB << "ImageType" << TAB << "Name" << ENDL;
-        
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin();
-          iit != AllData->allimages.end(); iit++){
-            AddressStreamStats* s = (AddressStreamStats*)AllData->GetData(
-              (*iit), pthread_self());
-            RangeFile << "IMG" << TAB << hex << (*iit) << TAB << dec 
-              << AllData->GetImageSequence((*iit)) << TAB 
-              << (s->Master ? "Executable" : "SharedLib") << TAB 
-              << s->Application << ENDL;
-        }
-        RangeFile << ENDL;        
-
-
-        // Print the information for each block
-        RangeFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
-          << TAB << "ImageSequence" << TAB << "ThreadId" << TAB 
-          << "BlockCounter" << TAB << "InstructionSimulated" << TAB 
-          << "MinAddress" << TAB << "MaxAddress" << TAB << "AddrRange " << ENDL;
-
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
-          iit != AllData->allimages.end(); iit++){
-            for(DataManager<AddressStreamStats*>::iterator it = 
-              AllData->begin(*iit); it != AllData->end(*iit); ++it){
-
-                AddressStreamStats* st = it->second;
-                assert(st);
-                RangeStats* aggRange;
-
-                // Stats are collected by memid. We need to present them by
-                // block. Even if perinsn, just create new RangeStats data
-                // structure and compile per-memid data into it
-                aggRange = new RangeStats(st->AllocCount);
-
-                for (uint32_t memid = 0; memid < st->AllocCount; memid++){
-                    uint32_t bbid;
-                    RangeStats* r = (RangeStats*)st->Stats[RangeHandlerIndex];
-                    if (st->PerInstruction){
-                        bbid = memid;
-                    } else {
-                        bbid = st->BlockIds[memid];
-                    }
-
-                    aggRange->Update(bbid, r->GetMinimum(memid), 0);
-                    aggRange->Update(bbid, r->GetMaximum(memid), 
-                      r->GetAccessCount(memid));
-                }
-                uint32_t MaxCapacity;
-                MaxCapacity = aggRange->Capacity;
-                
-                for (uint32_t bbid = 0; bbid < MaxCapacity; bbid++){
-                    // dont print blocks which weren't touched
-                    if (aggRange->GetAccessCount(bbid)==0){
-                        continue;
-                    }
-                    // this isn't necessarily true since this tool can suspend 
-                    // threads at any point. potentially shutting off 
-                    // instrumention in a block while a thread is midway through
-                    // Sanity check data
-                    // This assertion becomes FALSE when there are
-                    // multiple addresses processed per address
-                    // (e.g. with scatter/gather)
-                    if (AllData->CountThreads() == 1 && 
-                      !st->HasNonDeterministicMemop[bbid]){
-                        if (aggRange->GetAccessCount(bbid) % 
-                          st->MemopsPerBlock[bbid] != 0){
-                            inform << "bbid " << dec << bbid << " image " << 
-                              hex << (*iit) << " accesses " << dec << 
-                              aggRange->GetAccessCount(bbid) << " memops " << 
-                              st->MemopsPerBlock[bbid] << ENDL;
-                        }
-                        assert(aggRange->GetAccessCount(bbid) % 
-                          st->MemopsPerBlock[bbid] == 0);                       
-                    }
-
-                    uint32_t idx;
-                    if (st->Types[bbid] == CounterType_basicblock){
-                        idx = bbid;
-                    } else if (st->Types[bbid] == CounterType_instruction){
-                        idx = st->Counters[bbid];
-                    }
-
-                    RangeFile  << "BLK" << TAB << dec << bbid 
-                      << TAB << hex << st->Hashes[bbid]
-                      << TAB << dec << AllData->GetImageSequence((*iit))
-                      << TAB << dec << AllData->GetThreadSequence(st->threadid)
-                      << TAB << dec << st->Counters[idx]
-                      << TAB << dec << aggRange->GetAccessCount(bbid)
-                      << TAB << hex << aggRange->GetMinimum(bbid)
-                      << TAB << hex << aggRange->GetMaximum(bbid)
-                      << TAB << hex << (aggRange->GetMaximum(bbid) - 
-                        aggRange->GetMinimum(bbid))<<ENDL;                
-                } // For each block
-            } // For each data manager
-        } // For each image
-
-        // Close the file
-        RangeFile.close();
-        
         double t = (AllData->GetTimer(*key, 1) - AllData->GetTimer(*key, 0));
-        inform << "CXXX Total Execution time for instrumented application " 
+        inform << "CXXX--ReuseDistance Total Execution time for instrumented application " 
           << t << ENDL;
-        // TODO Is this right?
-        double m = (double)(CountMemoryHandlers * Sampler->AccessCount);
-        inform << "CXXX - ADDR RANGE - Memops simulated per second: " << (m/t) 
-          << ENDL;
         if(NonmaxKeys){
             delete NonmaxKeys;
         }
         RESTORE_STREAM_FLAGS(cout);
-    }
+    } // end of tool_image_fini function
+}; // end of extern C
 
-};
 
-void RangeFileName(AddressStreamStats* stats, string& oFile){
+
+void ReuseDistFileName(AddressStreamStats* stats, string& oFile){
     oFile.clear();
     oFile.append(stats->Application);
     oFile.append(".r");
     AppendRankString(oFile);
     oFile.append(".t");
     AppendTasksString(oFile);
-    oFile.append(".");
-    oFile.append("addrange");
+    oFile.append(".dist");
 }
 
 char ToLowerCase(char c){
@@ -650,109 +505,6 @@ char ToLowerCase(char c){
     return c;
 }
 
-RangeStats::RangeStats(uint32_t capacity){
-    Capacity = capacity;
-    Counts = new uint64_t[Capacity];
-    bzero(Counts, sizeof(uint64_t) * Capacity);
-    Ranges = new AddressRange*[Capacity];
-    for (uint32_t i = 0; i < Capacity; i++){
-        Ranges[i] = new AddressRange();
-        Ranges[i]->Minimum = MAX_64BIT_VALUE;
-        Ranges[i]->Maximum = 0;
-    }
-}
-
-RangeStats::~RangeStats(){
-    if (Ranges){
-        delete[] Ranges;
-    }
-    if (Counts){
-        delete[] Counts;
-    }
-}
-
-bool RangeStats::HasMemId(uint32_t memid){
-    return (memid < Capacity);
-}
-
-uint64_t RangeStats::GetMinimum(uint32_t memid){
-    assert(HasMemId(memid));
-    return Ranges[memid]->Minimum;
-}
-
-uint64_t RangeStats::GetMaximum(uint32_t memid){
-    assert(HasMemId(memid));
-    return Ranges[memid]->Maximum;
-}
-
-void RangeStats::Update(uint32_t memid, uint64_t addr){
-    Update(memid, addr, 1);
-}
-
-void RangeStats::Update(uint32_t memid, uint64_t addr, uint32_t count){
-    AddressRange* r = Ranges[memid];
-    if (addr < r->Minimum){
-        r->Minimum = addr;
-    }
-    if (addr > r->Maximum){
-        r->Maximum = addr;
-    }
-    Counts[memid] += count;
-}
-
-bool RangeStats::Verify(){
-    return true;
-}
-
-AddressRangeHandler::AddressRangeHandler(){
-}
-AddressRangeHandler::AddressRangeHandler(AddressRangeHandler& h){
-    pthread_mutex_init(&mlock, NULL);
-}
-AddressRangeHandler::~AddressRangeHandler(){
-}
-
-void AddressRangeHandler::Print(ofstream& f){
-    f << "AddressRangeHandler" << ENDL;
-}
-
-uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
-
-    if(access->type == MEM_ENTRY) {
-        uint32_t memid = (uint32_t)access->memseq;
-        uint64_t addr = access->address;
-        RangeStats* rs = (RangeStats*)stats;
-        rs->Update(memid, addr);
-        return 0;
-    } else if(access->type == VECTOR_ENTRY) {
-        uint64_t currAddr;
-        uint32_t memid = (uint32_t)access->memseq;
-        uint16_t mask = (access->vectorAddress).mask;
-        RangeStats* rs = (RangeStats*)stats;
-
-        for (int i = 0; i < (access->vectorAddress).numIndices; i++) {
-          if(mask % 2 == 1)
-          {
-            currAddr = (access->vectorAddress).base + 
-              (access->vectorAddress).indexVector[i] * 
-              (access->vectorAddress).scale;
-            rs->Update(memid, currAddr);
-          }
-          mask = (mask >> 1);
-        }
-        return 0;
-    } 
-    // TODO To be implemented later
-    /*} else if(access->type == PREFETCH_ENTRY) {
-        uint32_t memid = (uint32_t)access->memseq;
-        uint64_t addr = access->address;
-        if (ExecuteSoftwarePrefetches) {
-          RangeStats* rs = (RangeStats*)stats;
-          rs->Update(memid, addr);
-        }
-        return 0;
-   }*/
-}
                 
 // returns true on success... allows things to continue on failure if desired
 bool ParseInt32(string token, uint32_t* value, uint32_t min){
@@ -817,14 +569,13 @@ void DeleteStreamStats(AddressStreamStats* stats){
 bool ReadEnvUint32(string name, uint32_t* var){
     char* e = getenv(name.c_str());
     if (e == NULL){
-        debug(inform << "unable to find " << name << " in environment" << ENDL;)
         return false;
+        inform << "unable to find " << name << " in environment" << ENDL;
     }
     string s (e);
     if (!ParseInt32(s, var, 0)){
-        debug(inform << "unable to parse " << name << " in environment" << 
-          ENDL;)
         return false;
+        inform << "unable to parse " << name << " in environment" << ENDL;
     }
     return true;
 }
@@ -841,7 +592,8 @@ SamplingMethod::~SamplingMethod(){
 }
 
 void SamplingMethod::Print(){
-    inform << "SamplingMethod:" << TAB << "AccessLimit " << AccessLimit << " SampleOn " << SampleOn << " SampleOff " << SampleOff << ENDL;
+    inform << "SamplingMethod:" << TAB << "AccessLimit " << AccessLimit 
+      << " SampleOn " << SampleOn << " SampleOff " << SampleOff << ENDL;
 }
 
 void SamplingMethod::IncrementAccessCount(uint64_t count){
@@ -899,6 +651,7 @@ bool MemoryStreamHandler::UnLock(){
     return (pthread_mutex_unlock(&mlock) == 0);
 }
 
+
 // called for every new image and thread
 AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
   image_key_t iid, thread_key_t tid, image_key_t firstimage){
@@ -928,22 +681,20 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
         stats->AllocCount = stats->BlockCount;
     }
 
-    // Initialize Address Stream Handlers (MemoryHandler)
-    // Only doing Address Range so should only have one Memory Handler
-    assert(CountMemoryHandlers == 1);
+    // Initialize Address Stream Handler (MemoryHandler)
     stats->Stats = new StreamStats*[CountMemoryHandlers];
     bzero(stats->Stats, sizeof(StreamStats*) * CountMemoryHandlers);    
-    stats->Stats[RangeHandlerIndex] = new RangeStats(s->AllocCount);
 
     if (typ == AllData->ThreadType || (iid == firstimage)){
         stats->Handlers = new MemoryStreamHandler*[CountMemoryHandlers];   
     
-        // all images within a thread share a set of memory handlers, but they 
-        // don't exist for any image
-        AddressRangeHandler* p = (AddressRangeHandler*)MemoryHandlers[
-          RangeHandlerIndex];
-        AddressRangeHandler* r = new AddressRangeHandler(*p);
-        stats->Handlers[RangeHandlerIndex] = r;
+        // all images within a thread share a set of memory handlers, but 
+        //they don't exist for any image
+        if (ReuseWindow){
+            // We have a set of reuse handlers (reuse, spatial) per thread
+            stats->RHandlers = new ReuseDistance*[CountReuseHandlers]; 
+            stats->RHandlers[ReuseHandlerIndex] = new ReuseDistance(ReuseWindow, ReuseBin);
+        } 
     }
     else{
         AddressStreamStats * fs = AllData->GetData(firstimage, tid);
@@ -961,6 +712,7 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
         AddressStreamStats* fs = AllData->GetData(firstimage, tid);
         stats->Buffer = fs->Buffer;
     }
+
 
     // each thread/image gets its own counters
     if (typ == AllData->ThreadType){
@@ -981,18 +733,21 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
 }
 
 void ReadSettings(){
-    RangeHandlerIndex = CountMemoryHandlers;
-    CountMemoryHandlers++;
 
-    MemoryStreamHandler** tmp = new MemoryStreamHandler*[CountMemoryHandlers];
-    for(uint32_t i = 0; i < RangeHandlerIndex; ++i) {
-        tmp[i] = MemoryHandlers[i];
+    if (!ReadEnvUint32("METASIM_REUSE_WINDOW", &ReuseWindow)){
+        ReuseWindow = 1; //if someone's using the tool, they must want data
     }
-    if(MemoryHandlers != NULL) {
-        delete[] MemoryHandlers;
+    if (!ReadEnvUint32("METASIM_REUSE_BIN", &ReuseBin)){
+        ReuseBin = 1;
     }
-    MemoryHandlers = tmp;
-    MemoryHandlers[RangeHandlerIndex] = new AddressRangeHandler();   
+    
+    if(!ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging)){
+        LoadStoreLogging = 0;
+    }
+    ReuseHandlerIndex=0;
+    CountReuseHandlers++;
+    ReuseDistanceHandlers = new ReuseDistance*[CountReuseHandlers];
+    ReuseDistanceHandlers[ReuseHandlerIndex] = new ReuseDistance(ReuseWindow, ReuseBin);
 
     uint32_t SampleMax;
     uint32_t SampleOn;
@@ -1010,5 +765,4 @@ void ReadSettings(){
     Sampler = new SamplingMethod(SampleMax, SampleOn, SampleOff);
     Sampler->Print();
 }
-
 

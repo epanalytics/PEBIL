@@ -1,0 +1,66 @@
+include ../VERSION
+
+AR            = ar cru
+CXX           = g++
+CXXFLAGS      = -g -O2 -std=gnu++0x -DHAVE_UNORDERED_MAP -DHAVE_MPI -DPEBIL_VER="\"$(PEBIL_FULL_VER)\"" -w
+SHARED_OPT    = -fPIC
+SHARED_LIB    = -shared
+STATIC_OPT    = -DSTATIC_BUILD
+STATIC_LIB    = -static
+
+SRCDIR        = ../src
+BINDIR        = ../bin
+LIBDIR        = ../lib
+EXTDIR        = ../external
+EXTRA_INC     = -I. -I../include -I$(EXTDIR)/udis86-1.7/ -I../instcode
+SHARED_LIBS   = -dynamic -L$(SRCDIR) -lpebilinst -L$(EXTDIR)/udis86-1.7/libudis86/.libs -ludis86 -ldl
+STATIC_LIBS   = $(SRCDIR)/libpebilinst.a -L$(EXTDIR)/udis86-1.7/libudis86/.libs -ludis86
+
+TOOLS = AddressStreamIntercept BasicBlockCounter CallReplace Classification FunctionCounter FunctionTimer Minimal LoopIntercept TauFunctionTrace DeadRegisterSquasher AddressStreamIntercept
+SRCS = $(foreach var,$(TOOLS),$(var).C)
+OBJS = $(foreach var,$(TOOLS),$(var).o)
+DLIBS = $(foreach var,$(TOOLS),lib$(var)Tool.so)
+SLIBS = $(foreach var,$(TOOLS),lib$(var)Tool.a)
+
+PEBIL_STATIC_BUILD = no
+ifeq ($(PEBIL_STATIC_BUILD),yes)
+	TARGETS  = pebil pebil.static
+	LIBS     = $(DLIBS) $(SLIBS)
+else
+	TARGETS  = pebil
+	LIBS     = $(DLIBS)
+endif
+
+.PHONY: all clean depend
+
+all: $(LIBS) $(TARGETS)
+
+pebil :	pebil.o $(SRCDIR)/libpebilinst.so $(DLIBS)
+	$(CXX) $(CXXFLAGS) -o $@ pebil.o $(EXTRA_INC) $(SHARED_LIBS)
+
+pebil.static : S_pebil.o $(SRCDIR)/libpebilinst.a $(SLIBS)
+	$(CXX) $(STATIC_LIB) $(CXXFLAGS) -o $@ S_pebil.o $(EXTRA_INC) $(STATIC_LIBS) $(SLIBS) $(STATIC_LIBS)
+
+%.o: %.C
+	$(CXX) $(SHARED_OPT) $(CXXFLAGS) $(EXTRA_INC) -c -o $@ $<
+
+S_%.o: %.C
+	$(CXX) $(STATIC_OPT) $(CXXFLAGS) $(EXTRA_INC) -c -o $@ $<
+
+lib%Tool.so: %.o
+	$(CXX) $(SHARED_LIB) -o $@ $<
+
+lib%Tool.a: S_%.o
+	$(AR) $@ $<
+
+clean: 
+	rm -f *inst *.static core *.o *.ii *.s *.so *.a $(TARGETS)
+
+depend:
+	g++ -E -MM $(EXTRA_INC) $(SRCS) pebil.C > DEPENDS
+
+install: $(TARGETS) $(LIBS)
+	cp $(TARGETS) $(BINDIR)
+	cp $(LIBS) $(LIBDIR)
+
+include DEPENDS

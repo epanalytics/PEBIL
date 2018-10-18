@@ -95,8 +95,6 @@ static void DeleteStreamStats(AddressStreamStats* stats);
 static bool ReadEnvUint32(string name, uint32_t* var);
 static void PrintAddressStreamStats(ofstream& f, AddressStreamStats* stats, thread_key_t tid, bool perThread);
 static void SimulationFileName(AddressStreamStats* stats, string& oFile);
-static void ReuseDistFileName(AddressStreamStats* stats, string& oFle);
-static void SpatialDistFileName(AddressStreamStats* stats, string& oFile);
 static void RangeFileName(AddressStreamStats* stats, string& oFile);
 
 extern "C" {

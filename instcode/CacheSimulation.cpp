@@ -20,7 +20,6 @@
 
 #include <InstrumentationCommon.hpp>
 #include <CacheSimulation.hpp>
-#include <ReuseDistance.hpp>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,32 +40,12 @@
 // METASIM_LIMIT_HIGH_ASSOC if desired.
 static uint32_t MinimumHighAssociativity = 256;
 
-// These control reuse distance calculations. Activate this feature by setting 
-// METASIM_REUSE_WINDOW to something other than 0. The design of the reuse 
-// distance tool is such that tracking a large window size isn't a lot more 
-// expensive than a small size. Also this will be rendered relatively useless
-// unless the sampling period (METASIM_SAMPLE_ON) is somewhat large relative 
-// to METASIM_REUSE_WINDOW.
-static uint32_t ReuseWindow = 0;
-static uint32_t ReuseBin = 0;
-static const uint64_t ReuseCleanupMin = 10000000;
-static const double ReusePrintScale = 1.5;
-static const uint32_t ReuseIndivPrint = 32;
-// These control spatial locality calculations. Activate this feature by setting 
-// // METASIM_SPATIAL_WINDOW to something other than 0. 
-static uint32_t SpatialWindow = 0;
-static uint32_t SpatialBin = 0;
-static uint32_t SpatialNMAX = 0;
-
 static uint32_t LoadStoreLogging = 0;
 static uint32_t DirtyCacheHandling = 0; 
 
 // global data
 static uint32_t CountMemoryHandlers = 0;
-static uint32_t CountReuseHandlers = 0;
 static uint32_t CountCacheStructures = 0;
-static int32_t ReuseHandlerIndex = 0;
-static int32_t SpatialHandlerIndex = 0;
 static bool ExecuteSoftwarePrefetches = true;
 
 static SamplingMethod* Sampler = NULL;
@@ -76,8 +55,6 @@ static set<uint64_t>* NonmaxKeys = NULL;
 
 // should not be used directly. kept here to be cloned by anyone who needs it
 static MemoryStreamHandler** MemoryHandlers = NULL;
-
-static ReuseDistance** ReuseDistanceHandlers = NULL;
 
 
 #define synchronize(__locker) __locker->Lock(); for (bool __s = true;\
@@ -264,64 +241,6 @@ extern "C" {
         }
 
     }
-
-    static void ProcessReuseBuffer(ReuseDistance* rd, uint32_t numElements, image_key_t iid, thread_key_t tid){
-
-        uint32_t threadSeq = AllData->GetThreadSequence(tid);
-        uint32_t numProcessed = 0;
-
-        AddressStreamStats** faststats = FastStats->GetBufferStats(tid);
-        uint32_t bufcur = 0;
-        for (bufcur = 0; bufcur < numElements; bufcur++){
-            debug(assert(faststats[bufcur]));
-            debug(assert(faststats[bufcur]->Stats));
-
-            AddressStreamStats* stats = faststats[bufcur];
-
-            BufferEntry* reference = BUFFER_ENTRY(stats, bufcur);
-
-            if (reference->imageid == 0){
-                debug(assert(AllData->CountThreads() > 1));
-                continue;
-            }
-
-            ReuseEntry entry = ReuseEntry();
-            entry.id = stats->Hashes[stats->BlockIds[reference->memseq]];
-            entry.address=reference->address ;
-            rd->Process(entry);
-            numProcessed++;
-        }
-    }
-
-    static void ProcessSpatialBuffer(ReuseDistance* sd, uint32_t numElements, image_key_t iid, thread_key_t tid){
-        ProcessReuseBuffer(sd, numElements, iid, tid);
-
-//        uint32_t threadSeq = AllData->GetThreadSequence(tid);
-//        uint32_t numProcessed = 0;
-//
-//        AddressStreamStats** faststats = FastStats->GetBufferStats(tid);
-//        uint32_t bufcur = 0;
-//        for (bufcur = 0; bufcur < numElements; bufcur++){
-//            debug(assert(faststats[bufcur]));
-//            debug(assert(faststats[bufcur]->Stats));
-//
-//            AddressStreamStats* stats = faststats[bufcur];
-//
-//            BufferEntry* reference = BUFFER_ENTRY(stats, bufcur);
-//
-//            if (reference->imageid == 0){
-//                debug(assert(AllData->CountThreads() > 1));
-//                continue;
-//            }
-//
-//            ReuseEntry entry = ReuseEntry();
-//            entry.id = stats->Hashes[stats->BlockIds[reference->memseq]];
-//            entry.address=reference->address ;
-//            sd->Process(entry);
-//            numProcessed++;
-//        }
-    }
-
     static void* process_thread_buffer(image_key_t iid, thread_key_t tid){
 
 #define DONE_WITH_BUFFER(...) BUFFER_CURRENT(stats) = 0;  return NULL;
@@ -375,17 +294,6 @@ extern "C" {
                     MemoryStreamHandler* m = stats->Handlers[i];
                     ProcessBuffer(iid, tid, m, i, numElements);
                 }
-                if(ReuseWindow){
-                    ReuseDistance* rd=NULL;
-                    rd = stats->RHandlers[ReuseHandlerIndex];
-                    ProcessReuseBuffer(rd, numElements, iid, tid);       
-                }
-                if(SpatialWindow){    
-                    ReuseDistance* sd=NULL; 
-                    sd = stats->RHandlers[SpatialHandlerIndex];
-                    ProcessSpatialBuffer(sd, numElements, iid, tid);
-                }
-
                 // Update the GroupCounters for sampling purposes
                 for(uint32_t i = 0; i < (stats->BlockCount); i++) {
                     uint32_t idx = i;
@@ -490,18 +398,6 @@ extern "C" {
                     ResumeAllThreads();
                 }
 
-                // reuse distance handler needs to know that we passed over 
-                // asome addresses
-                if (ReuseWindow || SpatialWindow){
-                    if(ReuseWindow) {    
-                        ReuseDistance* r = stats->RHandlers[ReuseHandlerIndex];
-                        r->SkipAddresses(numElements);
-                    }
-                    if(SpatialWindow) {
-                        ReuseDistance* s = stats->RHandlers[SpatialHandlerIndex];
-                        s->SkipAddresses(numElements);
-                    }
-                }
             }
 
             Sampler->IncrementAccessCount(numElements);
@@ -569,53 +465,6 @@ extern "C" {
         string oFile;
         const char* fileName;
   
-        if (ReuseWindow){
-            ofstream ReuseDistFile;
-            ReuseDistFileName(stats, oFile);
-            fileName = oFile.c_str();
-            inform << "Printing reuse distance results to " << fileName << ENDL;
-            TryOpen(ReuseDistFile, fileName);
-
-            for (set<image_key_t>::iterator iit = AllData->allimages.begin(); iit != AllData->allimages.end(); iit++){
-                for(DataManager<AddressStreamStats*>::iterator it = AllData->begin(*iit); it != AllData->end(*iit); ++it) {
-
-                    thread_key_t thread = it->first;
-                    AddressStreamStats* s = it->second;
-                    ReuseDistFile << "IMAGE" << TAB << hex << (*iit) << TAB << "THREAD" << TAB << dec << AllData->GetThreadSequence(thread) << ENDL;
-            
-                    ReuseDistance* rd = s->RHandlers[ReuseHandlerIndex];
-                    assert(rd);
-                    inform << "Reuse distance bins for " << hex << s->Application << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
-                    rd->Print();
-                    rd->Print(ReuseDistFile);
-                }
-            }
-            ReuseDistFile.close();
-        }
-        if (SpatialWindow){
-            ofstream SpatialDistFile;
-            SpatialDistFileName(stats, oFile);
-            fileName = oFile.c_str();
-            inform << "Printing spatial locality results to " << fileName << ENDL;
-            TryOpen(SpatialDistFile, fileName);
-
-            for (set<image_key_t>::iterator iit = AllData->allimages.begin(); iit != AllData->allimages.end(); iit++){
-                for(DataManager<AddressStreamStats*>::iterator it = AllData->begin(*iit); it != AllData->end(*iit); ++it){
-                    thread_key_t thread = it->first;
-                    AddressStreamStats* s = it->second;
-
-                    SpatialDistFile << "IMAGE" << TAB << hex << (*iit) << TAB << "THREAD" << TAB << dec << AllData->GetThreadSequence(thread) << ENDL;
-
-                    ReuseDistance* sd = s->RHandlers[SpatialHandlerIndex];
-                    assert(sd);
-                    inform << "Spatial locality bins for " << hex << s->Application << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
-                    sd->Print();
-                    sd->Print(SpatialDistFile);
-                }
-            }
-            SpatialDistFile.close();
-        } 
-
         // dump cache simulation results
         SimulationFileName(stats, oFile);
         fileName = oFile.c_str();
@@ -994,25 +843,6 @@ void SimulationFileName(AddressStreamStats* stats, string& oFile){
 }
 
 
-void ReuseDistFileName(AddressStreamStats* stats, string& oFile){
-    oFile.clear();
-    oFile.append(stats->Application);
-    oFile.append(".r");
-    AppendRankString(oFile);
-    oFile.append(".t");
-    AppendTasksString(oFile);
-    oFile.append(".dist");
-}
-
-void SpatialDistFileName(AddressStreamStats* stats, string& oFile){
-    oFile.clear();
-    oFile.append(stats->Application);
-    oFile.append(".r");
-    AppendRankString(oFile);
-    oFile.append(".t");
-    AppendTasksString(oFile);
-    oFile.append(".spatial");
-}
 
 uint32_t RandomInt(uint32_t max){
     return rand() % max;
@@ -2475,14 +2305,6 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
             stats->Handlers[i] = c;
         }
 
-        if (ReuseWindow || SpatialWindow){
-            // We have a set of reuse handlers (reuse, spatial) per thread
-            stats->RHandlers = new ReuseDistance*[CountReuseHandlers]; 
-                if(ReuseWindow)
-                stats->RHandlers[ReuseHandlerIndex] = new ReuseDistance(ReuseWindow, ReuseBin);
-                if(SpatialWindow)
-                    stats->RHandlers[SpatialHandlerIndex] = new SpatialLocality(SpatialWindow, SpatialBin, SpatialNMAX);
-        } 
     }
     else{
         AddressStreamStats * fs = AllData->GetData(firstimage, tid);
@@ -2527,27 +2349,6 @@ void ReadSettings(){
         MinimumHighAssociativity = SaveHashMin;
     }
 
-    if (!ReadEnvUint32("METASIM_REUSE_WINDOW", &ReuseWindow)){
-        ReuseWindow = 0;
-    }
-    if(ReuseWindow) {
-        if (!ReadEnvUint32("METASIM_REUSE_BIN", &ReuseBin)){
-            ReuseBin = 1;
-        }
-    }
-    
-    if (!ReadEnvUint32("METASIM_SPATIAL_WINDOW", &SpatialWindow)){
-        SpatialWindow = 0;
-    }
-    if(SpatialWindow) {
-    if (!ReadEnvUint32("METASIM_SPATIAL_BIN", &SpatialBin)){
-            SpatialBin = 1;
-        }
-
-        if (!ReadEnvUint32("METASIM_SPATIAL_NMAX", &SpatialNMAX)){
-            SpatialNMAX = ReuseDistance::Infinity;
-        }
-    }
     if(!ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging)){
         LoadStoreLogging = 0;
     }
@@ -2593,32 +2394,6 @@ void ReadSettings(){
         MemoryHandlers[i] = caches[i];
     }
     
-    if(ReuseWindow){
-        ReuseHandlerIndex=0;
-        CountReuseHandlers++;
-    } else {
-        ReuseHandlerIndex=-1;
-    }
-
-    if(SpatialWindow) {
-        SpatialHandlerIndex=ReuseHandlerIndex+1;
-        CountReuseHandlers++;
-    } else {
-        SpatialHandlerIndex=-1;    
-    }
-    
-    if (ReuseWindow || SpatialWindow){
-        ReuseDistanceHandlers = new ReuseDistance*[CountReuseHandlers];
-        if(ReuseWindow) {
-            ReuseDistanceHandlers[ReuseHandlerIndex] = 
-              new ReuseDistance(ReuseWindow, ReuseBin);
-        }
-        if(SpatialWindow) {
-            ReuseDistanceHandlers[SpatialHandlerIndex] = new 
-              SpatialLocality(SpatialWindow, SpatialBin, SpatialNMAX);
-        }
-    }
-
     uint32_t SampleMax;
     uint32_t SampleOn;
     uint32_t SampleOff;

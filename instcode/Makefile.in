@@ -5,7 +5,7 @@ PEBIL_LIBS =
 ifeq ($(STATIC_INST_LIB),yes)
 	PEBIL_LIBS = libtimer.a  libclassifier.a  libpfreq.a  libtautrace.a  libcounter.a  libcachesimulator.a
 else
-	PEBIL_LIBS = libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libcachesimulator.so libaddressrange.so
+	PEBIL_LIBS = libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libcachesimulator.so libaddressrange.so libreusedist.so libspatlocal.so
 endif
 
 LIBDIR      = ../lib
@@ -74,6 +74,11 @@ $(MICLIBDIR)/libcachesimulator.so : $(MICLIBDIR)/CacheSimulation.O
 	$(MPICXX_MIC) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_MIC_LIBS) $(CXXFLAGS) $(MICFLAGS)
 $(MICLIBDIR)/libcachesimulator.a : $(MICLIBDIR)/CacheSimulation.o $(MICLIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS_MIC)
 	$(AR) $@ $(MICLIBDIR)/CacheSimulation.o $(MICLIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS_MIC)
+
+$(LIBDIR)/libreusedist.so : $(LIBDIR)/ReuseDistAddr.O
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
+$(LIBDIR)/libspatlocal.so : $(LIBDIR)/SpatLocalAddr.O
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
 
 $(LIBDIR)/libaddressrange.so : $(LIBDIR)/AddressRange.O
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
