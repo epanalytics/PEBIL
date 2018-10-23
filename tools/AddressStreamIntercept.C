@@ -250,12 +250,20 @@ uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(X86Instruction*
     // TODO: assert that the insn exists
 
     // Software Prefetches are considered considered loads
-    if (insn->isSoftwarePrefetch() && ifInstrumentingSWPrefetches()){
-        return 1;
+    if (insn->isSoftwarePrefetch()) {
+        if(ifInstrumentingSWPrefetches()){
+            return 1;
+        } else {
+            return 0;
+        }
     }
     // Scatter/Gather ops are currently considered loads and stores    
-    if (insn->isScatterGatherOp() && ifInstrumentingScatterGathers()) {
-        return 1;
+    if (insn->isScatterGatherOp()) {
+        if(ifInstrumentingScatterGathers()) {
+            return 1;
+        } else {
+            return 0;
+        }
     }
 
     if (insn->isLoad() && ifInstrumentingLoads()){
@@ -972,11 +980,11 @@ void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb,
   X86Instruction* memop, uint32_t threadReg, AddressStreamStats& stats, 
   uint32_t blockSeq, uint32_t memopSeq, uint32_t memopIdInBlock) {
 
-    std::cout << "ACC: InsertAddressCollection" << std::endl;
     uint8_t normalOrSWPF = NORMAL;
+
+
     if(memop->isSoftwarePrefetch()) {
         if(ifInstrumentingSWPrefetches()) {
-            std::cout << "ACC: Found SWPF" << std::endl;
             normalOrSWPF = SWPF;
         } else {
             // If we aren't instrumenting software prefetches, then we do
@@ -987,7 +995,7 @@ void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb,
    
 
     // KNL implementation (not KNC)
-    if (memop->isScatterGatherOp()) {
+    if (memop->isScatterGatherOp()) { 
         collectVectorEntry(bb, memop, threadReg, stats, blockSeq, memopSeq, 
           memopIdInBlock, normalOrSWPF);
         memopSeq++;
@@ -996,7 +1004,6 @@ void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb,
     } 
   
     if(memop->isLoad() && ifInstrumentingLoads()) {
-        std::cout << "ACC: isLoad" << std::endl;
         collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
           memopIdInBlock, normalOrSWPF, LOAD);
         memopIdInBlock++;
@@ -1004,7 +1011,6 @@ void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb,
     }
 
     if(memop->isStore() && ifInstrumentingStores()) {
-        std::cout << "ACC: isStore" << std::endl;
         collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
           memopIdInBlock, normalOrSWPF, STORE);
         memopIdInBlock++;
@@ -1466,25 +1472,35 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
       loadstoreflag);
 
     OperandX86* vectorOp = NULL;
+    OperandX86* maskOp = NULL;  // ONLY FOR AVX2. AVX512 has it in vector op
     // vgatherdps (%r14,%zmm0,8), %zmm2 {k4}
     if(vectorIns->isLoad()) {
         Vector<OperandX86*>* ops = vectorIns->getSourceOperands();
-        assert(ops->size() == 1);
+	// most gathers have one source operand but avx2 gathers have 2
+	// the vector address and the mask register
+        assert(ops->size() == 1 || ops->size() == 2);
         vectorOp = (*ops)[0];
+        if(ops->size() == 2) {
+            maskOp = (*ops)[1];
+        }
         delete ops;
     } else if(vectorIns->isStore()) {
         vectorOp = vectorIns->getDestOperand();
         assert(vectorOp);
     } else assert(0);
     assert(vectorOp->getType() == UD_OP_MEM);
+    assert(maskOp->getType() == UD_OP_REG);
 
     uint32_t zmmReg = vectorOp->getIndexRegister();
     uint32_t baseReg = vectorOp->getBaseRegister();
     uint8_t scale = vectorOp->GET(scale);
     if(scale == 0) scale = 1;
     uint32_t numIndices = 16;        // Default zmm reg
-    uint32_t kreg = vectorIns->getVectorMaskRegister();
     uint32_t offset = vectorOp->getValue();
+    uint32_t kreg = vectorIns->getVectorMaskRegister();
+    if(maskOp != NULL) {
+        kreg = maskOp->getBaseRegister();
+    }
 
     if (vectorOp->isIndexRegYMM()) {
         numIndices = 8;
@@ -1524,19 +1540,29 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
       numIndices)));
 
     // write mask
+    // for regular vector entry:
     //   kmov k, sr3
     //   store sr3
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveKToReg(kreg, 
-      sr3));
-    snip->addSnippetInstruction(X86InstructionFactory64::
-      emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, vectorAddress) + 
-      offsetof(VectorAddress, mask), true));
+    if(maskOp == NULL) {
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveKToReg(kreg, sr3));
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveRegToRegaddrImm(sr3, sr2, 
+          offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
+          true));
+    } else {  
+        // If mask is a separate operand
+	// then just move that register to sr2
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveRegToRegaddrImm(kreg, sr2, 
+          offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
+          true));
+    }
 
     // write index vector
     snip->addSnippetInstruction(X86InstructionFactory64::
       emitMoveZmmToUnalignedRegaddrImm(zmmReg, X86_REG_K0, sr2, 
       offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, 
       indexVector)));
-
 
 } 

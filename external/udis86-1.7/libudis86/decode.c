@@ -950,8 +950,12 @@ static unsigned int resolve_operand_size( const struct ud * u, unsigned int s )
             else return 512;
             //else if(size == 2) return 512;
             //else assert(0);
+        } else if(P_AVX(u->pfx_insn)) {
+            if(u->pfx_size == 0) return 128;
+            else if(u->pfx_size == 1) return 256;
+            else assert(0);
         } else {
-            return s;
+            assert(0);
         }
     default:
         return s;
@@ -1102,6 +1106,7 @@ static void decode_vex_vvvv(struct ud* u,
     } else {
         reg = resolve_reg(u, type, VEX_VVVV(vex));
     }
+    PEBIL_DEBUG("\tdecode_vex_vvvv: reg = %d", reg);
 
     op->type = UD_OP_REG;
     op->base = reg;
@@ -1208,6 +1213,7 @@ decode_vector_modrm_rm(struct ud* u,
 {
     unsigned char modrm_byte = get_modrm(u, modrm);
     op->position = modrm->position;
+        
 
     /* get mod, r/m and reg fields */
     unsigned char mod = MODRM_MOD(modrm_byte);
@@ -1225,12 +1231,24 @@ decode_vector_modrm_rm(struct ud* u,
         op->offset = 32;
     } else  op->offset = 0;
 
+    PEBIL_DEBUG("\tdecode_vector_modrm_rm: mod = 0x%x, rm = 0x%x, offset = %d", 
+      mod, rm, op->offset);
 
     inp_next(u);
     op->type = UD_OP_MEM;
     op->size = resolve_operand_size(u, size);
 
-    op->scale = SIB_SCALE(inp_curr(u));
+    uint8_t scale = SIB_SCALE(inp_curr(u));
+    if(IS_EVEX(u->evex)) {
+        op->scale = scale;
+    } else if(P_AVX(u->pfx_insn)) {
+        op->scale = (1 << scale);
+    } else {
+        assert(0);
+    }
+    
+    PEBIL_DEBUG("\tdecode_vector_modrm_rm: size = %d, scale = %d", 
+      op->size, op->scale);
 
     // TODO Index vector not necessarily a 512-bit AVX register!
     // example: vgatherdpd
@@ -1254,10 +1272,18 @@ decode_vector_modrm_rm(struct ud* u,
       else if (op->size == SZ_Y)
         indexType = T_YMM;
     }
-    //op->index = UD_R_ZMM0 +
-    //    ((MVEX_VP(u->mvex[2]) << 4) | (MVEX_X(u->mvex[0]) << 3) | SIB_I(inp_curr(u)));
-    op->index = resolve_reg(u, indexType, ((MVEX_VP(u->mvex[2]) << 4) | (MVEX_X(u->mvex[0]) << 3) | SIB_I(inp_curr(u))));
-    op->base = UD_R_RAX + ((MVEX_B(u->mvex[0]) << 3) | SIB_B(inp_curr(u)));
+    if (IS_EVEX(u->evex)) {
+        //op->index = UD_R_ZMM0 +
+        //    ((MVEX_VP(u->mvex[2]) << 4) | (MVEX_X(u->mvex[0]) << 3) | SIB_I(inp_curr(u)));
+        op->index = resolve_reg(u, indexType, ((MVEX_VP(u->mvex[2]) << 4) | (MVEX_X(u->mvex[0]) << 3) | SIB_I(inp_curr(u))));
+        op->base = UD_R_RAX + ((MVEX_B(u->mvex[0]) << 3) | SIB_B(inp_curr(u)));
+    } else if(P_AVX(u->pfx_insn)) {
+        PEBIL_DEBUG("\tdecode_vector_modrm_rm: pfx_rex=0x%x, sib_i = %d, rexb=%d, rexx=%d", u->pfx_rex, SIB_I(inp_curr(u)), REX_B(u->pfx_rex), REX_X(u->pfx_rex)); 
+        op->index = resolve_reg(u, indexType, (((REX_X(u->pfx_rex)) << 3) | SIB_I(inp_curr(u))));
+        op->base = UD_R_RAX + ((REX_B(u->pfx_rex) << 3) | SIB_B(inp_curr(u)));
+    } else {
+        assert(0);
+    }
 
     /* special conditions for base reference */
     if (op->index == UD_R_RSP) {
@@ -1591,7 +1617,8 @@ decode_modrm_reg(struct ud* u,
   else
       op->base = resolve_reg(u, reg_type, reg);
 
-  PEBIL_DEBUG("\tdecode_modrm_reg: reg = %u, size = %u", reg, op->size);
+  PEBIL_DEBUG("\tdecode_modrm_reg: reg = %u, size = %u, base = %u", reg, 
+    op->size, op->base);
 }
 
 
@@ -1908,6 +1935,8 @@ static int disasm_operand(register struct ud* u,
       break;
 
     case OP_ZVM:
+      PEBIL_DEBUG("\tOperand is type OP_ZVM");
+      PEBIL_DEBUG("\t\t size ----> %d", u->itab_entry->operand2.size);
       decode_vector_modrm_rm(u, modrm, operand, size, T_ZMM);
       break;
 
