@@ -627,6 +627,8 @@ ac_subst_vars='LTLIBOBJS
 subdirs
 LIBOBJS
 CPUFREQ_FLAGS
+PAPI_PATH
+PEBIL_PAPI_BUILD
 PEBIL_MIC_LIBS_BUILD
 THROTTLER_FLAGS
 MPI_CXXFLAGS
@@ -703,6 +705,7 @@ enable_adamant
 enable_mpiinit_check
 with_throttler_headers
 enable_mic_libs
+enable_papi
 '
       ac_precious_vars='build_alias
 host_alias
@@ -720,7 +723,8 @@ FCFLAGS
 CPP
 MPICC
 MPIFC
-MPICXX'
+MPICXX
+PAPI_PATH'
 ac_subdirs_all='external/udis86-1.7
 external/ReuseDistance
 external/ReuseDistanceForMIC'
@@ -1342,6 +1346,7 @@ Optional Features:
   --enable-mpiinit-check  Disable output file printing in inst libraries
                           unless mpi_init is executed [no]
   --enable-mic-libs       Create mic runtime libraries [yes]
+  --enable-papi           Build with PAPI hardware counter support [yes]
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1365,6 +1370,7 @@ Some influential environment variables:
   MPICC       MPI C compiler command
   MPIFC       MPI Fortran compiler command
   MPICXX      MPI C++ compiler command
+  PAPI_PATH   path to PAPI folder
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -5400,6 +5406,20 @@ if test "$mic_libs_ok" = "yes"; then
 else
   PEBIL_MIC_LIBS_BUILD="no"
 fi
+
+
+# Check whether --enable-papi was given.
+if test "${enable_papi+set}" = set; then :
+  enableval=$enable_papi; enable_papi_ok=$enableval
+fi
+
+if test "$enable_papi_ok" = "yes"; then
+  PEBIL_PAPI_BUILD="yes"
+else
+  PEBIL_PAPI_BUILD="no"
+fi
+
+
 
 
 # Checks for header files.
