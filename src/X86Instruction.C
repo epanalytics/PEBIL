@@ -2167,7 +2167,7 @@ X86Instruction::X86Instruction(TextObject* cont, uint64_t baseAddr, char* buff, 
     ud_t ud_obj;
     memcpy(&ud_obj, &ud_blank, sizeof(ud_t));
     ud_set_input_buffer(&ud_obj, (uint8_t*)buff, MAX_X86_INSTRUCTION_LENGTH);
-
+    
     sizeInBytes = ud_disassemble(&ud_obj);
     if (sizeInBytes) {
         copy_ud_to_compact(&entry, &ud_obj);
