@@ -1695,6 +1695,13 @@ uint32_t X86Instruction::convertTo4ByteTargetOperand(){
                     print();
                     ASSERT(0);
                 }
+	    // Hopefully this will onlt refer to jumps with branch hints
+            } else if(sizeInBytes == 3) {
+                additionalBytes = 4;
+                uint32_t operandValue = getOperand(JUMP_TARGET_OPERAND)->getValue();
+                memcpy(rawBytes + 3, &operandValue, sizeof(uint32_t));
+                rawBytes[2] = rawBytes[1] + 0x10;
+                rawBytes[1] = 0x0f;
             } else {
                 ASSERT(0);
             }
