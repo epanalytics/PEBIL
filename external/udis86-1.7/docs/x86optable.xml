@@ -5595,6 +5595,10 @@ MAL MISSING PRE SSE?
     <opcode> rexr rexx rexb rexw ; mvex sse66 0f E3 ; ZR ZV ZRM ; ; </opcode>
   </instruction>
 
+  <instruction mnemonic="vpblendd">
+    <opcode> rexr rexx rexb rexw ; avxC4 sse66 0f /3byte=3A 02 /W=0 ; ZR ZV ZRM Ib ; ; </opcode>
+  </instruction>
+
   <instruction mnemonic="vpblendmb">
     <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 66 /W=0 ; ZR ZV ZRM ; ; </opcode>
   </instruction>
