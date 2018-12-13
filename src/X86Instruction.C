@@ -1610,8 +1610,6 @@ uint32_t X86Instruction::convertTo4ByteTargetOperand(){
     }
     PRINT_DEBUG_INST("Before mod");
     DEBUG_INST(print();)
-    PRINT_INFOR("Before mod");
-    print();
 
     // extract raw bytes from hex representation
     char rawBytes[MAX_X86_INSTRUCTION_LENGTH];
