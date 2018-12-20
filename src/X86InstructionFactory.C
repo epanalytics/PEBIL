@@ -738,7 +738,6 @@ X86Instruction* X86InstructionFactory32::emitMoveSegmentRegToReg(uint32_t src, u
 // 0 -> the STORED address
 // Unused for any other instruction
 Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Instruction* instruction, uint32_t dest, uint32_t impAddrFlag){
-    printf("ACC: emitAddressComputation with %d\n", instruction->GET(implicit_addr));
     ASSERT(dest < X86_64BIT_GPRS && "Illegal register index given");
     ASSERT(instruction->isMemoryOperation() || 
       instruction->isSoftwarePrefetch());
@@ -750,7 +749,6 @@ Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Inst
 
     Vector<X86Instruction*>* compInstructions = new Vector<X86Instruction*>();
     OperandX86* op = NULL;
-    printf("ACC: Through assertions\n");
 
     if (instruction->isExplicitMemoryOperation() || 
       instruction->isSoftwarePrefetch()){
