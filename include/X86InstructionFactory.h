@@ -145,7 +145,7 @@ public:
     static X86Instruction* emitLoadRegImmReg(uint8_t src, uint64_t imm, uint8_t dest);
     static X86Instruction* emitLoadRipImmReg(uint64_t imm, uint8_t dest);
 
-    static Vector<X86Instruction*>* emitAddressComputation(X86Instruction* instruction, uint32_t dest);
+    static Vector<X86Instruction*>* emitAddressComputation(X86Instruction* instruction, uint32_t dest, uint32_t impAddrFlag);
     static X86Instruction* emitLoadEffectiveAddress(OperandX86* op, uint32_t dest);
     static X86Instruction* emitLoadEffectiveAddress(uint32_t baseReg, uint32_t indexReg, uint8_t scale, uint64_t value, uint32_t dest, bool hasBase, bool hasIndex);
 
@@ -166,7 +166,7 @@ public:
     static X86Instruction* emitFxSave(uint64_t addr);
     static X86Instruction* emitFxRstor(uint64_t addr);
 
-    static Vector<X86Instruction*>* emitAddressComputation(X86Instruction* instruction, uint32_t dest);
+    static Vector<X86Instruction*>* emitAddressComputation(X86Instruction* instruction, uint32_t dest, uint32_t impAddrFlag);
     static X86Instruction* emitLoadEffectiveAddress(OperandX86* op, uint32_t dest);
     static X86Instruction* emitLoadEffectiveAddress(uint32_t baseReg, uint32_t indexReg, uint8_t scale, uint64_t value, uint32_t dest, bool hasBase, bool hasIndex);
     static X86Instruction* emitMoveSegmentRegToReg(uint32_t src, uint32_t dest);

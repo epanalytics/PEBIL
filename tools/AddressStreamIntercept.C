@@ -149,7 +149,7 @@ void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction*
 
     // set address
     Vector<X86Instruction*>* addrStore = X86InstructionFactory64::
-      emitAddressComputation(memop, sr3);
+      emitAddressComputation(memop, sr3, loadstoreflag);
     while (!(*addrStore).empty()){
         snip->addSnippetInstruction((*addrStore).remove(0));
     }

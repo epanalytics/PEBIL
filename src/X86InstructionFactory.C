@@ -733,19 +733,27 @@ X86Instruction* X86InstructionFactory32::emitMoveSegmentRegToReg(uint32_t src, u
     return emitInstructionBase(len,buff);
 }
 
-Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Instruction* instruction, uint32_t dest){
+// impAddrFlag is for implicit addresses that have more than one memory operand
+// 1 -> the LOADED address
+// 0 -> the STORED address
+// Unused for any other instruction
+Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Instruction* instruction, uint32_t dest, uint32_t impAddrFlag){
+    printf("ACC: emitAddressComputation with %d\n", instruction->GET(implicit_addr));
     ASSERT(dest < X86_64BIT_GPRS && "Illegal register index given");
-    ASSERT(instruction->isMemoryOperation() || instruction->isSoftwarePrefetch());
+    ASSERT(instruction->isMemoryOperation() || 
+      instruction->isSoftwarePrefetch());
 
     DEBUG_LOADADDR(
-    instruction->print();
-    PRINT_DEBUG_LOADADDR("---");
-                   )
+      instruction->print();
+      PRINT_DEBUG_LOADADDR("---");
+    )
 
     Vector<X86Instruction*>* compInstructions = new Vector<X86Instruction*>();
     OperandX86* op = NULL;
+    printf("ACC: Through assertions\n");
 
-    if (instruction->isExplicitMemoryOperation() || instruction->isSoftwarePrefetch()){
+    if (instruction->isExplicitMemoryOperation() || 
+      instruction->isSoftwarePrefetch()){
 
         op = instruction->getMemoryOperand();
 
@@ -756,24 +764,50 @@ Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Inst
             (*compInstructions).append(emitMoveSegmentRegToReg(segIdx, dest));
         } else if (op->GET(base) == UD_R_RIP){
             PRINT_DEBUG_LOADADDR("making lea: mov rip imm");
-            uint64_t addr = op->getInstruction()->getProgramAddress() + op->getValue() + op->getInstruction()->getSizeInBytes();
+            uint64_t addr = op->getInstruction()->getProgramAddress() + 
+              op->getValue() + op->getInstruction()->getSizeInBytes();
             (*compInstructions).append(emitMoveImmToReg(addr, dest));
         } else {
             (*compInstructions).append(emitLoadEffectiveAddress(op, dest));
-            ASSERT((*compInstructions).back() && op && (*compInstructions).back()->getOperand(SRC1_OPERAND));
-            ASSERT(op->isSameOperand((*compInstructions).back()->getOperand(SRC1_OPERAND)) && "The emitd Address Computation operand does not match the operand given");
+            ASSERT((*compInstructions).back() && op && 
+              (*compInstructions).back()->getOperand(SRC1_OPERAND));
+            ASSERT(op->isSameOperand((*compInstructions).back()->getOperand(
+              SRC1_OPERAND)) && "The emitd Address Computation operand does "
+              "not match the operand given");
         }
 
     } else {
         ASSERT(instruction->isImplicitMemoryOperation());
-        uint64_t stackOffset = 0;
-        if (instruction->isStackPush()){
-            stackOffset = -1 * sizeof(uint64_t);
+        if (instruction->isStackPush() || instruction->isStackPop()) {
+            uint64_t stackOffset = 0;
+            if (instruction->isStackPush()){
+                stackOffset = -1 * sizeof(uint64_t);
+            } else {
+                ASSERT(instruction->isStackPop());
+                stackOffset = 0;
+            }
+            (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SP, 0, 
+              1, stackOffset, dest, true, false));
+        } else if (instruction->GET(implicit_addr)) {
+            if ((X86InstructionClassifier::getInstructionFormat(instruction) ==
+              X86OperandFormat_si || X86InstructionClassifier::
+              getInstructionFormat(instruction) == X86OperandFormat_dsi) &&
+              impAddrFlag == 1) {
+                // FIXME -> These instructions have a segment register
+                (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SI,
+                  0, 1, 0, dest, true, false));
+            } else if ((X86InstructionClassifier::getInstructionFormat(
+              instruction) == X86OperandFormat_si || X86InstructionClassifier::
+              getInstructionFormat(instruction) == X86OperandFormat_dsi) &&
+              impAddrFlag == 0) {
+                (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_DI,
+                  0, 1, 0, dest, true, false));
+            } else {
+                __SHOULD_NOT_ARRIVE;
+            }
         } else {
-            ASSERT(instruction->isStackPop());
-            stackOffset = 0;
+            __SHOULD_NOT_ARRIVE;
         }
-        (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SP, 0, 1, stackOffset, dest, true, false));
     }
 
     
@@ -788,7 +822,7 @@ Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Inst
     return compInstructions;
 }
 
-Vector<X86Instruction*>* X86InstructionFactory32::emitAddressComputation(X86Instruction* instruction, uint32_t dest){
+Vector<X86Instruction*>* X86InstructionFactory32::emitAddressComputation(X86Instruction* instruction, uint32_t dest, uint32_t impAddrFlag){
     ASSERT(dest < X86_32BIT_GPRS && "Illegal register index given");
     ASSERT(instruction->isMemoryOperation());
 
@@ -812,24 +846,48 @@ Vector<X86Instruction*>* X86InstructionFactory32::emitAddressComputation(X86Inst
         } else if (op->GET(base) == UD_R_RIP){
             __SHOULD_NOT_ARRIVE;
             PRINT_DEBUG_LOADADDR("making lea: mov rip imm");
-            uint64_t addr = op->getInstruction()->getProgramAddress() + op->getValue() + op->getInstruction()->getSizeInBytes();
+            uint64_t addr = op->getInstruction()->getProgramAddress() + 
+              op->getValue() + op->getInstruction()->getSizeInBytes();
             (*compInstructions).append(emitMoveImmToReg(addr, dest));
         } else {
             (*compInstructions).append(emitLoadEffectiveAddress(op, dest));
-            ASSERT((*compInstructions).back() && op && (*compInstructions).back()->getOperand(SRC1_OPERAND));
-            ASSERT(op->isSameOperand((*compInstructions).back()->getOperand(SRC1_OPERAND)) && "The emitd Address Computation operand does not match the operand given");
+            ASSERT((*compInstructions).back() && op && 
+              (*compInstructions).back()->getOperand(SRC1_OPERAND));
+            ASSERT(op->isSameOperand((*compInstructions).back()->getOperand(
+              SRC1_OPERAND)) && "The emitd Address Computation operand does "
+              "not match the operand given");
         }
-
     } else {
         ASSERT(instruction->isImplicitMemoryOperation());
-        uint64_t stackOffset = 0;
-        if (instruction->isStackPush()){
-            stackOffset = -1 * sizeof(uint64_t);
+        if (instruction->isStackPush() || instruction->isStackPop()) {
+            uint64_t stackOffset = 0;
+            if (instruction->isStackPush()){
+                stackOffset = -1 * sizeof(uint64_t);
+            } else {
+                ASSERT(instruction->isStackPop());
+                stackOffset = 0;
+            }
+            (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SP, 0, 
+              1, stackOffset, dest, true, false));
+        } else if (instruction->GET(implicit_addr)) {
+            if ((X86InstructionClassifier::getInstructionFormat(instruction) ==
+              X86OperandFormat_si || X86InstructionClassifier::
+              getInstructionFormat(instruction) == X86OperandFormat_dsi) &&
+              impAddrFlag == 1) {
+                (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SI,
+                  0, 1, 0, dest, true, false));
+            } else if ((X86InstructionClassifier::getInstructionFormat(
+              instruction) == X86OperandFormat_si || X86InstructionClassifier::
+              getInstructionFormat(instruction) == X86OperandFormat_dsi) &&
+              impAddrFlag == 0) {
+                (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_DI,
+                  0, 1, 0, dest, true, false));
+            } else {
+                __SHOULD_NOT_ARRIVE;
+            }
         } else {
-            ASSERT(instruction->isStackPop());
-            stackOffset = 0;
+            __SHOULD_NOT_ARRIVE;
         }
-        (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SP, 0, 1, stackOffset, dest, true, false));
     }
 
     
