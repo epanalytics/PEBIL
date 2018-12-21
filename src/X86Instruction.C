@@ -413,6 +413,7 @@ void copy_ud_to_compact(struct ud_compact* comp, struct ud* reg){
     comp->flags_def = reg->flags_def;
     comp->impreg_use = reg->impreg_use;
     comp->impreg_def = reg->impreg_def;
+    comp->implicit_addr = reg->implicit_addr;
 }
 
 uint32_t X86Instruction::countExplicitOperands(){
@@ -1330,8 +1331,11 @@ OperandX86* X86Instruction::getMemoryOperand(){
         __SHOULD_NOT_ARRIVE;
         return NULL;
     } else { // isImplicitMemoryOperation()
+        // This function should only be used for instructions with
+        // operands
+        ASSERT(!CHECK_IMPLICIT_LOAD);
+        // Implicit Memory operations can have an operand
         for (uint32_t i = 0; i < MAX_OPERANDS; i++){
-            // implicit mem ops only have 1 operand
             if (operands[i]){
                 return operands[i];
             }
@@ -1392,6 +1396,9 @@ bool X86Instruction::isMemoryOperation(){
 
 bool X86Instruction::isImplicitMemoryOperation(){
     if (isStackPush() || isStackPop()){
+        return true;
+    }
+    if (GET(implicit_addr)) {  //e.g. rep movsq
         return true;
     }
     return false;
