@@ -1695,6 +1695,13 @@ uint32_t X86Instruction::convertTo4ByteTargetOperand(){
                     print();
                     ASSERT(0);
                 }
+	    // Hopefully this will onlt refer to jumps with branch hints
+            } else if(sizeInBytes == 3) {
+                additionalBytes = 4;
+                uint32_t operandValue = getOperand(JUMP_TARGET_OPERAND)->getValue();
+                memcpy(rawBytes + 3, &operandValue, sizeof(uint32_t));
+                rawBytes[2] = rawBytes[1] + 0x10;
+                rawBytes[1] = 0x0f;
             } else {
                 ASSERT(0);
             }
@@ -3469,6 +3476,7 @@ void X86InstructionClassifier::generateTable(){
     mkclass(          vandps,    simdFloat, floatv, 0, VRSZ, 0,       32)
     mkclass(          vbextr,    int,       binv,   0,    0,    0,     0)
     mkclass(       vblendmpd,    simdFloat,    floatv,    0,    VRSZ,    0,    64)
+    mkclass(       vblendmpd,    simdFloat,    floatv,    0,    VRSZ,    0,    64)
     mkclass(       vblendmps,    simdFloat,    floatv,    0,    VRSZ,    0,    32)
     mkclass(        vblendpd,    simdFloat,    floatv,    0,    VRSZ,    0,    64)
     mkclass(        vblendps,    simdFloat,    floatv,    0,    VRSZ,    0,    32)
@@ -3815,6 +3823,7 @@ void X86InstructionClassifier::generateTable(){
     mkclass(          vpandq,    simdInt,    binv,    0,    VRSZ,    0,    64)
     mkclass(          vpavgb,    simdInt,    intv,    0,    VRSZ,    0,    8)
     mkclass(          vpavgw,    simdInt,    intv,    0,    VRSZ,    0,    16)
+    mkclass(       vpblendd,     simdInt,    intv,    0,    VRSZ,    0,    32)
     mkclass(       vpblendmb,    simdInt,    intv,    0,    VRSZ,    0,    8)
     mkclass(       vpblendmw,    simdInt,    intv,    0,    VRSZ,    0,    16)
     mkclass(       vpblendmd,    simdInt,    intv,    0,    VRSZ,    0,    32)
