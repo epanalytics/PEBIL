@@ -3493,6 +3493,7 @@ void X86InstructionClassifier::generateTable(){
     mkclass(        vblendps,    simdFloat,    floatv,    0,    VRSZ,    0,    32)
     mkclass(       vblendvpd,    simdFloat,    floatv,    0,    VRSZ,    0,    64)
     mkclass(       vblendvps,    simdFloat,    floatv,    0,    VRSZ,    0,    32)
+    mkclass(           vblsr,          int,       bin,    0,    VRSZ,    0,    0)
 //    mkclass(      vbroadcast,      move,        0,    0,    0,    0,     0)
     mkclass( vbroadcastf32x2,  simdMove,        0,    0,    0,    0,    32)
     mkclass( vbroadcastf32x4,  simdMove,        0,    0,    0,    0,    32)
