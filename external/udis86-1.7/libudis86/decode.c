@@ -498,6 +498,8 @@ static int get_prefixes( struct ud* u )
      * mode. This may be inaccurate, but useful for mode
      * dependent decoding.
      */
+
+    PEBIL_DEBUG("dis_mode = %d", u->dis_mode);
     if ( u->dis_mode == 64 ) {
         u->opr_mode = REX_W( u->pfx_rex ) ? 64 : ( ( u->pfx_opr ) ? 16 : 32 ) ;
         u->adr_mode = ( u->pfx_adr ) ? 32 : 64;
@@ -508,6 +510,8 @@ static int get_prefixes( struct ud* u )
         u->opr_mode = ( u->pfx_opr ) ? 32 : 16;
         u->adr_mode = ( u->pfx_adr ) ? 32 : 16;
     }
+    PEBIL_DEBUG("opr_mode = %d", u->opr_mode);
+    PEBIL_DEBUG("adr_mode = %d", u->adr_mode);
 
     return 0;
 }

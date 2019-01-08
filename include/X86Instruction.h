@@ -357,7 +357,7 @@ struct ud_compact
     uint8_t		adr_mode;
     //uint8_t		br_far;
     //uint8_t		br_near;
-    //uint8_t		implicit_addr;
+    uint8_t		implicit_addr;
     //uint8_t		c1;
     //uint8_t		c2;
     //uint8_t		c3;
