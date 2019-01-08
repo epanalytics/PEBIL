@@ -1743,7 +1743,7 @@ static int disasm_operand(register struct ud* u,
 
     case OP_M:
       if(MODRM_MOD(get_modrm(u, modrm))==3) {
-          fprintf(stderr, "WARNING: Error in operand type OP_M?\n");
+          PEBIL_WARN("Error in operand type OP_M?\n");
           u->error=1;
       }
       // fallthrough

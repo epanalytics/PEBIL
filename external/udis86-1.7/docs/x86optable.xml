@@ -2477,7 +2477,7 @@ MAL MISSING PRE SSE?
     <opcode> aso rexr rexx rexb ; 0f 1b ; M ; ; </opcode>
     <opcode> aso rexr rexx rexb ; 0f 1c ; M ; ; </opcode>
     <opcode> aso rexr rexx rexb ; 0f 1d ; M ; ; </opcode>
-    <opcode> aso rexr rexx rexb ; 0f 1e ; M ; ; </opcode>
+    <opcode> aso rexr rexx rexb ; 0f 1e ; W ; ; </opcode>
     <opcode> aso rexr rexx rexb ; 0f 1f ; M ; ; </opcode>
   </instruction>
 
