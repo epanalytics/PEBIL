@@ -2472,13 +2472,13 @@ MAL MISSING PRE SSE?
 
   <instruction mnemonic="nop">
     <opcode> ; 90 ; ; ; </opcode>
-    <opcode> aso rexr rexx rexb ; 0f 19 ; M ; ; </opcode>
-    <opcode> aso rexr rexx rexb ; 0f 1a ; M ; ; </opcode>
-    <opcode> aso rexr rexx rexb ; 0f 1b ; M ; ; </opcode>
-    <opcode> aso rexr rexx rexb ; 0f 1c ; M ; ; </opcode>
-    <opcode> aso rexr rexx rexb ; 0f 1d ; M ; ; </opcode>
+    <opcode> aso rexr rexx rexb ; 0f 19 ; W ; ; </opcode>
+    <opcode> aso rexr rexx rexb ; 0f 1a ; W ; ; </opcode>
+    <opcode> aso rexr rexx rexb ; 0f 1b ; W ; ; </opcode>
+    <opcode> aso rexr rexx rexb ; 0f 1c ; W ; ; </opcode>
+    <opcode> aso rexr rexx rexb ; 0f 1d ; W ; ; </opcode>
     <opcode> aso rexr rexx rexb ; 0f 1e ; W ; ; </opcode>
-    <opcode> aso rexr rexx rexb ; 0f 1f ; M ; ; </opcode>
+    <opcode> aso rexr rexx rexb ; 0f 1f ; W ; ; </opcode>
   </instruction>
 
   <instruction mnemonic="not">

@@ -66,9 +66,11 @@ LoopTimers* GenerateLoopTimers(LoopTimers* timers, uint32_t typ, image_key_t iid
     retval->loopHashes = timers->loopHashes;
     retval->loopTimerAccum = new uint64_t[retval->loopCount];
     retval->loopTimerLast = new uint64_t[retval->loopCount];
+    retval->entryCounts = new uint64_t[retval->loopCount];
 
     memset(retval->loopTimerAccum, 0, sizeof(uint64_t) * retval->loopCount);
     memset(retval->loopTimerLast, 0, sizeof(uint64_t) * retval->loopCount);
+    memset(retval->entryCounts, 0, sizeof(uint64_t) * retval->loopCount);
 
     if (ReadEnvUint32("TIMER_CPU_FREQ", &timerCPUFreq)) {
         inform << "Got custom TIMER_CPU_FREQ ***(in MHz)** from the user :: " << timerCPUFreq << endl;
@@ -85,6 +87,7 @@ LoopTimers* GenerateLoopTimers(LoopTimers* timers, uint32_t typ, image_key_t iid
 void DeleteLoopTimers(LoopTimers* timers){
     delete timers->loopTimerAccum;
     delete timers->loopTimerLast;
+    delete timers->entryCounts;
 }
 
 uint64_t ReferenceLoopTimers(LoopTimers* timers){
@@ -103,6 +106,7 @@ extern "C"
         assert(timers->loopTimerLast != NULL);
         
         timers->loopTimerLast[loopIndex] = read_timestamp_counter();
+        timers->entryCounts[loopIndex]++;
         return 0;
     }
 
@@ -210,7 +214,7 @@ extern "C"
                 fprintf(outFile, "0x%llx:0x%llx:\n", imgHash, loopHash);
                 for (set<thread_key_t>::iterator tit = AllData->allthreads.begin(); tit != AllData->allthreads.end(); ++tit) {
                     LoopTimers* timers = AllData->GetData(*iit, *tit);
-                    fprintf(outFile, "\tThread: 0x%llx\tTime: %f\n", *tit, (double)(timers->loopTimerAccum[loopIndex]) / timerCPUFreq);
+                    fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: %lld\n", *tit, (double)(timers->loopTimerAccum[loopIndex]) / timerCPUFreq, timers->entryCounts[loopIndex]);
                 }
             }
         }

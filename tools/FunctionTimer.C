@@ -203,8 +203,10 @@ void FunctionTimer::instrument(){
                 BasicBlock* callTarget = f->getBasicBlockAtAddress(ins->getTargetAddress());
                 assert(callTarget);
                 PRINT_INFOR("Instrumenting call to self in function %s at 0x%llx\n", f->getName(), callTarget->getBaseAddress());
-
-                instrumentEntry(callTarget, functionEntryIndexRegister, i);
+		// AT: this additional entry instrumentation leads to two instrumentation points. Having additional entry point
+		//  breaks hardware counter measurement tool. There might be other cases where this additional instrumentation
+		//  maybe required, but I cannot think of any at the moment. So, commenting out this for now.
+                //instrumentEntry(callTarget, functionEntryIndexRegister, i);
 
             }
         }

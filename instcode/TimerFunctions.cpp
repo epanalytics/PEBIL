@@ -42,11 +42,11 @@ static uint32_t shutoffIters=100;
 // please set FTIMER_THRESHOLD env variable to control the number of
 // milliseconds per visit.
 static uint32_t timingThreshold=5000;
-static uint32_t timerCPUFreq=2200000000;
+static uint32_t timerCPUFreq=3200000000;
 
 // HPE EPYC: note that if the env variable is not defined, we default to 
 //    what is defined here:
-#define CLOCK_RATE_HZ 2200000000
+#define CLOCK_RATE_HZ 3200000000
 // Clark
 //#define CLOCK_RATE_HZ 2 600 079 000
 

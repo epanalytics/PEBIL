@@ -2164,6 +2164,7 @@ unsigned int ud_decode( struct ud* u )
   u->pc += u->inp_ctr;    /* move program counter by bytes decoded */
 
   gen_hex( u );
+  PEBIL_DEBUG("\tDecoded hex: %hhx %hhx %hhx %hhx ...\n", u->insn_bytes[0], u->insn_bytes[1], u->insn_bytes[2], u->insn_bytes[3]);
   //if(u->error)
   //  fprintf(stderr, "  Error: hex: %hhx %hhx %hhx %hhx %hhx ...\n", u->insn_bytes[0], u->insn_bytes[1], u->insn_bytes[2], u->insn_bytes[3], u->insn_bytes[4]);
  
