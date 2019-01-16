@@ -1482,6 +1482,7 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
         vectorOp = (*ops)[0];
         if(ops->size() == 2) {
             maskOp = (*ops)[1];
+    	    assert(maskOp->getType() == UD_OP_REG);
         }
         delete ops;
     } else if(vectorIns->isStore()) {
@@ -1489,7 +1490,6 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
         assert(vectorOp);
     } else assert(0);
     assert(vectorOp->getType() == UD_OP_MEM);
-    assert(maskOp->getType() == UD_OP_REG);
 
     uint32_t zmmReg = vectorOp->getIndexRegister();
     uint32_t baseReg = vectorOp->getBaseRegister();
