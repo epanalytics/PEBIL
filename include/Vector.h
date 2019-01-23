@@ -91,7 +91,7 @@ public:
 
     uint32_t insertSorted(T elt, int (*comparator) (const void*, const void*)){
         int l = 0, m = 0, h = numberOfElements, res;
-        
+ 
         while (l < h){
             res = (*comparator)(&(elements[m]), &elt);
             // in upper half
@@ -105,6 +105,7 @@ public:
             }
             m = (l + h) / 2;
         }
+
         uint32_t x = insert(elt, m);
         //ASSERT(isSorted(comparator));
         return x;

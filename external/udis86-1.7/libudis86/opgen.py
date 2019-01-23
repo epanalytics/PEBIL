@@ -473,6 +473,8 @@ for node in tlNode.childNodes:
                 table_size = 256
                 table_avx = ''
                 table_index = op
+                table_sse  = ''
+                table_ssedone += 1
             elif op == '0F' and len(table_avx):
                 table_name = "itab__" + table_avx + "__0f"
                 table_size = 256

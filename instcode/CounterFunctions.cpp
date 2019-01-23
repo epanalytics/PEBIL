@@ -19,7 +19,7 @@
  */
 
 #include <InstrumentationCommon.hpp>
-#include <Simulation.hpp>
+//#include <Simulation.hpp>
 #include <CounterFunctions.hpp>
 
 #include <stdio.h>

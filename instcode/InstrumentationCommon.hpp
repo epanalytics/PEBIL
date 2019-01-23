@@ -862,8 +862,10 @@ private:
     void UnLock(){ pthread_mutex_unlock(&lock); }
 
 public:
-    // Must be called while allData has been initialized with only a single image and thread
-    // @param di(buffer, id): sets id appropriately for the current dereference of buffer
+    // Must be called while allData has been initialized with only a single 
+    // image and thread
+    // @param di(buffer, id): sets id appropriately for the current dereference
+    // of buffer
     // @param cap: maximum size of a V
     FastData(void (*di)(V, image_key_t*), DataManager<T>* all, uint32_t cap)
         : alldata(all), dataid(di), capacity(cap), threadcount(1), imagecount(0) {
@@ -949,7 +951,8 @@ public:
         UnLock();
     }
 
-    // synchronize this threads entry in stats with first num ids taken from buffer using dataid
+    // synchronize this threads entry in stats with first num ids taken from 
+    // buffer using dataid
     void Refresh(V buffer, uint32_t num, thread_key_t tid){
         debug(assert(imagecount > 0));
         debug(assert(threadcount > 0));

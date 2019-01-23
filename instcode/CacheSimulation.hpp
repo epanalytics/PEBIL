@@ -22,7 +22,8 @@
 #define _Simulation_hpp_
 
 #include <string>
-#include <Metasim.hpp>
+//#include <Metasim.hpp>
+#include <AddressStreamStats.hpp>
 
 using namespace std;
 
@@ -87,15 +88,14 @@ static bool ParsePositiveInt32(string token, uint32_t* value);
 static bool ParseInt32(string token, uint32_t* value, uint32_t min);
 static bool ParsePositiveInt32Hex(string token, uint32_t* value);
 static void ReadSettings();
-static SimulationStats* GenerateCacheStats(SimulationStats* stats, uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
-static uint64_t ReferenceCacheStats(SimulationStats* stats);
-static void DeleteCacheStats(SimulationStats* stats);
+static AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, 
+  uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
+static uint64_t ReferenceStreamStats(AddressStreamStats* stats);
+static void DeleteStreamStats(AddressStreamStats* stats);
 static bool ReadEnvUint32(string name, uint32_t* var);
-static void PrintSimulationStats(ofstream& f, SimulationStats* stats, thread_key_t tid, bool perThread);
-static void SimulationFileName(SimulationStats* stats, string& oFile);
-static void ReuseDistFileName(SimulationStats* stats, string& oFle);
-static void SpatialDistFileName(SimulationStats* stats, string& oFile);
-static void RangeFileName(SimulationStats* stats, string& oFile);
+static void PrintAddressStreamStats(ofstream& f, AddressStreamStats* stats, thread_key_t tid, bool perThread);
+static void SimulationFileName(AddressStreamStats* stats, string& oFile);
+static void RangeFileName(AddressStreamStats* stats, string& oFile);
 
 extern "C" {
     void* tool_mpi_init();
@@ -180,32 +180,6 @@ public:
     bool Verify();
 };
 
-struct AddressRange {
-    uint64_t Minimum;
-    uint64_t Maximum;
-};
-
-class RangeStats : public StreamStats {
-private:
-    static const uint64_t MAX_64BIT_VALUE = 0xffffffffffffffff;
-public:
-    uint32_t Capacity;
-    AddressRange** Ranges;
-    uint64_t* Counts;
-
-    RangeStats(uint32_t capacity);
-    ~RangeStats();
-
-    bool HasMemId(uint32_t memid);
-    uint64_t GetMinimum(uint32_t memid);
-    uint64_t GetMaximum(uint32_t memid);
-    uint64_t GetAccessCount(uint32_t memid) { return Counts[memid]; }
-
-    void Update(uint32_t memid, uint64_t addr);
-    void Update(uint32_t memid, uint64_t addr, uint32_t count);
-
-    bool Verify();
-};
 
 #define INVALID_REUSE_DISTANCE (-1)
 
@@ -401,17 +375,6 @@ public:
     bool TryLock();
 
     static StreamHandlerTypes FindType(string desc) { return StreamHandlerType_CacheStructure; }
-};
-
-class AddressRangeHandler : public MemoryStreamHandler {
-public:
-    AddressRangeHandler();
-    AddressRangeHandler(AddressRangeHandler& h);
-    ~AddressRangeHandler();
-
-    void Print(ofstream& f);
-    uint32_t Process(void* stats, BufferEntry* access);
-    bool Verify() { return true; }
 };
 
 class CacheStructureHandler : public MemoryStreamHandler {

@@ -53,7 +53,6 @@
 #define ENDL "\n"
 
 #define __seq id
-int reusecmp (void* va, void* vb);
 
 #define INFINITY_REUSE (0)
 #define INVALID_SPATIAL (0xFFFFFFFFFFFFFFFFL)
@@ -89,15 +88,12 @@ private:
     // [sequence -> address] A counted B-tree filled with ReuseEntry*, sorted by __seq. this is from tree234.h
     tree234* window;
 
-    // [address -> sequence]
-  //  reuse_map_type<uint64_t, uint64_t> mwindow;
-
     uint64_t current;
 
 protected:
     // store all stats
-    // [id -> stats for this id]
     reuse_map_type<uint64_t, ReuseStats*> stats;
+    // [id -> stats for this id]
     reuse_map_type<uint64_t,uint64_t*> PINReuseStats;
     
     uint64_t capacity;
@@ -396,7 +392,6 @@ private:
 
     // list of the addresses in the window, ordered by sequence id
     std::list<uint64_t> swindow;
-
 
     void Init(uint64_t size, uint64_t bin, uint64_t max);
 
