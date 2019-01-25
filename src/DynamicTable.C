@@ -622,11 +622,12 @@ Dynamic::Dynamic(char* dPtr, uint32_t idx) :
     index = idx;
 }
 
-const char* DTagNames[] = { "NULL", "NEEDED", "PLTRELSZ", "PLTGOT", "HASH", "STRTAB", "SYMTAB", 
-                            "RELA", "RELASZ", "RELAENT", "STRSZ", "SYMENT", "INIT", "FINI", "SONAME", 
-                            "RPATH", "SYMBOLIC", "REL", "RELSZ", "RELENT", "PLTREL", "DEBUG", "TEXTREL",
-                            "JMPREL", "BIND_NOW", "INIT_ARRAY", "FINI_ARRAY", "INIT_ARRAYSZ", "FINI_ARRAYSZ", 
-                            "RUNPATH", "FLAGS", "UNK31", "ENCODING", "PREINIT_ARRAYSZ", "NUM" };
+const char* DTagNames[] = { "NULL", "NEEDED", "PLTRELSZ", "PLTGOT", "HASH", 
+  "STRTAB", "SYMTAB", "RELA", "RELASZ", "RELAENT", "STRSZ", "SYMENT", "INIT", 
+  "FINI", "SONAME", "RPATH", "SYMBOLIC", "REL", "RELSZ", "RELENT", "PLTREL", 
+  "DEBUG", "TEXTREL", "JMPREL", "BIND_NOW", "INIT_ARRAY", "FINI_ARRAY", 
+  "INIT_ARRAYSZ", "FINI_ARRAYSZ", "RUNPATH", "FLAGS", "UNK31", "ENCODING", 
+  "PREINIT_ARRAY", "PREINIT_ARRAYSZ", "NUM" };
 
 uint8_t Dynamic::getValueType(){
     uint8_t treatDun = DynamicValueType_pointer;
@@ -638,36 +639,42 @@ uint8_t Dynamic::getValueType(){
     if (false){}
 
     MAP_TAG_TO_TYPE(DT_NULL, DynamicValueType_ignored)
-    MAP_TAG_TO_TYPE(DT_TEXTREL, DynamicValueType_ignored)
     MAP_TAG_TO_TYPE(DT_SYMBOLIC, DynamicValueType_ignored)
+    MAP_TAG_TO_TYPE(DT_TEXTREL, DynamicValueType_ignored)
 
-    MAP_TAG_TO_TYPE(DT_RELASZ, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_RELAENT, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_STRSZ, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_SYMENT, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_FINI_ARRAYSZ, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_FLAGS, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_FLAGS_1, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_INIT_ARRAYSZ, DynamicValueType_value)
     MAP_TAG_TO_TYPE(DT_NEEDED, DynamicValueType_value)
     MAP_TAG_TO_TYPE(DT_PLTRELSZ, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_SONAME, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_PLTREL, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELACOUNT, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELAENT, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELASZ, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELCOUNT, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELENT, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELSZ, DynamicValueType_value)
     MAP_TAG_TO_TYPE(DT_RPATH, DynamicValueType_value)
     MAP_TAG_TO_TYPE(DT_RUNPATH, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_RELSZ, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_RELENT, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_PLTREL, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_SONAME, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_STRSZ, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_SYMENT, DynamicValueType_value)
     MAP_TAG_TO_TYPE(DT_VERDEFNUM, DynamicValueType_value)
     MAP_TAG_TO_TYPE(DT_VERNEEDNUM, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_RELACOUNT, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_RELCOUNT, DynamicValueType_value)
 
-    MAP_TAG_TO_TYPE(DT_PLTGOT, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_DEBUG, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_FINI, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_FINI_ARRAY, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_HASH, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_INIT, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_INIT_ARRAY, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_JMPREL, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_PLTGOT, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_REL, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_RELA, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_STRTAB, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_SYMTAB, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_RELA, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_INIT, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_FINI, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_REL, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_DEBUG, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_JMPREL, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_VERDEF, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_VERNEED, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_VERSYM, DynamicValueType_pointer)
