@@ -3670,6 +3670,11 @@ MAL MISSING PRE SSE?
 
   -->
 
+  <instruction mnemonic="blsr">
+    <opcode> aso rexr rexx rexb vexlz ; avxC4 0f /3byte=38 f3 /1 /W=0 ; Gd Ed ; ; </opcode>
+    <opcode> aso rexr rexx rexb vexlz ; avxC4 0f /3byte=38 f3 /1 /W=1 ; Gq Eq ; ; </opcode>
+  </instruction>
+
   <instruction mnemonic="rorx">
     <opcode> aso rexr rexx rexb vexlz ; avxC4 ssef2 0f /3byte=3A f0 /W=0 ; Gd Ed Ib ; ; </opcode>
     <opcode> aso rexr rexx rexb vexlz ; avxC4 ssef2 0f /3byte=3A f0 /W=1 ; Gq Eq Ib ; ; </opcode>
