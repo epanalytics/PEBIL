@@ -1982,7 +1982,9 @@ bool CacheStructureHandler::Verify(){
         warn << "Sysid " << dec << sysId
              << " has " << dec << levelCount << " levels."
              << ENDL << flush;
-        passes = false;
+        if (levelCount < 1) {
+            passes = false;
+        }
     }
 
     ExclusiveCacheLevel* firstvc = NULL;
