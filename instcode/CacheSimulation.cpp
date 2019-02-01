@@ -347,9 +347,9 @@ extern "C" {
                       (Sampler->ExceedsAccessLimit(stats->GroupCounters[gidx]))
                       ) {
 
-                        uint64_t k1 = GENERATE_KEY(gidx, PointType_buffercheck);
-                        uint64_t k2 = GENERATE_KEY(gidx, PointType_bufferinc);
-                        uint64_t k3 = GENERATE_KEY(gidx, PointType_bufferfill);
+                        uint64_t k1 = GENERATE_KEY(idx, PointType_buffercheck);
+                        uint64_t k2 = GENERATE_KEY(idx, PointType_bufferinc);
+                        uint64_t k3 = GENERATE_KEY(idx, PointType_bufferfill);
 
                         if (NonmaxKeys->count(k3) > 0){
 
