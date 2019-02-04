@@ -512,7 +512,7 @@ X86Instruction* X86InstructionFactory64::emitMoveZmmToAlignedRegaddrImm(
 
     uint8_t mod = 1 << 7;
     uint8_t reg = (zmm & 0x07) << 3;
-    uint8_t rm = base;
+    uint8_t rm = (base & 0x07);
     uint8_t modrm = mod | reg | rm;
 
     buff[0] = 0x62;
@@ -559,16 +559,18 @@ X86Instruction* X86InstructionFactory64::emitMoveZmmToUnalignedRegaddrImm(
     // R is 1 for 0-7, 16-23
     // R is 0 for 9-15, 24-31
     uint8_t R = (~zmm & 0x08) << 4;
-    // XB == 11
-    uint8_t XB = 0x60;
+    // X == 1
+    uint8_t X = 0x40;
+    // B is 1 for bases 0-7, 0 for bases 8-15
+    uint8_t B = (~base & 0x08) << 2;
     // R' is 1 if < 16, 0 < 31
     uint8_t r = (~zmm & 0x10);
     uint8_t mmmm = 1;
-    uint8_t RXBrmmmm =  R | XB | r | mmmm;
+    uint8_t RXBrmmmm =  R | X | B | r | mmmm;
 
     uint8_t mod = 1 << 7;
     uint8_t reg = (zmm & 0x07) << 3;
-    uint8_t rm = base;
+    uint8_t rm = (base & 0x07);
     uint8_t modrm = mod | reg | rm;
 
     buff[0] = 0x62;
