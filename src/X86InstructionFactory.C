@@ -275,7 +275,7 @@ X86Instruction* X86InstructionFactory64::emitMoveImmToMem(uint64_t imm, uint64_t
 // kmov %kreg, %gpr
 X86Instruction* X86InstructionFactory64::emitMoveKToReg(uint32_t kreg_in, uint32_t gpr_in)
 {
-    assert(gpr_in >= X86_REG_AX && gpr_in <= X86_REG_DI);
+    assert(gpr_in >= X86_REG_AX && gpr_in <= X86_REG_R15);
     assert(kreg_in >= X86_REG_K0 && kreg_in <= X86_REG_K7);
     uint8_t gpr = gpr_in - X86_REG_AX;
     uint8_t kreg = kreg_in - X86_REG_K0;
@@ -283,14 +283,17 @@ X86Instruction* X86InstructionFactory64::emitMoveKToReg(uint32_t kreg_in, uint32
     uint8_t len = 4;
     char* buff = new char[len];
 
+    uint8_t R = (~gpr & 0x8) << 4;
+    uint8_t RvvvvLpp = R | 0x78;  // R vvvv L pp
+
     uint8_t mod = 0xc0;
     uint8_t reg = gpr << 3;
     uint8_t rm = kreg;
     uint8_t modrm = mod | reg | rm;
 
-    buff[0] = 0xc5; // prefix
-    buff[1] = 0xf8; // R vvvv L pp
-    buff[2] = 0x93; // opcode
+    buff[0] = 0xc5;     // prefix
+    buff[1] = RvvvvLpp; // R vvvv L pp
+    buff[2] = 0x93;     // opcode
     buff[3] = modrm;
 
     return emitInstructionBase(len, buff);
