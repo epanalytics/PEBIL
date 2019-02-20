@@ -125,6 +125,20 @@ void FunctionTimer::instrument(){
         uint64_t funcname = reserveDataOffset(strlen(f->getName()) + 1);
         initializeReservedPointer(funcname, funcNameArray + sizeof(char*) * i);
         initializeReservedData(getInstDataAddress() + funcname, strlen(f->getName()) + 1, (void*)f->getName());
+
+    }
+
+    // Adding the base address
+    uint64_t functionHashes = reserveDataOffset(getNumberOfExposedFunctions() * sizeof(uint64_t));
+    initializeReservedPointer(functionHashes, functionInfoStruct + offsetof(FunctionTimers, functionHashes));
+
+    for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+        Function* f = getExposedFunction(i);
+
+	temp64=f->getBaseAddress();
+	uint64_t funchash = reserveDataOffset(sizeof(temp64));
+        initializeReservedData(getInstDataAddress() + functionHashes + sizeof(uint64_t)*i, (sizeof(uint64_t)), &temp64);
+
     }
 
     funcInfo.functionTimerAccum = NULL;
