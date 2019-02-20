@@ -134,8 +134,9 @@ void FunctionTimer::instrument(){
 
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
         Function* f = getExposedFunction(i);
-
-	temp64=f->getBaseAddress();
+        BasicBlock* bb = f->getFlowGraph()->getEntryBlock();
+	temp64=bb->getHashCode().getValue();
+	//temp64=f->getBaseAddress();
 	uint64_t funchash = reserveDataOffset(sizeof(temp64));
         initializeReservedData(getInstDataAddress() + functionHashes + sizeof(uint64_t)*i, (sizeof(uint64_t)), &temp64);
 
