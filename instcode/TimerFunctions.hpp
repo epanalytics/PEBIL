@@ -12,6 +12,7 @@ typedef struct {
     char* extension;
     uint64_t functionCount;
     char** functionNames;
+    uint64_t* functionHashes;
     uint64_t* functionTimerAccum;
     uint64_t* functionEntryCounts;
     uint32_t* functionShutoff;
