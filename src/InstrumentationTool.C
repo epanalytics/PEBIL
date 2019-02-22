@@ -1136,10 +1136,14 @@ static bool isVectorInstruction(X86Instruction* ins) {
     return true;
 }
 
-void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>* allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* allBlockLineInfos, uint32_t bufferSize){
-    ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase order must be observed"); 
+void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
+  allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* 
+  allBlockLineInfos, uint32_t bufferSize){
+    ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase"
+      " order must be observed"); 
 
-    ASSERT(!(*allBlockLineInfos).size() || (*allBlocks).size() == (*allBlockLineInfos).size());
+    ASSERT(!(*allBlockLineInfos).size() || (*allBlocks).size() == 
+      (*allBlockLineInfos).size());
     ASSERT((*allBlocks).size() == (*allBlockIds).size());
 
     computeVectorMasks();
@@ -1183,7 +1187,8 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>* 
     if (memopcnt){
         memopavg = (float)membytcnt/(float)memopcnt;
     }
-    fprintf(staticFD, "# memopbyte = %d ( %.5f bytes/op)\n", membytcnt, memopavg);
+    fprintf(staticFD, "# memopbyte = %d ( %.5f bytes/op)\n", membytcnt, 
+      memopavg);
     fprintf(staticFD, "# fpops     = %d\n", fltopcnt);
     fprintf(staticFD, "# insns     = %d\n", insncnt);
     fprintf(staticFD, "# buffer    = %d\n", bufferSize);
@@ -1192,17 +1197,26 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>* 
     }
     fprintf(staticFD, "# libTag    = %s\n", "revision REVISION");
     fprintf(staticFD, "# %s\n", "<no additional info>");
-    fprintf(staticFD, "# <sequence> <block_unqid> <memop> <fpop> <insn> <line> <fname> # <hex_unq_id> <vaddr>\n");
+    fprintf(staticFD, "# <sequence> <block_unqid> <memop> <fpop> <insn> <line> "
+      "<fname> # <hex_unq_id> <vaddr>\n");
 
     if (printDetail){
         fprintf(staticFD, "# +lpi <loopcnt> <loopid> <ldepth> <lploc>\n");
-        fprintf(staticFD, "# +cnt <branch_op> <int_op> <logic_op> <shiftrotate_op> <trapsyscall_op> <specialreg_op> <other_op> <load_op> <store_op> <total_mem_op> <sw_prefs> <scatter_gather_op> <vector_mask_op> <help_op>\n");
-        fprintf(staticFD, "# +mem <total_mem_op> <total_mem_bytes> <bytes/op>\n");
+        fprintf(staticFD, "# +cnt <branch_op> <int_op> <logic_op> "
+          "<shiftrotate_op> <trapsyscall_op> <specialreg_op> <other_op> "
+          "<load_op> <store_op> <total_mem_op> <sw_prefs> <scatter_gather_op> "
+          "<vector_mask_op> <help_op>\n");
+        fprintf(staticFD, "# +mem <total_mem_op> <total_mem_bytes> "
+          "<bytes/op>\n");
         fprintf(staticFD, "# +lpc <loop_head> <parent_loop_head>\n");
-        fprintf(staticFD, "# +dud <dudist1>:<duint1>:<dufp1>:<dumem1> <dudist2>:<ducnt2>:<dufp2>:<dumem2>...\n");
+        fprintf(staticFD, "# +dud <dudist1>:<duint1>:<dufp1>:<dumem1> "
+          "<dudist2>:<ducnt2>:<dufp2>:<dumem2>...\n");
         fprintf(staticFD, "# +dxi <count_def_use_cross> <count_call>\n");
         fprintf(staticFD, "# +ipa <call_target_addr> <call_target_name>\n");
-        fprintf(staticFD, "# +bin <unknown> <invalid> <cond> <uncond> <bin> <binv> <intb> <intbv> <intw> <intwv> <intd> <intdv> <intq> <intqv> <floats> <floatsv> <floatss> <floatd> <floatdv> <floatds> <move> <stack> <string> <system> <cache> <mem> <other>\n");
+        fprintf(staticFD, "# +bin <unknown> <invalid> <cond> <uncond> <bin> "
+          "<binv> <intb> <intbv> <intw> <intwv> <intd> <intdv> <intq> <intqv> "
+          "<floats> <floatsv> <floatss> <floatd> <floatdv> <floatds> <move> "
+          "<stack> <string> <system> <cache> <mem> <other>\n");
         fprintf(staticFD, "# +vec <#elem>x<elemSize>:<#fp>:<#int> ...\n");
     }
 
@@ -1220,7 +1234,8 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>* 
         Function* f = bb->getFunction();
 
         uint32_t loopId = Invalid_UInteger_ID; 
-        Loop* loop = bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex());
+        Loop* loop = bb->getFlowGraph()->getInnermostLoopForBlock(
+          bb->getIndex());
         if (loop){
             loopId = loop->getIndex();
         }
@@ -1237,43 +1252,58 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>* 
             lineNo = 0;
         }
         fprintf(staticFD, "%d\t%lld\t%d\t%d\t%d\t%s:%d\t%s\t# %#llx\t%#llx\n", 
-                (*allBlockIds)[i], bb->getHashCode().getValue(), bb->getNumberOfMemoryOps(), bb->getNumberOfFloatOps(), 
-                bb->getNumberOfInstructions(), fileName, lineNo, bb->getFunction()->getName(), 
-                bb->getHashCode().getValue(), bb->getLeader()->getProgramAddress());
+          (*allBlockIds)[i], bb->getHashCode().getValue(), 
+          bb->getNumberOfMemoryOps(), bb->getNumberOfFloatOps(), 
+          bb->getNumberOfInstructions(), fileName, lineNo, 
+          bb->getFunction()->getName(), bb->getHashCode().getValue(), 
+          bb->getLeader()->getProgramAddress());
 
         if (printDetail){
             uint32_t loopLoc = 0;
             if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())){
-                if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())->getHead()->getHashCode().getValue() == bb->getHashCode().getValue()){
+                if (bb->getFlowGraph()->getInnermostLoopForBlock(
+                  bb->getIndex())->getHead()->getHashCode().getValue() == 
+                  bb->getHashCode().getValue()){
                     loopLoc = 1;
-                } else if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())->getTail()->getHashCode().getValue() == bb->getHashCode().getValue()){
+                } else if (bb->getFlowGraph()->getInnermostLoopForBlock(
+                  bb->getIndex())->getTail()->getHashCode().getValue() == 
+                  bb->getHashCode().getValue()){
                     loopLoc = 2;
                 }
             }
-            fprintf(staticFD, "\t+lpi\t%d\t%d\t%d\t%d # %#llx\n", loopCount, loopId, loopDepth, loopLoc, bb->getHashCode().getValue());
-            fprintf(staticFD, "\t+cnt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", 
-                    bb->getNumberOfBranches(), bb->getNumberOfIntegerOps(), bb->getNumberOfLogicOps(), bb->getNumberOfShiftRotOps(),
-                    bb->getNumberOfSyscalls(), bb->getNumberOfSpecialRegOps(), bb->getNumberOfStringOps(),
-                    bb->getNumberOfLoads(), bb->getNumberOfStores(), bb->getNumberOfMemoryOps(), bb->getNumberOfSWPrefetches(),
-                    bb->getNumberOfScatterGatherOps(), bb->getNumberOfVectorMaskOps(), 
-                    bb->getNumberOfHelperMoves(), bb->getHashCode().getValue());
+            fprintf(staticFD, "\t+lpi\t%d\t%d\t%d\t%d # %#llx\n", loopCount, 
+              loopId, loopDepth, loopLoc, bb->getHashCode().getValue());
+            fprintf(staticFD, "\t+cnt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
+              "\t%d\t%d\t%d\t%d # %#llx\n", bb->getNumberOfBranches(), 
+              bb->getNumberOfIntegerOps(), bb->getNumberOfLogicOps(), 
+              bb->getNumberOfShiftRotOps(), bb->getNumberOfSyscalls(), 
+              bb->getNumberOfSpecialRegOps(), bb->getNumberOfStringOps(), 
+              bb->getNumberOfLoads(), bb->getNumberOfStores(), 
+              bb->getNumberOfMemoryOps(), bb->getNumberOfSWPrefetches(),
+              bb->getNumberOfScatterGatherOps(), bb->getNumberOfVectorMaskOps(),
+              bb->getNumberOfHelperMoves(), bb->getHashCode().getValue());
 
-            //            ASSERT(bb->getNumberOfLoads() + bb->getNumberOfStores() == bb->getNumberOfMemoryOps());
+              //ASSERT(bb->getNumberOfLoads() + bb->getNumberOfStores() == 
+              //  bb->getNumberOfMemoryOps());
 
             memopavg = 0.0;
             if (bb->getNumberOfMemoryOps()){
-                memopavg = ((float)bb->getNumberOfMemoryBytes())/((float)bb->getNumberOfMemoryOps());
+                memopavg = ((float)bb->getNumberOfMemoryBytes()) / 
+                  ((float)bb->getNumberOfMemoryOps());
             }
-            fprintf(staticFD, "\t+mem\t%d\t%d\t%.5f # %#llx\n", bb->getNumberOfMemoryOps(), bb->getNumberOfMemoryBytes(),
-                    memopavg, bb->getHashCode().getValue());
+            fprintf(staticFD, "\t+mem\t%d\t%d\t%.5f # %#llx\n", 
+              bb->getNumberOfMemoryOps(), bb->getNumberOfMemoryBytes(), 
+              memopavg, bb->getHashCode().getValue());
 
             uint64_t loopHead = 0;
             uint64_t parentHead = 0;
             if (loop){
                 loopHead = loop->getHead()->getHashCode().getValue();
-                parentHead = f->getFlowGraph()->getParentLoop(loop->getIndex())->getHead()->getHashCode().getValue();
+                parentHead = f->getFlowGraph()->getParentLoop(
+                  loop->getIndex())->getHead()->getHashCode().getValue();
             }
-            fprintf(staticFD, "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, parentHead, bb->getHashCode().getValue());
+            fprintf(staticFD, "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, 
+              parentHead, bb->getHashCode().getValue());
 
             uint32_t currINT = 0;
             uint32_t currFP = 0;
@@ -1310,20 +1340,24 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>* 
             }
 
             std::sort(dlist.begin(), dlist.end());
-            for (std::vector<uint32_t>::iterator it = dlist.begin(); it != dlist.end(); it++){
+            for (std::vector<uint32_t>::iterator it = dlist.begin(); it != 
+              dlist.end(); it++){
                 uint32_t d = (*it);
-                fprintf(staticFD, "\t%d:%d:%d:%d", d, idist[d], fdist[d], mdist[d]);
+                fprintf(staticFD, "\t%d:%d:%d:%d", d, idist[d], fdist[d], 
+                  mdist[d]);
             }
 
             fprintf(staticFD, " # %#llx\n", bb->getHashCode().getValue());
 
-            fprintf(staticFD, "\t+dxi\t%d\t%d # %#llx\n", bb->getDefXIter(), bb->endsWithCall(), bb->getHashCode().getValue());
+            fprintf(staticFD, "\t+dxi\t%d\t%d # %#llx\n", bb->getDefXIter(), 
+              bb->endsWithCall(), bb->getHashCode().getValue());
 
             uint64_t callTgtAddr = 0;
             char* callTgtName = INFO_UNKNOWN;
             if (bb->endsWithCall()){
                 callTgtAddr = bb->getExitInstruction()->getTargetAddress();
-                Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(callTgtAddr);
+                Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
+                  callTgtAddr);
                 if (functionSymbol && functionSymbol->getSymbolName()){
                     callTgtName = functionSymbol->getSymbolName();
                 }
@@ -1336,27 +1370,39 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>* 
                 if(bb->getFunction()->isInRange(callTgtAddr)) {
                     callTgtAddr = 0;
                 } else {
-                    Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(callTgtAddr);
+                    Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
+                      callTgtAddr);
                     if (functionSymbol && functionSymbol->getSymbolName()){
                         callTgtName = functionSymbol->getSymbolName();
                     } else {
-                        PRINT_WARN(7, "BB has unconditional branch to "
-                          "a nameless function");
+                        PRINT_WARN(7, "BB 0x%llx has unconditional branch to "
+                          "a nameless function (0x%llx)", 
+                          bb->getHashCode().getValue(), 
+                          bb->getExitInstruction()->getTargetAddress());
                     }
                 } 
             }
 
-            fprintf(staticFD, "\t+ipa\t%#llx\t%s # %#llx\n", callTgtAddr, callTgtName, bb->getHashCode().getValue());
+            fprintf(staticFD, "\t+ipa\t%#llx\t%s # %#llx\n", callTgtAddr, 
+              callTgtName, bb->getHashCode().getValue());
 
-            fprintf(staticFD, "\t+bin\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", 
-                    bb->getNumberOfBinUnknown(), bb->getNumberOfBinInvalid(), bb->getNumberOfBinCond(), bb->getNumberOfBinUncond(), 
-                    bb->getNumberOfBinBin(), bb->getNumberOfBinBinv(), bb->getNumberOfBinByte(), bb->getNumberOfBinBytev(),
-                    bb->getNumberOfBinWord(), bb->getNumberOfBinWordv(), bb->getNumberOfBinDword(), bb->getNumberOfBinDwordv(),
-                    bb->getNumberOfBinQword(), bb->getNumberOfBinQwordv(),
-                    bb->getNumberOfBinSingle(), bb->getNumberOfBinSinglev(), bb->getNumberOfBinSingles(),
-                    bb->getNumberOfBinDouble(), bb->getNumberOfBinDoublev(), bb->getNumberOfBinDoubles(), bb->getNumberOfBinMove(),
-                    bb->getNumberOfBinStack(), bb->getNumberOfBinString(), bb->getNumberOfBinSystem(), bb->getNumberOfBinCache(),
-                    bb->getNumberOfBinMem(), bb->getNumberOfBinOther(), bb->getHashCode().getValue());
+            fprintf(staticFD, "\t+bin\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
+              "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
+              "\t%d\t%d # %#llx\n", bb->getNumberOfBinUnknown(), 
+              bb->getNumberOfBinInvalid(), bb->getNumberOfBinCond(), 
+              bb->getNumberOfBinUncond(), bb->getNumberOfBinBin(), 
+              bb->getNumberOfBinBinv(), bb->getNumberOfBinByte(), 
+              bb->getNumberOfBinBytev(), bb->getNumberOfBinWord(), 
+              bb->getNumberOfBinWordv(), bb->getNumberOfBinDword(),
+              bb->getNumberOfBinDwordv(), bb->getNumberOfBinQword(), 
+              bb->getNumberOfBinQwordv(), bb->getNumberOfBinSingle(), 
+              bb->getNumberOfBinSinglev(), bb->getNumberOfBinSingles(), 
+              bb->getNumberOfBinDouble(), bb->getNumberOfBinDoublev(), 
+              bb->getNumberOfBinDoubles(), bb->getNumberOfBinMove(),
+              bb->getNumberOfBinStack(), bb->getNumberOfBinString(), 
+              bb->getNumberOfBinSystem(), bb->getNumberOfBinCache(),
+              bb->getNumberOfBinMem(), bb->getNumberOfBinOther(), 
+              bb->getHashCode().getValue());
 
 
 
@@ -1413,19 +1459,21 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>* 
                     uint32_t fpcnt = fpvecs[nElem][elemSize];
                     uint32_t intcnt = intvecs[nElem][elemSize];
                     if(fpcnt > 0 || intcnt > 0) {
-                        fprintf(staticFD, "\t%dx%d:%d:%d", nElem, (elemSize+1)*8, fpcnt, intcnt);
+                        fprintf(staticFD, "\t%dx%d:%d:%d", nElem, (elemSize+1)
+                          * 8, fpcnt, intcnt);
                     }
                 }
             }
             for(uint32_t elemSize = 0; elemSize < 16; ++elemSize) {
-	      uint32_t fpcnt = unknownFP[elemSize];
-	      uint32_t intcnt = unknownInt[elemSize];
-	      if(fpcnt > 0 || intcnt > 0) {
-		fprintf(staticFD, "\t???x%d:%d:%d", (elemSize+1)*8, fpcnt, intcnt);
-	      }
+	              uint32_t fpcnt = unknownFP[elemSize];
+	              uint32_t intcnt = unknownInt[elemSize];
+	              if(fpcnt > 0 || intcnt > 0) {
+		                fprintf(staticFD, "\t???x%d:%d:%d", (elemSize+1)*8, fpcnt, 
+                      intcnt);
+	              }     
             }
             if(unkFP > 0 || unkInt > 0) {
-	      fprintf(staticFD, "\t???x8:%d:%d", unkFP, unkInt);
+	              fprintf(staticFD, "\t???x8:%d:%d", unkFP, unkInt);
             }
             fprintf(staticFD, " # %#llx\n", bb->getHashCode().getValue());
         }
@@ -1758,8 +1806,9 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
               if (functionSymbol && functionSymbol->getSymbolName()){
                   callTgtName = functionSymbol->getSymbolName();
               } else {
-                  PRINT_WARN(7, "BB has unconditional branch to "
-                    "a nameless function");
+                  PRINT_WARN(7, "BB 0x%llx has unconditional branch to "
+                    "a nameless function (0x%llx)", 
+                    bb->getHashCode().getValue(), ins->getTargetAddress());
               }
           } 
       }
