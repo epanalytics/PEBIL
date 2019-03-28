@@ -1468,6 +1468,25 @@ bool X86Instruction::isHelperMove() {
     return false;
 }
 
+bool X86Instruction::isAdditionOp(){
+    std::string mnemonicStr = ud_mnemonics_str[GET(mnemonic)];
+    size_t hasAdd = mnemonicStr.find("add");
+    if (hasAdd != std::string::npos) {
+        return true;
+    } 
+    return false;
+}
+
+bool X86Instruction::isSubtractionOp(){
+    std::string mnemonicStr = ud_mnemonics_str[GET(mnemonic)];
+    size_t hasSub = mnemonicStr.find("sub");
+    if (hasSub != std::string::npos) {
+        return true;
+    } 
+    return false;
+}
+
+
 uint32_t OperandX86::getBitsUsed(){
     if (GET(type) == UD_OP_MEM){
         return GET(offset);
