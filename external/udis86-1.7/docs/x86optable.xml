@@ -4114,7 +4114,7 @@ MAL MISSING PRE SSE?
   </instruction>
 
   <instruction mnemonic="kmovb">
-    <opcode> rexr rexx rexb rexw ; vex sse66 0f /L=0 90 /W=0 ; KR KRM ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex sse66 0f 90 /L=0 /W=0 ; KR KRM ; ; </opcode>
     <opcode> rexr rexx rexb rexw ; vex sse66 0f 91 /L=0 /W=0 ; Eb KR ; ; </opcode>
     <opcode> rexr rexx rexb rexw ; vex sse66 0f 92 /L=0 /W=0 ; KR Ed ; ; </opcode>
     <opcode> rexr rexx rexb rexw ; vex sse66 0f 93 /L=0 /W=0 ; Gd KRM ; ; </opcode>
