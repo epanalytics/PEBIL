@@ -126,6 +126,8 @@ FunctionTimers* GenerateFunctionTimers(FunctionTimers* timers, uint32_t typ, ima
         inform << "Got custom FTIMER_CPU_FREQ ***(in Hz)** from the user :: " 
           << timerCPUFreq << endl;
     } else {
+        inform << "***Using the default CPU clock rate to calculate timings****"
+          << CLOCK_RATE_HZ << endl;
         timerCPUFreq=CLOCK_RATE_HZ;
     }
 
