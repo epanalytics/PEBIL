@@ -475,6 +475,82 @@ Vector<X86Instruction*>* X86InstructionFactory64::emitUnalignedPackstoreRegaddrI
     return retval;
 }
 /*
+ * vmovdqa32 mem {k}, zmm1
+ */
+// | 62 |R X B R' mmmm|W vvvv 0  pp |E SSS  v' aaa |
+X86Instruction* X86InstructionFactory64::emitMoveAlignedRegaddrToZmm(
+        uint32_t zmm_in,
+        uint32_t kreg_in,
+        uint32_t base_in,
+        uint32_t disp)
+{
+    assert(zmm_in >= X86_FPREG_ZMM0 && zmm_in <= X86_FPREG_ZMM31);
+    assert(kreg_in >= X86_REG_K0 && kreg_in <= X86_REG_K7);
+    assert(base_in >= X86_REG_AX && base_in <= X86_REG_R15);
+    assert(base_in != X86_REG_R12); // Requires and index reg and scale
+
+    // RSP encodes the SIB
+    bool useSIB = false;
+    if (base_in == X86_REG_SP) {
+        useSIB = true;
+    }                          
+
+    uint8_t zmm = zmm_in - X86_FPREG_ZMM0;
+    uint8_t kreg = kreg_in - X86_REG_K0;
+    uint8_t base = base_in - X86_REG_AX;
+
+    uint32_t len = 10;
+    if (useSIB) len++;
+    char* buff = new char[len];
+
+    // mmmm = 0001
+    // zmm is encoded in R:r:reg
+    // kreg is encoded in aaa
+    //
+    // addressing mode is [base]+disp32
+    //   mod = 10
+    // base is encoded in ~X:~B:rm
+
+    // R is 1 for 0-7, 16-23
+    // R is 0 for 9-15, 24-31
+    uint8_t R = (~zmm & 0x08) << 4;
+    // XB == 1
+    uint8_t X = 0x40;
+    // B is 1 for bases 0-7, 0 for bases 8-15
+    uint8_t B = (~base & 0x08) << 2;
+    // R' is 1 if < 16, 0 < 31
+    uint8_t r = (~zmm & 0x10);
+    uint8_t mmmm = 1;
+    uint8_t RXBrmmmm =  R | X | B | r | mmmm;
+
+    uint8_t mod = 1 << 7;
+    uint8_t reg = (zmm & 0x07) << 3;
+    uint8_t rm = (base & 0x07);
+    uint8_t modrm = mod | reg | rm;
+
+    buff[0] = 0x62;
+    buff[1] = RXBrmmmm;
+    buff[2] = 0x7d;        
+    buff[3] = 0x48 | kreg; 
+
+    buff[4] = 0x6F;        // opcode
+
+    buff[5] = modrm;
+
+    if (!useSIB) {
+        memcpy(buff+6, &disp, sizeof(disp));
+    } else {
+        uint8_t S = 0;
+        uint8_t I = 4 << 3;
+        uint8_t SIB = S | I | base;
+        buff[6] = SIB;
+        memcpy(buff+7, &disp, sizeof(disp));
+    }
+
+    return emitInstructionBase(len, buff);
+}
+
+/*
  * vmovdqa32 zmm1, mem {k}
  */
 // | 62 |R X B R' mmmm|W vvvv 0  pp |E SSS  v' aaa |
@@ -487,12 +563,20 @@ X86Instruction* X86InstructionFactory64::emitMoveZmmToAlignedRegaddrImm(
     assert(zmm_in >= X86_FPREG_ZMM0 && zmm_in <= X86_FPREG_ZMM31);
     assert(kreg_in >= X86_REG_K0 && kreg_in <= X86_REG_K7);
     assert(base_in >= X86_REG_AX && base_in <= X86_REG_R15);
+    assert(base_in != X86_REG_R12); // Requires and index reg and scale
+
+    // RSP encodes the SIB
+    bool useSIB = false;
+    if (base_in == X86_REG_SP) {
+        useSIB = true;
+    }                          
 
     uint8_t zmm = zmm_in - X86_FPREG_ZMM0;
     uint8_t kreg = kreg_in - X86_REG_K0;
     uint8_t base = base_in - X86_REG_AX;
 
     uint32_t len = 10;
+    if (useSIB) len++;
     char* buff = new char[len];
 
     // mmmm = 0001
@@ -528,7 +612,16 @@ X86Instruction* X86InstructionFactory64::emitMoveZmmToAlignedRegaddrImm(
     buff[4] = 0x7F;        // opcode
 
     buff[5] = modrm;
-    memcpy(buff+6, &disp, sizeof(disp));
+
+    if (!useSIB) {
+        memcpy(buff+6, &disp, sizeof(disp));
+    } else {
+        uint8_t S = 0;
+        uint8_t I = 4 << 3;
+        uint8_t SIB = S | I | base;
+        buff[6] = SIB;
+        memcpy(buff+7, &disp, sizeof(disp));
+    }
 
     return emitInstructionBase(len, buff);
 }
