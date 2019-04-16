@@ -626,7 +626,7 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
     
     // Save k registers
     if(saveZmmRegisters) {
-        for(int i = 1; i < 8; ++i) {
+        for(int i = 1; i < X86_K_REGS; ++i) {
             wrapperInstructions.append(X86InstructionFactory64::emitMoveKToReg(i+X86_REG_K0, X86_REG_AX));
             wrapperInstructions.append(X86InstructionFactory64::emitStackPush(X86_REG_AX));
         }
@@ -651,18 +651,21 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
 
     // allocate space on stack for all zmm registers if this a Xeon Phi elf file
     if(saveZmmRegisters) {
-        // allocate 2KB of space on the stack
-        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, -1*2048, X86_REG_SP));
-        
+        // allocate # zmm registers * 512/8 bytes of space on the stack
+        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, -1*64*X86_ZMM_REGS, X86_REG_SP));
+
         // Write each zmmx register to its space on the stack
-        for(int i = 0; i < 32; ++i) {
-            wrapperInstructions.append(X86InstructionFactory64::emitMoveZmmxToAlignedStack(i, i));
+        for(int i = 0; i < X86_ZMM_REGS; ++i) {
+            wrapperInstructions.append(X86InstructionFactory64::emitMoveZmmToUnalignedRegaddrImm(X86_FPREG_XMM0 + i, X86_REG_K0, X86_REG_SP, 0));
         }
     } 
 
     //uint64_t fxStor = nextAlignAddress(fxStorageOffset + sizeof(uint64_t), 16);
     if (assumeFunctionFP){
         wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, -1*Size__trampoline_stackalign, X86_REG_SP));
+        // To save all insns, load -1 into rdx and rax
+        //wrapperInstructions.append(X86InstructionFactory64::emitMoveImmToReg((uint32_t)-1, X86_REG_AX));
+    //    wrapperInstructions.append(X86InstructionFactory64::emitMoveImmToReg((uint32_t)-1, X86_REG_DX));
         //wrapperInstructions.append(linkInstructionToData(X86InstructionFactory64::emitFxSave(0), elfInst, fxStor, true));
         wrapperInstructions.append(X86InstructionFactory64::emitFxSaveReg(X86_REG_SP));
     }
@@ -675,6 +678,9 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
     wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, Size__trampoline_stackalign, X86_REG_SP));
 
     if (assumeFunctionFP){
+        // To restore all insns, load -1 into rdx and rax
+       // wrapperInstructions.append(X86InstructionFactory64::emitMoveImmToReg((uint32_t)-1, X86_REG_AX));
+      //  wrapperInstructions.append(X86InstructionFactory64::emitMoveImmToReg((uint32_t)-1, X86_REG_DX));
         wrapperInstructions.append(X86InstructionFactory64::emitFxRstorReg(X86_REG_SP));
         //wrapperInstructions.append(linkInstructionToData(X86InstructionFactory64::emitFxRstor(0), elfInst, fxStor, true));
         wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, Size__trampoline_stackalign, X86_REG_SP));
@@ -682,10 +688,10 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
 
     // Restore zmm registers
     if(saveZmmRegisters) {
-        for(int i = 31; i >= 0; --i) {
-            wrapperInstructions.append(X86InstructionFactory64::emitMoveAlignedStackToZmmx(i, i));
+        for(int i = X86_ZMM_REGS - 1; i >= 0; --i) {
+            //wrapperInstructions.append(X86InstructionFactory64::emitMoveAlignedStackToZmmx(i, i));
         }
-        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, 2048, X86_REG_SP));
+        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, 64*X86_ZMM_REGS, X86_REG_SP));
 
     }
 
@@ -697,7 +703,7 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
 
     // Restore k registers
     if(saveZmmRegisters) {
-        for(int i = 7; i >= 1; --i) {
+        for(int i = X86_K_REGS - 1; i >= 1; --i) {
             wrapperInstructions.append(X86InstructionFactory64::emitStackPop(X86_REG_AX));
             wrapperInstructions.append(X86InstructionFactory64::emitMoveRegToK(X86_REG_AX, i+X86_REG_K0));
         }
