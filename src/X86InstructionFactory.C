@@ -545,6 +545,8 @@ X86Instruction* X86InstructionFactory64::emitMoveZmmToUnalignedRegaddrImm(
     assert(zmm_in >= X86_FPREG_ZMM0 && zmm_in <= X86_FPREG_ZMM31);
     assert(kreg_in >= X86_REG_K0 && kreg_in <= X86_REG_K7);
     assert(base_in >= X86_REG_AX && base_in <= X86_REG_R15);
+    assert(base_in != X86_REG_SP && base_in != X86_REG_R12); // need diff modrm
+                                                             // and disp calc
 
     uint8_t zmm = zmm_in - X86_FPREG_ZMM0;
     uint8_t kreg = kreg_in - X86_REG_K0;
