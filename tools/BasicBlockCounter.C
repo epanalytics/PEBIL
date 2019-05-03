@@ -314,8 +314,6 @@ void BasicBlockCounter::instrument()
 
         if (isSaveAll()) threadReg = X86_REG_INVALID;
 
-        fprintf(stdout, "ACC: Inserting block counter for bb 0x%llx\n", 
-          bb->getHashCode().getValue());
         InstrumentationTool::insertBlockCounter(counterOffset, bb, true, threadReg);
     }
 
