@@ -360,7 +360,8 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
             analyzeRegisters(allInstructions, numberOfInstructions, deadRegs, 
               unusedRegs);
 
-            if (!unusedRegs->empty() || !deadRegs->empty()) {
+            //if(!unusedRegs->empty() || !deadRegs->empty()) {
+            if(!deadRegs->empty()) {
                 uint32_t u;
                 bool borrow = true;
 
@@ -370,7 +371,7 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                     borrow = false;
                 } else {
                     delete deadRegs;
-
+                   
                     // can't borrow registers if stack is being used
                     if (!unusedRegs->contains(X86_REG_SP)) {
                         delete unusedRegs;
@@ -438,6 +439,10 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                             InstrumentationSnippet* snip = 
                               addInstrumentationSnippet();
                             snip->addSnippetInstruction(
+                              X86InstructionFactory64::emitLoadRegImmReg(
+                              X86_REG_SP, -1*Size__trampoline_autoinc,
+                              X86_REG_SP));
+                            snip->addSnippetInstruction(
                               X86InstructionFactory64::emitStackPush(u));
 
                             InstrumentationPoint* p = addInstrumentationPoint(
@@ -483,6 +488,10 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                               addInstrumentationSnippet();
                             snip->addSnippetInstruction(
                               X86InstructionFactory64::emitStackPop(u));
+                            snip->addSnippetInstruction(
+                              X86InstructionFactory64::emitLoadRegImmReg(
+                              X86_REG_SP, Size__trampoline_autoinc,
+                              X86_REG_SP));
                             InstrumentationPoint* pt = addInstrumentationPoint(
                               bb->getExitInstruction(), snip, 
                               InstrumentationMode_inline, InstLocation_prior);
@@ -508,6 +517,10 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                                   addInstrumentationSnippet();
                                 snip->addSnippetInstruction(
                                   X86InstructionFactory64::emitStackPop(u));
+                                snip->addSnippetInstruction(
+                                  X86InstructionFactory64::emitLoadRegImmReg(
+                                  X86_REG_SP, Size__trampoline_autoinc,
+                                  X86_REG_SP));
                                 InstrumentationPoint* pt = 
                                   addInstrumentationPoint(bb->
                                   getExitInstruction(), snip, 
@@ -534,7 +547,10 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                               addInstrumentationSnippet();
                             snip->addSnippetInstruction(
                               X86InstructionFactory64::emitStackPop(u));
-
+                            snip->addSnippetInstruction(
+                              X86InstructionFactory64::emitLoadRegImmReg(
+                              X86_REG_SP, Size__trampoline_autoinc,
+                              X86_REG_SP));
                             InstrumentationPoint* pt = addInstrumentationPoint(
                               interp, snip, InstrumentationMode_inline);
                             pt->borrowRegister(u);
@@ -555,9 +571,12 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                     if(borrow) {
                         InstrumentationSnippet* snip = 
                           addInstrumentationSnippet();
+                        snip->addSnippetInstruction(
+                          X86InstructionFactory64::emitLoadRegImmReg(
+                          X86_REG_SP, -1*Size__trampoline_autoinc,
+                          X86_REG_SP));
                         snip->addSnippetInstruction(X86InstructionFactory64::
                           emitStackPush(u));
- 
                         InstrumentationPoint* pt = addInstrumentationPoint(
                           interp->getExitInstruction(), snip, 
                           InstrumentationMode_inline, InstLocation_prior);
