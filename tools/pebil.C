@@ -216,6 +216,7 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(images);
     DEFINE_FLAG(perinsn);
     DEFINE_FLAG(saveall);
+    DEFINE_FLAG(printinsnmaps);
 
 #define DEFINE_ARG(__name) char* __name ## _arg = NULL
     DEFINE_ARG(typ); // char* typ_arg = NULL;
@@ -241,7 +242,7 @@ int main(int argc,char* argv[]){
         /* These options set a flag. */
         FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'),
         FLAG_OPTION(version, 'V'), FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), FLAG_OPTION(threaded, 'P'),
-        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'),
+        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(printinsnmaps, 'p'),
 
         /* These options take an argument
            We distinguish them by their indices. */
@@ -613,6 +614,10 @@ int main(int argc,char* argv[]){
             if (saveall_flag) {
                 instTool->setSaveAll();
             }
+
+            if (printinsnmaps_flag) {
+                instTool->setTrackRelocatedInsns();
+            }
             
             ASSERT(instTool);
             instTool->phasedInstrumentation();
@@ -622,6 +627,7 @@ int main(int argc,char* argv[]){
            
 /**************************** Print any extra information *********************/
             elfFile->printDynamicLibraries();
+            instTool->printRelocatedInsnMaps();
             if (inf_arg){
                 instTool->print(printCodes);
                 TIMER(t2 = timer();PRINT_INFOR("___timer: Instrumentation Step %d Print   : %.2f seconds",++stepNumber,t2-t1);t1=t2);
