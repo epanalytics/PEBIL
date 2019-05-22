@@ -90,12 +90,16 @@ private:
     Vector<X86Instruction*> replacedInstructions;
     Vector<BasicBlock*> interposedBlocks;
 
+    Vector<uint64_t> relocatedInsnAddresses;
+    Vector<uint64_t> originalInsnAddresses;
+
     bool allowStatic;
     bool threadedMode;
     bool hybridOffloadMode;
     bool multipleImages;
     bool perInstruction;
     bool saveAll;
+    bool trackRelocatedInsns; // Map relocated addresses to origin
 
     ProgramHeader* instSegment;
 
@@ -194,6 +198,7 @@ public:
 
     void print();
     void print(uint32_t printCodes);
+    void printRelocatedInsnMaps();
     void dump(const char* extension, bool isext=true);
 
     bool verify();
@@ -223,6 +228,8 @@ public:
     bool isPerInstruction() { return perInstruction; }
     void setSaveAll() { saveAll = true; }
     bool isSaveAll() { return saveAll; }
+    void setTrackRelocatedInsns() { trackRelocatedInsns = true; }
+    bool isTrackRelocatedInsns() { return trackRelocatedInsns; }
 
     char* getApplicationName() { return elfFile->getAppName(); }
     uint32_t getApplicationSize() { return elfFile->getFileSize(); }
