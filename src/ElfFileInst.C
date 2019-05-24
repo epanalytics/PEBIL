@@ -1109,8 +1109,7 @@ void ElfFileInst::functionSelect(){
                 }
             } else {
                 if (!isDisabledFunction(f)){
-                    //PRINT_DEBUG_FUNC_RELOC(
-                    PRINT_INFOR("\thidden: %s\ta%d b%d c%#llx d%d e%d f%d g%d h%d i%d j%d", f->getName(), 
+                    PRINT_DEBUG_FUNC_RELOC("\thidden: %s\ta%d b%d c%#llx d%d e%d f%d g%d h%d i%d j%d", f->getName(), 
                                 /*a*/f->hasCompleteDisassembly(), 
                                 /*b*/isEligibleFunction(f), 
                                 /*c*/f->getBadInstruction(), 
@@ -1765,6 +1764,56 @@ void ElfFileInst::print(uint32_t printCodes){
     }
 }
 
+void ElfFileInst::printHiddenFunctions() {
+
+    char fileName[__MAX_STRING_SIZE] = "";
+    sprintf(fileName,"%s.%s.%s", elfFile->getFileName(), getExtension(),
+      "hiddenFunctions");
+    FILE * hiddenFuncFile = fopen(fileName, "w");
+    ASSERT(hiddenFuncFile && "Cannot open hidden functions file");
+
+    fprintf(hiddenFuncFile, "#Function\t#\tHash\tReason\n");
+    for (uint32_t i = 0; i < hiddenFunctions.size(); i++) {
+        Function* hiddenFunction = hiddenFunctions[i];
+        if (isDisabledFunction(hiddenFunction) ) {
+            fprintf(hiddenFuncFile, "%s\t#\t0x%llx\tBlacklisted\n", 
+              hiddenFunction->getName(), 
+              hiddenFunction->getHashCode().getValue());
+        } else if (hiddenFunction->isInstrumentationFunction()) {
+            fprintf(hiddenFuncFile, "%s\t#\t0x%llx\tInstrumentation "
+              "Function\n", 
+              hiddenFunction->getName(), 
+              hiddenFunction->getHashCode().getValue());
+        } else if (!canRelocateFunction(hiddenFunction)) {
+            fprintf(hiddenFuncFile, "%s\t#\t0x%llx\tUnrelocatable\n", 
+              hiddenFunction->getName(), 
+              hiddenFunction->getHashCode().getValue());
+        } else if (hiddenFunction->hasSelfDataReference()) {
+            fprintf(hiddenFuncFile, "%s\t#\t0x%llx\tSelf Data Reference\n", 
+              hiddenFunction->getName(), 
+              hiddenFunction->getHashCode().getValue());
+        } else if (hiddenFunction->getBadInstruction() != 0) {
+            fprintf(hiddenFuncFile, "%s\t#\t0x%llx\tBad Instruction @ 0x%x\n", 
+              hiddenFunction->getName(), 
+              hiddenFunction->getHashCode().getValue(),
+              hiddenFunction->getBadInstruction());
+        } else if (isEligibleFunction(hiddenFunction)) {
+            fprintf(hiddenFuncFile, "%s\t#\t0x%llx\tIneligible\n", 
+              hiddenFunction->getName(), 
+              hiddenFunction->getHashCode().getValue());
+        } else if (!hiddenFunction->hasCompleteDisassembly()) {
+            fprintf(hiddenFuncFile, "%s\t#\t0x%llx\tIncomplete Disassembly\n", 
+              hiddenFunction->getName(), 
+              hiddenFunction->getHashCode().getValue());
+        } else {
+            fprintf(hiddenFuncFile, "%s\t#\t0x%llx\tUNKNOWN\n", 
+              hiddenFunction->getName(), 
+              hiddenFunction->getHashCode().getValue());
+        }
+    }
+
+    fclose(hiddenFuncFile);
+}
 
 ElfFileInst::ElfFileInst(ElfFile* elf){
     currentPhase = ElfInstPhase_no_phase;
