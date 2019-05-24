@@ -2229,15 +2229,14 @@ uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access){
         uint16_t mask = (access->vectorAddress).mask;
 
         for (int i = 0; i < (access->vectorAddress).numIndices; i++) {
-          if(mask % 2 == 1)
-          {
-            currAddr = (access->vectorAddress).base + 
-              (access->vectorAddress).indexVector[i] * 
-              (access->vectorAddress).scale;
-            lastReturn = processAddress(stats_in, currAddr, access->memseq, 
-              access->loadstoreflag);
-          }
-          mask = (mask >> 1);
+            if(mask % 2 == 1) {
+                currAddr = (access->vectorAddress).base + 
+                  (access->vectorAddress).indexVector[i] * 
+                  (access->vectorAddress).scale;
+                lastReturn = processAddress(stats_in, currAddr, access->memseq, 
+                  access->loadstoreflag);
+            }
+            mask = (mask >> 1);
         }
         return lastReturn;
     } 

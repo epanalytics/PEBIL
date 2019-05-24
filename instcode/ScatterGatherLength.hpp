@@ -18,8 +18,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _AddressRange_hpp_
-#define _AddressRange_hpp_
+#ifndef _ScatterGatherLength_hpp_
+#define _ScatterGatherLength_hpp_
 
 #include <string>
 #include <AddressStreamStats.hpp>
@@ -34,6 +34,7 @@ using namespace std;
 #define MEGA (KILO*KILO)
 #define GIGA (MEGA*KILO)
 
+
 static char ToLowerCase(char c);
 static bool ParseInt32(string token, uint32_t* value, uint32_t min);
 static void ReadSettings();
@@ -43,7 +44,7 @@ static uint64_t ReferenceStreamStats(AddressStreamStats* stats);
 static void DeleteStreamStats(AddressStreamStats* stats);
 static bool ReadEnvUint32(string name, uint32_t* var);
 static void PrintAddressStreamStats(ofstream& f, AddressStreamStats* stats, thread_key_t tid, bool perThread);
-static void RangeFileName(AddressStreamStats* stats, string& oFile);
+static void SGLengthFileName(AddressStreamStats* stats, string& oFile);
 
 extern "C" {
     void* tool_mpi_init();
@@ -58,29 +59,32 @@ public:
     virtual bool Verify() = 0;
 };
 
-struct AddressRange {
+struct VectorLength {
     uint64_t Minimum;
     uint64_t Maximum;
+    uint64_t Average;
 };
 
-class RangeStats : public StreamStats {
+class VectorLengthStats : public StreamStats {
 private:
     static const uint64_t MAX_64BIT_VALUE = 0xffffffffffffffff;
 public:
     uint32_t Capacity;
-    AddressRange** Ranges;
+    VectorLength** Lengths;
     uint64_t* Counts;
 
-    RangeStats(uint32_t capacity);
-    ~RangeStats();
+    VectorLengthStats(uint32_t capacity);
+    ~VectorLengthStats();
 
     bool HasMemId(uint32_t memid);
+    double GetAverage(uint32_t memid);
     uint64_t GetMinimum(uint32_t memid);
     uint64_t GetMaximum(uint32_t memid);
     uint64_t GetAccessCount(uint32_t memid) { return Counts[memid]; }
 
+    void Aggregate(uint32_t memid, uint64_t count, uint64_t min, uint64_t max, 
+      double avg);
     void Update(uint32_t memid, uint64_t addr);
-    void Update(uint32_t memid, uint64_t addr, uint32_t count);
 
     bool Verify();
 };
@@ -122,11 +126,11 @@ public:
 
 };
 
-class AddressRangeHandler : public MemoryStreamHandler {
+class VectorLengthHandler : public MemoryStreamHandler {
 public:
-    AddressRangeHandler();
-    AddressRangeHandler(AddressRangeHandler& h);
-    ~AddressRangeHandler();
+    VectorLengthHandler();
+    VectorLengthHandler(VectorLengthHandler& h);
+    ~VectorLengthHandler();
 
     void Print(ofstream& f);
     uint32_t Process(void* stats, BufferEntry* access);
@@ -134,5 +138,5 @@ public:
 };
 
 
-#endif /* _AddressRange_hpp_ */
+#endif /* _ScattherGatherLength_hpp_ */
 
