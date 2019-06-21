@@ -626,7 +626,7 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
     
     // Save k registers
     if(saveZmmRegisters) {
-        for(int i = 1; i < 8; ++i) {
+        for(int i = 1; i < X86_K_REGS; ++i) {
             wrapperInstructions.append(X86InstructionFactory64::emitMoveKToReg(i+X86_REG_K0, X86_REG_AX));
             wrapperInstructions.append(X86InstructionFactory64::emitStackPush(X86_REG_AX));
         }
@@ -651,12 +651,12 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
 
     // allocate space on stack for all zmm registers if this a Xeon Phi elf file
     if(saveZmmRegisters) {
-        // allocate 2KB of space on the stack
-        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, -1*2048, X86_REG_SP));
-        
+        // allocate # zmm registers * 512/8 bytes of space on the stack
+        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, -1*64*X86_ZMM_REGS, X86_REG_SP));
+
         // Write each zmmx register to its space on the stack
-        for(int i = 0; i < 32; ++i) {
-            wrapperInstructions.append(X86InstructionFactory64::emitMoveZmmxToAlignedStack(i, i));
+        for(int i = 0; i < X86_ZMM_REGS; ++i) {
+            wrapperInstructions.append(X86InstructionFactory64::emitMoveZmmToAlignedRegaddrImm(X86_FPREG_XMM0 + i, X86_REG_K0, X86_REG_SP, 64 * i));
         }
     } 
 
@@ -682,10 +682,10 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
 
     // Restore zmm registers
     if(saveZmmRegisters) {
-        for(int i = 31; i >= 0; --i) {
-            wrapperInstructions.append(X86InstructionFactory64::emitMoveAlignedStackToZmmx(i, i));
+        for(int i = X86_ZMM_REGS - 1; i >= 0; --i) {
+            wrapperInstructions.append(X86InstructionFactory64::emitMoveAlignedRegaddrToZmm(X86_FPREG_XMM0 + i, X86_REG_K0, X86_REG_SP, 64 * i));
         }
-        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, 2048, X86_REG_SP));
+        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, 64*X86_ZMM_REGS, X86_REG_SP));
 
     }
 
@@ -697,7 +697,7 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
 
     // Restore k registers
     if(saveZmmRegisters) {
-        for(int i = 7; i >= 1; --i) {
+        for(int i = X86_K_REGS - 1; i >= 1; --i) {
             wrapperInstructions.append(X86InstructionFactory64::emitStackPop(X86_REG_AX));
             wrapperInstructions.append(X86InstructionFactory64::emitMoveRegToK(X86_REG_AX, i+X86_REG_K0));
         }
