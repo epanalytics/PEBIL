@@ -227,10 +227,14 @@ void FunctionTimer::instrument(){
         }
         delete finstructions;
 
-        // Instrument each exit block
+        // Instrument each block that exits the function with no hope of 
+        // coming back. This includes returns and unconditional jumps
         for (uint32_t j = 0; j < (*exitBlocks).size(); j++){
 
-            if( !(*exitBlocks)[j]->getExitInstruction()->isReturn() )
+            // We can assume that the unconditional branch here leaves the 
+            // function because it is an exit block
+            if( !(*exitBlocks)[j]->getExitInstruction()->isReturn() &&
+              !(*exitBlocks)[j]->getExitInstruction()->isUnconditionalBranch())
                 continue;
 
             PRINT_INFOR("Instrumenting exit block for %s at 0x%llx\n", f->getName(), (*exitBlocks)[j]->getBaseAddress());

@@ -1468,6 +1468,25 @@ bool X86Instruction::isHelperMove() {
     return false;
 }
 
+bool X86Instruction::isAdditionOp(){
+    std::string mnemonicStr = ud_mnemonics_str[GET(mnemonic)];
+    size_t hasAdd = mnemonicStr.find("add");
+    if (hasAdd != std::string::npos) {
+        return true;
+    } 
+    return false;
+}
+
+bool X86Instruction::isSubtractionOp(){
+    std::string mnemonicStr = ud_mnemonics_str[GET(mnemonic)];
+    size_t hasSub = mnemonicStr.find("sub");
+    if (hasSub != std::string::npos) {
+        return true;
+    } 
+    return false;
+}
+
+
 uint32_t OperandX86::getBitsUsed(){
     if (GET(type) == UD_OP_MEM){
         return GET(offset);
@@ -4152,10 +4171,10 @@ void X86InstructionClassifier::generateTable(){
     mkclass(     vscatterqps,   simdMove,  floatv,    0,    VRSZ,    0,    32)
     mkclass(           vshlx,        int,     bin,    0,    VRSZ,    0,    0)
     mkclass(           vshrx,        int,     bin,    0,    VRSZ,    0,    0)
-    mkclass(      vshuff32x4,  simdFloat,  floatv,    0,    VRSZ,    0,    128)
-    mkclass(      vshuff64x2,  simdFloat,  floatv,    0,    VRSZ,    0,    128)
-    mkclass(      vshufi32x4,  simdFloat,  floatv,    0,    VRSZ,    0,    128)
-    mkclass(      vshufi64x2,  simdFloat,  floatv,    0,    VRSZ,    0,    128)
+    mkclass(      vshuff32x4,  simdFloat,  floatv,    0,    VRSZ,    0,    32)
+    mkclass(      vshuff64x2,  simdFloat,  floatv,    0,    VRSZ,    0,    64)
+    mkclass(      vshufi32x4,  simdFloat,  floatv,    0,    VRSZ,    0,    32)
+    mkclass(      vshufi64x2,  simdFloat,  floatv,    0,    VRSZ,    0,    64)
     mkclass(         vshufpd,  simdFloat,  floatv,    0,    VRSZ,    0,    64)
     mkclass(         vshufps,  simdFloat,  floatv,    0,    VRSZ,    0,    32)
     mkclass(         vsqrtpd,  simdFloat,  floatv,    0,    VRSZ,    0,    64)
