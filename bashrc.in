@@ -10,7 +10,7 @@ export PATH=${PEBIL_ROOT}/bin:${PEBIL_ROOT}/scripts:${PEBIL_ROOT}/external/udis8
 usepapi="@PEBIL_PAPI_BUILD@"
 pebilPapiPath="@PAPI_PATH@"
 
-if [ "${usepapi}" == "yes" ]
+if [ "${usepapi}" == "yes" ] && [ ! -z "${pebilPapiPath}" ]
 then
   export LD_LIBRARY_PATH="${pebilPapiPath}/lib:${LD_LIBRARY_PATH}"
 fi
