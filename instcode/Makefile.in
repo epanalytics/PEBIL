@@ -13,6 +13,7 @@ else
 	PEBIL_LIBS = libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libcachesimulator.so libaddressrange.so libreusedist.so libspatlocal.so
 	ifeq ($(PEBIL_PAPI_BUILD),yes)
 		PEBIL_LIBS += libpapiinst.so
+		PEBIL_LIBS += libpapifunc.so
 	endif
 endif
 
