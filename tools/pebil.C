@@ -622,6 +622,7 @@ int main(int argc,char* argv[]){
            
 /**************************** Print any extra information *********************/
             elfFile->printDynamicLibraries();
+            instTool->printHiddenFunctions();
             if (inf_arg){
                 instTool->print(printCodes);
                 TIMER(t2 = timer();PRINT_INFOR("___timer: Instrumentation Step %d Print   : %.2f seconds",++stepNumber,t2-t1);t1=t2);
