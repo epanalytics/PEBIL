@@ -41,7 +41,7 @@ class InstrumentationPoint;
 #define Size__32_bit_procedure_link 16
 #define Size__64_bit_procedure_link 16
 #define Size__32_bit_function_wrapper 128
-#define Size__64_bit_function_wrapper 768
+#define Size__64_bit_function_wrapper 960
 
 #define FXSTORAGE_RESERVED 0x1000
 #define Size__trampoline_stackalign 0x1000
