@@ -434,6 +434,26 @@ uint32_t ElfFileInst::relocateAndBloatFunction(Function* operatedFunction, uint6
     uint32_t functionSize = operatedFunction->getNumberOfBytes();
     Vector<X86Instruction*>* trampEmpty = new Vector<X86Instruction*>();
 
+    // Vectors for keeping track of relocated instructions
+    Vector<Vector<uint64_t>*>* oldInsnAddresses = new 
+      Vector<Vector<uint64_t>*>();
+    Vector<uint64_t>* oldInsns = new Vector<uint64_t>();
+    Vector<uint64_t>* newInsns = new Vector<uint64_t>();
+
+    for (uint32_t i = 0; i < operatedFunction->getNumberOfBasicBlocks(); i++) {
+        BasicBlock* currBlock = operatedFunction->getBasicBlock(i);
+        (*oldInsnAddresses).append(new Vector<uint64_t>());
+
+        // If we are tracking relocated insns, collect insn addresses into 
+        // vector to be passed to bloating functions
+        if (isTrackRelocatedInsns()) {
+            for (uint32_t j = 0; j < currBlock->getNumberOfInstructions(); j++){
+                X86Instruction* currInsn = currBlock->getInstruction(j);
+                (*oldInsnAddresses)[i]->append(currInsn->getBaseAddress());
+            }
+        }
+    }
+
     uint32_t currentByte = 0;
 
     X86Instruction* connector = X86InstructionFactory::emitJumpRelative(operatedFunction->getBaseAddress(), relocationAddress);
@@ -533,16 +553,31 @@ uint32_t ElfFileInst::relocateAndBloatFunction(Function* operatedFunction, uint6
         PRINT_ERROR("Function %s before bloated to have bad disassembly", displacedFunction->getName());
     }
     if (doBloat){
-        displacedFunction->bloatBasicBlocks(functionInstPoints);
+        displacedFunction->bloatBasicBlocks(functionInstPoints, 
+          oldInsnAddresses, oldInsns, newInsns);
         elfFile->setAnchorsSorted(false);
     }
     if (!displacedFunction->hasCompleteDisassembly()){
         PRINT_ERROR("Function %s after bloated to have bad disassembly", displacedFunction->getName());
     }
 
+    // Note, if we are not keeping track of relocated insns, the oldInsns 
+    // vector will be empty
+    for (uint32_t i = 0; i < oldInsns->size(); i++) {
+        relocatedInsnAddresses.append(newInsns->at(i));
+        originalInsnAddresses.append(oldInsns->at(i));
+    }
+    
+    delete oldInsns;
+    delete newInsns;
+    for (uint32_t i = 0; i < oldInsnAddresses->size(); i++) {
+        delete (*oldInsnAddresses)[i];
+    }
+    delete oldInsnAddresses;
+
     PRINT_DEBUG_FUNC_RELOC("Function %s relocation map [%#llx,%#llx) --> [%#llx,%#llx)", displacedFunction->getName(), oldBase, oldBase+oldSize, displacedFunction->getBaseAddress(), displacedFunction->getBaseAddress() + displacedFunction->getSizeInBytes());
     PRINT_DEBUG_FUNC_RELOC("Function %s placeholder [%#llx,%#llx)", placeHolder->getName(), placeHolder->getBaseAddress(), placeHolder->getBaseAddress() + placeHolder->getSizeInBytes());
-
+ 
     return displacedFunction->getNumberOfBytes();
 }
 
@@ -1519,7 +1554,6 @@ uint64_t ElfFileInst::addPLTRelocationEntry(uint32_t symbolIndex, uint64_t gotOf
     return relocOffset;
 }
 
-
 void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     ASSERT(currentPhase == ElfInstPhase_extend_space && "Instrumentation phase order must be observed");
 
@@ -1761,6 +1795,43 @@ void ElfFileInst::print(uint32_t printCodes){
                 relocatedFunctions[i]->printDisassembly(false);
             }
         }
+    }
+}
+
+void ElfFileInst::printRelocatedInsnMaps() {
+    if (isTrackRelocatedInsns()) {
+        char funcMapName[__MAX_STRING_SIZE] = "";
+        sprintf(funcMapName,"%s.%s.%s", elfFile->getFileName(), getExtension(),
+          "funcMap");
+        FILE * funcMapFile = fopen(funcMapName, "w");
+        ASSERT(funcMapFile && "Cannot open function map file");
+
+        PRINT_INFOR("Printing Function/Address Map");
+        fprintf(funcMapFile, "#Function\tHash\tBegin\tEnd\n");
+        for (uint32_t i = 0; i < relocatedFunctions.size(); i++) {
+            fprintf(funcMapFile, "%s\t0x%llx\t0x%llx\t0x%llx\n", 
+              relocatedFunctions[i]->getName(),
+              relocatedFunctions[i]->getHashCode().getValue(), 
+              relocatedFunctions[i]->getBaseAddress(), relocatedFunctions[i]->
+              getBaseAddress() + relocatedFunctions[i]->getSizeInBytes());
+        }
+
+        fclose(funcMapFile);
+
+        char insnMapName[__MAX_STRING_SIZE] = "";
+        sprintf(insnMapName,"%s.%s.%s", elfFile->getFileName(), getExtension(),
+          "insnMap");
+        FILE * insnMapFile = fopen(insnMapName, "w");
+        ASSERT(insnMapFile && "Cannot open insn map file");
+
+        PRINT_INFOR("Printing Instruction/Address Map");
+        fprintf(insnMapFile, "#Relocated\tOriginal\n");
+        for (uint32_t i = 0; i < relocatedInsnAddresses.size(); i++) {
+            fprintf(insnMapFile, "0x%x\t0x%x\n", relocatedInsnAddresses[i],
+              originalInsnAddresses[i]);
+        }
+
+        fclose(insnMapFile);
     }
 }
 
