@@ -121,6 +121,16 @@ else
 fi
 AC_SUBST(PEBIL_MIC_LIBS_BUILD)
 
+AC_ARG_ENABLE(papi, AC_HELP_STRING([--enable-papi], [Build with PAPI hardware counter support [yes]]), enable_papi_ok=$enableval)
+if test "$enable_papi_ok" = "yes"; then
+  PEBIL_PAPI_BUILD="yes"
+else
+  PEBIL_PAPI_BUILD="no"
+fi
+AC_SUBST(PEBIL_PAPI_BUILD)
+
+AC_ARG_VAR(PAPI_PATH,[path to PAPI folder])
+
 # Checks for header files.
 AC_CHECK_HEADERS([stdint.h stdlib.h string.h strings.h unistd.h])
 AC_CHECK_HEADERS([cpufreq.h],
