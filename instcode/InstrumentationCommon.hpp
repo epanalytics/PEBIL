@@ -144,7 +144,7 @@ typedef struct {
     uint64_t id;
     uint64_t data;
 } ThreadData;
-#define ThreadHashShift (12)
+#define ThreadHashShift (16)
 #define ThreadHashMod   (0x3ffff)
 
 
@@ -560,6 +560,7 @@ private:
         // just fail if there was a collision. it makes writing tools much easier so we see how well this works for now
         if (actual != h){
             warn << "Collision placing thread-specific data for " << tid << ": slot " << dec << h << " already taken" << ENDL;
+	    exit(-1);
         }
         assert(actual == h);
         return td[actual].data;
