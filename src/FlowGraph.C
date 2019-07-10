@@ -1711,6 +1711,8 @@ Vector<BasicBlock*>* FlowGraph::getExitBlocks(){
     for (uint32_t i = 0; i < basicBlocks.size(); i++){
         if (basicBlocks[i]->isExit()){
             (*exitBlocks).append(basicBlocks[i]);
+        } else if (basicBlocks[i]->endsWithCall()) {
+            (*exitBlocks).append(basicBlocks[i]);
         } else if (!getFunction()->inRange(basicBlocks[i]->getBaseAddress())){
             (*exitBlocks).append(basicBlocks[i]);
         }        

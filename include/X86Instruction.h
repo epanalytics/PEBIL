@@ -233,12 +233,18 @@ const static char* flag_name_map[X86_FLAG_BITS] = { "carry", __flag_reserved, "p
 #define X86_REG_K5 (5 + X86_REG_K0)
 #define X86_REG_K6 (6 + X86_REG_K0)
 #define X86_REG_K7 (7 + X86_REG_K0)
+#define X86_K_REGS 8
 
-#define X86_ALU_REGS (X86_64BIT_GPRS + X86_XMM_REGS + X87_REGS)
-const static char* alu_name_map[X86_ALU_REGS] = { "ax", "cx", "dx", "bx", "sp", "bp", "si", "di", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
-                                                  "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", 
-                                                  "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",
-                                                  "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7" };
+#define X86_ALU_REGS (X86_64BIT_GPRS + X86_XMM_REGS + X87_REGS + X86_K_REGS)
+const static char* alu_name_map[X86_ALU_REGS] = { "ax", "cx", "dx", "bx", 
+  "sp", "bp", "si", "di", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+  "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", 
+  "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "xmm16", 
+  "xmm17", "xmm18", "xmm19", "xmm20", "xmm21", "xmm22", "xmm23", "xmm24", 
+  "xmm25", "xmm26", "xmm27", "xmm28", "xmm29", "xmm30", "xmm31", 
+  "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7",
+  "k0", "k1", "k2", "k3", "k4", "k5", "k6", "k7",
+  };
 
     
 enum Confidence {
@@ -661,6 +667,8 @@ public:
     bool isScatterGatherOp();
     bool isVectorMaskOp();
     bool isHelperMove();
+    bool isAdditionOp();
+    bool isSubtractionOp();
 
     bool isBinUnknown();
     bool isBinInvalid();

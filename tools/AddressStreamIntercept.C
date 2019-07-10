@@ -1207,10 +1207,12 @@ bool AddressStreamIntercept::isNonDeterministicMemop(X86Instruction* memop) {
 void AddressStreamIntercept::grabScratchRegisters(X86Instruction* instRefPoint,
   InstLocations loc, uint32_t* sr1, uint32_t* sr2, uint32_t* sr3) {
 
-    // start with all gpu regs except ax and sp
+    // start with all gpu regs except ax, sp, and r12 (r12 causes modrm 
+    // problems)
     BitSet<uint32_t>* inv = new BitSet<uint32_t>(X86_ALU_REGS);
     inv->insert(X86_REG_AX);
     inv->insert(X86_REG_SP);
+    inv->insert(X86_REG_R12);
 
     // invalidate presets TODO other regs
     if(sr1 && *sr1 != X86_REG_INVALID) {
