@@ -225,25 +225,28 @@ extern "C"
         }
         timers->inFunction[funcIndex] = recDepth;
 
-        if(shutoffFunctionTimers) {
-            if (timers->functionEntryCounts[funcIndex] % shutoffIters == 0) {
-                double timePerVisit=((double)timers->functionTimerAccum[
-                  funcIndex]) / ((double)timers->functionEntryCounts[funcIndex])
-                  / timerCPUFreq;
+        AllData->Lock();
+        for (bool __s = true; __s == true; AllData->UnLock(), __s = false) {
+            if(shutoffFunctionTimers) {
+                if (timers->functionEntryCounts[funcIndex] % shutoffIters == 0){
+                    double timePerVisit=((double)timers->functionTimerAccum[
+                      funcIndex]) / ((double)timers->functionEntryCounts[
+                      funcIndex]) / timerCPUFreq;
 
-                if(timePerVisit < (((double)timingThreshold)/1000000.0)) {
-                    uint64_t this_key = GENERATE_KEY(funcIndex, 
-                      PointType_functionExit);
-                    uint64_t corresponding_entry_key=GENERATE_KEY(funcIndex, 
-                      PointType_functionEntry);
+                    if(timePerVisit < (((double)timingThreshold)/1000000.0)) {
+                        uint64_t this_key = GENERATE_KEY(funcIndex, 
+                          PointType_functionExit);
+                        uint64_t corresponding_entry_key=GENERATE_KEY(funcIndex,
+                          PointType_functionEntry);
 
-                    //warn << "Shutting off timing for function " << timers->functionNames[funcIndex] << "; time per visit averaged over " << timers->functionEntryCounts[funcIndex] << " entries is " << timePerVisit << "s; specified cut-off threshold is " << (((double)timingThreshold)/1000000.0) << "s." << ENDL;
-                    set<uint64_t> inits;
-                    inits.insert(this_key);
-                    inits.insert(corresponding_entry_key);
-                    SetDynamicPoints(inits, false); 
-                    timers->functionShutoff[funcIndex]=1;
+                        //warn << "Shutting off timing for function " << timers->functionNames[funcIndex] << "; time per visit averaged over " << timers->functionEntryCounts[funcIndex] << " entries is " << timePerVisit << "s; specified cut-off threshold is " << (((double)timingThreshold)/1000000.0) << "s." << ENDL;
+                        set<uint64_t> inits;
+                        inits.insert(this_key);
+                        inits.insert(corresponding_entry_key);
+                        SetDynamicPoints(inits, false); 
+                        timers->functionShutoff[funcIndex]=1;
 
+                    }
                 }
             }
         }
