@@ -199,6 +199,7 @@ public:
     void print();
     void print(uint32_t printCodes);
     void printRelocatedInsnMaps();
+    void printHiddenFunctions();
     void dump(const char* extension, bool isext=true);
 
     bool verify();
