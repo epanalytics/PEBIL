@@ -24,7 +24,7 @@
  *
  * The CPU clock frequency can either be hard-coded (see the CLOCK_RATE_HZ 
  * above) or it can be passed on as an env variable -- i.e., by defining the 
- * PEBIL_TIMER_CPU_FREQ
+ * FPAPI_CPU_FREQ
  * env variable and setting it to the CPU frequency of the system in Hz. 
  * For CPU frequency scaling experiments, one need to set this variable to the 
  * nominal/base 
@@ -49,11 +49,23 @@
 #include <omp.h>
 
 // mandel's CPU Frequency: you can either hard-code the frequency here
-// or use the PEBIL_TIMER_CPU_FREQ env var.
-static uint32_t timerCPUFreq=3200000000;
+// or use the FPAPI_CPU_FREQ env var.
 #define CLOCK_RATE_HZ 3200000000
+static uint32_t timerCPUFreq = CLOCK_RATE_HZ;
 
 static uint32_t hwcSetNumber = 0;
+
+// Set with FPAPI_SHUTOFF - enables function shutoff
+#define SHUTOFF_SET 0
+static uint32_t shutoffCounters = SHUTOFF_SET;
+// Set with FPAPI_ITERS - # of iterations allowed before averaging time 
+// per visit to determine if instrumentation should be shutoff for a function
+#define SHUTOFF_ITERS 100
+static uint32_t shutoffIters = SHUTOFF_ITERS;
+// Set with FPAPI_THRESHOLD - Average time per visit allowed for a function in
+// microseconds
+#define SHUTOFF_THRESHOLD 5000
+static uint32_t timingThreshold = SHUTOFF_THRESHOLD;
 
 inline uint64_t read_timestamp_counter() {
     unsigned low, high;
@@ -73,6 +85,7 @@ FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ,
     retval->extension = counters->extension;
     retval->functionCount = counters->functionCount;
     retval->functionNames = counters->functionNames;
+    retval->functionHashes = counters->functionHashes;
     retval->tmpValues = new values_t[retval->functionCount];
     retval->accumValues = new values_t[retval->functionCount];
     retval->num = 0;
@@ -82,6 +95,7 @@ FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ,
     retval->functionTimerLast = new uint64_t[retval->functionCount];
     retval->inFunctionP = new uint32_t[retval->functionCount];
     retval->functionEntryCounts = new uint64_t[retval->functionCount];
+    retval->functionShutoff = new uint32_t[retval->functionCount];
     
     memset(retval->functionTimerAccum, 0, sizeof(uint64_t) * 
       retval->functionCount);
@@ -90,19 +104,19 @@ FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ,
     memset(retval->inFunctionP, 0, sizeof(uint32_t) * retval->functionCount);
     memset(retval->functionEntryCounts, 0, sizeof(uint64_t) * 
       retval->functionCount);
+    memset(retval->functionShutoff, 0, sizeof(uint32_t) * 
+      retval->functionCount);
     
     /* The CPU clock frequency can either be hard-coded (see the CLOCK_RATE_HZ 
      * above) or it can be passed on as an env variable -- i.e., by defining 
-     * the PEBIL_TIMER_CPU_FREQ env variable and setting it to the CPU 
+     * the FPAPI_CPU_FREQ env variable and setting it to the CPU 
      * frequency of the system in Hz. For CPU frequency scaling experiments, 
      * one need to set this variable to the nominal/base CPU frequency only; 
      * i.e., no need to set this to individual scaled CPU frequencies.
      */
-    if (ReadEnvUint32("PEBIL_TIMER_CPU_FREQ", &timerCPUFreq)) {
-        inform << "Received custom TIMER_CPU_FREQ ***(in MHz)** from the user "
+    if (ReadEnvUint32("FPAPI_CPU_FREQ", &timerCPUFreq)) {
+        inform << "Received custom TIMER_CPU_FREQ ***(in Hz)** from the user "
           ":: " << timerCPUFreq << endl;
-        // convert timerCPUFreq from MHz to Hz
-        timerCPUFreq = timerCPUFreq * 1000;
     } else {
         timerCPUFreq = CLOCK_RATE_HZ;
     }
@@ -116,15 +130,35 @@ FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ,
         inform << "Received hardware counter set number from user :: " << 
           hwcSetNumber << endl;
     }
+
+    // Check if function shutoff is set
+    if (!ReadEnvUint32("FPAPI_SHUTOFF", &shutoffCounters)) {
+        shutoffCounters = SHUTOFF_SET;
+    }
+
+    // If function shutoff is set, check for shutoff configuration vars
+    if (shutoffCounters) {
+        if (!ReadEnvUint32("FPAPI_ITERS", &shutoffIters)) {
+            shutoffIters = SHUTOFF_ITERS;
+        }
+        if (!ReadEnvUint32("FPAPI_THRESHOLD", &timingThreshold)) {
+            timingThreshold = SHUTOFF_THRESHOLD;
+        }
+    }
     
     return retval;
 }
+#undef CLOCK_RATE_HZ
+#undef SHUTOFF_SET
+#undef SHUTOFF_ITERS
+#undef SHUTOFF_THRESHOLD
 
 void DeleteFunctionPAPI(FunctionPAPI* counters){
     delete counters->functionTimerAccum;
     delete counters->functionTimerLast;
     delete counters->inFunctionP;
     delete counters->functionEntryCounts;
+    delete counters->functionShutoff;
 }
 
 uint64_t ReferenceFunctionPAPI(FunctionPAPI* counters){
@@ -317,6 +351,30 @@ extern "C"
       }
     
       counters->inFunctionP[funcIndex] = recDepth;
+
+      // Shutoff counters for this function?
+      if (shutoffCounters) {
+          if (counters->functionEntryCounts[funcIndex] % shutoffIters == 0) {
+              double timePerVisit = ((double)counters->functionTimerAccum[
+                funcIndex]) / ((double)counters->functionEntryCounts[funcIndex])
+                / timerCPUFreq;
+
+              if (timePerVisit < (((double)timingThreshold) / 1000000.0)) {
+                  AllData->Lock();
+                  uint64_t this_key = GENERATE_KEY(funcIndex,
+                    PointType_functionExit);
+                  uint64_t corresponding_entry_key = GENERATE_KEY(funcIndex,
+                    PointType_functionEntry);
+  
+                  set<uint64_t> inits;
+                  inits.insert(this_key);
+                  inits.insert(corresponding_entry_key);
+                  SetDynamicPoints(inits, false);
+                  counters->functionShutoff[funcIndex] = 1;
+                  AllData->UnLock();
+              }
+          }
+      }
     
       return 0;
   }
@@ -442,9 +500,16 @@ extern "C"
                 AllData->allthreads.begin(); tit != AllData->allthreads.end(); 
                 ++tit) {
                   FunctionPAPI* icounters = AllData->GetData(*iit, *tit);
-                  fprintf(outFile, "\tThread: 0x%llx Time: %f Entries: %lld ", 
+                  
+                  fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: "
+                    "%lld\tHash: 0x%llx\t", 
                     *tit, (double)(icounters->functionTimerAccum[funcIndex]) / 
-                    timerCPUFreq, icounters->functionEntryCounts[funcIndex]);
+                    timerCPUFreq, icounters->functionEntryCounts[funcIndex], 
+                    icounters->functionHashes[funcIndex]);
+                  // Add * if function was shutoff
+                  if (icounters->functionShutoff[funcIndex] == 1) {
+                      fprintf(outFile, "*\t");
+                  }
   
                   int hwc;
                   double scaledValue;
@@ -462,7 +527,7 @@ extern "C"
                             funcIndex][hwc]/(1.0e9));
                           double watts = scaledValue / 
                             ((double)(icounters->functionTimerAccum[funcIndex])
-                            / CLOCK_RATE_HZ);
+                            / timerCPUFreq);
                           fprintf(outFile, "%.4f ", watts);
                       } else {
                           fprintf(outFile, "%lld ", 
