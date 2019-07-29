@@ -62,7 +62,7 @@ public:
 struct VectorLength {
     uint64_t Minimum;
     uint64_t Maximum;
-    uint64_t Average;
+    double Average;
 };
 
 class VectorLengthStats : public StreamStats {
