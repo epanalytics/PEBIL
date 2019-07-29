@@ -701,7 +701,7 @@ void VectorLengthStats::Aggregate(uint32_t memid, uint64_t count, uint64_t min,
     if (count <= 0) {
         return;
     }
-    VectorLength* v = Lengths[memid];
+    VectorLength* v = (VectorLength*)(Lengths[memid]);
     if (min < v->Minimum){
         v->Minimum = min;
     }
@@ -716,7 +716,6 @@ void VectorLengthStats::Aggregate(uint32_t memid, uint64_t count, uint64_t min,
     Counts[memid] += count;
     v->Average = (oldAverage * ((double)oldCount / Counts[memid])) + 
       (avg * ((double)count / Counts[memid]));
-
 }
 
 void VectorLengthStats::Update(uint32_t memid, uint64_t length){
