@@ -1473,43 +1473,47 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
     writeBufferEntry(snip, memseq, sr2, sr3, VECTOR_ENTRY, swpfflag,
       loadstoreflag);
 
+    OperandX86* regOp = NULL;
     OperandX86* vectorOp = NULL;
     OperandX86* maskOp = NULL;  // ONLY FOR AVX2. AVX512 has it in vector op
     // vgatherdps (%r14,%zmm0,8), %zmm2 {k4}
+
+    Vector<OperandX86*>* ops = vectorIns->getSourceOperands();
+	  // most scatter gathers have one source operand but avx2 gathers have 2
+	  // the vector address and the mask register
+    assert(ops->size() == 1 || ops->size() == 2);
+    if(ops->size() == 2) {
+        maskOp = (*ops)[1];
+        assert(maskOp->getType() == UD_OP_REG);
+    }
+
+    // Set the register and the vector operands
     if(vectorIns->isLoad()) {
-        Vector<OperandX86*>* ops = vectorIns->getSourceOperands();
-	// most gathers have one source operand but avx2 gathers have 2
-	// the vector address and the mask register
-        assert(ops->size() == 1 || ops->size() == 2);
         vectorOp = (*ops)[0];
-        if(ops->size() == 2) {
-            maskOp = (*ops)[1];
-    	    assert(maskOp->getType() == UD_OP_REG);
-        }
-        delete ops;
+        regOp = vectorIns->getDestOperand();
     } else if(vectorIns->isStore()) {
         vectorOp = vectorIns->getDestOperand();
-        assert(vectorOp);
+        regOp = (*ops)[0];
     } else assert(0);
+
+    delete ops;
+    assert(vectorOp);
+    assert(regOp);
     assert(vectorOp->getType() == UD_OP_MEM);
+    assert(regOp->getType() == UD_OP_REG);
 
     uint32_t zmmReg = vectorOp->getIndexRegister();
     uint32_t baseReg = vectorOp->getBaseRegister();
     uint8_t scale = vectorOp->GET(scale);
     if(scale == 0) scale = 1;
-    uint32_t numIndices = 16;        // Default zmm reg
+    uint32_t elementSize = vectorIns->getVectorInfo().elementSize;
+    elementSize *= 8; // Convert to bits for clarity
+    ASSERT(elementSize > 0 && "Didn't find an element size");
+    uint32_t numIndices = ((regOp->getBitsUsed()) / elementSize);
     uint32_t offset = vectorOp->getValue();
     uint32_t kreg = vectorIns->getVectorMaskRegister();
     if(maskOp != NULL) {
         kreg = maskOp->getBaseRegister();
-    }
-
-    if (vectorOp->isIndexRegYMM()) {
-        numIndices = 8;
-    } else if (vectorOp->isIndexRegXMM()) {
-        numIndices = 4;
-    } else {
-        assert(vectorOp->isIndexRegZMM());
     }
   
     // write base and/or offset
