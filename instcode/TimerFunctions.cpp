@@ -225,8 +225,6 @@ extern "C"
         }
         timers->inFunction[funcIndex] = recDepth;
 
-        AllData->Lock();
-        for (bool __s = true; __s == true; AllData->UnLock(), __s = false) {
             if(shutoffFunctionTimers) {
                 if (timers->functionEntryCounts[funcIndex] % shutoffIters == 0){
                     double timePerVisit=((double)timers->functionTimerAccum[
@@ -234,6 +232,7 @@ extern "C"
                       funcIndex]) / timerCPUFreq;
 
                     if(timePerVisit < (((double)timingThreshold)/1000000.0)) {
+                        AllData->WriteLock();
                         uint64_t this_key = GENERATE_KEY(funcIndex, 
                           PointType_functionExit);
                         uint64_t corresponding_entry_key=GENERATE_KEY(funcIndex,
@@ -245,11 +244,10 @@ extern "C"
                         inits.insert(corresponding_entry_key);
                         SetDynamicPoints(inits, false); 
                         timers->functionShutoff[funcIndex]=1;
-
+                        AllData->UnLock();
                     }
                 }
             }
-        }
         return 0;
     }
 

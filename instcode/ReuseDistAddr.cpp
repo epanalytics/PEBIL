@@ -51,7 +51,7 @@ static MemoryStreamHandler** MemoryHandlers = NULL;
 static ReuseDistance** ReuseDistanceHandlers = NULL;
 
 
-#define synchronize(__locker) __locker->Lock(); for (bool __s = true;\
+#define synchronize(__locker) __locker->WriteLock(); for (bool __s = true;\
   __s == true; __locker->UnLock(), __s = false) 
 
 
