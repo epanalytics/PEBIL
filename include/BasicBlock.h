@@ -125,7 +125,9 @@ public:
     ~BasicBlock() {}
 
     X86Instruction* findBestInstPoint(InstLocations* loc, BitSet<uint32_t>* unusableRegs, BitSet<uint32_t>* useRegs, bool attendFlags);
-    uint32_t bloat(Vector<InstrumentationPoint*>* instPoints);
+    uint32_t bloat(Vector<InstrumentationPoint*>* instPoints, 
+      Vector<uint64_t>* oldInsnAddresses, Vector<uint64_t>* oldInsns, 
+      Vector<uint64_t>* newInsns);
 
     bool containsOnlyControl();
     bool containsCallToRange(uint64_t lowAddr, uint64_t highAddr);
