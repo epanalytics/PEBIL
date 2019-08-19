@@ -276,21 +276,21 @@ static void analyzeRegisters(X86Instruction** instructions, uint32_t nIns, BitSe
 
 ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
 
-    // has a dead register throughout, so at function entry only compute the thread data addr and put
-    // into that dead reg
+    // If function has a dead register throughough, then use it to store the 
+    // thread data at the function entry only 
     uint32_t d = func->getDeadGPR(0);
     if (d < X86_64BIT_GPRS){
-        //PRINT_INFOR("Function %s has dead reg %d", func->getName(), d);
-        // Initialize thread data register at function entry and after function calls and after any writes to the register
+        // Initialize thread data register at function entry and after function         // calls and after any writes to the register
         uint32_t numberOfInstructions = func->getNumberOfInstructions();
-        X86Instruction** allInstructions = new X86Instruction*[numberOfInstructions];
+        X86Instruction** allInstructions = new 
+          X86Instruction*[numberOfInstructions];
         func->getAllInstructions(allInstructions,0);
 
         for(uint32_t i = 0; i < numberOfInstructions; ++i) {
             X86Instruction* entry = allInstructions[i];
-            if(i == 0 || entry->isCall()) {
+            if (i == 0 || entry->isCall()) {
                 InstLocations loc = InstLocation_after;
-                if(i == 0 && !entry->isCall()) {
+                if (i == 0 && !entry->isCall()) {
                     loc = InstLocation_prior;
                 }
                 setThreadingRegister(d, entry, loc, false);
@@ -311,6 +311,7 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                 }
             }
         }
+
         delete[] allInstructions;
         return new ThreadRegisterMap(d);
     }
@@ -320,14 +321,15 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
         std::vector<Loop*> coveredLoops;
         // For each loop
         FlowGraph* fg = func->getFlowGraph();
-        for(uint32_t loopi = 0; loopi < fg->getNumberOfLoops(); ++loopi) {
+        for (uint32_t loopi = 0; loopi < fg->getNumberOfLoops(); ++loopi) {
             Loop* l = fg->getLoop(loopi);
 
             // find the biggest loop at this head
-            while(loopi + 1 < fg->getNumberOfLoops()) {
+            while (loopi + 1 < fg->getNumberOfLoops()) {
                 Loop* nextl = fg->getLoop(loopi+1);
-                if(nextl->getHead()->getBaseAddress() == l->getHead()->getBaseAddress()) {
-                    if(nextl->getNumberOfBlocks() > l->getNumberOfBlocks()) {
+                if (nextl->getHead()->getBaseAddress() == l->getHead()->
+                  getBaseAddress()) {
+                    if (nextl->getNumberOfBlocks() > l->getNumberOfBlocks()) {
                         l = nextl;
                     }
                     ++loopi;
@@ -338,29 +340,32 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
 
             // if inside already instrumented loop, skip it
             bool covered = false;
-            for(std::vector<Loop*>::iterator it = coveredLoops.begin(); it != coveredLoops.end(); ++it) {
-                if(l->isInnerLoopOf(*it)) {
+            for (std::vector<Loop*>::iterator it = coveredLoops.begin(); it != 
+              coveredLoops.end(); ++it) {
+                if (l->isInnerLoopOf(*it)) {
                     covered = true;
                     break;
                 }
             }
-            if(covered)
+            if (covered)
                 continue;
 
             // analyze instructions
             uint32_t numberOfInstructions = l->getNumberOfInstructions();
-            X86Instruction** allInstructions = new X86Instruction*[numberOfInstructions];
+            X86Instruction** allInstructions = new 
+              X86Instruction*[numberOfInstructions];
             l->getAllInstructions(allInstructions, 0);
             BitSet<uint32_t>* deadRegs = new BitSet<uint32_t>(X86_64BIT_GPRS);
             BitSet<uint32_t>* unusedRegs = new BitSet<uint32_t>(X86_64BIT_GPRS);
-            analyzeRegisters(allInstructions, numberOfInstructions, deadRegs, unusedRegs);
+            analyzeRegisters(allInstructions, numberOfInstructions, deadRegs, 
+              unusedRegs);
 
             if((!unusedRegs->empty() && !isThreadedMode()) || 
               !deadRegs->empty()) {
                 uint32_t u;
                 bool borrow = true;
 
-                if(!deadRegs->empty()) {
+                if (!deadRegs->empty()) {
                     delete unusedRegs;
                     unusedRegs = deadRegs;
                     borrow = false;
@@ -368,7 +373,7 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                     delete deadRegs;
                    
                     // can't borrow registers if stack is being used
-                    if(!unusedRegs->contains(X86_REG_SP)) {
+                    if (!unusedRegs->contains(X86_REG_SP)) {
                         delete unusedRegs;
                         delete[] allInstructions;
                         continue;
@@ -376,17 +381,17 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                 }
 
                 u = X86_64BIT_GPRS;                    
-                for(uint32_t r = 0; r < X86_64BIT_GPRS; ++r) {
-                    if(r == X86_REG_SP)
+                for (uint32_t r = 0; r < X86_64BIT_GPRS; ++r) {
+                    if (r == X86_REG_SP)
                         continue;
 
-                    if(unusedRegs->contains(r)) {
+                    if (unusedRegs->contains(r)) {
                         u = r;
                         break;
                     }
                 }
                 delete unusedRegs;
-                if(u == X86_64BIT_GPRS) {
+                if (u == X86_64BIT_GPRS) {
                     delete[] allInstructions;
                     continue;
                 }
@@ -395,34 +400,42 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                 //if(borrow) fprintf(stderr, "Register is borrowed\n");
                 //else fprintf(stderr, "Register is dead\n");
 
-                // instrument after each call and it's target if in the loop
-                for(uint32_t i = 0; i < numberOfInstructions; ++i) {
+                // instrument after each call (and its target if in the loop --                 // later)
+                for (uint32_t i = 0; i < numberOfInstructions; ++i) {
                     X86Instruction* ins = allInstructions[i];
-                    if(ins->isCall()) {
-                        setThreadingRegister(u, ins, InstLocation_after, false); // Do I need to adjust stack before calling? FIXME
+                    if (ins->isCall()) {
+                        setThreadingRegister(u, ins, InstLocation_after, false);
+                        // Do I need to adjust stack before calling? FIXME
 
                         uint64_t tgtAddr = ins->getTargetAddress();
-                        X86Instruction* tgt = func->getInstructionAtAddress(tgtAddr);
-                        if(tgt != NULL) {
-                            fprintf(stderr, "Call within function with thread register optimization at 0x%llx -> 0x%llx\n", ins->getBaseAddress(), tgtAddr);
+                        X86Instruction* tgt = func->getInstructionAtAddress(
+                          tgtAddr);
+                        // If get the following error, then thread reg opt 
+                        // might not work
+                        if (tgt != NULL) {
+                            fprintf(stderr, "Call within function with thread "
+                              "register optimization at 0x%llx -> 0x%llx\n", 
+                              ins->getBaseAddress(), tgtAddr);
                         }
                     }
                 }
+  
                 // instrument each source for the head
                 BasicBlock* head = l->getHead();
                 uint32_t nSources = head->getNumberOfSources();
                 Vector<BasicBlock*> entryInterpositions;
-                for(uint32_t s = 0; s < nSources; ++s) {
+                for (uint32_t s = 0; s < nSources; ++s) {
                     BasicBlock* source = head->getSourceBlock(s);
 
-                    if(l->isBlockIn(source->getIndex()))
+                    if (l->isBlockIn(source->getIndex()))
                         continue;
 
-                    // if fallthrough, instrument after source block -- must be after restores
-                    if(source->getBaseAddress() + source->getNumberOfBytes() == head->getBaseAddress()) {
-
+                    // if fallthrough, instrument after source block -- must be
+                    // after restores
+                    if (source->getBaseAddress() + source->getNumberOfBytes() ==
+                      head->getBaseAddress()) {
                         if(borrow) {
-                            fprintf(stderr, "borrowing at fallthrough\n");
+                            //fprintf(stderr, "borrowing at fallthrough\n");
                             InstrumentationSnippet* snip = 
                               addInstrumentationSnippet();
                             snip->addSnippetInstruction(
@@ -435,7 +448,8 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                             p->setPriority(InstPriority_sysinit);
                         }
 
-                        setThreadingRegister(u, source->getExitInstruction(), InstLocation_after, borrow);
+                        setThreadingRegister(u, source->getExitInstruction(), 
+                          InstLocation_after, borrow);
                         //fprintf(stderr, "Instrumenting source fallthrough from 0x%llx\n", source->getBaseAddress());
 
                     } else {
@@ -444,28 +458,35 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                     }
                 }
 
-                // instrument after calls if we stole the register (technically only need for clobbered registers)
-                if(!borrow) {
-                    for(uint32_t i = 0; i < numberOfInstructions; ++i) {
+                // instrument after calls if we stole the register (technically
+                // only need for clobbered registers)
+                if (!borrow) {
+                    for (uint32_t i = 0; i < numberOfInstructions; ++i) {
                         X86Instruction* ins = allInstructions[i];
-                        if(ins->isCall()) {
-                            setThreadingRegister(u, ins, InstLocation_after, borrow);
+                        if (ins->isCall()) {
+                            setThreadingRegister(u, ins, InstLocation_after, 
+                              borrow);
                             //fprintf(stderr, "Instrumenting after call at 0x%llx\n", ins->getBaseAddress());
                         }
                     }
                 }
 
                 // retore register at loop exits
-                if(borrow) {
-                    BasicBlock** loopBlocks = new BasicBlock*[l->getNumberOfBlocks()];
+                if (borrow) {
+                    BasicBlock** loopBlocks = new BasicBlock*[l->
+                      getNumberOfBlocks()];
                     l->getAllBlocks(loopBlocks);
-                    for(uint32_t b = 0; b < l->getNumberOfBlocks(); ++b) {
+                    for (uint32_t b = 0; b < l->getNumberOfBlocks(); ++b) {
                         BasicBlock* bb = loopBlocks[b];
 
-                        if(bb->endsWithReturn()) {
-                            InstrumentationSnippet* snip = addInstrumentationSnippet();
-                            snip->addSnippetInstruction(X86InstructionFactory64::emitStackPop(u));
-                            InstrumentationPoint* pt = addInstrumentationPoint(bb->getExitInstruction(), snip, InstrumentationMode_inline, InstLocation_prior);
+                        if (bb->endsWithReturn()) {
+                            InstrumentationSnippet* snip = 
+                              addInstrumentationSnippet();
+                            snip->addSnippetInstruction(
+                              X86InstructionFactory64::emitStackPop(u));
+                            InstrumentationPoint* pt = addInstrumentationPoint(
+                              bb->getExitInstruction(), snip, 
+                              InstrumentationMode_inline, InstLocation_prior);
                             pt->borrowRegister(u);
                             pt->setPriority(InstPriority_low);
                             //fprintf(stderr, "Restoring borrowed register at return at 0x%llx\n", bb->getExitInstruction()->getBaseAddress());
@@ -473,23 +494,29 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                         }
 
                         Vector<BasicBlock*> exitInterpositions;
-                        for(uint32_t t = 0; t < bb->getNumberOfTargets(); ++t) {
+                        for (uint32_t t = 0; t < bb->getNumberOfTargets(); ++t){
                             BasicBlock* target = bb->getTargetBlock(t);
 
                             // target is in loop; not a loop exit
-                            if(l->isBlockIn(target->getIndex())) {
+                            if (l->isBlockIn(target->getIndex())) {
                                 continue;
                             }
 
                             // fallthrough - must be first
-                            if(target->getBaseAddress() == bb->getBaseAddress() + bb->getNumberOfBytes()) {
-                                InstrumentationSnippet* snip = addInstrumentationSnippet();
-                                snip->addSnippetInstruction(X86InstructionFactory64::emitStackPop(u));
-                                InstrumentationPoint* pt = addInstrumentationPoint(bb->getExitInstruction(), snip, InstrumentationMode_inline, InstLocation_after);
+                            if(target->getBaseAddress() == bb->getBaseAddress()
+                              + bb->getNumberOfBytes()) {
+                                InstrumentationSnippet* snip = 
+                                  addInstrumentationSnippet();
+                                snip->addSnippetInstruction(
+                                  X86InstructionFactory64::emitStackPop(u));
+                                InstrumentationPoint* pt = 
+                                  addInstrumentationPoint(bb->
+                                  getExitInstruction(), snip, 
+                                  InstrumentationMode_inline, 
+                                  InstLocation_after);
                                 pt->borrowRegister(u);
                                 pt->setPriority(InstPriority_sysinit);
                                 //fprintf(stderr, "Restoring borrowed register at fallthrough at 0x%llx\n", bb->getExitInstruction()->getBaseAddress());
- 
                             } else {
                                 exitInterpositions.append(target);
                                 //fprintf(stderr, "exit block 0x%llx requires interposition to 0x%llx, sized %d\n", bb->getBaseAddress(), target->getBaseAddress(), bb->getNumberOfBytes());
@@ -497,15 +524,20 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                         }
 
                         // exit interpositions
-                        for(uint32_t t = 0; t < exitInterpositions.size(); ++t) {
+                        for (uint32_t t = 0; t < exitInterpositions.size(); 
+                          ++t) {
                             BasicBlock* target = exitInterpositions[t];
                             //fprintf(stderr, "Making exit interposition from 0x%llx to 0x%llx\n", bb->getBaseAddress(), target->getBaseAddress());
-                            BasicBlock* interp = initInterposeBlock(fg, bb->getIndex(), target->getIndex());
+                            BasicBlock* interp = initInterposeBlock(fg, 
+                              bb->getIndex(), target->getIndex());
 
-                            InstrumentationSnippet* snip = addInstrumentationSnippet();
-                            snip->addSnippetInstruction(X86InstructionFactory64::emitStackPop(u));
+                            InstrumentationSnippet* snip = 
+                              addInstrumentationSnippet();
+                            snip->addSnippetInstruction(
+                              X86InstructionFactory64::emitStackPop(u));
 
-                            InstrumentationPoint* pt = addInstrumentationPoint(interp, snip, InstrumentationMode_inline);
+                            InstrumentationPoint* pt = addInstrumentationPoint(
+                              interp, snip, InstrumentationMode_inline);
                             pt->borrowRegister(u);
                             pt->setPriority(InstPriority_sysinit);
                             //fprintf(stderr, "Restoring borrowed register at interposition from 0x%llx to 0x%llx\n", bb->getBaseAddress(), target->getBaseAddress());
@@ -518,17 +550,23 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                 // entry interpositions
                 for(uint32_t s = 0; s < entryInterpositions.size(); ++s) {
                     BasicBlock* source = entryInterpositions[s];
-                    BasicBlock* interp = initInterposeBlock(fg, source->getIndex(), head->getIndex());
+                    BasicBlock* interp = initInterposeBlock(fg, 
+                      source->getIndex(), head->getIndex());
 
                     if(borrow) {
-                        InstrumentationSnippet* snip = addInstrumentationSnippet();
-                        snip->addSnippetInstruction(X86InstructionFactory64::emitStackPush(u));
+                        InstrumentationSnippet* snip = 
+                          addInstrumentationSnippet();
+                        snip->addSnippetInstruction(X86InstructionFactory64::
+                          emitStackPush(u));
  
-                        InstrumentationPoint* pt = addInstrumentationPoint(interp->getExitInstruction(), snip, InstrumentationMode_inline, InstLocation_prior);
+                        InstrumentationPoint* pt = addInstrumentationPoint(
+                          interp->getExitInstruction(), snip, 
+                          InstrumentationMode_inline, InstLocation_prior);
                         pt->borrowRegister(u);
                         pt->setPriority(InstPriority_sysinit);
                     }
-                    setThreadingRegister(u, interp->getExitInstruction(), InstLocation_prior, borrow);
+                    setThreadingRegister(u, interp->getExitInstruction(), 
+                      InstLocation_prior, borrow);
 
                     //fprintf(stderr, "Instrumenting source interposition from 0x%llx to 0x%llx\n", source->getBaseAddress(), head->getBaseAddress());
                 }
