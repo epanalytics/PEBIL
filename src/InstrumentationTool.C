@@ -360,7 +360,8 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
             analyzeRegisters(allInstructions, numberOfInstructions, deadRegs, 
               unusedRegs);
 
-            if (!unusedRegs->empty() || !deadRegs->empty()) {
+            if((!unusedRegs->empty() && !isThreadedMode()) || 
+              !deadRegs->empty()) {
                 uint32_t u;
                 bool borrow = true;
 
@@ -370,7 +371,7 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                     borrow = false;
                 } else {
                     delete deadRegs;
-
+                   
                     // can't borrow registers if stack is being used
                     if (!unusedRegs->contains(X86_REG_SP)) {
                         delete unusedRegs;
