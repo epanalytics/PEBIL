@@ -42,6 +42,7 @@ enum CacheLevelType {
     CacheLevelType_Undefined,
     CacheLevelType_InclusiveLowassoc,
     CacheLevelType_ExclusiveLowassoc,
+    CacheLevelType_NonInclusiveLowassoc,
     CacheLevelType_InclusiveHighassoc,
     CacheLevelType_ExclusiveHighassoc,
     CacheLevelType_Total
@@ -93,7 +94,8 @@ static AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats,
 static uint64_t ReferenceStreamStats(AddressStreamStats* stats);
 static void DeleteStreamStats(AddressStreamStats* stats);
 static bool ReadEnvUint32(string name, uint32_t* var);
-static void PrintAddressStreamStats(ofstream& f, AddressStreamStats* stats, thread_key_t tid, bool perThread);
+static void PrintAddressStreamStats(ofstream& f, AddressStreamStats* stats, 
+  thread_key_t tid, bool perThread);
 static void SimulationFileName(AddressStreamStats* stats, string& oFile);
 static void RangeFileName(AddressStreamStats* stats, string& oFile);
 
@@ -118,7 +120,8 @@ public:
     LevelStats* HybridMemStats; // indexed by [memid]
     uint32_t Capacity;
     uint32_t hybridCache;
-    CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity,uint32_t hybridCache);
+    CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
+      hybridCache);
     ~CacheStats();
 
     bool HasMemId(uint32_t memid);
@@ -238,10 +241,12 @@ public:
     CacheLevel();
     ~CacheLevel();
 
-    bool IsExclusive() { return (type == CacheLevelType_ExclusiveLowassoc || type == CacheLevelType_ExclusiveHighassoc); }
+    bool IsExclusive() { return (type == CacheLevelType_ExclusiveLowassoc || 
+      type == CacheLevelType_ExclusiveHighassoc); }
 
     uint32_t GetLevelCount() { return levelCount;}
-    uint32_t SetLevelCount(uint32_t InpLevelCount) { return levelCount=InpLevelCount; }
+    uint32_t SetLevelCount(uint32_t inpLevelCount) { return levelCount = 
+      inpLevelCount; }
     CacheLevelType GetType() { return type; }
     ReplacementPolicy GetReplacementPolicy() { return replpolicy; }
     uint32_t GetLevel() { return level; }
@@ -254,10 +259,14 @@ public:
     void Print(ofstream& f, uint32_t sysid);
 
     // re-implemented by Exclusive/InclusiveCacheLevel
-    virtual uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t loadstoreflag,bool* anyEvict,void* info);
-    virtual uint32_t EvictProcess(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t loadstoreflag,void* info);    
+    virtual uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, 
+      uint64_t loadstoreflag, bool* anyEvict, void* info);
+    virtual uint32_t EvictProcess(CacheStats* stats, uint32_t memid, uint64_t 
+      addr, uint64_t loadstoreflag, void* info);    
 
-    virtual void EvictDirty(CacheStats* stats,CacheLevel** levels,uint32_t memid,void* info); // void* info is needed since eventually 'Process' needs to be called! 
+    virtual void EvictDirty(CacheStats* stats, CacheLevel** levels, uint32_t 
+      memid, void* info); // void* info is needed since eventually 'Process' 
+      // needs to be called! 
     virtual bool GetEvictStatus();
 
     vector<uint64_t>* passEvictAddresses() { return toEvictAddresses;}
@@ -308,6 +317,21 @@ public:
         type = CacheLevelType_ExclusiveLowassoc;
         FirstExclusive = firstExcl;
         LastExclusive = lastExcl;
+    }
+    virtual const char* TypeString() { return "exclusive"; }
+};
+
+class NonInclusiveCacheLevel : public virtual CacheLevel {
+public:
+    uint32_t FirstExclusive;
+    uint32_t LastExclusive;
+
+    NonInclusiveCacheLevel() {}
+    uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t
+      loadstoreflag,bool* anyEvict,void* info);
+    virtual void Init(CacheLevel_Init_Interface){
+        CacheLevel::Init(CacheLevel_Init_Arguments);
+        type = CacheLevelType_NonInclusiveLowassoc;
     }
     virtual const char* TypeString() { return "exclusive"; }
 };
