@@ -99,6 +99,7 @@ private:
     bool multipleImages;
     bool perInstruction;
     bool saveAll;
+    bool saveZmmRegs;
     bool trackRelocatedInsns; // Map relocated addresses to origin
 
     ProgramHeader* instSegment;
@@ -229,6 +230,8 @@ public:
     bool isPerInstruction() { return perInstruction; }
     void setSaveAll() { saveAll = true; }
     bool isSaveAll() { return saveAll; }
+    void unsetSaveZmm() { saveZmmRegs = false; }
+    bool isSaveZmm() { return saveZmmRegs; }
     void setTrackRelocatedInsns() { trackRelocatedInsns = true; }
     bool isTrackRelocatedInsns() { return trackRelocatedInsns; }
 
