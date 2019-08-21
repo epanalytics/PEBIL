@@ -509,10 +509,6 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                                   addInstrumentationSnippet();
                                 snip->addSnippetInstruction(
                                   X86InstructionFactory64::emitStackPop(u));
-                                snip->addSnippetInstruction(
-                                  X86InstructionFactory64::emitLoadRegImmReg(
-                                  X86_REG_SP, Size__trampoline_autoinc,
-                                  X86_REG_SP));
                                 InstrumentationPoint* pt = 
                                   addInstrumentationPoint(bb->
                                   getExitInstruction(), snip, 
@@ -537,6 +533,7 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
 
                             InstrumentationSnippet* snip = 
                               addInstrumentationSnippet();
+
                             snip->addSnippetInstruction(
                               X86InstructionFactory64::emitStackPop(u));
                             InstrumentationPoint* pt = addInstrumentationPoint(
