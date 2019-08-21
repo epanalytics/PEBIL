@@ -40,7 +40,7 @@ static uint32_t shutoffIters=100;
 // by default, the function timer shuts of the timing for function if
 //  the per visit time is less than 5000 microseconds.
 // please set FTIMER_THRESHOLD env variable to control the number of
-// milliseconds per visit.
+// microseconds per visit.
 static uint32_t timingThreshold=5000;
 static uint64_t timerCPUFreq=3200000000;
 // HPE EPYC: note that if the env variable is not defined, we default to 

@@ -20,9 +20,11 @@ typedef struct {
   char* extension;
   uint64_t functionCount;
   char** functionNames;
+  uint64_t* functionHashes;
   uint64_t* functionTimerAccum;
   uint64_t* functionTimerLast;
   uint64_t* functionEntryCounts;
+  uint32_t* functionShutoff;
   uint32_t* inFunctionP;
   int events[MAX_HWC];
   values_t* tmpValues;
