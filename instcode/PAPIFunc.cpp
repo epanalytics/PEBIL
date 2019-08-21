@@ -1,12 +1,14 @@
 /*
  * PAPI Function Instrumentation
- * The instrumentation reads the env var PEBIL_HWC0, PEBIL_HWC1, ... up to 
- * PEBIL_HWC31, in that order,
+ * The instrumentation reads the env var FPAPI_HWC0, FPAPI_HWC1, ... up to 
+ * FPAPI_HWC31, in that order,
  * but stops at the first that is not defined (no gaps allowed).
  * The env variables should be set to PAPI present events, e.g. PAPI_TOT_CYC.
  * Then, for each loop instrumented, the value of the counters specified is 
  * accumulated and reported on at the end of execution. The values are printed 
- * in a meta_%.lpiinst file.
+ * in a set_%d.meta_%d.ftpapiinst file.
+ * "set" allows measuring compatible hw counters in batched without over-writing
+ * existing data files.
  * There is no check that events are compatible, please use the 
  * papi_event_chooser to verify events compatibility.
  *
@@ -15,9 +17,9 @@
  * pebil --tool FunctionTimer --app bench --lnc libpapifunc.so,/opt/papi/lib/
      libpapi.so --fbl functionblacklistfile
  *
- * export PEBIL_HWC0=PAPI_TOT_INS
- * export PEBIL_HWC1=PAPI_TOT_CYC
- * export PEBIL_HWC_SET_NUMBER=0  (0 if you want to call the set 0, 
+ * export FPAPI_HWC0=PAPI_TOT_INS
+ * export FPAPI_HWC1=PAPI_TOT_CYC
+ * export FPAPI_HWC_SET_NUMBER=0  (0 if you want to call the set 0, 
     but can use any int)
  * ./bench.ftminst
  * Should see output files like: bench.set_0.meta_0.ftpapiinst
@@ -126,7 +128,7 @@ FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ,
      * name/id to different sets, use this env variable. By default, if the var
      * is not set, the set id is set to 0.
      */
-    if (ReadEnvUint32("PEBIL_HWC_SET_NUMBER", &hwcSetNumber)) {
+    if (ReadEnvUint32("FPAPI_HWC_SET_NUMBER", &hwcSetNumber)) {
         inform << "Received hardware counter set number from user :: " << 
           hwcSetNumber << endl;
     }
@@ -232,7 +234,7 @@ extern "C"
           // Check each environment variable
           while (counters->num < MAX_HWC) {
               char hwc_var[MAX_HWC];
-              sprintf(hwc_var, "PEBIL_HWC%d", counters->num);
+              sprintf(hwc_var, "FPAPI_HWC%d", counters->num);
               char* hwc_name = getenv(hwc_var);
               // If env var is set, add it to the events
               if (hwc_name) {
