@@ -7,13 +7,12 @@ PEBIL_LIBS =
 ifeq ($(STATIC_INST_LIB),yes)
 	PEBIL_LIBS = libtimer.a  libclassifier.a  libpfreq.a  libtautrace.a  libcounter.a  libcachesimulator.a
 	ifeq ($(PEBIL_PAPI_BUILD),yes)
-		PEBIL_LIBS += libpapiinst.a
+		PEBIL_LIBS += libpapiinst.a libpapifunc.a
 	endif
 else
 	PEBIL_LIBS = libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libcachesimulator.so libaddressrange.so libreusedist.so libspatlocal.so
 	ifeq ($(PEBIL_PAPI_BUILD),yes)
-		PEBIL_LIBS += libpapiinst.so
-		PEBIL_LIBS += libpapifunc.so
+		PEBIL_LIBS += libpapiinst.so libpapifunc.so
 	endif
 endif
 

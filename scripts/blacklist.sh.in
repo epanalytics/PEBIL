@@ -24,8 +24,13 @@ trivialprog_FC="\
       include 'mpif.h'\n\
 #endif\n\
       integer ierr\n\
+      character*15 foo\n\
 #ifdef HAVE_MPI\n\
       call MPI_Init(ierr)\n\
+#endif\n\
+      write( *,* )\n\
+      write( foo, '(f15.0)' ) 2.d0**(5.0+1)\n\
+#ifdef HAVE_MPI\n\
       call MPI_Finalize (ierr)\n\
 #endif\n\
       end"
