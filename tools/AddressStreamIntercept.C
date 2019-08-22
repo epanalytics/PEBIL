@@ -1088,6 +1088,7 @@ void AddressStreamIntercept::instrument(){
               func->getBaseAddress()];
             threadReg = threadMap->getThreadRegister(bb);
         }
+        if (isSaveAll() && isThreadedMode()) threadReg = X86_REG_INVALID;
 
         // Check if block is part of gather-scatter loop
         // KNC only

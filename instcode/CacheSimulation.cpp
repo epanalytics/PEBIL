@@ -2177,16 +2177,18 @@ bool CacheStructureHandler::Init(string desc){
             bool nonInclusive = false;
 
             // look for victim cache
-            if (token.compare(token.size() - 3, token.size(), "_vc") == 0){
-                if (firstExcl == INVALID_CACHE_LEVEL){
-                    firstExcl = levelId;
-                }
-            } else if (token.compare(token.size() - 4, token.size(), "_sky") 
-              == 0){
-                  nonInclusive = true;
-            } else {
-                if (firstExcl != INVALID_CACHE_LEVEL){
-                    warn << "nonsensible structure found in sysid " << sysId << "; using a victim cache for level " << levelId << ENDL << flush;
+            if (token.size() > 3) {
+                if (token.compare(token.size() - 3, token.size(), "_vc") == 0){
+                    if (firstExcl == INVALID_CACHE_LEVEL){
+                        firstExcl = levelId;
+                    }
+                } else if (token.compare(token.size() - 4, token.size(), 
+                  "_sky") == 0){
+                      nonInclusive = true;
+                } else {
+                    if (firstExcl != INVALID_CACHE_LEVEL){
+                        warn << "nonsensible structure found in sysid " << sysId << "; using a victim cache for level " << levelId << ENDL << flush;
+                    }
                 }
             }
 
