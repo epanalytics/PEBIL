@@ -8,6 +8,17 @@ AC_CONFIG_MACRO_DIR([m4])
 m4_include([m4/acx_mpi.m4])
 m4_include([m4/ax_cxx_header_unordered_map.m4])
 m4_include([m4/ax_compile_stdcxx_0x.m4])
+m4_include([m4/ax_check_x86_features.m4])
+m4_include([m4/ax_gcc_x86_cpu_supports.m4])
+
+# Check if avx512f instruction set is present
+AX_GCC_X86_CPU_SUPPORTS(avx512f, has_avx512="yes", has_avx512="no")
+if test "$has_avx512" = "yes"; then
+    PEBIL_BUILD_FOR_AVX512="-DHAS_AVX512_SET"
+else
+    PEBIL_BUILD_FOR_AVX512=""
+fi
+AC_SUBST(PEBIL_BUILD_FOR_AVX512)
 
 # Checks for programs.
 AC_PROG_CXX
