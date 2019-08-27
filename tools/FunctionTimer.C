@@ -204,28 +204,40 @@ void FunctionTimer::instrument(){
         //InstrumentationPoint* p = addInstrumentationPoint(bestinst, functionEntry, InstrumentationMode_tramp, loc);
         //assignStoragePrior(p, i, functionEntryIndexRegister);
 	//PRINT_INFOR("Instrumenting entry block for %s at 0x%llx\n", f->getName(), (*exitBlocks)[j]->getBaseAddress());
-        instrumentEntry(bb, functionEntryIndexRegister, i);
+        // Instrumnet bb slightly later
+        //instrumentEntry(bb, functionEntryIndexRegister, i);
 
         // Instrument entry blocks of sub-functions
         uint32_t ninstructions = f->getNumberOfInstructions();
         X86Instruction** finstructions = new X86Instruction*[ninstructions];
         f->getAllInstructions(finstructions, 0);
 
+        // Check for calls to the middle of the current function
+        // First collect all unique blocks to prevent double-instrumentation
+        Vector<BasicBlock*> toInstrumentAsEntry;
+        toInstrumentAsEntry.append(bb);
         for( uint32_t j = 0; j < ninstructions; ++j) {
             X86Instruction* ins = finstructions[j];
             if(ins->isCall() && f->inRange(ins->getTargetAddress()) ) {
 
                 BasicBlock* callTarget = f->getBasicBlockAtAddress(ins->getTargetAddress());
                 assert(callTarget);
-                PRINT_INFOR("Instrumenting call to self in function %s at 0x%llx\n", f->getName(), callTarget->getBaseAddress());
-		// AT: this additional entry instrumentation leads to two instrumentation points. Having additional entry point
-		//  breaks hardware counter measurement tool. There might be other cases where this additional instrumentation
-		//  maybe required, but I cannot think of any at the moment. So, commenting out this for now.
-                //instrumentEntry(callTarget, functionEntryIndexRegister, i);
-
+        //        PRINT_INFOR("Adding call to self in function %s at 0x%llx\n", f->getName(), callTarget->getBaseAddress());
+                toInstrumentAsEntry.append(callTarget);
             }
         }
         delete finstructions;
+
+        Vector<BasicBlock*>* removedEntries = toInstrumentAsEntry.removeRep(
+          compareBaseAddress);
+        for (uint32_t j = 0; j < toInstrumentAsEntry.size(); j++) {
+            PRINT_INFOR("Instrumenting with entry - function %s at 0x%llx\n", 
+              f->getName(), toInstrumentAsEntry[j]->getBaseAddress());
+            instrumentEntry(toInstrumentAsEntry[j], functionEntryIndexRegister, 
+              i);
+        }
+
+        delete removedEntries;
 
         // Instrument each block that exits the function with no hope of 
         // coming back. This includes returns and unconditional jumps

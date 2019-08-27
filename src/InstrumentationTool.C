@@ -533,9 +533,9 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
 
                             InstrumentationSnippet* snip = 
                               addInstrumentationSnippet();
+
                             snip->addSnippetInstruction(
                               X86InstructionFactory64::emitStackPop(u));
-
                             InstrumentationPoint* pt = addInstrumentationPoint(
                               interp, snip, InstrumentationMode_inline);
                             pt->borrowRegister(u);
