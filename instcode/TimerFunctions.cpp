@@ -344,8 +344,10 @@ extern "C"
         }
 
 
-        fprintf(outFile, "App timestamp time: %lld %lld %f\n", timers->appTimeStart, appTimeEnd, (double)(appTimeEnd - timers->appTimeStart) / timerCPUFreq);
-        fprintf(outFile, "App timeofday time: %lld %lld %f\n", timers->appTimeOfDayStart.tv_sec, tvEnd.tv_sec, diffTime(timers->appTimeOfDayStart, tvEnd));
+        fprintf(outFile, "App timestamp time: %lld %lld %f\n", 
+          timers->appTimeStart, appTimeEnd, (double)(appTimeEnd - timers->appTimeStart) / timerCPUFreq);
+        fprintf(outFile, "App timeofday time: %lld %lld %f\n", 
+          timers->appTimeOfDayStart.tv_sec, tvEnd.tv_sec, diffTime(timers->appTimeOfDayStart, tvEnd));
         // for each image
         //   for each function
         //     for each thread
@@ -364,13 +366,14 @@ extern "C"
                     FunctionTimers* timers = AllData->GetData(*iit, *tit);
 
                     if(timers->functionShutoff[funcIndex]==1) {
-                        fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: "
-                          "%lld\tHash: 0x%llx\t*\t", *tit, (double)(timers->
+                        fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
+                          "%lld\tHash: 0x%llx\t*\t", AllData->GetThreadSequence(*tit), (double)(timers->
                           functionTimerAccum[funcIndex]) / timerCPUFreq, 
                           timers->functionEntryCounts[funcIndex], timers->
                           functionHashes[funcIndex]);
                     } else {
-                        fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: "                          "%lld\tHash: 0x%llx\t", *tit, (double)(timers->
+                        fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
+                          "%lld\tHash: 0x%llx\t", AllData->GetThreadSequence(*tit), (double)(timers->
                           functionTimerAccum[funcIndex]) / timerCPUFreq, 
                           timers->functionEntryCounts[funcIndex], timers->
                           functionHashes[funcIndex]);
