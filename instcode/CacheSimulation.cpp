@@ -57,7 +57,7 @@ static set<uint64_t>* NonmaxKeys = NULL;
 static MemoryStreamHandler** MemoryHandlers = NULL;
 
 
-#define synchronize(__locker) __locker->Lock(); for (bool __s = true;\
+#define synchronize(__locker) __locker->WriteLock(); for (bool __s = true;\
   __s == true; __locker->UnLock(), __s = false) 
 
 

@@ -362,7 +362,7 @@ extern "C"
                 / timerCPUFreq;
 
               if (timePerVisit < (((double)timingThreshold) / 1000000.0)) {
-                  AllData->Lock();
+                  AllData->WriteLock();
                   uint64_t this_key = GENERATE_KEY(funcIndex,
                     PointType_functionExit);
                   uint64_t corresponding_entry_key = GENERATE_KEY(funcIndex,

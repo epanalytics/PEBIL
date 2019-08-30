@@ -144,7 +144,7 @@ typedef struct {
     uint64_t id;
     uint64_t data;
 } ThreadData;
-#define ThreadHashShift (12)
+#define ThreadHashShift (16)
 #define ThreadHashMod   (0x3ffff)
 
 
@@ -494,9 +494,10 @@ static void AppendTasksString(string& str){
 
 template <class T> class DataManager {
 private:
-    // Used to monitorize this class
-    pthread_mutex_t mutex;
-    pthread_mutexattr_t mutex_attr;
+
+    // Used to make sure reads cannot happen while a write is in progress
+    pthread_rwlock_t rwlock;
+    pthread_rwlockattr_t rwlock_attr;
 
     // image_key_t -> thread_key_t -> T
     DataMap <image_key_t, DataMap<thread_key_t, T> > datamap;
@@ -560,6 +561,7 @@ private:
         // just fail if there was a collision. it makes writing tools much easier so we see how well this works for now
         if (actual != h){
             warn << "Collision placing thread-specific data for " << tid << ": slot " << dec << h << " already taken" << ENDL;
+	    exit(-1);
         }
         assert(actual == h);
         return td[actual].data;
@@ -604,27 +606,36 @@ public:
         datadel = d;
         dataref = r;
 
-        pthread_mutexattr_init(&mutex_attr);
-        pthread_mutexattr_settype(&mutex_attr, PTHREAD_MUTEX_RECURSIVE);
-        pthread_mutex_init(&mutex, &mutex_attr);
+        // Set to prefer to prevent starvation at thread initialization
+        pthread_rwlockattr_init(&rwlock_attr);
+        pthread_rwlockattr_setkind_np(&rwlock_attr, 
+          PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+        pthread_rwlock_init(&rwlock, &rwlock_attr);
 
+        WriteLock();
         currentthreadseq = 0;
         threadseq[GenerateThreadKey()] = currentthreadseq++;
 
         currentimageseq = 0;
         firstimage = 0;
+        UnLock();
     }
 
     ~DataManager(){
     }
 
-    bool Lock(){
-        bool res = (pthread_mutex_lock(&mutex) == 0);
+    bool WriteLock(){
+        bool res = (pthread_rwlock_wrlock(&rwlock) == 0);
+        return res;
+    }
+
+    bool ReadLock(){
+        bool res = (pthread_rwlock_rdlock(&rwlock) == 0);
         return res;
     }
 
     bool UnLock(){
-        bool res = (pthread_mutex_unlock(&mutex) == 0);
+        bool res = (pthread_rwlock_unlock(&rwlock) == 0);
         return res;
     }
 
@@ -634,30 +645,44 @@ public:
     }
 
     uint32_t GetThreadSequence(thread_key_t tid){
+        ReadLock();
         if (threadseq.count(tid) != 1){
             inform << "Thread not available!?! " << hex << tid << ENDL;
         }
-        assert(threadseq.count(tid) == 1 && "thread must be added with AddThread method");
-        return threadseq[tid];
+        assert(threadseq.count(tid) == 1 && "thread must be added with "
+          "AddThread method");
+        uint32_t ret = threadseq[tid];
+        UnLock();
+        return ret;
     }
 
     uint32_t GetImageSequence(image_key_t iid){
-        assert(imageseq.count(iid) == 1 && "image must be added with AddImage method");
-        return imageseq[iid];
+        ReadLock();
+        assert(imageseq.count(iid) == 1 && "image must be added with AddImage "
+          "method");
+        uint32_t ret = imageseq[iid];
+        UnLock();
+        return ret;
     }
 
     void FinishThread(thread_key_t tid){
+        WriteLock();
         assert(donethreads.count(tid) == 0);
         donethreads.insert(tid);
+        UnLock();
     }
 
     bool ThreadLives(thread_key_t tid){
+        ReadLock();
         if (allthreads.count(tid) == 0){
+            UnLock();
             return false;
         }
         if (donethreads.count(tid) > 0){
+            UnLock();
             return false;
         }
+        UnLock();
         return true;
     }
 
@@ -665,7 +690,7 @@ public:
     // If there are images initialized, creates initial data for each
     // No pre-conditions
     void AddThread(thread_key_t tid){
-        Lock();
+        WriteLock();
 
         // If it's been initialized before, just return
         if(allthreads.count(tid) > 0) {
@@ -678,19 +703,23 @@ public:
         }
 
         // Setup data for any previously initialized images
-        for (set<image_key_t>::iterator iit = allimages.begin(); iit != allimages.end(); iit++){
+        for (set<image_key_t>::iterator iit = allimages.begin(); iit != 
+          allimages.end(); iit++){
 
             // This image must have been initialized
             // The thread must have not
-            // There must have been some other thread that initialized this image
+            // There must have been some other thread that initialized this 
+            // image
             assert(datamap[(*iit)].size() > 0);
             assert(datamap[(*iit)].count(tid) == 0);
             assert(allthreads.size() > 0);
 
             set<thread_key_t>::iterator tit = allthreads.begin();
 
-            // Generate thread data for this image using some other thread's data as a template
-            datamap[*iit][tid] = datagen(datamap[*iit][*tit], ThreadType, *iit, tid, firstimage);
+            // Generate thread data for this image using some other thread's 
+            // data as a template
+            datamap[*iit][tid] = datagen(datamap[*iit][*tit], ThreadType, *iit,
+              tid, firstimage);
             // initialize the thread hashtable data for this image
             SetThreadData((*iit), tid, ThreadType);
         }
@@ -712,34 +741,41 @@ public:
     }
 
     void RemoveThread(){
+        WriteLock();
         assert(false);
         thread_key_t tid = pthread_self();
         assert(allthreads.count(tid) == 1);
 
-        for (set<image_key_t>::iterator iit = allimages.begin(); iit != allimages.end(); iit++){
+        for (set<image_key_t>::iterator iit = allimages.begin(); iit != 
+          allimages.end(); iit++){
             assert(datamap[(*iit)].size() > 0);
             assert(datamap[(*iit)].count(tid) == 1);
             RemoveData((*iit), tid);
             RemoveThreadData((*iit), tid);
         }
         allthreads.erase(tid);
+        UnLock();
     }
 
     void SetTimer(image_key_t iid, uint32_t idx){
         double t;
         ptimer(&t);
 
+        WriteLock();
         if (timers.count(iid) == 0){
             timers[iid] = DataMap<uint32_t, double>();
         }
         assert(timers.count(iid) == 1);
         timers[iid][idx] = t;
+        UnLock();
     }
 
     double GetTimer(image_key_t iid, uint32_t idx){
+        ReadLock();
         assert(timers.count(iid) == 1);
         assert(timers[iid].count(idx) == 1);
         double t = timers[iid][idx];
+        UnLock();
         return t;
     }
 
@@ -747,14 +783,16 @@ public:
     // The calling thread may or not have been initialized
     // This image must not have been added before
     image_key_t AddImage(T data, ThreadData* t, image_key_t iid){
-        Lock();
-
+  
+        ReadLock();
         assert(allimages.count(iid) == 0);
+        UnLock();
 
-        // First initialize the thread
+        // First initialize the thread (calls WriteLock())
         thread_key_t tid = pthread_self();
         AddThread(tid);
 
+        WriteLock();
         // Initialize basic image data
         imageseq[iid] = currentimageseq++;
         allimages.insert(iid);
@@ -763,12 +801,14 @@ public:
             firstimage = iid;
 
         // create data for every thread
-        for (set<thread_key_t>::iterator it = allthreads.begin(); it != allthreads.end(); it++){
+        for (set<thread_key_t>::iterator it = allthreads.begin(); it != 
+          allthreads.end(); it++){
             if(*it == tid)
-                datamap[iid][(*it)] = datagen(data, ImageType, iid, (*it), firstimage);
+                datamap[iid][(*it)] = datagen(data, ImageType, iid, (*it), 
+                  firstimage);
             else
-                datamap[iid][(*it)] = datagen(data, ThreadType, iid, (*it), firstimage);
-
+                datamap[iid][(*it)] = datagen(data, ThreadType, iid, (*it), 
+                  firstimage);
         }
 
         // Connect thread data to thread hashtable
@@ -783,7 +823,8 @@ public:
         // Instrumented code assumes threads have been initialized.
         // This means the first thread created will get data for
         // any other threads that escape initialization
-        // Also could create race conditions with multiple threads using the same buffer?
+        // Also could create race conditions with multiple threads using the 
+        // same buffer?
         if (allthreads.size() == 1){
             for (uint32_t i = 0; i < ThreadHashMod + 1; i++){
                 t[i].data = dataloc;
@@ -797,35 +838,54 @@ public:
     // Return data for any image and this thread.
     // Probably best used when only one image exists.
     T GetData(){
-        return GetData(pthread_self());
+        // This GetData calls ReadLock()
+        T retVal = GetData(pthread_self());
+        return retVal;
     }
 
     T GetData(thread_key_t tid){
+        ReadLock();
         set<image_key_t>::iterator iit = allimages.begin();
         assert(iit != allimages.end());
-        return GetData(*iit, tid);
+        UnLock();
+        // This GetData calls ReadLock()
+        T retVal = GetData(*iit, tid);
+        return retVal;
     }
 
     // Lookup data
     // The image must have been initialized
-    // The thread might have escaped initialization if it was created before this library was loaded
+    // The thread might have escaped initialization if it was created before 
+    // this library was loaded
     T GetData(image_key_t iid, thread_key_t tid){
+        ReadLock();
         if (datamap.count(iid) != 1){
-            inform << "About to fail iid check with " << dec << datamap.count(iid) << ENDL;
+            inform << "About to fail iid check with " << dec << 
+              datamap.count(iid) << ENDL;
         }
         assert(datamap.count(iid) == 1);
 
-        if(datamap[iid].count(tid) != 1)
+        if(datamap[iid].count(tid) != 1) {
+            UnLock();
             AddThread(tid);
-
-        return datamap[iid][tid];
+            ReadLock();
+        }
+        T retVal = datamap[iid][tid];
+        UnLock();
+        return retVal;
     }
 
     uint32_t CountThreads(){
-        return allthreads.size();
+        ReadLock();
+        uint32_t ret = allthreads.size();
+        UnLock();
+        return ret;
     }
     uint32_t CountImages(){
-        return allimages.size();
+        ReadLock();
+        uint32_t ret = allimages.size();
+        UnLock();
+        return ret;
     }
 };
 
@@ -856,6 +916,7 @@ private:
     uint32_t threadcount;
     uint32_t imagecount;
     T** stats;
+    // FIXME --> might need to be a rwlock
     pthread_mutex_t lock;
 
     void Lock(){ pthread_mutex_lock(&lock); }

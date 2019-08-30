@@ -225,28 +225,29 @@ extern "C"
         }
         timers->inFunction[funcIndex] = recDepth;
 
-        if(shutoffFunctionTimers) {
-            if (timers->functionEntryCounts[funcIndex] % shutoffIters == 0) {
-                double timePerVisit=((double)timers->functionTimerAccum[
-                  funcIndex]) / ((double)timers->functionEntryCounts[funcIndex])
-                  / timerCPUFreq;
+            if(shutoffFunctionTimers) {
+                if (timers->functionEntryCounts[funcIndex] % shutoffIters == 0){
+                    double timePerVisit=((double)timers->functionTimerAccum[
+                      funcIndex]) / ((double)timers->functionEntryCounts[
+                      funcIndex]) / timerCPUFreq;
 
-                if(timePerVisit < (((double)timingThreshold)/1000000.0)) {
-                    uint64_t this_key = GENERATE_KEY(funcIndex, 
-                      PointType_functionExit);
-                    uint64_t corresponding_entry_key=GENERATE_KEY(funcIndex, 
-                      PointType_functionEntry);
+                    if(timePerVisit < (((double)timingThreshold)/1000000.0)) {
+                        AllData->WriteLock();
+                        uint64_t this_key = GENERATE_KEY(funcIndex, 
+                          PointType_functionExit);
+                        uint64_t corresponding_entry_key=GENERATE_KEY(funcIndex,
+                          PointType_functionEntry);
 
-                    //warn << "Shutting off timing for function " << timers->functionNames[funcIndex] << "; time per visit averaged over " << timers->functionEntryCounts[funcIndex] << " entries is " << timePerVisit << "s; specified cut-off threshold is " << (((double)timingThreshold)/1000000.0) << "s." << ENDL;
-                    set<uint64_t> inits;
-                    inits.insert(this_key);
-                    inits.insert(corresponding_entry_key);
-                    SetDynamicPoints(inits, false); 
-                    timers->functionShutoff[funcIndex]=1;
-
+                        //warn << "Shutting off timing for function " << timers->functionNames[funcIndex] << "; time per visit averaged over " << timers->functionEntryCounts[funcIndex] << " entries is " << timePerVisit << "s; specified cut-off threshold is " << (((double)timingThreshold)/1000000.0) << "s." << ENDL;
+                        set<uint64_t> inits;
+                        inits.insert(this_key);
+                        inits.insert(corresponding_entry_key);
+                        SetDynamicPoints(inits, false); 
+                        timers->functionShutoff[funcIndex]=1;
+                        AllData->UnLock();
+                    }
                 }
             }
-        }
         return 0;
     }
 
@@ -343,8 +344,10 @@ extern "C"
         }
 
 
-        fprintf(outFile, "App timestamp time: %lld %lld %f\n", timers->appTimeStart, appTimeEnd, (double)(appTimeEnd - timers->appTimeStart) / timerCPUFreq);
-        fprintf(outFile, "App timeofday time: %lld %lld %f\n", timers->appTimeOfDayStart.tv_sec, tvEnd.tv_sec, diffTime(timers->appTimeOfDayStart, tvEnd));
+        fprintf(outFile, "App timestamp time: %lld %lld %f\n", 
+          timers->appTimeStart, appTimeEnd, (double)(appTimeEnd - timers->appTimeStart) / timerCPUFreq);
+        fprintf(outFile, "App timeofday time: %lld %lld %f\n", 
+          timers->appTimeOfDayStart.tv_sec, tvEnd.tv_sec, diffTime(timers->appTimeOfDayStart, tvEnd));
         // for each image
         //   for each function
         //     for each thread
@@ -363,13 +366,14 @@ extern "C"
                     FunctionTimers* timers = AllData->GetData(*iit, *tit);
 
                     if(timers->functionShutoff[funcIndex]==1) {
-                        fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: "
-                          "%lld\tHash: 0x%llx\t*\t", *tit, (double)(timers->
+                        fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
+                          "%lld\tHash: 0x%llx\t*\t", AllData->GetThreadSequence(*tit), (double)(timers->
                           functionTimerAccum[funcIndex]) / timerCPUFreq, 
                           timers->functionEntryCounts[funcIndex], timers->
                           functionHashes[funcIndex]);
                     } else {
-                        fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: "                          "%lld\tHash: 0x%llx\t", *tit, (double)(timers->
+                        fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
+                          "%lld\tHash: 0x%llx\t", AllData->GetThreadSequence(*tit), (double)(timers->
                           functionTimerAccum[funcIndex]) / timerCPUFreq, 
                           timers->functionEntryCounts[funcIndex], timers->
                           functionHashes[funcIndex]);
