@@ -19,7 +19,7 @@
  */
 
 #include <InstrumentationCommon.hpp>
-#include <AddressRange.hpp>
+#include <ScatterGatherLength.hpp>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,7 +38,7 @@
 
 // global data
 static uint32_t CountMemoryHandlers = 0;
-static uint32_t RangeHandlerIndex = 0;
+static uint32_t VectorLengthHandlerIndex = 0;
 
 static SamplingMethod* Sampler = NULL;
 static DataManager<AddressStreamStats*>* AllData = NULL;
@@ -48,7 +48,7 @@ static set<uint64_t>* NonmaxKeys = NULL;
 // should not be used directly. kept here to be cloned by anyone who needs it
 static MemoryStreamHandler** MemoryHandlers = NULL;
 
-#define synchronize(__locker) __locker->WriteLock(); for (bool __s = true; \
+#define synchronize(__locker) __locker->Lock(); for (bool __s = true; \
   __s == true; __locker->UnLock(), __s = false) 
 
 void GetBufferIds(BufferEntry* b, image_key_t* i){
@@ -273,7 +273,7 @@ extern "C" {
 
                 // Process the buffer for each handler (this is general
                 // code for future development...there should only be 
-                // AddressRangeHandlers for now)
+                // VectorLengthHandlers for now)
                 for (uint32_t i = 0; i < CountMemoryHandlers; i++) {
                     MemoryStreamHandler* m = stats->Handlers[i];
                     ProcessBuffer(iid, tid, m, i, numElements);
@@ -445,15 +445,16 @@ extern "C" {
         }
 
        
-        // Create the Address Range report 
-        ofstream RangeFile;
+        // Create the Scatter Gather Vector Length report 
+        ofstream LengthFile;
         string oFile;
         const char* fileName;
 
-        RangeFileName(stats,oFile);
+        SGLengthFileName(stats,oFile);
         fileName=oFile.c_str();
-        inform << "Printing address range results to " << fileName << ENDL;
-        TryOpen(RangeFile,fileName);
+        inform << "Printing scatter gather vector length results to " << 
+          fileName << ENDL;
+        TryOpen(LengthFile,fileName);
 
         uint64_t sampledCount = 0;
         uint64_t totalMemop = 0;
@@ -466,10 +467,11 @@ extern "C" {
                 thread_key_t thread = it->first;
                 AddressStreamStats* s = it->second;
 
-                RangeStats* r = (RangeStats*)s->Stats[RangeHandlerIndex];
-                assert(r);
-                for (uint32_t i = 0; i < r->Capacity; i++){
-                    sampledCount += r->Counts[i];
+                VectorLengthStats* vls = (VectorLengthStats*)s->Stats[
+                  VectorLengthHandlerIndex];
+                assert(vls);
+                for (uint32_t i = 0; i < vls->Capacity; i++){
+                    sampledCount += vls->Counts[i];
                 }
 
                 for (uint32_t i = 0; i < s->BlockCount; i++){
@@ -493,7 +495,7 @@ extern "C" {
         }
 
         // Print application and address stream information
-        RangeFile
+        LengthFile
           << "# appname       = " << stats->Application << ENDL
           << "# extension     = " << stats->Extension << ENDL
           << "# rank          = " << dec << GetTaskId() << ENDL
@@ -517,26 +519,27 @@ extern "C" {
           << ENDL;
        
         // Print information for each image 
-        RangeFile << "# IMG" << TAB << "ImageHash" << TAB << "ImageSequence"
+        LengthFile << "# IMG" << TAB << "ImageHash" << TAB << "ImageSequence"
           << TAB << "ImageType" << TAB << "Name" << ENDL;
         
         for (set<image_key_t>::iterator iit = AllData->allimages.begin();
           iit != AllData->allimages.end(); iit++){
             AddressStreamStats* s = (AddressStreamStats*)AllData->GetData(
               (*iit), pthread_self());
-            RangeFile << "IMG" << TAB << hex << (*iit) << TAB << dec 
+            LengthFile << "IMG" << TAB << hex << (*iit) << TAB << dec 
               << AllData->GetImageSequence((*iit)) << TAB 
               << (s->Master ? "Executable" : "SharedLib") << TAB 
               << s->Application << ENDL;
         }
-        RangeFile << ENDL;        
+        LengthFile << ENDL;        
 
 
         // Print the information for each block
-        RangeFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
+        LengthFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
           << TAB << "ImageSequence" << TAB << "ThreadId" << TAB 
           << "BlockCounter" << TAB << "InstructionSimulated" << TAB 
-          << "MinAddress" << TAB << "MaxAddress" << TAB << "AddrRange " << ENDL;
+          << "AvgVecLength" << TAB << "MinVecLength" << TAB << "MaxVecLength" 
+          << ENDL;
 
         for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
           iit != AllData->allimages.end(); iit++){
@@ -545,32 +548,33 @@ extern "C" {
 
                 AddressStreamStats* st = it->second;
                 assert(st);
-                RangeStats* aggRange;
+                VectorLengthStats* aggLengths;
 
                 // Stats are collected by memid. We need to present them by
-                // block. Even if perinsn, just create new RangeStats data
-                // structure and compile per-memid data into it
-                aggRange = new RangeStats(st->AllocCount);
+                // block. Even if perinsn, just create new VectorLengthStats 
+                // data structure and compile per-memid data into it
+                aggLengths = new VectorLengthStats(st->AllocCount);
 
                 for (uint32_t memid = 0; memid < st->AllocCount; memid++){
                     uint32_t bbid;
-                    RangeStats* r = (RangeStats*)st->Stats[RangeHandlerIndex];
+                    VectorLengthStats* vls = (VectorLengthStats*)st->Stats[
+                      VectorLengthHandlerIndex];
                     if (st->PerInstruction){
                         bbid = memid;
                     } else {
                         bbid = st->BlockIds[memid];
                     }
 
-                    aggRange->Update(bbid, r->GetMinimum(memid), 0);
-                    aggRange->Update(bbid, r->GetMaximum(memid), 
-                      r->GetAccessCount(memid));
+                    aggLengths->Aggregate(bbid, vls->GetAccessCount(memid), 
+                      vls->GetMinimum(memid), vls->GetMaximum(memid), 
+                      vls->GetAverage(memid));
                 }
                 uint32_t MaxCapacity;
-                MaxCapacity = aggRange->Capacity;
+                MaxCapacity = aggLengths->Capacity;
                 
                 for (uint32_t bbid = 0; bbid < MaxCapacity; bbid++){
                     // dont print blocks which weren't touched
-                    if (aggRange->GetAccessCount(bbid)==0){
+                    if (aggLengths->GetAccessCount(bbid)==0){
                         continue;
                     }
                     // this isn't necessarily true since this tool can suspend 
@@ -582,14 +586,14 @@ extern "C" {
                     // (e.g. with scatter/gather)
                     if (AllData->CountThreads() == 1 && 
                       !st->HasNonDeterministicMemop[bbid]){
-                        if (aggRange->GetAccessCount(bbid) % 
+                        if (aggLengths->GetAccessCount(bbid) % 
                           st->MemopsPerBlock[bbid] != 0){
                             inform << "bbid " << dec << bbid << " image " << 
                               hex << (*iit) << " accesses " << dec << 
-                              aggRange->GetAccessCount(bbid) << " memops " << 
+                              aggLengths->GetAccessCount(bbid) << " memops " << 
                               st->MemopsPerBlock[bbid] << ENDL;
                         }
-                        assert(aggRange->GetAccessCount(bbid) % 
+                        assert(aggLengths->GetAccessCount(bbid) % 
                           st->MemopsPerBlock[bbid] == 0);                       
                     }
 
@@ -600,30 +604,30 @@ extern "C" {
                         idx = st->Counters[bbid];
                     }
 
-                    RangeFile  << "BLK" << TAB << dec << bbid 
+                    LengthFile  << "BLK" << TAB << dec << bbid 
                       << TAB << hex << st->Hashes[bbid]
                       << TAB << dec << AllData->GetImageSequence((*iit))
                       << TAB << dec << AllData->GetThreadSequence(st->threadid)
                       << TAB << dec << st->Counters[idx]
-                      << TAB << dec << aggRange->GetAccessCount(bbid)
-                      << TAB << hex << aggRange->GetMinimum(bbid)
-                      << TAB << hex << aggRange->GetMaximum(bbid)
-                      << TAB << hex << (aggRange->GetMaximum(bbid) - 
-                        aggRange->GetMinimum(bbid))<<ENDL;                
+                      << TAB << dec << aggLengths->GetAccessCount(bbid)
+                      << TAB << dec << aggLengths->GetAverage(bbid)
+                      << TAB << dec << aggLengths->GetMinimum(bbid)
+                      << TAB << dec << aggLengths->GetMaximum(bbid)
+                      <<ENDL;                
                 } // For each block
             } // For each data manager
         } // For each image
 
         // Close the file
-        RangeFile.close();
+        LengthFile.close();
         
         double t = (AllData->GetTimer(*key, 1) - AllData->GetTimer(*key, 0));
         inform << "CXXX Total Execution time for instrumented application " 
           << t << ENDL;
         // TODO Is this right?
         double m = (double)(CountMemoryHandlers * Sampler->AccessCount);
-        inform << "CXXX - ADDR RANGE - Memops simulated per second: " << (m/t) 
-          << ENDL;
+        inform << "CXXX - SCATTER GATHER LENGTH - Memops simulated per second: "
+          << (m/t) << ENDL;
         if(NonmaxKeys){
             delete NonmaxKeys;
         }
@@ -632,7 +636,7 @@ extern "C" {
 
 };
 
-void RangeFileName(AddressStreamStats* stats, string& oFile){
+void SGLengthFileName(AddressStreamStats* stats, string& oFile){
     oFile.clear();
     oFile.append(stats->Application);
     oFile.append(".r");
@@ -640,7 +644,7 @@ void RangeFileName(AddressStreamStats* stats, string& oFile){
     oFile.append(".t");
     AppendTasksString(oFile);
     oFile.append(".");
-    oFile.append("addrange");
+    oFile.append("sglength");
 }
 
 char ToLowerCase(char c){
@@ -650,95 +654,122 @@ char ToLowerCase(char c){
     return c;
 }
 
-RangeStats::RangeStats(uint32_t capacity){
+VectorLengthStats::VectorLengthStats(uint32_t capacity){
     Capacity = capacity;
     Counts = new uint64_t[Capacity];
     bzero(Counts, sizeof(uint64_t) * Capacity);
-    Ranges = new AddressRange*[Capacity];
+    Lengths = new VectorLength*[Capacity];
     for (uint32_t i = 0; i < Capacity; i++){
-        Ranges[i] = new AddressRange();
-        Ranges[i]->Minimum = MAX_64BIT_VALUE;
-        Ranges[i]->Maximum = 0;
+        Lengths[i] = new VectorLength();
+        Lengths[i]->Minimum = MAX_64BIT_VALUE;
+        Lengths[i]->Maximum = 0;
+        Lengths[i]->Average = 0;
     }
 }
 
-RangeStats::~RangeStats(){
-    if (Ranges){
-        delete[] Ranges;
+VectorLengthStats::~VectorLengthStats(){
+    if (Lengths){
+        delete[] Lengths;
     }
     if (Counts){
         delete[] Counts;
     }
 }
 
-bool RangeStats::HasMemId(uint32_t memid){
+bool VectorLengthStats::HasMemId(uint32_t memid){
     return (memid < Capacity);
 }
 
-uint64_t RangeStats::GetMinimum(uint32_t memid){
+double VectorLengthStats::GetAverage(uint32_t memid){
     assert(HasMemId(memid));
-    return Ranges[memid]->Minimum;
+    return Lengths[memid]->Average;
 }
 
-uint64_t RangeStats::GetMaximum(uint32_t memid){
+uint64_t VectorLengthStats::GetMinimum(uint32_t memid){
     assert(HasMemId(memid));
-    return Ranges[memid]->Maximum;
+    return Lengths[memid]->Minimum;
 }
 
-void RangeStats::Update(uint32_t memid, uint64_t addr){
-    Update(memid, addr, 1);
+uint64_t VectorLengthStats::GetMaximum(uint32_t memid){
+    assert(HasMemId(memid));
+    return Lengths[memid]->Maximum;
 }
 
-void RangeStats::Update(uint32_t memid, uint64_t addr, uint32_t count){
-    AddressRange* r = Ranges[memid];
-    if (addr < r->Minimum){
-        r->Minimum = addr;
+void VectorLengthStats::Aggregate(uint32_t memid, uint64_t count, uint64_t min,
+  uint64_t max, double avg){
+    // If there is no count, then nothing should change
+    if (count <= 0) {
+        return;
     }
-    if (addr > r->Maximum){
-        r->Maximum = addr;
+    VectorLength* v = (VectorLength*)(Lengths[memid]);
+    if (min < v->Minimum){
+        v->Minimum = min;
     }
+    if (max > v->Maximum){
+        v->Maximum = max;
+    }
+
+    // To update the average length we have to decide between potential overflow
+    // or loss of precision. For now, let's try to prevent overflow:
+    uint64_t oldCount = Counts[memid];
+    double oldAverage = v->Average;
     Counts[memid] += count;
+    v->Average = (oldAverage * ((double)oldCount / Counts[memid])) + 
+      (avg * ((double)count / Counts[memid]));
 }
 
-bool RangeStats::Verify(){
+void VectorLengthStats::Update(uint32_t memid, uint64_t length){
+    VectorLength* v = Lengths[memid];
+    if (length < v->Minimum){
+        v->Minimum = length;
+    }
+    if (length > v->Maximum){
+        v->Maximum = length;
+    }
+
+    // To update the average length without doing a muliplication and risking
+    // overflow, we will update it with the following formula:
+    // newAvg = oldAvg + [(length - oldAvg) / newCounts]
+    // Simple Algebra will show that this is equivalent to:
+    // newAvg = [(oldAvg * (newCounts - 1)) + length] / newCounts
+    Counts[memid] += 1;
+    double oldAverage = v->Average;
+    v->Average = oldAverage + ((length - oldAverage) / Counts[memid]);
+}
+
+bool VectorLengthStats::Verify(){
     return true;
 }
 
-AddressRangeHandler::AddressRangeHandler(){
+VectorLengthHandler::VectorLengthHandler(){
 }
-AddressRangeHandler::AddressRangeHandler(AddressRangeHandler& h){
+VectorLengthHandler::VectorLengthHandler(VectorLengthHandler& h){
     pthread_mutex_init(&mlock, NULL);
 }
-AddressRangeHandler::~AddressRangeHandler(){
+VectorLengthHandler::~VectorLengthHandler(){
 }
 
-void AddressRangeHandler::Print(ofstream& f){
-    f << "AddressRangeHandler" << ENDL;
+void VectorLengthHandler::Print(ofstream& f){
+    f << "VectorLengthHandler" << ENDL;
 }
 
-uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
+uint32_t VectorLengthHandler::Process(void* stats, BufferEntry* access){
 
     if(access->type == MEM_ENTRY) {
-        uint32_t memid = (uint32_t)access->memseq;
-        uint64_t addr = access->address;
-        RangeStats* rs = (RangeStats*)stats;
-        rs->Update(memid, addr);
         return 0;
     } else if(access->type == VECTOR_ENTRY) {
-        uint64_t currAddr;
+        uint64_t length = 0;
         uint32_t memid = (uint32_t)access->memseq;
         uint16_t mask = (access->vectorAddress).mask;
-        RangeStats* rs = (RangeStats*)stats;
+        VectorLengthStats* vls = (VectorLengthStats*)stats;
 
         for (int i = 0; i < (access->vectorAddress).numIndices; i++) {
             if(mask % 2 == 1) {
-                currAddr = (access->vectorAddress).base + 
-                  (access->vectorAddress).indexVector[i] * 
-                  (access->vectorAddress).scale;
-                rs->Update(memid, currAddr);
+                length++;
             }
             mask = (mask >> 1);
         }
+        vls->Update(memid, length);
         return 0;
     } 
     // TODO To be implemented later
@@ -746,7 +777,7 @@ uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
         uint32_t memid = (uint32_t)access->memseq;
         uint64_t addr = access->address;
         if (ExecuteSoftwarePrefetches) {
-          RangeStats* rs = (RangeStats*)stats;
+          VectorLengthStats* vls = (VectorLengthStats*)stats;
           rs->Update(memid, addr);
         }
         return 0;
@@ -840,7 +871,8 @@ SamplingMethod::~SamplingMethod(){
 }
 
 void SamplingMethod::Print(){
-    inform << "SamplingMethod:" << TAB << "AccessLimit " << AccessLimit << " SampleOn " << SampleOn << " SampleOff " << SampleOff << ENDL;
+    inform << "SamplingMethod:" << TAB << "AccessLimit " << AccessLimit << 
+      " SampleOn " << SampleOn << " SampleOff " << SampleOff << ENDL;
 }
 
 void SamplingMethod::IncrementAccessCount(uint64_t count){
@@ -932,17 +964,17 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     assert(CountMemoryHandlers == 1);
     stats->Stats = new StreamStats*[CountMemoryHandlers];
     bzero(stats->Stats, sizeof(StreamStats*) * CountMemoryHandlers);    
-    stats->Stats[RangeHandlerIndex] = new RangeStats(s->AllocCount);
+    stats->Stats[VectorLengthHandlerIndex] = new VectorLengthStats(s->AllocCount);
 
     if (typ == AllData->ThreadType || (iid == firstimage)){
         stats->Handlers = new MemoryStreamHandler*[CountMemoryHandlers];   
     
         // all images within a thread share a set of memory handlers, but they 
         // don't exist for any image
-        AddressRangeHandler* p = (AddressRangeHandler*)MemoryHandlers[
-          RangeHandlerIndex];
-        AddressRangeHandler* r = new AddressRangeHandler(*p);
-        stats->Handlers[RangeHandlerIndex] = r;
+        VectorLengthHandler* p = (VectorLengthHandler*)MemoryHandlers[
+          VectorLengthHandlerIndex];
+        VectorLengthHandler* r = new VectorLengthHandler(*p);
+        stats->Handlers[VectorLengthHandlerIndex] = r;
     }
     else{
         AddressStreamStats * fs = AllData->GetData(firstimage, tid);
@@ -980,18 +1012,18 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
 }
 
 void ReadSettings(){
-    RangeHandlerIndex = CountMemoryHandlers;
+    VectorLengthHandlerIndex = CountMemoryHandlers;
     CountMemoryHandlers++;
 
     MemoryStreamHandler** tmp = new MemoryStreamHandler*[CountMemoryHandlers];
-    for(uint32_t i = 0; i < RangeHandlerIndex; ++i) {
+    for(uint32_t i = 0; i < VectorLengthHandlerIndex; ++i) {
         tmp[i] = MemoryHandlers[i];
     }
     if(MemoryHandlers != NULL) {
         delete[] MemoryHandlers;
     }
     MemoryHandlers = tmp;
-    MemoryHandlers[RangeHandlerIndex] = new AddressRangeHandler();   
+    MemoryHandlers[VectorLengthHandlerIndex] = new VectorLengthHandler();   
 
     uint32_t SampleMax;
     uint32_t SampleOn;

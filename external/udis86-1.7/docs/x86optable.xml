@@ -725,21 +725,21 @@ MAL MISSING PRE SSE?
   </instruction>
 
   <instruction mnemonic="cmpsb">
-    <opcode> ; a6 ; ; u:df d:alu ; u:si u:di d:si d:di </opcode>
+    <opcode imp_addr="1"> ; a6 ; ; u:df d:alu ; u:si u:di d:si d:di </opcode>
   </instruction>
 
   <instruction mnemonic="cmpsw">
-    <opcode> oso rexw ; a7 /O16 ; ; u:df d:alu ; u:si u:di d:si d:di </opcode>
+    <opcode imp_addr="1"> oso rexw ; a7 /O16 ; ; u:df d:alu ; u:si u:di d:si d:di </opcode>
   </instruction>
 
   <instruction mnemonic="cmpsd">
-    <opcode> oso rexw ; a7 /O32 ; ; u:df d:alu ; u:si u:di d:si d:di </opcode>
+    <opcode imp_addr="1"> oso rexw ; a7 /O32 ; ; u:df d:alu ; u:si u:di d:si d:di </opcode>
     <opcode> aso rexr rexx rexb ; ssef2 0f c2 ; Vx Wx Ib ; ; </opcode>
     <opcode> aso rexr rexx rexb vexlig ; avxC4 ssef2 0f c2 ; V X W Ib ; ; </opcode>
   </instruction>
 
   <instruction mnemonic="cmpsq">
-    <opcode> oso rexw ; a7 /O64 ; ; u:df d:alu ; u:si u:di d:si d:di </opcode>
+    <opcode imp_addr="1"> oso rexw ; a7 /O64 ; ; u:df d:alu ; u:si u:di d:si d:di </opcode>
   </instruction>
 
   <instruction mnemonic="cmpss">
