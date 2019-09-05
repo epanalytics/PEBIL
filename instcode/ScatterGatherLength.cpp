@@ -48,7 +48,7 @@ static set<uint64_t>* NonmaxKeys = NULL;
 // should not be used directly. kept here to be cloned by anyone who needs it
 static MemoryStreamHandler** MemoryHandlers = NULL;
 
-#define synchronize(__locker) __locker->Lock(); for (bool __s = true; \
+#define synchronize(__locker) __locker->WriteLock(); for (bool __s = true; \
   __s == true; __locker->UnLock(), __s = false) 
 
 void GetBufferIds(BufferEntry* b, image_key_t* i){
