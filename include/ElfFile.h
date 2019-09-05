@@ -133,6 +133,7 @@ public:
     uint64_t getProgramBaseAddress();
 
     bool isMicBinary();
+    bool isAVX512Binary();
     bool is64Bit() { return is64BitFlag; }
     bool isStaticLinked() { return staticLinked; }
     void setStaticLinked(bool val) { staticLinked = val; }
