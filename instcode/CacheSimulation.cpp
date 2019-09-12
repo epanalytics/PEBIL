@@ -57,7 +57,7 @@ static set<uint64_t>* NonmaxKeys = NULL;
 static MemoryStreamHandler** MemoryHandlers = NULL;
 
 
-#define synchronize(__locker) __locker->WriteLock(); for (bool __s = true;\
+//#define synchronize(__locker) __locker->WriteLock(); for (bool __s = true;\
   __s == true; __locker->UnLock(), __s = false) 
 
 
@@ -153,7 +153,7 @@ extern "C" {
             stats->imageid = *key;
     
             // Get all dynamic point keys and possibly disable them
-            synchronize(AllData){
+            //synchronize(AllData){
                 if (NonmaxKeys == NULL){
                     NonmaxKeys = new set<uint64_t>();
                 }
@@ -187,7 +187,7 @@ extern "C" {
                 }
     
                 AllData->SetTimer(*key, 0);
-            }
+            //}
 
             // Kill initialization points for this image
             set<uint64_t> inits;
@@ -274,15 +274,15 @@ extern "C" {
 
         bool isSampling;
         // Check if we are sampling
-        synchronize(AllData){
+        //synchronize(AllData){
             isSampling = Sampler->CurrentlySampling();
             if (NonmaxKeys->empty()){
                 AllData->UnLock();
                 DONE_WITH_BUFFER();
             }
-        }
+        //}
 
-        synchronize(AllData){
+        //synchronize(AllData){
             if (isSampling){
                 BufferEntry* buffer = &(stats->Buffer[1]);
                 // Refresh FastStats so it can be used
@@ -308,10 +308,10 @@ extern "C" {
                     }
                 }               
             } 
-        }
+       // }
 
         // Turn sampling on/off
-        synchronize(AllData){
+        //synchronize(AllData){
             if (isSampling){
                 set<uint64_t> MemsRemoved;
                 AddressStreamStats** faststats = FastStats->GetBufferStats(tid);
@@ -401,7 +401,7 @@ extern "C" {
             }
 
             Sampler->IncrementAccessCount(numElements);
-        }
+        //}
 
         DONE_WITH_BUFFER();
     }
