@@ -36,6 +36,8 @@
 
 #define PRINT_MINIMUM 1
 
+using namespace std;
+
 static DataManager<CounterArray*>* AllData = NULL;
 
 void print_loop_array(FILE* stream, CounterArray* ctrs){

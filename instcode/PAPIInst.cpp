@@ -32,6 +32,10 @@
  */
 
 #include <InstrumentationCommon.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <Metasim.hpp>
+#include <ThreadedCommon.hpp>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,6 +50,8 @@
 #include <sstream>
 
 #include <PAPIInst.hpp>
+
+using namespace std;
 
 // mandel's CPU Frequency: you can either hard-code the frequency here
 // or use the PEBIL_TIMER_CPU_FREQ env var.

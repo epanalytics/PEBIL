@@ -51,6 +51,7 @@ endif
 
 COMMON_OBJS = $(LIBDIR)/InstrumentationCommon.o
 COMMON_OBJS_MIC = $(MICLIBDIR)/InstrumentationCommon.o
+SHARED_COMMON_OBJS = $(LIBDIR)/InstrumentationCommon.O $(LIBDIR)/ThreadedCommon.O $(LIBDIR)/DynamicInstrumentation.O
 
 ifeq ($(ADAMANT_LIBS_BUILD),yes)
 	EXTRA_LIBS = -ldl -lpthread -ladm
@@ -69,7 +70,7 @@ $(MICLIBDIR)/%.o: %.c
 $(MICLIBDIR)/%.O: %.cpp
 	$(MPICXX_MIC) $(CXXFLAGS) $(MICFLAGS) $(EXTRA_FLAGS) $(EXTRA_DEF) $(EXTRA_INC) -c -o $@ $< $(SHARED_OPT)
 
-$(LIBDIR)/libcounter.so : $(LIBDIR)/CounterFunctions.O
+$(LIBDIR)/libcounter.so : $(LIBDIR)/CounterFunctions.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 $(LIBDIR)/libcounter.a : $(LIBDIR)/CounterFunctions.o $(COMMON_OBJS)
 	$(AR) $@ $(LIBDIR)/CounterFunctions.o $(COMMON_OBJS)
@@ -78,7 +79,7 @@ $(MICLIBDIR)/libcounter.so : $(MICLIBDIR)/CounterFunctions.O
 $(MICLIBDIR)/libcounter.a : $(MICLIBDIR)/CounterFunctions.o $(COMMON_OBJS_MIC)
 	$(AR) $@ $(MICLIBDIR)/CounterFunctions.o $(COMMON_OBJS_MIC)
 
-$(LIBDIR)/libcachesimulator.so : $(LIBDIR)/CacheSimulation.O
+$(LIBDIR)/libcachesimulator.so : $(LIBDIR)/CacheSimulation.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
 $(LIBDIR)/libcachesimulator.a : $(LIBDIR)/CacheSimulation.o $(LIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS)
 	$(AR) $@ $(LIBDIR)/CacheSimulation.o $(LIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS)
@@ -87,19 +88,19 @@ $(MICLIBDIR)/libcachesimulator.so : $(MICLIBDIR)/CacheSimulation.O
 $(MICLIBDIR)/libcachesimulator.a : $(MICLIBDIR)/CacheSimulation.o $(MICLIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS_MIC)
 	$(AR) $@ $(MICLIBDIR)/CacheSimulation.o $(MICLIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS_MIC)
 
-$(LIBDIR)/libaddressrange.so : $(LIBDIR)/AddressRange.O
+$(LIBDIR)/libaddressrange.so : $(LIBDIR)/AddressRange.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
 
-$(LIBDIR)/libreusedist.so : $(LIBDIR)/ReuseDistAddr.O
+$(LIBDIR)/libreusedist.so : $(LIBDIR)/ReuseDistAddr.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
 
-$(LIBDIR)/libscattergatherlength.so : $(LIBDIR)/ScatterGatherLength.O
+$(LIBDIR)/libscattergatherlength.so : $(LIBDIR)/ScatterGatherLength.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
 
-$(LIBDIR)/libspatlocal.so : $(LIBDIR)/SpatLocalAddr.O
+$(LIBDIR)/libspatlocal.so : $(LIBDIR)/SpatLocalAddr.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
 
-$(LIBDIR)/liblooptimer.so : $(LIBDIR)/LoopTimer.O
+$(LIBDIR)/liblooptimer.so : $(LIBDIR)/LoopTimer.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 $(MICLIBDIR)/liblooptimer.so : $(MICLIBDIR)/LoopTimer.O
 	$(MPICXX_MIC) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS) $(MICFLAGS)
@@ -109,12 +110,12 @@ $(LIBDIR)/libfrequencyconfig.so : $(LIBDIR)/FrequencyConfig.O
 $(MICLIBDIR)/libfrequencyconfig.so : $(MICLIBDIR)/FrequencyConfig.O
 	$(MPICXX_MIC) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS) $(MICFLAGS)
 
-$(LIBDIR)/libpapiinst.so : $(LIBDIR)/PAPIInst.O
+$(LIBDIR)/libpapiinst.so : $(LIBDIR)/PAPIInst.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 $(MICLIBDIR)/libpapiinst.so : $(MICLIBDIR)/PAPIInst.O
 	$(MPICXX_MIC) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS) $(MICFLAGS)
 
-$(LIBDIR)/libtimer.so : $(LIBDIR)/TimerFunctions.O
+$(LIBDIR)/libtimer.so : $(LIBDIR)/TimerFunctions.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 $(LIBDIR)/libtimer.a : $(LIBDIR)/TimerFunctions.o $(COMMON_OBJS) 
 	$(AR) $@ $(LIBDIR)/TimerFunctions.o $(COMMON_OBJS)
@@ -123,7 +124,7 @@ $(MICLIBDIR)/libtimer.so : $(MICLIBDIR)/TimerFunctions.O
 $(MICLIBDIR)/libtimer.a : $(MICLIBDIR)/TimerFunctions.o $(COMMON_OBJS_MIC) 
 	$(AR) $@ $(MICLIBDIR)/TimerFunctions.o $(COMMON_OBJS_MIC)
 
-$(LIBDIR)/libpapifunc.so : $(LIBDIR)/PAPIFunc.O
+$(LIBDIR)/libpapifunc.so : $(LIBDIR)/PAPIFunc.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 $(MICLIBDIR)/libpapifunc.so : $(MICLIBDIR)/PAPIFunc.O
 	$(MPICXX_MIC) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS) $(MICFLAGS)

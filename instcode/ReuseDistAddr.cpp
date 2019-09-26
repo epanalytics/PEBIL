@@ -18,8 +18,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <InstrumentationCommon.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <Metasim.hpp>
+#include <ThreadedCommon.hpp>
 #include <ReuseDistCommon.hpp>
 
+#include <cstring>
+
+using namespace std;
 
 // These control reuse distance calculations. Activate this feature by setting 
 // METASIM_REUSE_WINDOW to something other than 0. The design of the reuse 

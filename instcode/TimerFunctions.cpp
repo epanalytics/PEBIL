@@ -9,13 +9,17 @@
  */
 
 #include <InstrumentationCommon.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <Metasim.hpp>
+#include <ThreadedCommon.hpp>
 #include <TimerFunctions.hpp>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <assert.h>
-#include <strings.h>
+#include <string.h>
 
 #include <vector>
 #include <iostream>
@@ -24,7 +28,7 @@
 #include <algorithm>
 #include <string>
 
-
+using namespace std;
 
 DataManager<FunctionTimers*>* AllData = NULL;
 

@@ -18,8 +18,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <InstrumentationCommon.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <Metasim.hpp>
+#include <ThreadedCommon.hpp>
 #include <ReuseDistCommon.hpp>
 
+#include <cstring>
+
+using namespace std;
 
 static uint32_t SpatialWindow = 0;
 static uint32_t SpatialBin = 0;

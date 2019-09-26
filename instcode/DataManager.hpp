@@ -1,11 +1,22 @@
 
 #ifndef _DataManager_hpp_
 #define _DataManager_hpp_
-// data management support
+#include <assert.h>
+#include <set>
+
 #define DataMap std::pebil_map_type
 #define ThreadHashShift (16)
 #define ThreadHashMod   (0x3ffff)
 
+#ifndef debug(...)
+//#define debug(...) __VA_ARGS__
+#define debug(...)
+#endif
+
+typedef uint64_t image_key_t;
+typedef pthread_t thread_key_t;
+
+// data management support
 template <class T> class DataManager {
 private:
 
@@ -109,9 +120,9 @@ public:
         return datamap[img].end();
     }
 
-    set<thread_key_t> allthreads;
-    set<thread_key_t> donethreads;
-    set<image_key_t> allimages;
+    std::set<thread_key_t> allthreads;
+    std::set<thread_key_t> donethreads;
+    std::set<image_key_t> allimages;
 
     static const uint32_t ThreadType = 0;
     static const uint32_t ImageType = 1;
@@ -218,7 +229,7 @@ public:
         }
 
         // Setup data for any previously initialized images
-        for (set<image_key_t>::iterator iit = allimages.begin(); iit !=
+        for (std::set<image_key_t>::iterator iit = allimages.begin(); iit !=
           allimages.end(); iit++){
 
             // This image must have been initialized
@@ -229,7 +240,7 @@ public:
             assert(datamap[(*iit)].count(tid) == 0);
             assert(allthreads.size() > 0);
 
-            set<thread_key_t>::iterator tit = allthreads.begin();
+            std::set<thread_key_t>::iterator tit = allthreads.begin();
 
             // Generate thread data for this image using some other thread's
             // data as a template
@@ -261,7 +272,7 @@ public:
         thread_key_t tid = pthread_self();
         assert(allthreads.count(tid) == 1);
 
-        for (set<image_key_t>::iterator iit = allimages.begin(); iit !=
+        for (std::set<image_key_t>::iterator iit = allimages.begin(); iit !=
           allimages.end(); iit++){
             assert(datamap[(*iit)].size() > 0);
             assert(datamap[(*iit)].count(tid) == 1);
@@ -316,7 +327,7 @@ public:
             firstimage = iid;
 
         // create data for every thread
-        for (set<thread_key_t>::iterator it = allthreads.begin(); it !=
+        for (std::set<thread_key_t>::iterator it = allthreads.begin(); it !=
           allthreads.end(); it++){
             if(*it == tid)
                 datamap[iid][(*it)] = datagen(data, ImageType, iid, (*it),
@@ -359,7 +370,7 @@ public:
 
     T GetData(thread_key_t tid){
         ReadLock();
-        set<image_key_t>::iterator iit = allimages.begin();
+        std::set<image_key_t>::iterator iit = allimages.begin();
         assert(iit != allimages.end());
         UnLock();
         // This GetData calls ReadLock()

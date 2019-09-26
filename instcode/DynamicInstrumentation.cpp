@@ -4,7 +4,8 @@
 #include <cassert>
 #include <cstring>
 
-static pebil_map_type < uint64_t, std::vector < DynamicInst* > > * Dynamics = NULL;
+static pebil_map_type < uint64_t, std::vector < DynamicInst* > > * Dynamics = 
+  NULL;
 static bool ThreadedModeFlag;
 
 void PrintDynamicPoint(DynamicInst* d) {
@@ -17,7 +18,9 @@ void PrintDynamicPoint(DynamicInst* d) {
         << "\t" << "Enabled " << (d->IsEnabled? "yes":"no")
         << "\n";
 }
-void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag) {
+
+void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn, 
+  bool* isThreadedModeFlag) {
     if (Dynamics == NULL){
         Dynamics = new pebil_map_type < uint64_t, std::vector < DynamicInst* > > ();
     }
@@ -40,7 +43,8 @@ void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn,bool* i
 
 void GetAllDynamicKeys(std::set<uint64_t>& keys) {
     assert(keys.size() == 0);
-    for (pebil_map_type<uint64_t, std::vector<DynamicInst*> >::iterator it = Dynamics->begin(); it != Dynamics->end(); it++){
+    for (pebil_map_type<uint64_t, std::vector<DynamicInst*> >::iterator it = 
+      Dynamics->begin(); it != Dynamics->end(); it++){
         uint64_t k = (*it).first;
         keys.insert(k);
     }
@@ -59,11 +63,13 @@ void SetDynamicPointStatus(DynamicInst* d, bool state) {
 
 void SetDynamicPoints(std::set<uint64_t>& keys, bool state) {
     uint32_t count = 0;
-    for (pebil_map_type<uint64_t, std::vector<DynamicInst*> >::iterator it = Dynamics->begin(); it != Dynamics->end(); it++){
+    for (pebil_map_type<uint64_t, std::vector<DynamicInst*> >::iterator it = 
+      Dynamics->begin(); it != Dynamics->end(); it++){
         uint64_t k = (*it).first;
         if (keys.count(k) > 0){
             std::vector<DynamicInst*> dyns = (*it).second;
-            for (std::vector<DynamicInst*>::iterator dit = dyns.begin(); dit != dyns.end(); dit++){
+            for (std::vector<DynamicInst*>::iterator dit = dyns.begin(); dit != 
+              dyns.end(); dit++){
                 DynamicInst* d = (*dit);
                 if (state != d->IsEnabled){
                     count++;
@@ -72,12 +78,12 @@ void SetDynamicPoints(std::set<uint64_t>& keys, bool state) {
             }
         }
     }
-    debug(std::cout << "Thread " << std::hex << pthread_self() << " switched " << std::dec << count << " to " << (state? "on" : "off") << std::endl);
+    debug(std::cout << "Thread " << std::hex << pthread_self() << " switched " 
+      << std::dec << count << " to " << (state? "on" : "off") << std::endl);
 }
 
 //Mostly needs to be static value?
-bool isThreadedMode()
-{
+bool isThreadedMode() {
     return ThreadedModeFlag;
 }
 

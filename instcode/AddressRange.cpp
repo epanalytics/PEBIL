@@ -19,6 +19,10 @@
  */
 
 #include <InstrumentationCommon.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <Metasim.hpp>
+#include <ThreadedCommon.hpp>
 #include <AddressRange.hpp>
 
 #include <stdio.h>
@@ -35,6 +39,8 @@
 #include <algorithm>
 #include <string.h>
 #include <assert.h>
+
+using namespace std;
 
 // global data
 static uint32_t CountMemoryHandlers = 0;
