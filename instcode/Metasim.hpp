@@ -61,7 +61,7 @@ typedef enum {
 } PointTypes;
 
 #define DYNAMIC_POINT_SIZE_LIMIT 128
-typedef struct {
+typedef struct DynamicInst_s {
     uint64_t VirtualAddress;
     uint64_t ProgramAddress;
     uint64_t Key;

@@ -19,6 +19,9 @@
  */
 
 #include <InstrumentationCommon.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <ThreadedCommon.hpp>
 //#include <Simulation.hpp>
 #include <CounterFunctions.hpp>
 

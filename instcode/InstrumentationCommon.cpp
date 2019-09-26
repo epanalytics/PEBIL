@@ -18,55 +18,55 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _InstrumentationCommon_hpp_
-#define _InstrumentationCommon_hpp_
-//#define _GNU_SOURCE
-//#include <dlfcn.h>
+//#ifndef _InstrumentationCommon_hpp_
+//#define _InstrumentationCommon_hpp_
+#define _GNU_SOURCE
+#include <dlfcn.h>
 
-//#ifdef HAVE_MPI
-//#include <mpi.h>
-//#endif
-
-//#include <stdio.h>
-//#include <stdint.h>
-//#include <stdlib.h>
-#include <unistd.h>
-#include <assert.h>
-#include <string.h>
-#include <sys/time.h>
-//#include <stdarg.h>
-//#include <time.h>
-#include <signal.h>
-//#include <pthread.h>
-#include <set>
-#include <string>
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <execinfo.h>
-
-#ifdef HAVE_UNORDERED_MAP
-#include <tr1/unordered_map>
-#define pebil_map_type tr1::unordered_map
-#else
-#include <map>
-#define pebil_map_type map
+#ifdef HAVE_MPI
+#include <mpi.h>
 #endif
 
-#include <Metasim.hpp>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+//#include <unistd.h>
+//#include <assert.h>
+//#include <string.h>
+//#include <sys/time.h>
+#include <stdarg.h>
+#include <time.h>
+//#include <signal.h>
+#include <pthread.h>
+//#include <set>
+//#include <string>
+//#include <iostream>
+//#include <fstream>
+//#include <vector>
+//#include <execinfo.h>
+//
+//#ifdef HAVE_UNORDERED_MAP
+//#include <tr1/unordered_map>
+//#define pebil_map_type tr1::unordered_map
+//#else
+//#include <map>
+//#define pebil_map_type map
+//#endif
 
-#define ENV_OUTPUT_PREFIX "PEBIL_OUTPUT_PREFIX"
-#define PROCESS getpid() << "/" << getppid()
-#define THREAD pthread_self()
+//#include <Metasim.hpp>
+#include <InstrumentationCommon.hpp>
+//#include <ThreadedCommon.hpp>
 
-using namespace std;
-
-//`typedef struct ThreadData_s ThreadData;
-
-//static pebil_map_type < uint64_t, vector < DynamicInst* > > * Dynamics; // = NULL;
+//#define ENV_OUTPUT_PREFIX "PEBIL_OUTPUT_PREFIX"
+//#define PROCESS getpid() << "/" << getppid()
+//#define THREAD pthread_self()
+//
+//using namespace std;
+//
+//static pebil_map_type < uint64_t, vector < DynamicInst* > > * Dynamics = NULL;
 //static bool ThreadedModeFlag;
 //
-//static void PrintDynamicPoint(DynamicInst* d); /*{
+//static void PrintDynamicPoint(DynamicInst* d){
 //    std::cout
 //        << "\t"
 //        << "\t" << "Key 0x" << std::hex << d->Key
@@ -75,37 +75,38 @@ using namespace std;
 //        << "\t" << "Size " << std::dec << d->Size
 //        << "\t" << "Enabled " << (d->IsEnabled? "yes":"no")
 //        << "\n";
-//}*/
-//static void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag) {
-//    if (Dynamics == NULL){
-//        Dynamics = new pebil_map_type < uint64_t, vector < DynamicInst* > > ();
-//    }
-//    assert(Dynamics != NULL);
-//    ThreadedModeFlag=(*isThreadedModeFlag);
-//
-//
-//    DynamicInst* dd = *dyn;
-//    for (uint32_t i = 0; i < *count; i++){
-//        if (dd[i].IsEnabled){
-//            assert(dd[i].IsEnabled);
-//            uint64_t k = dd[i].Key;
-//            if (Dynamics->count(k) == 0){
-//                (*Dynamics)[k] = vector<DynamicInst*>();
-//            }
-//            (*Dynamics)[k].push_back(&dd[i]);
-//        }
-//    }
 //}
-//
-//static void GetAllDynamicKeys(set<uint64_t>& keys); /*{
+/*
+static void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag){
+    if (Dynamics == NULL){
+        Dynamics = new pebil_map_type < uint64_t, vector < DynamicInst* > > ();
+    }
+    assert(Dynamics != NULL);
+    ThreadedModeFlag=(*isThreadedModeFlag);
+
+
+    DynamicInst* dd = *dyn;
+    for (uint32_t i = 0; i < *count; i++){
+        if (dd[i].IsEnabled){
+            assert(dd[i].IsEnabled);
+            uint64_t k = dd[i].Key;
+            if (Dynamics->count(k) == 0){
+                (*Dynamics)[k] = vector<DynamicInst*>();
+            }
+            (*Dynamics)[k].push_back(&dd[i]);
+        }
+    }
+}*/
+
+//static void GetAllDynamicKeys(set<uint64_t>& keys){
 //    assert(keys.size() == 0);
 //    for (pebil_map_type<uint64_t, vector<DynamicInst*> >::iterator it = Dynamics->begin(); it != Dynamics->end(); it++){
 //        uint64_t k = (*it).first;
 //        keys.insert(k);
 //    }
-//}*/
-//
-//static void SetDynamicPointStatus(DynamicInst* d, bool state) {
+//}
+
+//static void SetDynamicPointStatus(DynamicInst* d, bool state){
 //
 //    uint8_t t[DYNAMIC_POINT_SIZE_LIMIT];
 //    memcpy(t, (uint8_t*)d->VirtualAddress, d->Size);
@@ -116,7 +117,7 @@ using namespace std;
 //    //PrintDynamicPoint(d);
 //}
 //
-//static void SetDynamicPoints(std::set<uint64_t>& keys, bool state) {
+//static void SetDynamicPoints(std::set<uint64_t>& keys, bool state){
 //    uint32_t count = 0;
 //    for (pebil_map_type<uint64_t, vector<DynamicInst*> >::iterator it = Dynamics->begin(); it != Dynamics->end(); it++){
 //        uint64_t k = (*it).first;
@@ -139,129 +140,129 @@ using namespace std;
 //{
 //    return ThreadedModeFlag;
 //}
-
-// thread id support
-typedef struct {
-    uint64_t id;
-    uint64_t data;
-} ThreadData;
+//
+//// thread id support
+//typedef struct {
+//    uint64_t id;
+//    uint64_t data;
+//} ThreadData;
 //#define ThreadHashShift (16)
 //#define ThreadHashMod   (0x3ffff)
-
-
-// handling of different initialization/finalization events
-// analysis libraries define these differently
-extern "C" {
-    extern void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag);
-
-    extern void* tool_mpi_init();
-
-    // Entry function when a thread is created by pthread_create
-    // However, there may already be threads in existence if this library was loaded late
-    extern void* tool_thread_init(pthread_t args);
-
-    // Called just after a thread is joined
-    extern void* tool_thread_fini(pthread_t args);
-
-    // Placed at entry points to image
-    // In an executable, this is the entry block for the program
-    // In a shared library, this is every function
-    // These points are killed after this function is called
-    extern void* tool_image_init(void* s, image_key_t* key, ThreadData* td);
-
-    // Called when the image is unloaded
-    extern void* tool_image_fini(image_key_t* key);
-};
-
-
-// some function re-naming support
-#define __give_pebil_name(__fname) \
-    __fname ## _pebil_wrapper
-
-#ifdef PRELOAD_WRAPPERS
-#define __wrapper_name(__fname) \
-    __fname
-#else // PRELOAD_WRAPPERS
-#define __wrapper_name(__fname) \
-    __give_pebil_name(__fname)
-#endif // PRELOAD_WRAPPERS
-
-
-
-// handle rank/process identification with/without MPI
-static int taskid;
-#ifdef HAVE_MPI
-#define __taskid taskid
-#define __ntasks ntasks
-static int __ntasks = 1;
-#else //HAVE_MPI
-#define __taskid getpid()
-#define __ntasks 1
-#endif //HAVE_MPI
-
-int GetTaskId(); /*{
+//
+//
+//// handling of different initialization/finalization events
+//// analysis libraries define these differently
+//extern "C" {
+//    extern void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag);
+//
+//    extern void* tool_mpi_init();
+//
+//    // Entry function when a thread is created by pthread_create
+//    // However, there may already be threads in existence if this library was loaded late
+//    extern void* tool_thread_init(pthread_t args);
+//
+//    // Called just after a thread is joined
+//    extern void* tool_thread_fini(pthread_t args);
+//
+//    // Placed at entry points to image
+//    // In an executable, this is the entry block for the program
+//    // In a shared library, this is every function
+//    // These points are killed after this function is called
+//    extern void* tool_image_init(void* s, image_key_t* key, ThreadData* td);
+//
+//    // Called when the image is unloaded
+//    extern void* tool_image_fini(image_key_t* key);
+//};
+//
+//
+//// some function re-naming support
+//#define __give_pebil_name(__fname) \
+//    __fname ## _pebil_wrapper
+//
+//#ifdef PRELOAD_WRAPPERS
+//#define __wrapper_name(__fname) \
+//    __fname
+//#else // PRELOAD_WRAPPERS
+//#define __wrapper_name(__fname) \
+//    __give_pebil_name(__fname)
+//#endif // PRELOAD_WRAPPERS
+//
+//
+//
+//// handle rank/process identification with/without MPI
+//static int taskid;
+//#ifdef HAVE_MPI
+//#define __taskid taskid
+//#define __ntasks ntasks
+//static int __ntasks = 1;
+//#else //HAVE_MPI
+//#define __taskid getpid()
+//#define __ntasks 1
+//#endif //HAVE_MPI
+//
+int GetTaskId(){
     return __taskid;
-}*/
-int GetNTasks(); /*{
+}
+int GetNTasks(){
     return __ntasks;
-}*/
-
-
-// a timer
-void ptimer(double *tmr); /* {
+}
+//
+//
+//// a timer
+void ptimer(double *tmr) {
     struct timeval timestr;
     void *tzp=0;
 
     gettimeofday(&timestr, (struct timezone*)tzp);
     *tmr=(double)timestr.tv_sec + 1.0E-06*(double)timestr.tv_usec;
-}*/
-
-// support for output/warnings/errors
-#define METASIM_ID "Metasim"
-#define METASIM_VERSION "3.0.0"
-#define METASIM_ENV "PEBIL_ROOT"
-
-#define TAB "\t"
-#define ENDL "\n"
-#define DISPLAY_ERROR cerr << "[" << METASIM_ID << "-r" << GetTaskId() << "] " << "Error: "
-#define warn cerr << "[" << METASIM_ID << "-r" << GetTaskId() << "] " << "Warning: "
-#define ErrorExit(__msg, __errno) DISPLAY_ERROR << __msg << endl << flush; exit(__errno);
-#define inform cout << "[" << METASIM_ID << "-r" << dec << GetTaskId() << "] "
-#define SAVE_STREAM_FLAGS(__s) ios_base::fmtflags ff ## __s = __s.flags()
-#define RESTORE_STREAM_FLAGS(__s) __s.flags(ff ## __s)
-
-
-enum MetasimErrors {
-    MetasimError_None = 0,
-    MetasimError_MemoryAlloc,
-    MetasimError_NoThread,
-    MetasimError_TooManyInsnReads,
-    MetasimError_StringParse,
-    MetasimError_FileOp,
-    MetasimError_Env,
-    MetasimError_NoImage,
-    MetaSimError_ExternalLib,
-    MetasimError_Total,
-};
-
-void TryOpen(ofstream& f, const char* name); /*{
+}
+//
+//// support for output/warnings/errors
+//#define METASIM_ID "Metasim"
+//#define METASIM_VERSION "3.0.0"
+//#define METASIM_ENV "PEBIL_ROOT"
+//
+//#define TAB "\t"
+//#define ENDL "\n"
+//#define DISPLAY_ERROR cerr << "[" << METASIM_ID << "-r" << GetTaskId() << "] " << "Error: "
+//#define warn cerr << "[" << METASIM_ID << "-r" << GetTaskId() << "] " << "Warning: "
+//#define ErrorExit(__msg, __errno) DISPLAY_ERROR << __msg << endl << flush; exit(__errno);
+//#define inform cout << "[" << METASIM_ID << "-r" << dec << GetTaskId() << "] "
+//#define SAVE_STREAM_FLAGS(__s) ios_base::fmtflags ff ## __s = __s.flags()
+//#define RESTORE_STREAM_FLAGS(__s) __s.flags(ff ## __s)
+//
+//
+//enum MetasimErrors {
+//    MetasimError_None = 0,
+//    MetasimError_MemoryAlloc,
+//    MetasimError_NoThread,
+//    MetasimError_TooManyInsnReads,
+//    MetasimError_StringParse,
+//    MetasimError_FileOp,
+//    MetasimError_Env,
+//    MetasimError_NoImage,
+//    MetaSimError_ExternalLib,
+//    MetasimError_Total,
+//};
+//
+void TryOpen(ofstream& f, const char* name) {
     f.open(name);
     f.setf(ios::showbase);
     if (f.fail()){
         ErrorExit("cannot open output file: " << name, MetasimError_FileOp);
     }
-}*/
-
-
+}
+//
+//
 //// thread handling
 //extern "C" {
-//    //const int SuspendSignal = SIGUSR2;
-//    //uint32_t CountSuspended = 0;
-//    //pthread_mutex_t countlock;
-//    //pthread_mutex_t pauser;
-//    //bool CanSuspend = false;
+//    const int SuspendSignal = SIGUSR2;
+//    uint32_t CountSuspended = 0;
+//    pthread_mutex_t countlock;
+//    pthread_mutex_t pauser;
+//    bool CanSuspend = false;
 //
-//    void SuspendHandler(int signum); /*{
+//    void SuspendHandler(int signum){
 //        // increment pause counter
 //        pthread_mutex_lock(&countlock);
 //        CountSuspended++;
@@ -276,9 +277,9 @@ void TryOpen(ofstream& f, const char* name); /*{
 //        pthread_mutex_lock(&countlock);
 //        CountSuspended--;
 //        pthread_mutex_unlock(&countlock);
-//    }*/
+//    }
 //
-//    void InitializeSuspendHandler(); /*{
+//    void InitializeSuspendHandler(){
 //        if (CanSuspend){
 //            return;
 //        }
@@ -297,9 +298,9 @@ void TryOpen(ofstream& f, const char* name); /*{
 //     
 //        sigaction(SuspendSignal, NULL, &OldAction);
 //        sigaction(SuspendSignal, &NewAction, NULL);
-//    }*/
+//    }
 //
-//    void SuspendAllThreads(uint32_t size, set<thread_key_t>::iterator b, set<thread_key_t>::iterator e); /*{
+//    void SuspendAllThreads(uint32_t size, set<thread_key_t>::iterator b, set<thread_key_t>::iterator e){
 //        if (!CanSuspend){
 //            return;
 //        }
@@ -319,9 +320,9 @@ void TryOpen(ofstream& f, const char* name); /*{
 //            pthread_yield();
 //        }
 //        assert(CountSuspended == ksize);
-//    }*/
+//    }
 //
-//    void ResumeAllThreads(); /*{
+//    void ResumeAllThreads(){
 //        if (!CanSuspend){
 //            return;
 //        }
@@ -333,22 +334,22 @@ void TryOpen(ofstream& f, const char* name); /*{
 //            pthread_yield();
 //        }
 //        assert(CountSuspended == 0);
-//    }*/
+//    }
 //
-//    typedef struct {
-//        void* args;
-//        void* (*fcn)(void*);
-//    } thread_passthrough_args;
+////    typedef struct {
+////        void* args;
+////        void* (*fcn)(void*);
+////    } thread_passthrough_args;
 //
-//    void* thread_started(void* args); /*{
+//    void* thread_started(void* args){
 //        thread_passthrough_args* pt_args = (thread_passthrough_args*)args;
 //        tool_thread_init(pthread_self());
 //        
 //        return pt_args->fcn(pt_args->args);
-//    }*/
+//    }
 //
 //    int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-//        void *(*start_routine) (void*), void *arg); /*{
+//        void *(*start_routine) (void*), void *arg){
 //
 //        static int (*pthread_create_ptr)(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void*), void*arg)
 //          = (int (*)(pthread_t *thread, const pthread_attr_t* attr, void *(*start_routine)(void*), void*))dlsym(RTLD_NEXT, "pthread_create");
@@ -359,9 +360,9 @@ void TryOpen(ofstream& f, const char* name); /*{
 //        pt_args->args = arg;
 //
 //        return pthread_create_ptr(thread, attr, thread_started, pt_args);
-//    } */
+//    }
 //
-//    int pthread_join(pthread_t thread, void **value_ptr); /*{
+//    int pthread_join(pthread_t thread, void **value_ptr){
 //        pthread_t jthread = thread;
 //
 //        int (*join_ptr)(pthread_t, void**) = (int (*)(pthread_t, void**))dlsym(RTLD_NEXT, "pthread_join");
@@ -369,11 +370,11 @@ void TryOpen(ofstream& f, const char* name); /*{
 //
 //        tool_thread_fini(jthread);
 //        return ret;
-//    }*/
+//    }
 //
 //
 //    // Debugging signal handlers
-//    static void illegal_instruction_handler(int signo, siginfo_t* siginf, void* context); /*
+//    static void illegal_instruction_handler(int signo, siginfo_t* siginf, void* context)
 //    {
 //        char err[8] = "deadbee";
 //        switch(siginf->si_code){
@@ -398,9 +399,9 @@ void TryOpen(ofstream& f, const char* name); /*{
 //        char* ops = (char*)siginf->si_addr;
 //        fprintf(stderr, "%hhx %hhx %hhx %hhx\n", ops[0], ops[1], ops[2], ops[3]);
 //        exit(1);
-//    }*/
+//    }
 //
-//    static void print_backtrace(); /* {
+//    static void print_backtrace() {
 //        int BT_SIZE = 10;
 //
 //        void* bt[BT_SIZE];
@@ -414,13 +415,13 @@ void TryOpen(ofstream& f, const char* name); /*{
 //        for(int i = 0; i < n; ++i) {
 //            fprintf(stderr, "%s\n", symbols[i]);
 //        }
-//    }*/
+//    }
 //    
-//    static void segfault_handler(int signo, siginfo_t* siginf, void* context);
-//  /*  {
+//    static void segfault_handler(int signo, siginfo_t* siginf, void* context)
+//    {
 //        fprintf(stderr, "Received signal %d SIGSEGV\n", signo);
 //        fprintf(stderr, "At address 0x%llx\n", siginf->si_addr);
-//*/
+//
 //       /* Debug info for more complex back traces 
 //        fprintf(stderr, "ACC:\n");
 //        register int64_t* sp asm ("rsp");
@@ -429,7 +430,7 @@ void TryOpen(ofstream& f, const char* name); /*{
 //        }
 //        fprintf(stderr, "ACC end\n");
 //       */
-///*
+//
 //        print_backtrace();
 //
 //        char err[8] = "deadbee";
@@ -443,10 +444,10 @@ void TryOpen(ofstream& f, const char* name); /*{
 //        //char* ops = (char*)siginf->si_addr;
 //        //fprintf(stderr, "%hhx %hhx %hhx %hhx\n", ops[0], ops[1], ops[2], ops[3]);
 //
-//    }*/
+//    }
 //    
-//    void init_signal_handlers();
-//  /*  {
+//    void init_signal_handlers()
+//    {
 //    
 //        struct sigaction illAction;
 //        illAction.sa_sigaction = illegal_instruction_handler;
@@ -458,38 +459,38 @@ void TryOpen(ofstream& f, const char* name); /*{
 //        segAction.sa_flags = SA_SIGINFO | SA_NODEFER;
 //        sigaction(SIGSEGV, &segAction, NULL);
 //        //fprintf(stderr, "Initialized signal handlers\n");
-//    } */
+//    }
 //
 //
 //};
-
-
+//
+//
 // some help geting task/process information into strings
-void AppendPidString(string& str); /*{
+void AppendPidString(string& str){
     char buf[6];
     sprintf(buf, "%05d", getpid());
     buf[5] = '\0';
 
     str.append(buf);
-}*/
+}
 
-void AppendRankString(string& str); /*{
+void AppendRankString(string& str){
     char buf[9];
     sprintf(buf, "%08d", GetTaskId());
     buf[8] = '\0';
 
     str.append(buf);
-}*/
+}
 
-void AppendTasksString(string& str); /*{
+void AppendTasksString(string& str){
     char buf[9];
     sprintf(buf, "%08d", GetNTasks());
     buf[8] = '\0';
 
     str.append(buf);
-}*/
-
-
+}
+//
+//
 //// data management support
 //#define DataMap std::pebil_map_type
 //
@@ -1071,26 +1072,26 @@ void AppendTasksString(string& str); /*{
 //        return stats[threadseq];
 //    }
 //};
-
+//
 // support for MPI wrapping
-//static bool MpiValid; // = false;
-static bool IsMpiValid(); // { return MpiValid; }
+static bool MpiValid = false;
+static bool IsMpiValid() { return MpiValid; }
 
 extern "C" {
 // C init wrapper
 #ifdef USES_PSINSTRACER
-int __give_pebil_name(MPI_Init)(int* argc, char*** argv); /*{
-    int retval = 0;*/
+int __give_pebil_name(MPI_Init)(int* argc, char*** argv){
+    int retval = 0;
 #else
-int __wrapper_name(MPI_Init)(int* argc, char*** argv); /*{
+int __wrapper_name(MPI_Init)(int* argc, char*** argv){
 
 #ifdef HAVE_MPI
     int retval = PMPI_Init(argc, argv);
 #else
     int retval = 0;
-#endif */
+#endif
 #endif // USES_PSINSTRACER
-/*
+
 #ifdef HAVE_MPI
     PMPI_Comm_rank(MPI_COMM_WORLD, &__taskid);
     PMPI_Comm_size(MPI_COMM_WORLD, &__ntasks);
@@ -1102,22 +1103,22 @@ int __wrapper_name(MPI_Init)(int* argc, char*** argv); /*{
     tool_mpi_init();
 
     return retval;
-}*/
+}
 
-#ifdef HAVE_MPI
-extern void pmpi_init_(int*);
-#endif
-
+//#ifdef HAVE_MPI
+//extern void pmpi_init_(int*);
+//#endif
+//
 #ifdef USES_PSINSTRACER
-void __give_pebil_name(mpi_init_)(int* ierr); /*{*/
+void __give_pebil_name(mpi_init_)(int* ierr){
 #else
-void __wrapper_name(mpi_init_)(int* ierr); /*{
+void __wrapper_name(mpi_init_)(int* ierr){
   //fprintf(stderr, "PEBIL calling pmpi_init\n");
 #ifdef HAVE_MPI
     pmpi_init_(ierr);
-#endif */
+#endif
 #endif // USES_PSINSTRACER
-/*    //fprintf(stderr, "PEBIL called pmpi_init\n");
+    //fprintf(stderr, "PEBIL called pmpi_init\n");
 
 #ifdef HAVE_MPI
     PMPI_Comm_rank(MPI_COMM_WORLD, &__taskid);
@@ -1128,22 +1129,22 @@ void __wrapper_name(mpi_init_)(int* ierr); /*{
 
     //fprintf(stdout, "-[p%d]- Mapping pid to taskid %d/%d in mpi_init_ wrapper\n", getpid(), __taskid, __ntasks);
     tool_mpi_init();
-}*/
-
+}
+//
 // C init wrapper
 #ifdef USES_PSINSTRACER
-int __give_pebil_name(MPI_Init_thread)(int* argc, char*** argv, int required, int* provided); /*{
-    int retval = 0; */
+int __give_pebil_name(MPI_Init_thread)(int* argc, char*** argv, int required, int* provided){
+    int retval = 0;
 #else
-int __wrapper_name(MPI_Init_thread)(int* argc, char*** argv, int required, int* provided); /*{
+int __wrapper_name(MPI_Init_thread)(int* argc, char*** argv, int required, int* provided){
 
 #ifdef HAVE_MPI
     int retval = PMPI_Init_thread(argc, argv, required, provided);
 #else
     int retval = 0;
-#endif*/
+#endif
 #endif // USES_PSINSTRACER
-/*
+
 #ifdef HAVE_MPI
     PMPI_Comm_rank(MPI_COMM_WORLD, &__taskid);
     PMPI_Comm_size(MPI_COMM_WORLD, &__ntasks);
@@ -1155,21 +1156,21 @@ int __wrapper_name(MPI_Init_thread)(int* argc, char*** argv, int required, int* 
     tool_mpi_init();
 
     return retval;
-}*/
-
-#ifdef HAVE_MPI
-extern void pmpi_init_thread_(int*, int*, int*);
-#endif
-
+}
+//
+//#ifdef HAVE_MPI
+//extern void pmpi_init_thread_(int*, int*, int*);
+//#endif
+//
 #ifdef USES_PSINSTRACER
-void __give_pebil_name(mpi_init_thread_)(int* required, int* provided, int* ierr); //{
+void __give_pebil_name(mpi_init_thread_)(int* required, int* provided, int* ierr){
 #else
-void __wrapper_name(mpi_init_thread_)(int* required, int* provided, int* ierr); /*{
+void __wrapper_name(mpi_init_thread_)(int* required, int* provided, int* ierr){
 #ifdef HAVE_MPI
     pmpi_init_thread_(required, provided, ierr);
-#endif */
+#endif
 #endif // USES_PSINSTRACER
-/*
+
 #ifdef HAVE_MPI
     PMPI_Comm_rank(MPI_COMM_WORLD, &__taskid);
     PMPI_Comm_size(MPI_COMM_WORLD, &__ntasks);
@@ -1179,8 +1180,8 @@ void __wrapper_name(mpi_init_thread_)(int* required, int* provided, int* ierr); 
 
     //fprintf(stdout, "-[p%d]- Mapping pid to taskid %d/%d in mpi_init_ wrapper\n", getpid(), __taskid, __ntasks);
     tool_mpi_init();
-}*/
+}
 }; // END extern C
-
-#endif //_InstrumentationCommon_hpp_
-
+//
+//#endif //_InstrumentationCommon_hpp_
+//
