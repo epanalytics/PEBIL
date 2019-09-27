@@ -23,40 +23,9 @@
 
 #include <string>
 #include <AddressStreamStats.hpp>
+#include <AddressStreamBase.hpp>
 
-using namespace std;
-
-#define DEFAULT_SAMPLE_ON  1000000
-#define DEFAULT_SAMPLE_OFF 10000000
-#define DEFAULT_SAMPLE_MAX 0
-
-#define KILO (1024)
-#define MEGA (KILO*KILO)
-#define GIGA (MEGA*KILO)
-
-static char ToLowerCase(char c);
-static bool ParseInt32(string token, uint32_t* value, uint32_t min);
-static void ReadSettings();
-static AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, 
-  uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
-static uint64_t ReferenceStreamStats(AddressStreamStats* stats);
-static void DeleteStreamStats(AddressStreamStats* stats);
-static bool ReadEnvUint32(string name, uint32_t* var);
-static void PrintAddressStreamStats(ofstream& f, AddressStreamStats* stats, thread_key_t tid, bool perThread);
-static void RangeFileName(AddressStreamStats* stats, string& oFile);
-
-extern "C" {
-    void* tool_mpi_init();
-    void* tool_thread_init(pthread_t tid);
-    void* process_buffer(image_key_t* key);
-    void* tool_image_fini(image_key_t* key);
-};
-
-class StreamStats {
-public:
-    virtual uint64_t GetAccessCount(uint32_t memid) = 0;
-    virtual bool Verify() = 0;
-};
+void RangeFileName(AddressStreamStats* stats, std::string& oFile);
 
 struct AddressRange {
     uint64_t Minimum;
@@ -85,50 +54,13 @@ public:
     bool Verify();
 };
 
-class SamplingMethod {
-public:
-    uint32_t AccessLimit;
-    uint32_t SampleOn;
-    uint32_t SampleOff;
-    uint64_t AccessCount;
-
-    SamplingMethod(uint32_t limit, uint32_t on, uint32_t off);
-    ~SamplingMethod();
-
-    void Print();
-
-    void IncrementAccessCount(uint64_t count);
-
-    bool SwitchesMode(uint64_t count);
-    bool CurrentlySampling();
-    bool CurrentlySampling(uint64_t count);
-    bool ExceedsAccessLimit(uint64_t count);
-};
-
-// DFP and other interesting memory things extend this class.
-class MemoryStreamHandler {
-protected:
-    pthread_mutex_t mlock;
-public:
-    MemoryStreamHandler();
-    ~MemoryStreamHandler();
-
-    virtual void Print(ofstream& f) = 0;
-    virtual uint32_t Process(void* stats, BufferEntry* access) = 0;
-    virtual bool Verify() = 0;
-    bool Lock();
-    bool UnLock();
-    bool TryLock();
-
-};
-
 class AddressRangeHandler : public MemoryStreamHandler {
 public:
     AddressRangeHandler();
     AddressRangeHandler(AddressRangeHandler& h);
     ~AddressRangeHandler();
 
-    void Print(ofstream& f);
+    void Print(std::ofstream& f);
     uint32_t Process(void* stats, BufferEntry* access);
     bool Verify() { return true; }
 };

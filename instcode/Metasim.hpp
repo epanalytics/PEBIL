@@ -26,7 +26,7 @@
 #include <iostream>
 #include <set>
 
-#ifndef debug(...)
+#ifndef debug
 //#define debug(...) __VA_ARGS__
 #define debug(...)
 #endif
