@@ -100,3 +100,88 @@ bool MemoryStreamHandler::UnLock(){
     return (pthread_mutex_unlock(&mlock) == 0);
 }
 
+
+// Common Functions
+bool IsEmptyComment(string str){
+    if (str == ""){
+        return true;
+    }
+    if (str.compare(0, 1, "#") == 0){
+        return true;
+    }
+    return false;
+}
+
+
+char ToLowerCase(char c){
+    if (c < 'a'){
+        c += ('a' - 'A');
+    }
+    return c;
+}
+
+// returns true on success... allows things to continue on failure if desired
+bool ParseInt32(string token, uint32_t* value, uint32_t min){
+    int32_t val;
+    uint32_t mult = 1;
+    bool ErrorFree = true;
+
+    istringstream stream(token);
+    if (stream >> val){
+        if (!stream.eof()){
+            char c;
+            stream.get(c);
+
+            c = ToLowerCase(c);
+            if (c == 'k'){
+                mult = KILO;
+            } else if (c == 'm'){
+                mult = MEGA;
+            } else if (c == 'g'){
+                mult = GIGA;
+            } else {
+                ErrorFree = false;
+            }
+
+            if (!stream.eof()){
+                stream.get(c);
+
+                c = ToLowerCase(c);
+                if (c != 'b'){
+                    ErrorFree = false;
+                }
+            }
+        }
+    }
+
+    if (val < min){
+        ErrorFree = false;
+    }
+
+    (*value) = (val * mult);
+    return ErrorFree;
+}
+
+bool ParsePositiveInt32(string token, uint32_t* value){
+    return ParseInt32(token, value, 1);
+}
+
+uint32_t RandomInt(uint32_t max){
+    return rand() % max;
+}
+
+bool ReadEnvUint32(string name, uint32_t* var){
+    char* e = getenv(name.c_str());
+    if (e == NULL){
+        debug(inform << "unable to find " << name << " in environment" << ENDL;)
+        return false;
+    }
+    string s (e);
+    if (!ParseInt32(s, var, 0)){
+        debug(inform << "unable to parse " << name << " in environment" <<
+          ENDL;)
+        return false;
+    }
+    return true;
+}
+

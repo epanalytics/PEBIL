@@ -24,34 +24,21 @@
 #include <string>
 #include <AddressStreamStats.hpp>
 
-//using namespace std;
-
-#define DEFAULT_SAMPLE_ON  1000000
-#define DEFAULT_SAMPLE_OFF 10000000
-#define DEFAULT_SAMPLE_MAX 0
-
-#define KILO (1024)
-#define MEGA (KILO*KILO)
-#define GIGA (MEGA*KILO)
-
-void GetBufferIds(BufferEntry* b, image_key_t* i);
-char ToLowerCase(char c);
-bool ParseInt32(std::string token, uint32_t* value, uint32_t min);
-void ReadSettings();
-AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, 
-  uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
-uint64_t ReferenceStreamStats(AddressStreamStats* stats);
-void DeleteStreamStats(AddressStreamStats* stats);
-bool ReadEnvUint32(std::string name, uint32_t* var);
-void PrintAddressStreamStats(std::ofstream& f, AddressStreamStats* stats, 
-  thread_key_t tid, bool perThread);
-
 extern "C" {
     void* tool_mpi_init();
     void* tool_thread_init(pthread_t tid);
     void* process_buffer(image_key_t* key);
     void* tool_image_fini(image_key_t* key);
 };
+
+void GetBufferIds(BufferEntry* b, image_key_t* i);
+void ReadSettings();
+AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, 
+  uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
+uint64_t ReferenceStreamStats(AddressStreamStats* stats);
+void DeleteStreamStats(AddressStreamStats* stats);
+void PrintAddressStreamStats(std::ofstream& f, AddressStreamStats* stats, 
+  thread_key_t tid, bool perThread);
 
 
 #endif /* _AddressStreamLibrary_cpp_ */

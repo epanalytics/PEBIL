@@ -21,11 +21,9 @@
 #ifndef _AddressRange_hpp_
 #define _AddressRange_hpp_
 
-#include <string>
-#include <AddressStreamStats.hpp>
 #include <AddressStreamBase.hpp>
+#include <string>
 
-template <class T> class DataManager;
 class SamplingMethod;
 
 void PrintRangeFile(DataManager<AddressStreamStats*>* AllData, SamplingMethod* 

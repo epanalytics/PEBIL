@@ -26,9 +26,13 @@
 #include <DynamicInstrumentation.hpp>
 #include <Metasim.hpp>
 #include <ThreadedCommon.hpp>
+#include <AddressStreamBase.hpp>
+
 #include <AddressStreamLibrary.hpp>
 #include <AddressRange.hpp>
+#include <CacheSimulation.hpp>
 #include <ReuseDistanceASI.hpp>
+#include <ScatterGatherLength.hpp>
 #include <SpatialLocality.hpp>
 
 #include <ReuseDistance.hpp>   // external: Process Reuse handlers
@@ -54,16 +58,20 @@ using namespace std;
 
 // Tool bools -- Are we running them
 // Defaults. They can be modified by env vars (see ReadSettings)
-bool runAddressRange = true;
-bool runCacheSimulation = false;
-bool runReuseDistance = true;
-bool runSpatialLocality = true;
+bool runAddressRange = false;
+bool runCacheSimulation = true;
+bool runReuseDistance = false;
+bool runScatterLength = false;
+bool runSpatialLocality = false;
 
 // Memory and Reuse handlers -- how many and which tool owns which handler
 static uint32_t CountMemoryHandlers = 0;
 static uint32_t CountReuseHandlers = 0;
-static int32_t RangeHandlerIndex = -1;
+static int32_t AddressRangeIndex = -1;
+static int32_t CacheSimulationFirstIndex = -1;
+static int32_t CacheSimulationLastIndex = -1;  // Exclusive
 static int32_t ReuseDistanceIndex = -1;
+static int32_t ScatterLengthIndex = -1;
 static int32_t SpatialLocalityIndex = -1;
 
 // should not be used directly. kept here to be cloned by anyone who needs it
@@ -77,6 +85,7 @@ static FastData<AddressStreamStats*, BufferEntry*>* FastStats = NULL;
 static set<uint64_t>* NonmaxKeys = NULL;
 
 // Tool-specific data
+
 // Reuse Distance
 static uint32_t ReuseWindow = 0;
 static uint32_t ReuseBin = 0;
@@ -521,10 +530,17 @@ extern "C" {
        
         // Create the Address Range report 
         if (runAddressRange) {
-            PrintRangeFile(AllData, Sampler, RangeHandlerIndex);
+            PrintRangeFile(AllData, Sampler, AddressRangeIndex);
+        }
+        if (runCacheSimulation) {
+            PrintCacheSimulationFile(AllData, Sampler, 
+              CacheSimulationFirstIndex, CacheSimulationLastIndex);
         }
         if (runReuseDistance) {
             PrintReuseDistanceFile(AllData, ReuseDistanceIndex);
+        }
+        if (runScatterLength) {
+            PrintSGLengthFile(AllData, Sampler, ScatterLengthIndex);
         }
         if (runSpatialLocality) {
             PrintSpatialLocalityFile(AllData, SpatialLocalityIndex);
@@ -550,55 +566,6 @@ void GetBufferIds(BufferEntry* b, image_key_t* i){
     *i = b->imageid;
 }
 
-char ToLowerCase(char c){
-    if (c < 'a'){
-        c += ('a' - 'A');
-    }
-    return c;
-}
-
-// returns true on success... allows things to continue on failure if desired
-bool ParseInt32(string token, uint32_t* value, uint32_t min){
-    int32_t val;
-    uint32_t mult = 1;
-    bool ErrorFree = true;
-  
-    istringstream stream(token);
-    if (stream >> val){
-        if (!stream.eof()){
-            char c;
-            stream.get(c);
-
-            c = ToLowerCase(c);
-            if (c == 'k'){
-                mult = KILO;
-            } else if (c == 'm'){
-                mult = MEGA;
-            } else if (c == 'g'){
-                mult = GIGA;
-            } else {
-                ErrorFree = false;
-            }
-
-            if (!stream.eof()){
-                stream.get(c);
-
-                c = ToLowerCase(c);
-                if (c != 'b'){
-                    ErrorFree = false;
-                }
-            }
-        }
-    }
-
-    if (val < min){
-        ErrorFree = false;
-    }
-
-    (*value) = (val * mult);
-    return ErrorFree;
-}
-
 uint64_t ReferenceStreamStats(AddressStreamStats* stats){
     return (uint64_t)stats;
 }
@@ -615,21 +582,6 @@ void DeleteStreamStats(AddressStreamStats* stats){
         }
         delete[] stats->Stats;
     }
-}
-
-bool ReadEnvUint32(string name, uint32_t* var){
-    char* e = getenv(name.c_str());
-    if (e == NULL){
-        debug(inform << "unable to find " << name << " in environment" << ENDL;)
-        return false;
-    }
-    string s (e);
-    if (!ParseInt32(s, var, 0)){
-        debug(inform << "unable to parse " << name << " in environment" << 
-          ENDL;)
-        return false;
-    }
-    return true;
 }
 
 // called for every new image and thread
@@ -668,7 +620,17 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     bzero(stats->Stats, sizeof(StreamStats*) * CountMemoryHandlers);    
 
     if (runAddressRange) {
-        stats->Stats[RangeHandlerIndex] = new RangeStats(s->AllocCount);
+        stats->Stats[AddressRangeIndex] = new RangeStats(s->AllocCount);
+    }
+    // if CacheSimulation --> for loop will not run if no caches
+    for (uint32_t i = CacheSimulationFirstIndex; i < CacheSimulationLastIndex; 
+      i++) {
+        CacheStructureHandler* c = (CacheStructureHandler*)MemoryHandlers[i];
+        stats->Stats[i] = new CacheStats(c->levelCount, c->sysId, 
+          stats->AllocCount, c->hybridCache);
+    }
+    if (runScatterLength) {
+        stats->Stats[ScatterLengthIndex] = new VectorLengthStats(s->AllocCount);
     }
 
     if (typ == AllData->ThreadType || (iid == firstimage)){
@@ -680,13 +642,30 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
         // don't exist for any image
         if (runAddressRange) {
             AddressRangeHandler* p = (AddressRangeHandler*)MemoryHandlers[
-              RangeHandlerIndex];
+              AddressRangeIndex];
             AddressRangeHandler* r = new AddressRangeHandler(*p);
-            stats->Handlers[RangeHandlerIndex] = r;
+            stats->Handlers[AddressRangeIndex] = r;
+        }
+        for (uint32_t i = CacheSimulationFirstIndex; i < 
+          CacheSimulationLastIndex; i++) {
+            CacheStructureHandler* p = (CacheStructureHandler*)
+              MemoryHandlers[i];
+            CacheStructureHandler* c = new CacheStructureHandler(*p);
+            // TODO: Should this be here?
+            if(p->hybridCache) {
+                c->ExtractAddresses();
+            }
+            stats->Handlers[i] = c;
         }
         if (runReuseDistance) {
             stats->RHandlers[ReuseDistanceIndex] = new 
               ReuseDistance::ReuseDistance(ReuseWindow, ReuseBin);
+        }
+        if (runScatterLength) {
+            VectorLengthHandler* p = (VectorLengthHandler*)MemoryHandlers[
+              ScatterLengthIndex];
+            VectorLengthHandler* r = new VectorLengthHandler(*p);
+            stats->Handlers[ScatterLengthIndex] = r;
         }
         if (runSpatialLocality) {
             stats->RHandlers[SpatialLocalityIndex] = new 
@@ -735,6 +714,7 @@ void ReadSettings(){
     uint32_t AddressRange;
     uint32_t CacheSimulation;
     uint32_t ReuseDistance;
+    uint32_t ScatterGatherLength;
     uint32_t SpatialLocality;
     if (ReadEnvUint32("METASIM_ADDRESS_RANGE", &AddressRange)){
         runAddressRange = (AddressRange == 0) ? false : true;
@@ -745,22 +725,33 @@ void ReadSettings(){
     if (ReadEnvUint32("METASIM_REUSE_DISTANCE", &ReuseDistance)){
         runReuseDistance = (ReuseDistance == 0) ? false : true;
     }
+    if (ReadEnvUint32("METASIM_SG_LENGTH", &ScatterGatherLength)){
+        runScatterLength = (ScatterGatherLength == 0) ? false : true;
+    }
     if (ReadEnvUint32("METASIM_SPATIAL_LOCALITY", &SpatialLocality)){
         runSpatialLocality = (SpatialLocality == 0) ? false : true;
     }
 
     // Figure out handler indices
     if (runAddressRange) {
-        RangeHandlerIndex = CountMemoryHandlers;
+        AddressRangeIndex = CountMemoryHandlers;
         CountMemoryHandlers++;
     }
+    vector<CacheStructureHandler*> caches;
     if (runCacheSimulation) {
-        RangeHandlerIndex = CountMemoryHandlers;
-        CountMemoryHandlers++;
+        CacheSimulationFirstIndex = CountMemoryHandlers;
+        caches = ReadCacheSimulationSettings();
+        assert(caches.size() > 0);
+        CountMemoryHandlers += caches.size();
+        CacheSimulationLastIndex = CountMemoryHandlers;
     }
     if (runReuseDistance) {
         ReuseDistanceIndex = CountReuseHandlers;
         CountReuseHandlers++;
+    }
+    if (runScatterLength) {
+        ScatterLengthIndex = CountMemoryHandlers;
+        CountMemoryHandlers++;
     }
     if (runSpatialLocality) {
         SpatialLocalityIndex = CountReuseHandlers;
@@ -772,17 +763,23 @@ void ReadSettings(){
       CountMemoryHandlers];
 //    ReuseDistance::ReuseDistance** tmpRD = new ReuseDistance::ReuseDistance*[
 //      CountReuseHandlers];
-    //for(uint32_t i = 0; i < RangeHandlerIndex; ++i) {
+    //for(uint32_t i = 0; i < AddressRangeIndex; ++i) {
     //    tmp[i] = MemoryHandlers[i];
     //}
     //if(MemoryHandlers != NULL) {
     //    delete[] MemoryHandlers;
     //}
     MemoryHandlers = tmpMem;
-//    ReuseDistanceHandlers = tmpRD;
 
     if (runAddressRange) {
-        MemoryHandlers[RangeHandlerIndex] = new AddressRangeHandler();
+        MemoryHandlers[AddressRangeIndex] = new AddressRangeHandler();
+    }
+
+    if (runCacheSimulation) {
+        assert(caches.size() > 0);
+        for (int32_t i = 0; i < caches.size(); i++) {
+            MemoryHandlers[i + CacheSimulationFirstIndex] = caches[i];
+        }
     }
 
     if (runReuseDistance) {
@@ -792,8 +789,10 @@ void ReadSettings(){
         if (!ReadEnvUint32("METASIM_REUSE_BIN", &ReuseBin)){
             ReuseBin = 1;
         }
-//        ReuseDistanceHandlers[ReuseDistanceIndex] = new 
-//          ReuseDistance::ReuseDistance(ReuseWindow, ReuseBin);
+    }
+
+    if (runScatterLength) {
+        MemoryHandlers[ScatterLengthIndex] = new VectorLengthHandler();
     }
 
     if (runSpatialLocality) {

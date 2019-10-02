@@ -18,23 +18,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _Simulation_hpp_
-#define _Simulation_hpp_
+#ifndef _CacheSimulation_hpp_
+#define _CacheSimulation_hpp_
 
+#include <AddressStreamBase.hpp>
 #include <string>
-//#include <Metasim.hpp>
-#include <AddressStreamStats.hpp>
-
-using namespace std;
 
 #define DEFAULT_CACHE_FILE "instcode/CacheDescriptions.txt"
-#define DEFAULT_SAMPLE_ON  1000000
-#define DEFAULT_SAMPLE_OFF 10000000
-#define DEFAULT_SAMPLE_MAX 0
-
-#define KILO (1024)
-#define MEGA (KILO*KILO)
-#define GIGA (MEGA*KILO)
 
 #define INVALID_CACHE_LEVEL (0xffffffff)
 
@@ -79,38 +69,9 @@ struct LevelStats {
     uint64_t storeCount;
 };
 
-static uint32_t RandomInt();
-static uint32_t Low32(uint64_t f);
-static uint32_t High32(uint64_t f);
-static char ToLowerCase(char c);
-static bool IsEmptyComment(string str);
-static string GetCacheDescriptionFile();
-static bool ParsePositiveInt32(string token, uint32_t* value);
-static bool ParseInt32(string token, uint32_t* value, uint32_t min);
-static bool ParsePositiveInt32Hex(string token, uint32_t* value);
-static void ReadSettings();
-static AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, 
-  uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
-static uint64_t ReferenceStreamStats(AddressStreamStats* stats);
-static void DeleteStreamStats(AddressStreamStats* stats);
-static bool ReadEnvUint32(string name, uint32_t* var);
-static void PrintAddressStreamStats(ofstream& f, AddressStreamStats* stats, 
-  thread_key_t tid, bool perThread);
-static void SimulationFileName(AddressStreamStats* stats, string& oFile);
-static void RangeFileName(AddressStreamStats* stats, string& oFile);
-
-extern "C" {
-    void* tool_mpi_init();
-    void* tool_thread_init(pthread_t tid);
-    void* process_buffer(image_key_t* key);
-    void* tool_image_fini(image_key_t* key);
-};
-
-class StreamStats {
-public:
-    virtual uint64_t GetAccessCount(uint32_t memid) = 0;
-    virtual bool Verify() = 0;
-};
+void PrintCacheSimulationFile(DataManager<AddressStreamStats*>* AllData,
+  SamplingMethod* Sampler, int32_t firstIndex, int32_t lastIndex);
+void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
 
 class CacheStats : public StreamStats {
 public:
@@ -183,29 +144,6 @@ public:
     bool Verify();
 };
 
-
-#define INVALID_REUSE_DISTANCE (-1)
-
-class SamplingMethod {
-public:
-    uint32_t AccessLimit;
-    uint32_t SampleOn;
-    uint32_t SampleOff;
-    uint64_t AccessCount;
-
-    SamplingMethod(uint32_t limit, uint32_t on, uint32_t off);
-    ~SamplingMethod();
-
-    void Print();
-
-    void IncrementAccessCount(uint64_t count);
-
-    bool SwitchesMode(uint64_t count);
-    bool CurrentlySampling();
-    bool CurrentlySampling(uint64_t count);
-    bool ExceedsAccessLimit(uint64_t count);
-};
-
 #define USES_MARKERS(__pol) (__pol == ReplacementPolicy_nmru)
 #define CacheLevel_Init_Interface uint32_t lvl, uint32_t sizeInBytes, uint32_t assoc, uint32_t lineSz, ReplacementPolicy pol
 #define CacheLevel_Init_Arguments lvl, sizeInBytes, assoc, lineSz, pol
@@ -237,7 +175,7 @@ protected:
     bool toEvict;
 
 public:
-    vector<uint64_t>* toEvictAddresses;
+    std::vector<uint64_t>* toEvictAddresses;
     CacheLevel();
     ~CacheLevel();
 
@@ -256,7 +194,7 @@ public:
     uint32_t GetLineSize() { return linesize; }
     uint64_t CountColdMisses();
 
-    void Print(ofstream& f, uint32_t sysid);
+    void Print(std::ofstream& f, uint32_t sysid);
 
     // re-implemented by Exclusive/InclusiveCacheLevel
     virtual uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, 
@@ -269,7 +207,7 @@ public:
       // needs to be called! 
     virtual bool GetEvictStatus();
 
-    vector<uint64_t>* passEvictAddresses() { return toEvictAddresses;}
+    std::vector<uint64_t>* passEvictAddresses() { return toEvictAddresses;}
 
 protected:
 
@@ -376,31 +314,6 @@ public:
     const char* TypeString() { return "exclusive_H"; }
 };
 
-typedef enum {
-    StreamHandlerType_undefined = 0,
-    StreamHandlerType_CacheStructure,
-    StreamHandlerType_AddressRange,
-    StreamHandlerType_Total
-} StreamHandlerTypes;
-
-// DFP and other interesting memory things extend this class.
-class MemoryStreamHandler {
-protected:
-    pthread_mutex_t mlock;
-public:
-    MemoryStreamHandler();
-    ~MemoryStreamHandler();
-
-    virtual void Print(ofstream& f) = 0;
-    virtual uint32_t Process(void* stats, BufferEntry* access) = 0;
-    virtual bool Verify() = 0;
-    bool Lock();
-    bool UnLock();
-    bool TryLock();
-
-    static StreamHandlerTypes FindType(string desc) { return StreamHandlerType_CacheStructure; }
-};
-
 class CacheStructureHandler : public MemoryStreamHandler {
 public:
     uint32_t sysId;
@@ -411,13 +324,13 @@ public:
     uint64_t* RamAddressEnd;    
 
     CacheLevel** levels;
-    string description;
+    std::string description;
 
 protected: 
       uint64_t hits;
       uint64_t misses;
       uint64_t AddressRangesCount;
-      vector<uint64_t>* toEvictAddresses;
+      std::vector<uint64_t>* toEvictAddresses;
       uint32_t processAddress(void* stats, uint64_t address, uint64_t memseq, uint8_t loadstoreflag);
 
 public:      
@@ -427,9 +340,9 @@ public:
     CacheStructureHandler();
     CacheStructureHandler(CacheStructureHandler& h);
     ~CacheStructureHandler();
-    bool Init(string desc);
+    bool Init(std::string desc);
 
-    void Print(ofstream& f);
+    void Print(std::ofstream& f);
     uint32_t Process(void* stats, BufferEntry* access);
     bool Verify();
 
@@ -440,5 +353,7 @@ public:
     void ExtractAddresses();
 };
 
+std::vector<CacheStructureHandler*> ReadCacheSimulationSettings();
 
-#endif /* _Simulation_hpp_ */
+
+#endif /* _CacheSimulation_hpp_ */

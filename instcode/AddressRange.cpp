@@ -21,7 +21,6 @@
 #include <InstrumentationCommon.hpp>
 #include <DataManager.hpp>
 #include <Metasim.hpp>
-#include <AddressStreamBase.hpp>
 #include <AddressRange.hpp>
 
 #include <iostream>
@@ -34,177 +33,178 @@ using namespace std;
 
 void PrintRangeFile(DataManager<AddressStreamStats*>* AllData, SamplingMethod* 
   Sampler, int32_t rangeIndex) {
-        AddressStreamStats* stats = AllData->GetData(*(AllData->allimages.begin()));
-        // Create the Address Range report
-        ofstream RangeFile;
-        string oFile;
-        const char* fileName;
+    AddressStreamStats* stats = AllData->GetData(*(AllData->allimages.begin()));
 
-        RangeFileName(stats,oFile);
-        fileName=oFile.c_str();
-        inform << "Printing address range results to " << fileName << ENDL;
-        TryOpen(RangeFile,fileName);
+    // Create the Address Range report
+    ofstream RangeFile;
+    string oFile;
+    const char* fileName;
 
-        uint64_t sampledCount = 0;
-        uint64_t totalMemop = 0;
-        // Calculate the number of access counts
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin();
-          iit != AllData->allimages.end(); iit++){
+    RangeFileName(stats,oFile);
+    fileName=oFile.c_str();
+    inform << "Printing address range results to " << fileName << ENDL;
+    TryOpen(RangeFile,fileName);
 
-            for(DataManager<AddressStreamStats*>::iterator it =
-              AllData->begin(*iit); it != AllData->end(*iit); ++it) {
-                thread_key_t thread = it->first;
-                AddressStreamStats* s = it->second;
+    uint64_t sampledCount = 0;
+    uint64_t totalMemop = 0;
+    // Calculate the number of access counts
+    for (set<image_key_t>::iterator iit = AllData->allimages.begin();
+      iit != AllData->allimages.end(); iit++){
 
-                RangeStats* r = (RangeStats*)s->Stats[rangeIndex];
-                assert(r);
-                for (uint32_t i = 0; i < r->Capacity; i++){
-                    sampledCount += r->Counts[i];
-                }
+        for(DataManager<AddressStreamStats*>::iterator it =
+          AllData->begin(*iit); it != AllData->end(*iit); ++it) {
+            thread_key_t thread = it->first;
+            AddressStreamStats* s = it->second;
 
-                for (uint32_t i = 0; i < s->BlockCount; i++){
-                    uint32_t idx;
-                    // Don't need to do this loop if this block doesn't have
-                    // any memops
-                    if(s->MemopsPerBlock[i] == 0) {
-                        continue;
-                    }
-                    if (s->Types[i] == CounterType_basicblock){
-                        idx = i;
-                    } else if (s->Types[i] == CounterType_instruction){
-                        idx = s->Counters[i];
-                    }
-                    totalMemop += (s->Counters[idx] * s->MemopsPerBlock[i]);
-                }
-
-                inform << "Total memop: " << dec << totalMemop << TAB <<
-                  " sampledCount " << sampledCount << ENDL;
+            RangeStats* r = (RangeStats*)s->Stats[rangeIndex];
+            assert(r);
+            for (uint32_t i = 0; i < r->Capacity; i++){
+                sampledCount += r->Counts[i];
             }
-        }
 
-        // Print application and address stream information
-        RangeFile
-          << "# appname       = " << stats->Application << ENDL
-          << "# extension     = " << stats->Extension << ENDL
-          << "# rank          = " << dec << GetTaskId() << ENDL
-          << "# ntasks        = " << dec << GetNTasks() << ENDL
-          << "# buffer        = " << BUFFER_CAPACITY(stats) << ENDL
-          << "# total         = " << dec << totalMemop << ENDL
-          << "# processed     = " << dec << sampledCount << " ("
-          << ((double)sampledCount / (double)totalMemop * 100.0)
-          << "% of total)" << ENDL
-          << "# samplemax     = " << Sampler->AccessLimit << ENDL
-          << "# sampleon      = " << Sampler->SampleOn << ENDL
-          << "# sampleoff     = " << Sampler->SampleOff << ENDL
-          << "# perinsn       = " << (stats->PerInstruction? "yes" : "no")
-          << ENDL
-          << "# lpi           = " << (stats->LoopInclusion? "yes" : "no")
-          << ENDL
-          << "# countimage    = " << dec << AllData->CountImages() << ENDL
-          << "# countthread   = " << dec << AllData->CountThreads() << ENDL
-          << "# masterthread  = " << hex << AllData->GetThreadSequence(
-          pthread_self()) << ENDL
-          << ENDL;
-
-        // Print information for each image
-        RangeFile << "# IMG" << TAB << "ImageHash" << TAB << "ImageSequence"
-          << TAB << "ImageType" << TAB << "Name" << ENDL;
-
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin();
-          iit != AllData->allimages.end(); iit++){
-            AddressStreamStats* s = (AddressStreamStats*)AllData->GetData(
-              (*iit), pthread_self());
-            RangeFile << "IMG" << TAB << hex << (*iit) << TAB << dec
-              << AllData->GetImageSequence((*iit)) << TAB
-              << (s->Master ? "Executable" : "SharedLib") << TAB
-              << s->Application << ENDL;
-        }
-        RangeFile << ENDL;
-
-
-        // Print the information for each block
-        RangeFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode"
-          << TAB << "ImageSequence" << TAB << "ThreadId" << TAB
-          << "BlockCounter" << TAB << "InstructionSimulated" << TAB
-          << "MinAddress" << TAB << "MaxAddress" << TAB << "AddrRange " << ENDL;
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin();
-          iit != AllData->allimages.end(); iit++){
-            for(DataManager<AddressStreamStats*>::iterator it =
-              AllData->begin(*iit); it != AllData->end(*iit); ++it){
-
-                AddressStreamStats* st = it->second;
-                assert(st);
-                RangeStats* aggRange;
-
-                // Stats are collected by memid. We need to present them by
-                // block. Even if perinsn, just create new RangeStats data
-                // structure and compile per-memid data into it
-                aggRange = new RangeStats(st->AllocCount);
-
-                for (uint32_t memid = 0; memid < st->AllocCount; memid++){
-                    uint32_t bbid;
-                    RangeStats* r = (RangeStats*)st->Stats[rangeIndex];
-                    if (st->PerInstruction){
-                        bbid = memid;
-                    } else {
-                        bbid = st->BlockIds[memid];
-                    }
-
-                    aggRange->Update(bbid, r->GetMinimum(memid), 0);
-                    aggRange->Update(bbid, r->GetMaximum(memid),
-                      r->GetAccessCount(memid));
+            for (uint32_t i = 0; i < s->BlockCount; i++){
+                uint32_t idx;
+                // Don't need to do this loop if this block doesn't have
+                // any memops
+                if(s->MemopsPerBlock[i] == 0) {
+                    continue;
                 }
-                uint32_t MaxCapacity;
-                MaxCapacity = aggRange->Capacity;
+                if (s->Types[i] == CounterType_basicblock){
+                    idx = i;
+                } else if (s->Types[i] == CounterType_instruction){
+                    idx = s->Counters[i];
+                }
+                totalMemop += (s->Counters[idx] * s->MemopsPerBlock[i]);
+            }
 
-                for (uint32_t bbid = 0; bbid < MaxCapacity; bbid++){
-                    // dont print blocks which weren't touched
-                    if (aggRange->GetAccessCount(bbid)==0){
-                        continue;
+            inform << "Total memop: " << dec << totalMemop << TAB <<
+              " sampledCount " << sampledCount << ENDL;
+        }
+    }
+
+    // Print application and address stream information
+    RangeFile
+      << "# appname       = " << stats->Application << ENDL
+      << "# extension     = " << stats->Extension << ENDL
+      << "# rank          = " << dec << GetTaskId() << ENDL
+      << "# ntasks        = " << dec << GetNTasks() << ENDL
+      << "# buffer        = " << BUFFER_CAPACITY(stats) << ENDL
+      << "# total         = " << dec << totalMemop << ENDL
+      << "# processed     = " << dec << sampledCount << " ("
+      << ((double)sampledCount / (double)totalMemop * 100.0)
+      << "% of total)" << ENDL
+      << "# samplemax     = " << Sampler->AccessLimit << ENDL
+      << "# sampleon      = " << Sampler->SampleOn << ENDL
+      << "# sampleoff     = " << Sampler->SampleOff << ENDL
+      << "# perinsn       = " << (stats->PerInstruction? "yes" : "no")
+      << ENDL
+      << "# lpi           = " << (stats->LoopInclusion? "yes" : "no")
+      << ENDL
+      << "# countimage    = " << dec << AllData->CountImages() << ENDL
+      << "# countthread   = " << dec << AllData->CountThreads() << ENDL
+      << "# masterthread  = " << hex << AllData->GetThreadSequence(
+      pthread_self()) << ENDL
+      << ENDL;
+
+    // Print information for each image
+    RangeFile << "# IMG" << TAB << "ImageHash" << TAB << "ImageSequence"
+      << TAB << "ImageType" << TAB << "Name" << ENDL;
+
+    for (set<image_key_t>::iterator iit = AllData->allimages.begin();
+      iit != AllData->allimages.end(); iit++){
+        AddressStreamStats* s = (AddressStreamStats*)AllData->GetData(
+          (*iit), pthread_self());
+        RangeFile << "IMG" << TAB << hex << (*iit) << TAB << dec
+          << AllData->GetImageSequence((*iit)) << TAB
+          << (s->Master ? "Executable" : "SharedLib") << TAB
+          << s->Application << ENDL;
+    }
+    RangeFile << ENDL;
+
+
+    // Print the information for each block
+    RangeFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode"
+      << TAB << "ImageSequence" << TAB << "ThreadId" << TAB
+      << "BlockCounter" << TAB << "InstructionSimulated" << TAB
+      << "MinAddress" << TAB << "MaxAddress" << TAB << "AddrRange " << ENDL;
+    for (set<image_key_t>::iterator iit = AllData->allimages.begin();
+      iit != AllData->allimages.end(); iit++){
+        for(DataManager<AddressStreamStats*>::iterator it =
+          AllData->begin(*iit); it != AllData->end(*iit); ++it){
+
+            AddressStreamStats* st = it->second;
+            assert(st);
+            RangeStats* aggRange;
+
+            // Stats are collected by memid. We need to present them by
+            // block. Even if perinsn, just create new RangeStats data
+            // structure and compile per-memid data into it
+            aggRange = new RangeStats(st->AllocCount);
+
+            for (uint32_t memid = 0; memid < st->AllocCount; memid++){
+                uint32_t bbid;
+                RangeStats* r = (RangeStats*)st->Stats[rangeIndex];
+                if (st->PerInstruction){
+                    bbid = memid;
+                } else {
+                    bbid = st->BlockIds[memid];
+                }
+
+                aggRange->Update(bbid, r->GetMinimum(memid), 0);
+                aggRange->Update(bbid, r->GetMaximum(memid),
+                  r->GetAccessCount(memid));
+            }
+            uint32_t MaxCapacity;
+            MaxCapacity = aggRange->Capacity;
+
+            for (uint32_t bbid = 0; bbid < MaxCapacity; bbid++){
+                // dont print blocks which weren't touched
+                if (aggRange->GetAccessCount(bbid)==0){
+                    continue;
+                }
+                // this isn't necessarily true since this tool can suspend
+                // threads at any point. potentially shutting off
+                // instrumention in a block while a thread is midway through
+                // Sanity check data
+                // This assertion becomes FALSE when there are
+                // multiple addresses processed per address
+                // (e.g. with scatter/gather)
+                if (AllData->CountThreads() == 1 &&
+                  !st->HasNonDeterministicMemop[bbid]){
+                    if (aggRange->GetAccessCount(bbid) %
+                      st->MemopsPerBlock[bbid] != 0){
+                        inform << "bbid " << dec << bbid << " image " <<
+                          hex << (*iit) << " accesses " << dec <<
+                          aggRange->GetAccessCount(bbid) << " memops " <<
+                          st->MemopsPerBlock[bbid] << ENDL;
                     }
-                    // this isn't necessarily true since this tool can suspend
-                    // threads at any point. potentially shutting off
-                    // instrumention in a block while a thread is midway through
-                    // Sanity check data
-                    // This assertion becomes FALSE when there are
-                    // multiple addresses processed per address
-                    // (e.g. with scatter/gather)
-                    if (AllData->CountThreads() == 1 &&
-                      !st->HasNonDeterministicMemop[bbid]){
-                        if (aggRange->GetAccessCount(bbid) %
-                          st->MemopsPerBlock[bbid] != 0){
-                            inform << "bbid " << dec << bbid << " image " <<
-                              hex << (*iit) << " accesses " << dec <<
-                              aggRange->GetAccessCount(bbid) << " memops " <<
-                              st->MemopsPerBlock[bbid] << ENDL;
-                        }
-                        assert(aggRange->GetAccessCount(bbid) %
-                          st->MemopsPerBlock[bbid] == 0);
-                    }
+                    assert(aggRange->GetAccessCount(bbid) %
+                      st->MemopsPerBlock[bbid] == 0);
+                }
 
-                    uint32_t idx;
-                    if (st->Types[bbid] == CounterType_basicblock){
-                        idx = bbid;
-                    } else if (st->Types[bbid] == CounterType_instruction){
-                        idx = st->Counters[bbid];
-                    }
+                uint32_t idx;
+                if (st->Types[bbid] == CounterType_basicblock){
+                    idx = bbid;
+                } else if (st->Types[bbid] == CounterType_instruction){
+                    idx = st->Counters[bbid];
+                }
 
-                    RangeFile  << "BLK" << TAB << dec << bbid
-                      << TAB << hex << st->Hashes[bbid]
-                      << TAB << dec << AllData->GetImageSequence((*iit))
-                      << TAB << dec << AllData->GetThreadSequence(st->threadid)
-                      << TAB << dec << st->Counters[idx]
-                      << TAB << dec << aggRange->GetAccessCount(bbid)
-                      << TAB << hex << aggRange->GetMinimum(bbid)
-                      << TAB << hex << aggRange->GetMaximum(bbid)
-                      << TAB << hex << (aggRange->GetMaximum(bbid) -
-                        aggRange->GetMinimum(bbid))<<ENDL;
-                } // For each block
-            } // For each data manager
-        } // For each image
+                RangeFile  << "BLK" << TAB << dec << bbid
+                  << TAB << hex << st->Hashes[bbid]
+                  << TAB << dec << AllData->GetImageSequence((*iit))
+                  << TAB << dec << AllData->GetThreadSequence(st->threadid)
+                  << TAB << dec << st->Counters[idx]
+                  << TAB << dec << aggRange->GetAccessCount(bbid)
+                  << TAB << hex << aggRange->GetMinimum(bbid)
+                  << TAB << hex << aggRange->GetMaximum(bbid)
+                  << TAB << hex << (aggRange->GetMaximum(bbid) -
+                    aggRange->GetMinimum(bbid))<<ENDL;
+            } // For each block
+        } // For each data manager
+    } // For each image
 
-        // Close the file
-        RangeFile.close();
+    // Close the file
+    RangeFile.close();
 
 
 }

@@ -176,7 +176,7 @@ void AddressStreamIntercept::declare(){
     entryFunc = declareFunction(ENTRY_FUNCTION);
     ASSERT(entryFunc && "Cannot find entry function, are you sure it was declared?");
 
-    //declareLibrary(INST_LIB_NAME);
+    declareLibrary(INST_LIB_NAME);
 
 }
 

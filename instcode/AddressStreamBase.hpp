@@ -24,6 +24,14 @@
 #include <string>
 #include <AddressStreamStats.hpp>
 
+#define DEFAULT_SAMPLE_ON  1000000
+#define DEFAULT_SAMPLE_OFF 10000000
+#define DEFAULT_SAMPLE_MAX 0
+
+#define KILO (1024)
+#define MEGA (KILO*KILO)
+#define GIGA (MEGA*KILO)
+
 class StreamStats {
 public:
     virtual uint64_t GetAccessCount(uint32_t memid) = 0;
@@ -66,6 +74,14 @@ public:
     bool TryLock();
 
 };
+
+// Common functions
+bool IsEmptyComment(std::string str);
+bool ParseInt32(std::string token, uint32_t* value, uint32_t min);
+bool ParsePositiveInt32(std::string token, uint32_t* value);
+uint32_t RandomInt(uint32_t max);
+bool ReadEnvUint32(std::string name, uint32_t* var);
+char ToLowerCase(char c);
 
 #endif /* _AddressStreamBase_hpp_ */
 
