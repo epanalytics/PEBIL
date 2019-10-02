@@ -28,6 +28,10 @@
 #include <ThreadedCommon.hpp>
 #include <AddressStreamLibrary.hpp>
 #include <AddressRange.hpp>
+#include <ReuseDistanceASI.hpp>
+#include <SpatialLocality.hpp>
+
+#include <ReuseDistance.hpp>   // external: Process Reuse handlers
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,23 +51,44 @@
 using namespace std;
 
 // global data
-static uint32_t CountMemoryHandlers = 0;
-static uint32_t RangeHandlerIndex = 0;
 
+// Tool bools -- Are we running them
+// Defaults. They can be modified by env vars (see ReadSettings)
+bool runAddressRange = true;
+bool runCacheSimulation = false;
+bool runReuseDistance = true;
+bool runSpatialLocality = true;
+
+// Memory and Reuse handlers -- how many and which tool owns which handler
+static uint32_t CountMemoryHandlers = 0;
+static uint32_t CountReuseHandlers = 0;
+static int32_t RangeHandlerIndex = -1;
+static int32_t ReuseDistanceIndex = -1;
+static int32_t SpatialLocalityIndex = -1;
+
+// should not be used directly. kept here to be cloned by anyone who needs it
+static MemoryStreamHandler** MemoryHandlers = NULL;
+//static ReuseDistance** ReuseDistanceHandlers = NULL;
+
+// Common tool data
 static SamplingMethod* Sampler = NULL;
 static DataManager<AddressStreamStats*>* AllData = NULL;
 static FastData<AddressStreamStats*, BufferEntry*>* FastStats = NULL;
 static set<uint64_t>* NonmaxKeys = NULL;
 
-// should not be used directly. kept here to be cloned by anyone who needs it
-static MemoryStreamHandler** MemoryHandlers = NULL;
+// Tool-specific data
+// Reuse Distance
+static uint32_t ReuseWindow = 0;
+static uint32_t ReuseBin = 0;
+
+// Spatial Locality
+static uint32_t SpatialWindow = 0;
+static uint32_t SpatialBin = 0;
+static uint32_t SpatialNMAX = 0;
+
 
 //#define synchronize(__locker) __locker->ReadLock(); for (bool __s = true; \
   __s == true; __locker->UnLock(), __s = false) 
-
-void GetBufferIds(BufferEntry* b, image_key_t* i){
-    *i = b->imageid;
-}
 
 extern "C" {
     // Called at just before image initialization
@@ -124,19 +149,6 @@ extern "C" {
         assert(stats->Initialized == true);
 
         pthread_mutex_lock(&image_init_mutex);
-
-        void * handle = dlopen("libaddressrange.so", RTLD_LOCAL | RTLD_LAZY);
-        if ( handle == NULL ) {
-            fprintf(stderr, "ACC: AddrRange == NULL\n");
-        } else {
-            fprintf(stderr, "ACC: AddrRange != NULL\n");
-        }
-        handle = dlopen("libcachesimulator.so", RTLD_LOCAL | RTLD_LAZY);
-        if ( handle == NULL ) {
-            fprintf(stderr, "ACC: CacheSim == NULL\n");
-        } else {
-            fprintf(stderr, "ACC: CacheSim != NULL\n");
-        }
 
         // initialize AllData once per address space
         if (AllData == NULL){
@@ -247,6 +259,35 @@ extern "C" {
         }
     }
 
+    static void ProcessReuseBuffer(image_key_t iid, thread_key_t tid, 
+      ReuseDistance* rd, uint32_t numElements) {
+
+        uint32_t threadSeq = AllData->GetThreadSequence(tid);
+        uint32_t numProcessed = 0;
+
+        AddressStreamStats** faststats = FastStats->GetBufferStats(tid);
+        uint32_t bufcur = 0;
+        for (bufcur = 0; bufcur < numElements; bufcur++){
+            debug(assert(faststats[bufcur]));
+            debug(assert(faststats[bufcur]->Stats));
+
+            AddressStreamStats* stats = faststats[bufcur];
+
+            BufferEntry* reference = BUFFER_ENTRY(stats, bufcur);
+
+            if (reference->imageid == 0){
+                debug(assert(AllData->CountThreads() > 1));
+                continue;
+            }
+
+            ReuseEntry entry = ReuseEntry();
+            entry.id = stats->Hashes[stats->BlockIds[reference->memseq]];
+            entry.address=reference->address;
+            rd->Process(entry);
+            numProcessed++;
+        }
+    }
+
     static void* process_thread_buffer(image_key_t iid, thread_key_t tid){
 
 #define DONE_WITH_BUFFER(...) BUFFER_CURRENT(stats) = 0;  return NULL;
@@ -294,13 +335,17 @@ extern "C" {
                 // Refresh FastStats so it can be used
                 FastStats->Refresh(buffer, numElements, tid);
 
-                // Process the buffer for each handler (this is general
-                // code for future development...there should only be 
-                // AddressRangeHandlers for now)
+                // Process the buffer for each memory handler
                 for (uint32_t i = 0; i < CountMemoryHandlers; i++) {
                     MemoryStreamHandler* m = stats->Handlers[i];
                     ProcessBuffer(iid, tid, m, i, numElements);
                 }
+
+                // Process the buffer for each Reuse Distance handler
+                for (uint32_t i = 0; i < CountReuseHandlers; i++) {
+                    ReuseDistance* r = stats->RHandlers[i];
+                    ProcessReuseBuffer(iid, tid, r, numElements);
+                }        
 
                 // Update the GroupCounters for sampling purposes
                 for(uint32_t i = 0; i < (stats->BlockCount); i++) {
@@ -405,6 +450,12 @@ extern "C" {
                     SetDynamicPoints(*NonmaxKeys, true);
                     ResumeAllThreads();
                 }
+
+                // Reuse handlers need to know we passed over addresses
+                for (uint32_t i = 0; i < CountReuseHandlers; i++) {
+                    ReuseDistance* r = stats->RHandlers[i];
+                    r->SkipAddresses(numElements);
+                }
             }
 
             Sampler->IncrementAccessCount(numElements);
@@ -425,7 +476,7 @@ extern "C" {
     }
 
     // Called when the application exits. Collect the rest of the addresses in
-    // the buffer and create the Address Range report
+    // the buffer and create the reports
     void* tool_image_fini(image_key_t* key){
         image_key_t iid = *key;
 
@@ -469,184 +520,24 @@ extern "C" {
 
        
         // Create the Address Range report 
-        ofstream RangeFile;
-        string oFile;
-        const char* fileName;
-
-        RangeFileName(stats,oFile);
-        fileName=oFile.c_str();
-        inform << "Printing address range results to " << fileName << ENDL;
-        TryOpen(RangeFile,fileName);
-
-        uint64_t sampledCount = 0;
-        uint64_t totalMemop = 0;
-        // Calculate the number of access counts
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
-          iit != AllData->allimages.end(); iit++){
-            
-            for(DataManager<AddressStreamStats*>::iterator it = 
-              AllData->begin(*iit); it != AllData->end(*iit); ++it) {
-                thread_key_t thread = it->first;
-                AddressStreamStats* s = it->second;
-
-                RangeStats* r = (RangeStats*)s->Stats[RangeHandlerIndex];
-                assert(r);
-                for (uint32_t i = 0; i < r->Capacity; i++){
-                    sampledCount += r->Counts[i];
-                }
-
-                for (uint32_t i = 0; i < s->BlockCount; i++){
-                    uint32_t idx;
-                    // Don't need to do this loop if this block doesn't have
-                    // any memops
-                    if(s->MemopsPerBlock[i] == 0) {
-                        continue;
-                    }
-                    if (s->Types[i] == CounterType_basicblock){
-                        idx = i;
-                    } else if (s->Types[i] == CounterType_instruction){
-                        idx = s->Counters[i];
-                    }
-                    totalMemop += (s->Counters[idx] * s->MemopsPerBlock[i]);
-                }
-                
-                inform << "Total memop: " << dec << totalMemop << TAB << 
-                  " sampledCount " << sampledCount << ENDL;
-            }
+        if (runAddressRange) {
+            PrintRangeFile(AllData, Sampler, RangeHandlerIndex);
+        }
+        if (runReuseDistance) {
+            PrintReuseDistanceFile(AllData, ReuseDistanceIndex);
+        }
+        if (runSpatialLocality) {
+            PrintSpatialLocalityFile(AllData, SpatialLocalityIndex);
         }
 
-        // Print application and address stream information
-        RangeFile
-          << "# appname       = " << stats->Application << ENDL
-          << "# extension     = " << stats->Extension << ENDL
-          << "# rank          = " << dec << GetTaskId() << ENDL
-          << "# ntasks        = " << dec << GetNTasks() << ENDL
-          << "# buffer        = " << BUFFER_CAPACITY(stats) << ENDL
-          << "# total         = " << dec << totalMemop << ENDL
-          << "# processed     = " << dec << sampledCount << " (" 
-          << ((double)sampledCount / (double)totalMemop * 100.0) 
-          << "% of total)" << ENDL
-          << "# samplemax     = " << Sampler->AccessLimit << ENDL
-          << "# sampleon      = " << Sampler->SampleOn << ENDL
-          << "# sampleoff     = " << Sampler->SampleOff << ENDL
-          << "# perinsn       = " << (stats->PerInstruction? "yes" : "no") 
-          << ENDL
-          << "# lpi           = " << (stats->LoopInclusion? "yes" : "no") 
-          << ENDL
-          << "# countimage    = " << dec << AllData->CountImages() << ENDL
-          << "# countthread   = " << dec << AllData->CountThreads() << ENDL
-          << "# masterthread  = " << hex << AllData->GetThreadSequence(
-          pthread_self()) << ENDL
-          << ENDL;
-       
-        // Print information for each image 
-        RangeFile << "# IMG" << TAB << "ImageHash" << TAB << "ImageSequence"
-          << TAB << "ImageType" << TAB << "Name" << ENDL;
-        
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin();
-          iit != AllData->allimages.end(); iit++){
-            AddressStreamStats* s = (AddressStreamStats*)AllData->GetData(
-              (*iit), pthread_self());
-            RangeFile << "IMG" << TAB << hex << (*iit) << TAB << dec 
-              << AllData->GetImageSequence((*iit)) << TAB 
-              << (s->Master ? "Executable" : "SharedLib") << TAB 
-              << s->Application << ENDL;
-        }
-        RangeFile << ENDL;        
-
-
-        // Print the information for each block
-        RangeFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
-          << TAB << "ImageSequence" << TAB << "ThreadId" << TAB 
-          << "BlockCounter" << TAB << "InstructionSimulated" << TAB 
-          << "MinAddress" << TAB << "MaxAddress" << TAB << "AddrRange " << ENDL;
-
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
-          iit != AllData->allimages.end(); iit++){
-            for(DataManager<AddressStreamStats*>::iterator it = 
-              AllData->begin(*iit); it != AllData->end(*iit); ++it){
-
-                AddressStreamStats* st = it->second;
-                assert(st);
-                RangeStats* aggRange;
-
-                // Stats are collected by memid. We need to present them by
-                // block. Even if perinsn, just create new RangeStats data
-                // structure and compile per-memid data into it
-                aggRange = new RangeStats(st->AllocCount);
-
-                for (uint32_t memid = 0; memid < st->AllocCount; memid++){
-                    uint32_t bbid;
-                    RangeStats* r = (RangeStats*)st->Stats[RangeHandlerIndex];
-                    if (st->PerInstruction){
-                        bbid = memid;
-                    } else {
-                        bbid = st->BlockIds[memid];
-                    }
-
-                    aggRange->Update(bbid, r->GetMinimum(memid), 0);
-                    aggRange->Update(bbid, r->GetMaximum(memid), 
-                      r->GetAccessCount(memid));
-                }
-                uint32_t MaxCapacity;
-                MaxCapacity = aggRange->Capacity;
-                
-                for (uint32_t bbid = 0; bbid < MaxCapacity; bbid++){
-                    // dont print blocks which weren't touched
-                    if (aggRange->GetAccessCount(bbid)==0){
-                        continue;
-                    }
-                    // this isn't necessarily true since this tool can suspend 
-                    // threads at any point. potentially shutting off 
-                    // instrumention in a block while a thread is midway through
-                    // Sanity check data
-                    // This assertion becomes FALSE when there are
-                    // multiple addresses processed per address
-                    // (e.g. with scatter/gather)
-                    if (AllData->CountThreads() == 1 && 
-                      !st->HasNonDeterministicMemop[bbid]){
-                        if (aggRange->GetAccessCount(bbid) % 
-                          st->MemopsPerBlock[bbid] != 0){
-                            inform << "bbid " << dec << bbid << " image " << 
-                              hex << (*iit) << " accesses " << dec << 
-                              aggRange->GetAccessCount(bbid) << " memops " << 
-                              st->MemopsPerBlock[bbid] << ENDL;
-                        }
-                        assert(aggRange->GetAccessCount(bbid) % 
-                          st->MemopsPerBlock[bbid] == 0);                       
-                    }
-
-                    uint32_t idx;
-                    if (st->Types[bbid] == CounterType_basicblock){
-                        idx = bbid;
-                    } else if (st->Types[bbid] == CounterType_instruction){
-                        idx = st->Counters[bbid];
-                    }
-
-                    RangeFile  << "BLK" << TAB << dec << bbid 
-                      << TAB << hex << st->Hashes[bbid]
-                      << TAB << dec << AllData->GetImageSequence((*iit))
-                      << TAB << dec << AllData->GetThreadSequence(st->threadid)
-                      << TAB << dec << st->Counters[idx]
-                      << TAB << dec << aggRange->GetAccessCount(bbid)
-                      << TAB << hex << aggRange->GetMinimum(bbid)
-                      << TAB << hex << aggRange->GetMaximum(bbid)
-                      << TAB << hex << (aggRange->GetMaximum(bbid) - 
-                        aggRange->GetMinimum(bbid))<<ENDL;                
-                } // For each block
-            } // For each data manager
-        } // For each image
-
-        // Close the file
-        RangeFile.close();
         
         double t = (AllData->GetTimer(*key, 1) - AllData->GetTimer(*key, 0));
         inform << "CXXX Total Execution time for instrumented application " 
           << t << ENDL;
         // TODO Is this right?
         double m = (double)(CountMemoryHandlers * Sampler->AccessCount);
-        inform << "CXXX - ADDR RANGE - Memops simulated per second: " << (m/t) 
-          << ENDL;
+        inform << "CXXX - Address Stream Library - Memops simulated per "
+          << "second: " << (m/t) << ENDL;
         if(NonmaxKeys){
             delete NonmaxKeys;
         }
@@ -654,6 +545,10 @@ extern "C" {
     }
 
 };
+
+void GetBufferIds(BufferEntry* b, image_key_t* i){
+    *i = b->imageid;
+}
 
 char ToLowerCase(char c){
     if (c < 'a'){
@@ -766,23 +661,38 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
         stats->AllocCount = stats->BlockCount;
     }
 
-    // Initialize Address Stream Handlers (MemoryHandler)
-    // Only doing Address Range so should only have one Memory Handler
-    assert(CountMemoryHandlers == 1);
+    // Initialize Memory Handlers
+    // There needs to be at least one, otherwise running is a waste of time
+    assert((CountMemoryHandlers + CountReuseHandlers) > 0);
     stats->Stats = new StreamStats*[CountMemoryHandlers];
     bzero(stats->Stats, sizeof(StreamStats*) * CountMemoryHandlers);    
 
-    stats->Stats[RangeHandlerIndex] = new RangeStats(s->AllocCount);
+    if (runAddressRange) {
+        stats->Stats[RangeHandlerIndex] = new RangeStats(s->AllocCount);
+    }
 
     if (typ == AllData->ThreadType || (iid == firstimage)){
         stats->Handlers = new MemoryStreamHandler*[CountMemoryHandlers];   
+        stats->RHandlers = new ReuseDistance::ReuseDistance*[
+          CountReuseHandlers];
     
         // all images within a thread share a set of memory handlers, but they 
         // don't exist for any image
-        AddressRangeHandler* p = (AddressRangeHandler*)MemoryHandlers[
-          RangeHandlerIndex];
-        AddressRangeHandler* r = new AddressRangeHandler(*p);
-        stats->Handlers[RangeHandlerIndex] = r;
+        if (runAddressRange) {
+            AddressRangeHandler* p = (AddressRangeHandler*)MemoryHandlers[
+              RangeHandlerIndex];
+            AddressRangeHandler* r = new AddressRangeHandler(*p);
+            stats->Handlers[RangeHandlerIndex] = r;
+        }
+        if (runReuseDistance) {
+            stats->RHandlers[ReuseDistanceIndex] = new 
+              ReuseDistance::ReuseDistance(ReuseWindow, ReuseBin);
+        }
+        if (runSpatialLocality) {
+            stats->RHandlers[SpatialLocalityIndex] = new 
+              SpatialLocality(SpatialWindow, SpatialBin, 
+              SpatialNMAX);
+        }
     }
     else{
         AddressStreamStats * fs = AllData->GetData(firstimage, tid);
@@ -820,18 +730,84 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
 }
 
 void ReadSettings(){
-    RangeHandlerIndex = CountMemoryHandlers;
-    CountMemoryHandlers++;
 
-    MemoryStreamHandler** tmp = new MemoryStreamHandler*[CountMemoryHandlers];
-    for(uint32_t i = 0; i < RangeHandlerIndex; ++i) {
-        tmp[i] = MemoryHandlers[i];
+    // Check for which libraries to use
+    uint32_t AddressRange;
+    uint32_t CacheSimulation;
+    uint32_t ReuseDistance;
+    uint32_t SpatialLocality;
+    if (ReadEnvUint32("METASIM_ADDRESS_RANGE", &AddressRange)){
+        runAddressRange = (AddressRange == 0) ? false : true;
     }
-    if(MemoryHandlers != NULL) {
-        delete[] MemoryHandlers;
+    if (ReadEnvUint32("METASIM_CACHE_SIMULATION", &CacheSimulation)){
+        runCacheSimulation = (CacheSimulation == 0) ? false : true;
     }
-    MemoryHandlers = tmp;
-    MemoryHandlers[RangeHandlerIndex] = new AddressRangeHandler();   
+    if (ReadEnvUint32("METASIM_REUSE_DISTANCE", &ReuseDistance)){
+        runReuseDistance = (ReuseDistance == 0) ? false : true;
+    }
+    if (ReadEnvUint32("METASIM_SPATIAL_LOCALITY", &SpatialLocality)){
+        runSpatialLocality = (SpatialLocality == 0) ? false : true;
+    }
+
+    // Figure out handler indices
+    if (runAddressRange) {
+        RangeHandlerIndex = CountMemoryHandlers;
+        CountMemoryHandlers++;
+    }
+    if (runCacheSimulation) {
+        RangeHandlerIndex = CountMemoryHandlers;
+        CountMemoryHandlers++;
+    }
+    if (runReuseDistance) {
+        ReuseDistanceIndex = CountReuseHandlers;
+        CountReuseHandlers++;
+    }
+    if (runSpatialLocality) {
+        SpatialLocalityIndex = CountReuseHandlers;
+        CountReuseHandlers++;
+    }
+
+    // Create Handlers
+    MemoryStreamHandler** tmpMem = new MemoryStreamHandler*[
+      CountMemoryHandlers];
+//    ReuseDistance::ReuseDistance** tmpRD = new ReuseDistance::ReuseDistance*[
+//      CountReuseHandlers];
+    //for(uint32_t i = 0; i < RangeHandlerIndex; ++i) {
+    //    tmp[i] = MemoryHandlers[i];
+    //}
+    //if(MemoryHandlers != NULL) {
+    //    delete[] MemoryHandlers;
+    //}
+    MemoryHandlers = tmpMem;
+//    ReuseDistanceHandlers = tmpRD;
+
+    if (runAddressRange) {
+        MemoryHandlers[RangeHandlerIndex] = new AddressRangeHandler();
+    }
+
+    if (runReuseDistance) {
+        if (!ReadEnvUint32("METASIM_REUSE_WINDOW", &ReuseWindow)){
+            ReuseWindow = 1;
+        }
+        if (!ReadEnvUint32("METASIM_REUSE_BIN", &ReuseBin)){
+            ReuseBin = 1;
+        }
+//        ReuseDistanceHandlers[ReuseDistanceIndex] = new 
+//          ReuseDistance::ReuseDistance(ReuseWindow, ReuseBin);
+    }
+
+    if (runSpatialLocality) {
+        if (!ReadEnvUint32("METASIM_SPATIAL_WINDOW", &SpatialWindow)){
+            SpatialWindow = 1;
+        }
+        if (!ReadEnvUint32("METASIM_SPATIAL_BIN", &SpatialBin)){
+            SpatialBin = 1;
+        }
+        if (!ReadEnvUint32("METASIM_SPATIAL_NMAX", &SpatialNMAX)){
+            SpatialNMAX = ReuseDistance::Infinity;
+        }
+
+    }
 
     uint32_t SampleMax;
     uint32_t SampleOn;

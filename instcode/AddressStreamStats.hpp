@@ -36,7 +36,7 @@ class StreamStats;
 class MemoryStreamHandler;
 class ReuseDistance;
 
-typedef struct {
+typedef struct AddressStreamStats_s {
     // memory buffer
     BufferEntry* Buffer;
 

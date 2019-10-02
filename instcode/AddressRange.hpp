@@ -25,6 +25,11 @@
 #include <AddressStreamStats.hpp>
 #include <AddressStreamBase.hpp>
 
+template <class T> class DataManager;
+class SamplingMethod;
+
+void PrintRangeFile(DataManager<AddressStreamStats*>* AllData, SamplingMethod* 
+  Sampler, int32_t index);
 void RangeFileName(AddressStreamStats* stats, std::string& oFile);
 
 struct AddressRange {
