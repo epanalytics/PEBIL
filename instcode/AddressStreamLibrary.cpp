@@ -203,7 +203,7 @@ extern "C" {
                     }
                 }
     
-                if (Sampler->SampleOn == 0){
+                if (Sampler->GetSamplingFrequency() == 0){
                     inform << "Disabling all simulation-related instrumentation"
                       " because METASIM_SAMPLE_ON is set to 0" << ENDL;
                     set<uint64_t> AllSimPoints;
@@ -551,7 +551,7 @@ extern "C" {
         inform << "CXXX Total Execution time for instrumented application " 
           << t << ENDL;
         // TODO Is this right?
-        double m = (double)(CountMemoryHandlers * Sampler->AccessCount);
+        double m = (double)(CountMemoryHandlers * Sampler->GetAccessCount());
         inform << "CXXX - Address Stream Library - Memops simulated per "
           << "second: " << (m/t) << ENDL;
         if(NonmaxKeys){

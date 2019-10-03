@@ -41,22 +41,11 @@ SamplingMethod::SamplingMethod(uint32_t limit, uint32_t on, uint32_t off){
 SamplingMethod::~SamplingMethod(){
 }
 
-void SamplingMethod::Print(){
-    inform << "SamplingMethod:" << TAB << "AccessLimit " << AccessLimit << " SampleOn " << SampleOn << " SampleOff " << SampleOff << ENDL;
-}
-
-void SamplingMethod::IncrementAccessCount(uint64_t count){
-    AccessCount += count;
-}
-
-bool SamplingMethod::SwitchesMode(uint64_t count){
-    return (CurrentlySampling(0) != CurrentlySampling(count));
-}
-
 bool SamplingMethod::CurrentlySampling(){
     return CurrentlySampling(0);
 }
 
+// Returns if would be sampling after "count" samples
 bool SamplingMethod::CurrentlySampling(uint64_t count){
     uint32_t PeriodLength = SampleOn + SampleOff;
 
@@ -80,6 +69,25 @@ bool SamplingMethod::ExceedsAccessLimit(uint64_t count){
         res = true;
     }
     return res;
+}
+
+double SamplingMethod::GetSamplingFrequency() {
+    if (SampleOn == 0) {
+        return 0;
+    }
+    return (double)SampleOn / (double)(SampleOn + SampleOff);
+}
+
+void SamplingMethod::IncrementAccessCount(uint64_t count){
+    AccessCount += count;
+}
+
+bool SamplingMethod::SwitchesMode(uint64_t count){
+    return (CurrentlySampling(0) != CurrentlySampling(count));
+}
+
+void SamplingMethod::Print(){
+    inform << "SamplingMethod:" << TAB << "AccessLimit " << AccessLimit << " SampleOn " << SampleOn << " SampleOff " << SampleOff << ENDL;
 }
 
 MemoryStreamHandler::MemoryStreamHandler(){
@@ -112,16 +120,8 @@ bool IsEmptyComment(string str){
     return false;
 }
 
-
-char ToLowerCase(char c){
-    if (c < 'a'){
-        c += ('a' - 'A');
-    }
-    return c;
-}
-
 // returns true on success... allows things to continue on failure if desired
-bool ParseInt32(string token, uint32_t* value, uint32_t min){
+bool ParseInt32(string token, int32_t* value, int32_t min){
     int32_t val;
     uint32_t mult = 1;
     bool ErrorFree = true;
@@ -163,10 +163,13 @@ bool ParseInt32(string token, uint32_t* value, uint32_t min){
 }
 
 bool ParsePositiveInt32(string token, uint32_t* value){
-    return ParseInt32(token, value, 1);
+    bool ret = ParseInt32(token, (int32_t*)value, 1);
+    assert((int32_t)(*value) == (uint32_t)(*value));
+    return ret;
 }
 
 uint32_t RandomInt(uint32_t max){
+    assert(max > 0 && "Cannot mod by 0");
     return rand() % max;
 }
 
@@ -177,7 +180,7 @@ bool ReadEnvUint32(string name, uint32_t* var){
         return false;
     }
     string s (e);
-    if (!ParseInt32(s, var, 0)){
+    if (!ParseInt32(s, (int32_t*)var, 0)){
         debug(inform << "unable to parse " << name << " in environment" <<
           ENDL;)
         return false;
@@ -185,3 +188,9 @@ bool ReadEnvUint32(string name, uint32_t* var){
     return true;
 }
 
+char ToLowerCase(char c){
+    if (c < 'a'){
+        c += ('a' - 'A');
+    }
+    return c;
+}

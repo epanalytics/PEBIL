@@ -106,9 +106,9 @@ void PrintSGLengthFile(DataManager<AddressStreamStats*>* AllData,
       << "# processed     = " << dec << sampledCount << " (" 
       << ((double)sampledCount / (double)totalMemop * 100.0) 
       << "% of total)" << ENDL
-      << "# samplemax     = " << Sampler->AccessLimit << ENDL
-      << "# sampleon      = " << Sampler->SampleOn << ENDL
-      << "# sampleoff     = " << Sampler->SampleOff << ENDL
+      << "# samplemax     = " << Sampler->GetAccessLimit() << ENDL
+      << "# sampleon      = " << Sampler->GetSampleOn() << ENDL
+      << "# sampleoff     = " << Sampler->GetSampleOff() << ENDL
       << "# perinsn       = " << (stats->PerInstruction? "yes" : "no") 
       << ENDL
       << "# lpi           = " << (stats->LoopInclusion? "yes" : "no") 

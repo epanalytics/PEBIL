@@ -38,24 +38,30 @@ public:
     virtual bool Verify() = 0;
 };
 
+// Note: User required to check if limit is hit
 class SamplingMethod {
-public:
+private:
     uint32_t AccessLimit;
     uint32_t SampleOn;
     uint32_t SampleOff;
     uint64_t AccessCount;
 
+    bool CurrentlySampling(uint64_t count);
+
+public:
     SamplingMethod(uint32_t limit, uint32_t on, uint32_t off);
     ~SamplingMethod();
 
-    void Print();
-
-    void IncrementAccessCount(uint64_t count);
-
-    bool SwitchesMode(uint64_t count);
     bool CurrentlySampling();
-    bool CurrentlySampling(uint64_t count);
     bool ExceedsAccessLimit(uint64_t count);
+    uint64_t GetAccessCount() { return AccessCount; }
+    uint64_t GetAccessLimit() { return AccessLimit; }
+    double GetSamplingFrequency();
+    uint32_t GetSampleOn() { return SampleOn; }
+    uint32_t GetSampleOff() { return SampleOff; }
+    void IncrementAccessCount(uint64_t count);
+    bool SwitchesMode(uint64_t count);
+    void Print();
 };
 
 // DFP and other interesting memory things extend this class.
@@ -77,7 +83,7 @@ public:
 
 // Common functions
 bool IsEmptyComment(std::string str);
-bool ParseInt32(std::string token, uint32_t* value, uint32_t min);
+bool ParseInt32(std::string token, int32_t* value, int32_t min);
 bool ParsePositiveInt32(std::string token, uint32_t* value);
 uint32_t RandomInt(uint32_t max);
 bool ReadEnvUint32(std::string name, uint32_t* var);

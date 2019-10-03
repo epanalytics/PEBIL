@@ -114,9 +114,9 @@ void PrintCacheSimulationFile(DataManager<AddressStreamStats*>* AllData,
       << "# processed     = " << dec << sampledCount << " (" 
       << ((double)sampledCount / (double)totalMemop * 100.0) 
       << "% of total)" << ENDL
-      << "# samplemax     = " << Sampler->AccessLimit << ENDL
-      << "# sampleon      = " << Sampler->SampleOn << ENDL
-      << "# sampleoff     = " << Sampler->SampleOff << ENDL
+      << "# samplemax     = " << Sampler->GetAccessLimit() << ENDL
+      << "# sampleon      = " << Sampler->GetSampleOn() << ENDL
+      << "# sampleoff     = " << Sampler->GetSampleOff() << ENDL
       << "# numcache      = " << numCaches << ENDL
       << "# perinsn       = " << (stats->PerInstruction? "yes" : "no") 
       << ENDL 
@@ -1508,7 +1508,7 @@ bool CacheStructureHandler::Init(string desc){
                 hybridCache=0;
             }
 
-            if (!ParseInt32(token, &sysId, 0)){
+            if (!ParseInt32(token, (int32_t*)(&sysId), 0)){
                 return false;
             }
             continue;
