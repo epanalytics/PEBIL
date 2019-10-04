@@ -634,9 +634,8 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     }
 
     if (typ == AllData->ThreadType || (iid == firstimage)){
-        stats->Handlers = new MemoryStreamHandler*[CountMemoryHandlers];   
-        stats->RHandlers = new ReuseDistance::ReuseDistance*[
-          CountReuseHandlers];
+        stats->Handlers = new MemoryStreamHandler*[CountMemoryHandlers];
+        stats->RHandlers = new ReuseDistance*[CountReuseHandlers];
     
         // all images within a thread share a set of memory handlers, but they 
         // don't exist for any image
@@ -659,7 +658,7 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
         }
         if (runReuseDistance) {
             stats->RHandlers[ReuseDistanceIndex] = new 
-              ReuseDistance::ReuseDistance(ReuseWindow, ReuseBin);
+              ReuseDistance(ReuseWindow, ReuseBin);
         }
         if (runScatterLength) {
             VectorLengthHandler* p = (VectorLengthHandler*)MemoryHandlers[
