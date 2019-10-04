@@ -38,18 +38,21 @@ struct AddressRange {
 class RangeStats : public StreamStats {
 private:
     static const uint64_t MAX_64BIT_VALUE = 0xffffffffffffffff;
-public:
+
     uint32_t Capacity;
-    AddressRange** Ranges;
     uint64_t* Counts;
+    AddressRange** Ranges;
+
+public:
 
     RangeStats(uint32_t capacity);
     ~RangeStats();
 
     bool HasMemId(uint32_t memid);
+    uint64_t GetAccessCount(uint32_t memid) { return Counts[memid]; }
+    uint32_t GetCapacity() { return Capacity; }
     uint64_t GetMinimum(uint32_t memid);
     uint64_t GetMaximum(uint32_t memid);
-    uint64_t GetAccessCount(uint32_t memid) { return Counts[memid]; }
 
     void Update(uint32_t memid, uint64_t addr);
     void Update(uint32_t memid, uint64_t addr, uint32_t count);

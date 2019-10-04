@@ -58,8 +58,8 @@ void PrintRangeFile(DataManager<AddressStreamStats*>* AllData, SamplingMethod*
 
             RangeStats* r = (RangeStats*)s->Stats[rangeIndex];
             assert(r);
-            for (uint32_t i = 0; i < r->Capacity; i++){
-                sampledCount += r->Counts[i];
+            for (uint32_t i = 0; i < r->GetCapacity(); i++){
+                sampledCount += r->GetAccessCount(i);
             }
 
             for (uint32_t i = 0; i < s->BlockCount; i++){
@@ -155,7 +155,7 @@ void PrintRangeFile(DataManager<AddressStreamStats*>* AllData, SamplingMethod*
                   r->GetAccessCount(memid));
             }
             uint32_t MaxCapacity;
-            MaxCapacity = aggRange->Capacity;
+            MaxCapacity = aggRange->GetCapacity();
 
             for (uint32_t bbid = 0; bbid < MaxCapacity; bbid++){
                 // dont print blocks which weren't touched
@@ -260,6 +260,7 @@ void RangeStats::Update(uint32_t memid, uint64_t addr){
 }
 
 void RangeStats::Update(uint32_t memid, uint64_t addr, uint32_t count){
+    assert(HasMemId(memid) && "Memory ID is out of bounds");
     AddressRange* r = Ranges[memid];
     if (addr < r->Minimum){
         r->Minimum = addr;

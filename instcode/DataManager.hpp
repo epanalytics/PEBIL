@@ -8,7 +8,7 @@
 #define ThreadHashShift (16)
 #define ThreadHashMod   (0x3ffff)
 
-#ifndef debug(...)
+#ifndef debug
 //#define debug(...) __VA_ARGS__
 #define debug(...)
 #endif
@@ -73,19 +73,19 @@ private:
         td[actual].data = (uint64_t)dataref(d);
   /*
         if (typ == ImageType){
-            warn << "Image " << hex << iid << " thread " << tid;
+            warn << "Image " << std::hex << iid << " thread " << tid;
         } else {
-            warn << "Thread " << hex << tid << " image " << iid;
+            warn << "Thread " << std::hex << tid << " image " << iid;
         }
         warn
             << " setting up thread data for " << tid << " at index "
-            << dec << actual << TAB << hex << td << "(" << GetThreadSequence(tid) << ")"
-            << " -> " << hex << td[actual].data
+            << std::dec << actual << TAB << std::hex << td << "(" << GetThreadSequence(tid) << ")"
+            << " -> " << std::hex << td[actual].data
             << endl;
   */
         // just fail if there was a collision. it makes writing tools much easier so we see how well this works for now
         if (actual != h){
-            warn << "Collision placing thread-specific data for " << tid << ": slot " << dec << h << " already taken" << ENDL;
+            warn << "Collision placing thread-specific data for " << tid << ": slot " << std::dec << h << " already taken" << ENDL;
       exit(-1);
         }
         assert(actual == h);
@@ -173,7 +173,7 @@ public:
     uint32_t GetThreadSequence(thread_key_t tid){
         ReadLock();
         if (threadseq.count(tid) != 1){
-            inform << "Thread not available!?! " << hex << tid << ENDL;
+            inform << "Thread not available!?! " << std::hex << tid << ENDL;
         }
         assert(threadseq.count(tid) == 1 && "thread must be added with "
           "AddThread method");
@@ -385,7 +385,7 @@ public:
     T GetData(image_key_t iid, thread_key_t tid){
         ReadLock();
         if (datamap.count(iid) != 1){
-            inform << "About to fail iid check with " << dec <<
+            inform << "About to fail iid check with " << std::dec <<
               datamap.count(iid) << ENDL;
         }
         assert(datamap.count(iid) == 1);
