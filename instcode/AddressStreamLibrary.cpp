@@ -528,7 +528,7 @@ extern "C" {
         }
 
        
-        // Create the Address Range report 
+        // Create the reports 
         if (runAddressRange) {
             PrintRangeFile(AllData, Sampler, AddressRangeIndex);
         }

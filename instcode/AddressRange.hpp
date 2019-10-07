@@ -46,7 +46,7 @@ private:
 public:
 
     RangeStats(uint32_t capacity);
-    ~RangeStats();
+    virtual ~RangeStats();
 
     bool HasMemId(uint32_t memid);
     uint64_t GetAccessCount(uint32_t memid) { return Counts[memid]; }
@@ -54,8 +54,8 @@ public:
     uint64_t GetMinimum(uint32_t memid);
     uint64_t GetMaximum(uint32_t memid);
 
-    void Update(uint32_t memid, uint64_t addr);
-    void Update(uint32_t memid, uint64_t addr, uint32_t count);
+    virtual void Update(uint32_t memid, uint64_t addr);
+    virtual void Update(uint32_t memid, uint64_t addr, uint32_t count);
 
     bool Verify();
 };
