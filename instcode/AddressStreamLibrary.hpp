@@ -22,23 +22,21 @@
 #define _AddressStreamLibrary_hpp_
 
 #include <string>
-#include <AddressStreamStats.hpp>
 
 extern "C" {
+    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool*
+      isThreadedModeFlag);
     void* tool_mpi_init();
-    void* tool_thread_init(pthread_t tid);
-    void* process_buffer(image_key_t* key);
+    void* tool_thread_init(thread_key_t tid);
+    void* tool_thread_fini(thread_key_t tid);
+    void* tool_image_init(void* s, image_key_t* key, ThreadData* td);
     void* tool_image_fini(image_key_t* key);
 };
 
-void GetBufferIds(BufferEntry* b, image_key_t* i);
-void ReadSettings();
-AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, 
-  uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
 uint64_t ReferenceStreamStats(AddressStreamStats* stats);
 void DeleteStreamStats(AddressStreamStats* stats);
-void PrintAddressStreamStats(std::ofstream& f, AddressStreamStats* stats, 
-  thread_key_t tid, bool perThread);
+AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, 
+  uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
 
 
 #endif /* _AddressStreamLibrary_cpp_ */

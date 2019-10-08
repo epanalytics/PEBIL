@@ -53,7 +53,7 @@ COMMON_OBJS = $(LIBDIR)/InstrumentationCommon.o
 COMMON_OBJS_MIC = $(MICLIBDIR)/InstrumentationCommon.o
 SHARED_COMMON_OBJS = $(LIBDIR)/InstrumentationCommon.O $(LIBDIR)/ThreadedCommon.O $(LIBDIR)/DynamicInstrumentation.O
 
-ASL_OBJS = $(LIBDIR)/AddressStreamBase.O $(LIBDIR)/AddressRange.O $(LIBDIR)/CacheSimulation.O $(LIBDIR)/ReuseDistanceASI.O $(LIBDIR)/ScatterGatherLength.O $(LIBDIR)/SpatialLocality.O
+ASL_OBJS = $(LIBDIR)/AddressStreamBase.O $(LIBDIR)/AddressRange.O $(LIBDIR)/CacheSimulation.O $(LIBDIR)/ReuseDistanceASI.O $(LIBDIR)/ScatterGatherLength.O $(LIBDIR)/SpatialLocality.O $(LIBDIR)/AddressStreamDriver.O
 
 ifeq ($(ADAMANT_LIBS_BUILD),yes)
 	EXTRA_LIBS = -ldl -lpthread -ladm
