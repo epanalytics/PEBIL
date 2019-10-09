@@ -23,6 +23,8 @@
 
 #include <string>
 
+class AddressStreamDriver;
+
 extern "C" {
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool*
       isThreadedModeFlag);
@@ -37,6 +39,9 @@ uint64_t ReferenceStreamStats(AddressStreamStats* stats);
 void DeleteStreamStats(AddressStreamStats* stats);
 AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, 
   uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
+
+// For TESTING purposes ONLY
+void SetGlobalDriver(AddressStreamDriver* newDriver);
 
 
 #endif /* _AddressStreamLibrary_cpp_ */

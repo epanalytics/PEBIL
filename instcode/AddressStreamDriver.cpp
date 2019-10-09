@@ -54,9 +54,8 @@ using namespace std;
 ////#define synchronize(__locker) __locker->ReadLock(); for (bool __s = true; \
 //  __s == true; __locker->UnLock(), __s = false) 
 
-// Constructor
-AddressStreamDriver::AddressStreamDriver(DataManager<AddressStreamStats*>* 
-  AllData) {
+// Default Constructor
+AddressStreamDriver::AddressStreamDriver() {
 
     // Only run Cache Simulation by default
     runAddressRange = false;
@@ -65,7 +64,7 @@ AddressStreamDriver::AddressStreamDriver(DataManager<AddressStreamStats*>*
     runScatterLength = false;
     runSpatialLocality = false;
 
-    // Initialize Memory Handler and Indices
+    // Initialize default Memory Handler and Indices
     numReuseHandlers = 0;
 
     addressRangeIndex = -1;
@@ -75,7 +74,7 @@ AddressStreamDriver::AddressStreamDriver(DataManager<AddressStreamStats*>*
     scatterLengthIndex = -1;
     spatialLocalityIndex = -1;
 
-    // Initialize Tool-specific data
+    // Initialize default Tool-specific data
     reuseWindow = 0;
     reuseBin = 0;
 
@@ -83,17 +82,8 @@ AddressStreamDriver::AddressStreamDriver(DataManager<AddressStreamStats*>*
     spatialBin = 0;
     spatialNMAX = 0;
 
-    // Initialize AllData
-    allData = AllData;
-
-    // Initialize Sampler
-    CreateSamplingMethod();
-
     // Create the temporary Memory Handlers vector
     tempMemoryHandlers = new vector<MemoryStreamHandler*>();
-
-    // Set up the libraries!
-    SetUpLibraries();
 
 }
 
@@ -213,6 +203,20 @@ void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
     inform << "CXXX - Address Stream Library - Memops simulated per "
       << "second: " << (m/t) << ENDL;
     RESTORE_STREAM_FLAGS(cout);
+
+}
+
+void AddressStreamDriver::InitializeAddressStreamDriver(
+  DataManager<AddressStreamStats*>* d) {
+
+    // Initialize AllData
+    allData = d;
+
+    // Initialize Sampler
+    CreateSamplingMethod();
+
+    // Set up the libraries!
+    SetUpLibraries();
 
 }
 

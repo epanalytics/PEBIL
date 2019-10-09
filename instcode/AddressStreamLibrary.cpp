@@ -85,8 +85,8 @@ extern "C" {
             DataManager<AddressStreamStats*>* AllData;
             AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats, 
               DeleteStreamStats, ReferenceStreamStats);
-            Driver = new AddressStreamDriver(AllData);
-       //     ReadSettings();
+            Driver = new AddressStreamDriver();
+            Driver->InitializeAddressStreamDriver(AllData);
         }
         assert(Driver);
 
@@ -211,4 +211,10 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     }
 
     return stats;
+}
+
+
+// For Testing purposes ONLY
+void SetGlobalDriver(AddressStreamDriver* newDriver) {
+    Driver = newDriver;
 }

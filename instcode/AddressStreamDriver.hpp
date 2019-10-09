@@ -74,11 +74,11 @@ class AddressStreamDriver {
     uint32_t spatialBin;
     uint32_t spatialNMAX;
   public:
-    AddressStreamDriver(DataManager<AddressStreamStats*>* AllData);
+    AddressStreamDriver();
     virtual ~AddressStreamDriver();
 
     void CreateFastData(uint64_t capacity);
-    void CreateSamplingMethod();
+    virtual void CreateSamplingMethod();
 
     void DeleteAllData();
 
@@ -94,6 +94,7 @@ class AddressStreamDriver {
 
     void* FinalizeImage(image_key_t*);
 
+    void InitializeAddressStreamDriver(DataManager<AddressStreamStats*>* d);
     void InitializeKeys();
     void* InitializeNewImage(image_key_t* iid, AddressStreamStats* stats, 
       ThreadData* threadData);
@@ -124,7 +125,7 @@ class AddressStreamDriver {
     void SetScatterLength(bool b) { runScatterLength = b; }
     void SetSpatialLocality(bool b) { runSpatialLocality = b; }
 
-    void SetUpLibraries();
+    virtual void SetUpLibraries();
 
 };
 
