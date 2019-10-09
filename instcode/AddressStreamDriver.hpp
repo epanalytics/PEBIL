@@ -35,7 +35,7 @@ typedef struct BufferEntry_s BufferEntry;
 class AddressStreamDriver {
   private:
 
-    // Are we running these bools?
+    // Are we running these tools?
     bool runAddressRange;
     bool runCacheSimulation;
     bool runReuseDistance;
