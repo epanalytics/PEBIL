@@ -65,8 +65,6 @@ AddressStreamDriver::AddressStreamDriver() {
     runSpatialLocality = false;
 
     // Initialize default Memory Handler and Indices
-    numReuseHandlers = 0;
-
     addressRangeIndex = -1;
     cacheSimulationFirstIndex = -1;
     cacheSimulationLastIndex = -1;
@@ -74,16 +72,9 @@ AddressStreamDriver::AddressStreamDriver() {
     scatterLengthIndex = -1;
     spatialLocalityIndex = -1;
 
-    // Initialize default Tool-specific data
-    reuseWindow = 0;
-    reuseBin = 0;
-
-    spatialWindow = 0;
-    spatialBin = 0;
-    spatialNMAX = 0;
-
     // Create the temporary Memory Handlers vector
     tempMemoryHandlers = new vector<MemoryStreamHandler*>();
+    tempReuseHandlers = new vector<ReuseDistance*>();
 
 }
 
@@ -94,6 +85,8 @@ AddressStreamDriver::~AddressStreamDriver() {
         delete liveInstPointKeys;
     tempMemoryHandlers->clear();
     delete tempMemoryHandlers;
+    tempReuseHandlers->clear();
+    delete tempReuseHandlers;
     delete fastData;
 }
 
@@ -198,7 +191,7 @@ void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
     inform << "CXXX Total Execution time for instrumented application " 
       << t << ENDL;
     // TODO Is this right?
-    double m = (double)((numReuseHandlers + tempMemoryHandlers->size()) * 
+    double m = (double)((GetNumReuseHandlers() + GetNumMemoryHandlers()) * 
       sampler->GetAccessCount());
     inform << "CXXX - Address Stream Library - Memops simulated per "
       << "second: " << (m/t) << ENDL;
@@ -314,9 +307,9 @@ void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
 
 void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats* 
   stats) {
-    assert(tempMemoryHandlers->size() + numReuseHandlers > 0);
-    stats->Handlers = new MemoryStreamHandler*[tempMemoryHandlers->size()];
-    stats->RHandlers = new ReuseDistance*[numReuseHandlers];
+    assert(GetNumMemoryHandlers() + GetNumReuseHandlers() > 0);
+    stats->Handlers = new MemoryStreamHandler*[GetNumMemoryHandlers()];
+    stats->RHandlers = new ReuseDistance*[GetNumReuseHandlers()];
 
     if (runAddressRange) {
         AddressRangeHandler* oldHandler = (AddressRangeHandler*)
@@ -337,8 +330,9 @@ void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats*
     }
 
     if (runReuseDistance) {
-        stats->RHandlers[reuseDistanceIndex] = new ReuseDistance(reuseWindow, 
-          reuseBin);
+        ReuseDistance* oldHandler = (ReuseDistance*)(tempReuseHandlers->at(
+          reuseDistanceIndex));
+        stats->RHandlers[reuseDistanceIndex] = new ReuseDistance(*oldHandler);
     }
 
     if (runScatterLength) {
@@ -349,17 +343,19 @@ void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats*
     }
     
     if (runSpatialLocality) {
+        SpatialLocality* oldHandler = (SpatialLocality*)(tempReuseHandlers->at(
+          spatialLocalityIndex));
         stats->RHandlers[spatialLocalityIndex] = new SpatialLocality(
-          spatialWindow, spatialBin, spatialNMAX);
+          *oldHandler);
     }
 }
 
 void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
   stats) {
-    assert(tempMemoryHandlers->size() + numReuseHandlers > 0);
+    assert(GetNumMemoryHandlers() + GetNumReuseHandlers() > 0);
     // Create a StreamStats object for each test/memory handler
-    stats->Stats = new StreamStats*[tempMemoryHandlers->size()];
-    bzero(stats->Stats, sizeof(StreamStats*) * tempMemoryHandlers->size());
+    stats->Stats = new StreamStats*[GetNumMemoryHandlers()];
+    bzero(stats->Stats, sizeof(StreamStats*) * GetNumMemoryHandlers());
 
     if (runAddressRange) {
         stats->Stats[addressRangeIndex] = new RangeStats(stats->AllocCount);
@@ -494,7 +490,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
             }
 
             // Process the buffer for each Reuse Distance handler
-            for (uint32_t i = 0; i < numReuseHandlers; i++) {
+            for (uint32_t i = 0; i < GetNumReuseHandlers(); i++) {
                 ReuseDistance* r = stats->RHandlers[i];
                 ProcessReuseBuffer(iid, tid, r, numElements);
             }        
@@ -604,7 +600,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
             }
 
             // Reuse handlers need to know we passed over addresses
-            for (uint32_t i = 0; i < numReuseHandlers; i++) {
+            for (uint32_t i = 0; i < GetNumReuseHandlers(); i++) {
                 ReuseDistance* r = stats->RHandlers[i];
                 r->SkipAddresses(numElements);
             }
@@ -618,25 +614,25 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
 void AddressStreamDriver::SetUpLibraries() {
     // Check for which libraries to use
-    uint32_t AddressRange;
-    uint32_t CacheSimulation;
-    uint32_t ReuseDistance;
-    uint32_t ScatterGatherLength;
-    uint32_t SpatialLocality;
-    if (ReadEnvUint32("METASIM_ADDRESS_RANGE", &AddressRange)){
-        runAddressRange = (AddressRange == 0) ? false : true;
+    uint32_t doAddressRange;
+    uint32_t doCacheSimulation;
+    uint32_t doReuseDistance;
+    uint32_t doScatterGatherLength;
+    uint32_t doSpatialLocality;
+    if (ReadEnvUint32("METASIM_ADDRESS_RANGE", &doAddressRange)){
+        runAddressRange = (doAddressRange == 0) ? false : true;
     }
-    if (ReadEnvUint32("METASIM_CACHE_SIMULATION", &CacheSimulation)){
-        runCacheSimulation = (CacheSimulation == 0) ? false : true;
+    if (ReadEnvUint32("METASIM_CACHE_SIMULATION", &doCacheSimulation)){
+        runCacheSimulation = (doCacheSimulation == 0) ? false : true;
     }
-    if (ReadEnvUint32("METASIM_REUSE_DISTANCE", &ReuseDistance)){
-        runReuseDistance = (ReuseDistance == 0) ? false : true;
+    if (ReadEnvUint32("METASIM_REUSE_DISTANCE", &doReuseDistance)){
+        runReuseDistance = (doReuseDistance == 0) ? false : true;
     }
-    if (ReadEnvUint32("METASIM_SG_LENGTH", &ScatterGatherLength)){
-        runScatterLength = (ScatterGatherLength == 0) ? false : true;
+    if (ReadEnvUint32("METASIM_SG_LENGTH", &doScatterGatherLength)){
+        runScatterLength = (doScatterGatherLength == 0) ? false : true;
     }
-    if (ReadEnvUint32("METASIM_SPATIAL_LOCALITY", &SpatialLocality)){
-        runSpatialLocality = (SpatialLocality == 0) ? false : true;
+    if (ReadEnvUint32("METASIM_SPATIAL_LOCALITY", &doSpatialLocality)){
+        runSpatialLocality = (doSpatialLocality == 0) ? false : true;
     }
 
     // Create temporary handlers for each library that we are running
@@ -644,43 +640,48 @@ void AddressStreamDriver::SetUpLibraries() {
     // need to be stored in the same order as in the AddressStreamStats data 
     // structure!)
     if (runAddressRange) {
-        addressRangeIndex = tempMemoryHandlers->size();
+        addressRangeIndex = GetNumMemoryHandlers();
         tempMemoryHandlers->push_back(new AddressRangeHandler());
     }
 
     vector<CacheStructureHandler*> caches;
     if (runCacheSimulation) {
-        cacheSimulationFirstIndex = tempMemoryHandlers->size();
+        cacheSimulationFirstIndex = GetNumMemoryHandlers();
         caches = ReadCacheSimulationSettings();
         assert(caches.size() > 0);
         for (int32_t i = 0; i < caches.size(); i++) {
             assert((!caches[i]->hybridCache) && "Hybrid cache deprecated");
             tempMemoryHandlers->push_back(caches[i]);
         }
-        cacheSimulationLastIndex = tempMemoryHandlers->size();
+        cacheSimulationLastIndex = GetNumMemoryHandlers();
     }
 
     if (runReuseDistance) {
-        reuseDistanceIndex = numReuseHandlers;
-        numReuseHandlers++;
+        reuseDistanceIndex = GetNumReuseHandlers();
 
+        uint32_t reuseWindow;
+        uint32_t reuseBin;
         if (!ReadEnvUint32("METASIM_REUSE_WINDOW", &reuseWindow)){
             reuseWindow = 1;
         }
         if (!ReadEnvUint32("METASIM_REUSE_BIN", &reuseBin)){
             reuseBin = 1;
         }
+
+        tempReuseHandlers->push_back(new ReuseDistance(reuseWindow, reuseBin));
     }
 
     if (runScatterLength) {
-        scatterLengthIndex = tempMemoryHandlers->size();
+        scatterLengthIndex = GetNumMemoryHandlers();
         tempMemoryHandlers->push_back(new VectorLengthHandler());
     }
 
     if (runSpatialLocality) {
-        spatialLocalityIndex = numReuseHandlers;
-        numReuseHandlers++;
+        spatialLocalityIndex = GetNumReuseHandlers();
 
+        uint32_t spatialWindow;
+        uint32_t spatialBin;
+        uint32_t spatialNMAX;
         if (!ReadEnvUint32("METASIM_SPATIAL_WINDOW", &spatialWindow)){
             spatialWindow = 1;
         }
@@ -690,6 +691,9 @@ void AddressStreamDriver::SetUpLibraries() {
         if (!ReadEnvUint32("METASIM_SPATIAL_NMAX", &spatialNMAX)){
             spatialNMAX = ReuseDistance::Infinity;
         }
+
+        tempReuseHandlers->push_back(new SpatialLocality(spatialWindow, 
+          spatialBin, spatialNMAX));
     }
 }
 

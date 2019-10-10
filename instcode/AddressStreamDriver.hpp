@@ -24,6 +24,8 @@
 #include <set>
 #include <cstdint>
 
+class ReuseDistance;   // EXTERNAL
+class SpatialLocality;   // EXTERNAL
 class MemoryStreamHandler;
 class SamplingMethod;
 template <class T> class DataManager;
@@ -42,13 +44,11 @@ class AddressStreamDriver {
     bool runScatterLength;
     bool runSpatialLocality;
 
-    // Holds a copy of the memory handlers
-    // This is for creating MemoryHandlers in the AddressStreamStats structure
+    // Holds a copy of the handlers
+    // This is for creating handlers in the AddressStreamStats structure
     // Otherwise, do not use them to process data!
     std::vector<MemoryStreamHandler*>* tempMemoryHandlers = NULL;
-
-    // Memory and Reuse handlers -- how many
-    uint32_t numReuseHandlers;
+    std::vector<ReuseDistance*>* tempReuseHandlers = NULL;
 
     // Memory and Reuse handlers -- which tool owns which handler
     int32_t addressRangeIndex;
@@ -63,16 +63,6 @@ class AddressStreamDriver {
     FastData<AddressStreamStats*, BufferEntry*>* fastData = NULL;
     std::set<uint64_t>* liveInstPointKeys = NULL;  // set of keys of active 
                                                    // inst points
-
-    // Tool-specific data
-    // Reuse Distance
-    uint32_t reuseWindow;
-    uint32_t reuseBin;
-
-    // Spatial Locality
-    uint32_t spatialWindow;
-    uint32_t spatialBin;
-    uint32_t spatialNMAX;
   public:
     AddressStreamDriver();
     virtual ~AddressStreamDriver();
@@ -87,8 +77,15 @@ class AddressStreamDriver {
       return fastData; }
     SamplingMethod* GetSamplingMethod() { return sampler; }
 
+    int32_t GetAddressRangeIndex() { return addressRangeIndex; }
+    int32_t GetCacheSimulationFirstIndex() { return cacheSimulationFirstIndex; }
+    int32_t GetCacheSimulationLastIndex() { return cacheSimulationLastIndex; }
+    int32_t GetReuseDistanceIndex() { return reuseDistanceIndex; }
+    int32_t GetScatterLengthIndex() { return scatterLengthIndex; }
+    int32_t GetSpatialLocalityIndex() { return spatialLocalityIndex; }
+
     uint32_t GetNumMemoryHandlers() { return tempMemoryHandlers->size(); }
-    uint32_t GetNumReuseHandlers() { return numReuseHandlers; }
+    uint32_t GetNumReuseHandlers() { return tempReuseHandlers->size(); }
 
     bool HasLiveInstrumentationPoints();
 
@@ -99,8 +96,8 @@ class AddressStreamDriver {
     void* InitializeNewImage(image_key_t* iid, AddressStreamStats* stats, 
       ThreadData* threadData);
     void* InitializeNewThread(thread_key_t tid);
-    void InitializeStatsWithNewHandlers(AddressStreamStats* stats);
-    void InitializeStatsWithNewStreamStats(AddressStreamStats* stats);
+    virtual void InitializeStatsWithNewHandlers(AddressStreamStats* stats);
+    virtual void InitializeStatsWithNewStreamStats(AddressStreamStats* stats);
 
     bool IsAddressRange() { return runAddressRange; }
     bool IsCacheSimulation() { return runCacheSimulation; }

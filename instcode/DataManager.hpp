@@ -147,7 +147,7 @@ public:
         UnLock();
     }
 
-    ~DataManager(){
+    virtual ~DataManager(){
     }
 
     bool WriteLock(){
@@ -339,6 +339,7 @@ public:
 
         // Connect thread data to thread hashtable
         threaddata[iid] = t;
+
         uint64_t dataloc = SetThreadData(iid, tid, ImageType);
 
         // FIXME
