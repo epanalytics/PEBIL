@@ -76,6 +76,9 @@ AddressStreamDriver::AddressStreamDriver() {
     tempMemoryHandlers = new vector<MemoryStreamHandler*>();
     tempReuseHandlers = new vector<ReuseDistance*>();
 
+    // Create a parser for parsing
+    parser = new StringParser();
+
 }
 
 AddressStreamDriver::~AddressStreamDriver() {
@@ -83,6 +86,8 @@ AddressStreamDriver::~AddressStreamDriver() {
         delete sampler;
     if (liveInstPointKeys)
         delete liveInstPointKeys;
+    if (parser)
+        delete parser;
     tempMemoryHandlers->clear();
     delete tempMemoryHandlers;
     tempReuseHandlers->clear();
@@ -98,17 +103,18 @@ void AddressStreamDriver::CreateFastData(uint64_t capacity) {
 }
 
 void AddressStreamDriver::CreateSamplingMethod() {
-    assert(sampler == NULL);
+    if (sampler != NULL) 
+       delete sampler;
     uint32_t sampleMax;
     uint32_t sampleOn;
     uint32_t sampleOff;
-    if (!ReadEnvUint32("METASIM_SAMPLE_MAX", &sampleMax)){
+    if (!(parser->ReadEnvUint32("METASIM_SAMPLE_MAX", &sampleMax))){
         sampleMax = DEFAULT_SAMPLE_MAX;
     }
-    if (!ReadEnvUint32("METASIM_SAMPLE_OFF", &sampleOff)){
+    if (!(parser->ReadEnvUint32("METASIM_SAMPLE_OFF", &sampleOff))){
         sampleOff = DEFAULT_SAMPLE_OFF;
     }
-    if (!ReadEnvUint32("METASIM_SAMPLE_ON", &sampleOn)){
+    if (!(parser->ReadEnvUint32("METASIM_SAMPLE_ON", &sampleOn))){
         sampleOn = DEFAULT_SAMPLE_ON;
     }
 
@@ -619,19 +625,19 @@ void AddressStreamDriver::SetUpLibraries() {
     uint32_t doReuseDistance;
     uint32_t doScatterGatherLength;
     uint32_t doSpatialLocality;
-    if (ReadEnvUint32("METASIM_ADDRESS_RANGE", &doAddressRange)){
+    if (parser->ReadEnvUint32("METASIM_ADDRESS_RANGE", &doAddressRange)){
         runAddressRange = (doAddressRange == 0) ? false : true;
     }
-    if (ReadEnvUint32("METASIM_CACHE_SIMULATION", &doCacheSimulation)){
+    if (parser->ReadEnvUint32("METASIM_CACHE_SIMULATION", &doCacheSimulation)){
         runCacheSimulation = (doCacheSimulation == 0) ? false : true;
     }
-    if (ReadEnvUint32("METASIM_REUSE_DISTANCE", &doReuseDistance)){
+    if (parser->ReadEnvUint32("METASIM_REUSE_DISTANCE", &doReuseDistance)){
         runReuseDistance = (doReuseDistance == 0) ? false : true;
     }
-    if (ReadEnvUint32("METASIM_SG_LENGTH", &doScatterGatherLength)){
+    if (parser->ReadEnvUint32("METASIM_SG_LENGTH", &doScatterGatherLength)){
         runScatterLength = (doScatterGatherLength == 0) ? false : true;
     }
-    if (ReadEnvUint32("METASIM_SPATIAL_LOCALITY", &doSpatialLocality)){
+    if (parser->ReadEnvUint32("METASIM_SPATIAL_LOCALITY", &doSpatialLocality)){
         runSpatialLocality = (doSpatialLocality == 0) ? false : true;
     }
 
@@ -661,10 +667,10 @@ void AddressStreamDriver::SetUpLibraries() {
 
         uint32_t reuseWindow;
         uint32_t reuseBin;
-        if (!ReadEnvUint32("METASIM_REUSE_WINDOW", &reuseWindow)){
+        if (!(parser->ReadEnvUint32("METASIM_REUSE_WINDOW", &reuseWindow))){
             reuseWindow = 1;
         }
-        if (!ReadEnvUint32("METASIM_REUSE_BIN", &reuseBin)){
+        if (!(parser->ReadEnvUint32("METASIM_REUSE_BIN", &reuseBin))){
             reuseBin = 1;
         }
 
@@ -682,13 +688,13 @@ void AddressStreamDriver::SetUpLibraries() {
         uint32_t spatialWindow;
         uint32_t spatialBin;
         uint32_t spatialNMAX;
-        if (!ReadEnvUint32("METASIM_SPATIAL_WINDOW", &spatialWindow)){
+        if (!(parser->ReadEnvUint32("METASIM_SPATIAL_WINDOW", &spatialWindow))){
             spatialWindow = 1;
         }
-        if (!ReadEnvUint32("METASIM_SPATIAL_BIN", &spatialBin)){
+        if (!(parser->ReadEnvUint32("METASIM_SPATIAL_BIN", &spatialBin))){
             spatialBin = 1;
         }
-        if (!ReadEnvUint32("METASIM_SPATIAL_NMAX", &spatialNMAX)){
+        if (!(parser->ReadEnvUint32("METASIM_SPATIAL_NMAX", &spatialNMAX))){
             spatialNMAX = ReuseDistance::Infinity;
         }
 
@@ -697,6 +703,18 @@ void AddressStreamDriver::SetUpLibraries() {
     }
 }
 
+// For testing
+void AddressStreamDriver::SetParser(StringParser* p) {
+    if (parser != NULL)
+        delete parser;
+    parser = p;
+}
+
+void AddressStreamDriver::SetSampler(SamplingMethod* s) {
+    if (sampler != NULL)
+        delete sampler;
+    sampler = s;
+}
 
 void GetBufferIds(BufferEntry* b, image_key_t* i){
     *i = b->imageid;

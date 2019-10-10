@@ -33,6 +33,10 @@ template <class T, class V> class FastData;
 typedef struct AddressStreamStats_s AddressStreamStats;
 typedef struct BufferEntry_s BufferEntry;
 
+#define DEFAULT_SAMPLE_ON  1000000
+#define DEFAULT_SAMPLE_OFF 10000000
+#define DEFAULT_SAMPLE_MAX 0
+
 // Class to hold important variables and functions together
 class AddressStreamDriver {
   private:
@@ -63,6 +67,8 @@ class AddressStreamDriver {
     FastData<AddressStreamStats*, BufferEntry*>* fastData = NULL;
     std::set<uint64_t>* liveInstPointKeys = NULL;  // set of keys of active 
                                                    // inst points
+
+    StringParser* parser = NULL;
   public:
     AddressStreamDriver();
     virtual ~AddressStreamDriver();
@@ -76,6 +82,7 @@ class AddressStreamDriver {
     FastData<AddressStreamStats*, BufferEntry*>* GetFastData() { 
       return fastData; }
     SamplingMethod* GetSamplingMethod() { return sampler; }
+    StringParser* GetStringParser() { return parser; }
 
     int32_t GetAddressRangeIndex() { return addressRangeIndex; }
     int32_t GetCacheSimulationFirstIndex() { return cacheSimulationFirstIndex; }
@@ -116,13 +123,18 @@ class AddressStreamDriver {
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
 
+    virtual void SetUpLibraries();
+
+    // For Testing Purposes
     void SetAddressRange(bool b) { runAddressRange = b; }
     void SetCacheSimulation(bool b) { runCacheSimulation = b; }
     void SetReuseDistance(bool b) { runReuseDistance = b; }
     void SetScatterLength(bool b) { runScatterLength = b; }
     void SetSpatialLocality(bool b) { runSpatialLocality = b; }
 
-    virtual void SetUpLibraries();
+    void SetParser(StringParser* p);
+    void SetSampler(SamplingMethod* s);
+
 
 };
 

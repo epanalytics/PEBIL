@@ -24,10 +24,6 @@
 #include <string>
 #include <AddressStreamStats.hpp>
 
-#define DEFAULT_SAMPLE_ON  1000000
-#define DEFAULT_SAMPLE_OFF 10000000
-#define DEFAULT_SAMPLE_MAX 0
-
 #define KILO (1024)
 #define MEGA (KILO*KILO)
 #define GIGA (MEGA*KILO)
@@ -50,7 +46,7 @@ private:
 
 public:
     SamplingMethod(uint32_t limit, uint32_t on, uint32_t off);
-    ~SamplingMethod();
+    virtual ~SamplingMethod();
 
     bool CurrentlySampling();
     bool ExceedsAccessLimit(uint64_t count);
@@ -81,13 +77,26 @@ public:
 
 };
 
-// Common functions
-bool IsEmptyComment(std::string str);
-bool ParseInt32(std::string token, int32_t* value, int32_t min);
-bool ParsePositiveInt32(std::string token, uint32_t* value);
-uint32_t RandomInt(uint32_t max);
-bool ReadEnvUint32(std::string name, uint32_t* var);
-char ToLowerCase(char c);
+// Common string functions
+class StringParser {
+public:
+    StringParser() {};
+    virtual ~StringParser() {};
+
+    virtual bool IsEmptyComment(std::string str);
+    virtual bool ParseInt32(std::string token, int32_t* value, int32_t min);
+    virtual bool ParsePositiveInt32(std::string token, uint32_t* value);
+    virtual bool ReadEnvUint32(std::string name, uint32_t* var);
+    virtual char ToLowerCase(char c);
+};
+
+class Randomizer {
+public:
+    Randomizer() {};
+    virtual ~Randomizer() {}    
+
+    virtual uint32_t RandomInt(uint32_t max);
+};
 
 #endif /* _AddressStreamBase_hpp_ */
 

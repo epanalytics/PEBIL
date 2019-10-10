@@ -871,7 +871,9 @@ uint32_t CacheLevel::LineToReplace(uint32_t setid){
     } else if (replpolicy == ReplacementPolicy_trulru){
         return recentlyUsed[setid];
     } else if (replpolicy == ReplacementPolicy_random){
-        return RandomInt(associativity);
+        // FIXME Give a class a randomizer
+        Randomizer r;
+        return r.RandomInt(associativity);
     } else if (replpolicy == ReplacementPolicy_direct){
         return 0;
     } else {
@@ -1488,6 +1490,9 @@ bool CacheStructureHandler::Init(string desc){
     uint32_t whichTok = 0;
     uint32_t firstExcl = INVALID_CACHE_LEVEL;
 
+    // FIXME - make part of class
+    StringParser parser;
+
     for ( ; (tokenizer >> token) && (whichTok < levelCount * 4+ 2); whichTok++){
 
         // comment reached on line
@@ -1508,13 +1513,13 @@ bool CacheStructureHandler::Init(string desc){
                 hybridCache=0;
             }
 
-            if (!ParseInt32(token, (int32_t*)(&sysId), 0)){
+            if (!(parser.ParseInt32(token, (int32_t*)(&sysId), 0))){
                 return false;
             }
             continue;
         }
         if (whichTok == 1){
-            if (!ParsePositiveInt32(token, &levelCount)){
+            if (!(parser.ParsePositiveInt32(token, &levelCount))){
                 return false;
             }
             levels = new CacheLevel*[levelCount];
@@ -1525,7 +1530,7 @@ bool CacheStructureHandler::Init(string desc){
 
         // the first 3 numbers for a cache value
         if (idx < 3){
-            if (!ParsePositiveInt32(token, &cacheValues[idx])){
+            if (!(parser.ParsePositiveInt32(token, &cacheValues[idx]))){
                 return false;
             }
             // the last token for a cache (replacement policy)
@@ -1728,15 +1733,18 @@ else if(access->type == PREFETCH_ENTRY) {
 
 vector<CacheStructureHandler*> ReadCacheSimulationSettings(){
 
+    // FIXME --> Make part of class
+    StringParser parser;
     uint32_t SaveHashMin = MinimumHighAssociativity;
-    if (!ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", &MinimumHighAssociativity)){
+    if (!(parser.ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
+      &MinimumHighAssociativity))){
         MinimumHighAssociativity = SaveHashMin;
     }
 
-    if(!ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging)){
+    if(!(parser.ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging))){
         LoadStoreLogging = 0;
     }
-    if(!ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling)){
+    if(!(parser.ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
         DirtyCacheHandling = 0;
     }
 
@@ -1762,7 +1770,7 @@ vector<CacheStructureHandler*> ReadCacheSimulationSettings(){
     string line;
     vector<CacheStructureHandler*> caches;
     while (getline(CacheFile, line)){
-        if (IsEmptyComment(line)){
+        if (parser.IsEmptyComment(line)){
             continue;
         }
         CacheStructureHandler* c = new CacheStructureHandler();

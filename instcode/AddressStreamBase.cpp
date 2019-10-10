@@ -109,8 +109,7 @@ bool MemoryStreamHandler::UnLock(){
 }
 
 
-// Common Functions
-bool IsEmptyComment(string str){
+bool StringParser::IsEmptyComment(string str){
     if (str == ""){
         return true;
     }
@@ -121,7 +120,7 @@ bool IsEmptyComment(string str){
 }
 
 // returns true on success... allows things to continue on failure if desired
-bool ParseInt32(string token, int32_t* value, int32_t min){
+bool StringParser::ParseInt32(string token, int32_t* value, int32_t min){
     int32_t val;
     uint32_t mult = 1;
     bool ErrorFree = true;
@@ -162,18 +161,13 @@ bool ParseInt32(string token, int32_t* value, int32_t min){
     return ErrorFree;
 }
 
-bool ParsePositiveInt32(string token, uint32_t* value){
+bool StringParser::ParsePositiveInt32(string token, uint32_t* value){
     bool ret = ParseInt32(token, (int32_t*)value, 1);
     assert((int32_t)(*value) == (uint32_t)(*value));
     return ret;
 }
 
-uint32_t RandomInt(uint32_t max){
-    assert(max > 0 && "Cannot mod by 0");
-    return rand() % max;
-}
-
-bool ReadEnvUint32(string name, uint32_t* var){
+bool StringParser::ReadEnvUint32(string name, uint32_t* var){
     char* e = getenv(name.c_str());
     if (e == NULL){
         debug(inform << "unable to find " << name << " in environment" << ENDL;)
@@ -188,9 +182,14 @@ bool ReadEnvUint32(string name, uint32_t* var){
     return true;
 }
 
-char ToLowerCase(char c){
+char StringParser::ToLowerCase(char c){
     if (c < 'a'){
         c += ('a' - 'A');
     }
     return c;
+}
+
+uint32_t Randomizer::RandomInt(uint32_t max){
+    assert(max > 0 && "Cannot mod by 0");
+    return rand() % max;
 }
