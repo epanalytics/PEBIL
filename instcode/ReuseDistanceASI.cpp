@@ -27,8 +27,6 @@
 #include <ReuseDistanceASI.hpp>
 #include <AddressStreamStats.hpp>
 
-#include <cstring>
-
 using namespace std;
 
 // These control reuse distance calculations. Activate this feature by setting 
@@ -61,11 +59,13 @@ void PrintReuseDistanceFile(DataManager<AddressStreamStats*>* AllData,
             AddressStreamStats* s = it->second;
             ReuseDistFile << "IMAGE" << TAB << hex << (*iit) << TAB << "THREAD" << TAB << dec << AllData->GetThreadSequence(thread) << ENDL;
     
-            ReuseDistance* rd = s->RHandlers[reuseIndex];
+            ReuseDistanceHandler* rd = (ReuseDistanceHandler*)(s->Handlers[
+              reuseIndex]);
             assert(rd);
             inform << "Reuse distance bins for " << hex << s->Application << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
-            rd->Print();
-            rd->Print(ReuseDistFile, true);
+            //rd->Print();
+            //rd->Print(ReuseDistFile, true);
+            rd->Print(ReuseDistFile);
         }
     }
     ReuseDistFile.close();
@@ -79,4 +79,56 @@ void ReuseDistanceFileName(AddressStreamStats* stats, string& oFile){
     oFile.append(".t");
     AppendTasksString(oFile);
     oFile.append(".reusedist");
+}
+
+ReuseStreamStats::ReuseStreamStats(AddressStreamStats* stats) {
+    numBlocks = stats->BlockCount;
+    numMemops = stats->MemopCount;
+    blockIds = (uint64_t*)malloc(sizeof(uint64_t) * numMemops);
+    hashes = (uint64_t*)malloc(sizeof(uint64_t) * numBlocks);
+    for (int32_t i = 0; i < numMemops; i++) {
+        blockIds[i] = stats->BlockIds[i];
+    }
+    for (int32_t i = 0; i < numBlocks; i++) {
+        hashes[i] = stats->Hashes[i];
+    }
+}
+
+ReuseStreamStats::~ReuseStreamStats() {
+    free(blockIds);
+    free(hashes);
+}
+
+uint64_t ReuseStreamStats::GetBlock(uint32_t memop) {
+    return blockIds[memop];
+}
+
+uint64_t ReuseStreamStats::GetHash(uint32_t memop) {
+    return hashes[GetBlock(memop)];
+}
+
+ReuseDistanceHandler::ReuseDistanceHandler(uint64_t w, uint64_t b) {
+    internalHandler = new ReuseDistance(w, b);
+}
+
+ReuseDistanceHandler::ReuseDistanceHandler(ReuseDistanceHandler& h) {
+    internalHandler = new ReuseDistance(h.internalHandler);
+}
+
+ReuseDistanceHandler::~ReuseDistanceHandler() {
+    delete internalHandler;
+}
+
+void ReuseDistanceHandler::Print(ofstream& f) {
+    internalHandler->Print();
+    internalHandler->Print(f, true);
+}
+
+uint32_t ReuseDistanceHandler::Process(void* stats, BufferEntry* access) {
+    ReuseStreamStats* s = (ReuseStreamStats*)stats;
+    ReuseEntry entry = ReuseEntry();
+    entry.id = s->GetHash(access->memseq);
+    entry.address = access->address;
+    internalHandler->Process(entry);
+    return 0;
 }

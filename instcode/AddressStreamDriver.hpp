@@ -28,6 +28,7 @@ class ReuseDistance;   // EXTERNAL
 class SpatialLocality;   // EXTERNAL
 class MemoryStreamHandler;
 class SamplingMethod;
+class AddressRangeTool;
 template <class T> class DataManager;
 template <class T, class V> class FastData;
 typedef struct AddressStreamStats_s AddressStreamStats;
@@ -40,7 +41,9 @@ typedef struct BufferEntry_s BufferEntry;
 // Class to hold important variables and functions together
 class AddressStreamDriver {
   private:
-
+  
+    AddressRangeTool* addressRange;
+    
     // Are we running these tools?
     bool runAddressRange;
     bool runCacheSimulation;
@@ -55,7 +58,7 @@ class AddressStreamDriver {
     std::vector<ReuseDistance*>* tempReuseHandlers = NULL;
 
     // Memory and Reuse handlers -- which tool owns which handler
-    int32_t addressRangeIndex;
+//    int32_t addressRangeIndex;
     int32_t cacheSimulationFirstIndex;
     int32_t cacheSimulationLastIndex; // Exclusive
     int32_t reuseDistanceIndex;
@@ -84,7 +87,7 @@ class AddressStreamDriver {
     SamplingMethod* GetSamplingMethod() { return sampler; }
     StringParser* GetStringParser() { return parser; }
 
-    int32_t GetAddressRangeIndex() { return addressRangeIndex; }
+//    int32_t GetAddressRangeIndex() { return addressRangeIndex; }
     int32_t GetCacheSimulationFirstIndex() { return cacheSimulationFirstIndex; }
     int32_t GetCacheSimulationLastIndex() { return cacheSimulationLastIndex; }
     int32_t GetReuseDistanceIndex() { return reuseDistanceIndex; }

@@ -31,8 +31,17 @@
 
 using namespace std;
 
-void PrintRangeFile(DataManager<AddressStreamStats*>* AllData, SamplingMethod* 
-  Sampler, int32_t rangeIndex) {
+vector<MemoryStreamHandler*> AddressRangeTool::CreateHandlers(uint32_t index) {
+    indexInStats = index;
+    vector<MemoryStreamHandler*> handlers;
+    handlers.push_back(new AddressRangeHandler());
+    return handlers;
+}
+
+void AddressRangeTool::FinalizeTool(DataManager<AddressStreamStats*>* AllData,
+  SamplingMethod* Sampler) {
+
+    
     AddressStreamStats* stats = AllData->GetData(*(AllData->allimages.begin()));
 
     // Create the Address Range report
@@ -56,7 +65,7 @@ void PrintRangeFile(DataManager<AddressStreamStats*>* AllData, SamplingMethod*
             thread_key_t thread = it->first;
             AddressStreamStats* s = it->second;
 
-            RangeStats* r = (RangeStats*)s->Stats[rangeIndex];
+            RangeStats* r = (RangeStats*)s->Stats[indexInStats];
             assert(r);
             for (uint32_t i = 0; i < r->GetCapacity(); i++){
                 sampledCount += r->GetAccessCount(i);
@@ -143,7 +152,7 @@ void PrintRangeFile(DataManager<AddressStreamStats*>* AllData, SamplingMethod*
 
             for (uint32_t memid = 0; memid < st->AllocCount; memid++){
                 uint32_t bbid;
-                RangeStats* r = (RangeStats*)st->Stats[rangeIndex];
+                RangeStats* r = (RangeStats*)st->Stats[indexInStats];
                 if (st->PerInstruction){
                     bbid = memid;
                 } else {
@@ -209,7 +218,7 @@ void PrintRangeFile(DataManager<AddressStreamStats*>* AllData, SamplingMethod*
 
 }
 
-void RangeFileName(AddressStreamStats* stats, string& oFile){
+void AddressRangeTool::RangeFileName(AddressStreamStats* stats, string& oFile){
     oFile.clear();
     oFile.append(stats->Application);
     oFile.append(".r");

@@ -26,9 +26,20 @@
 
 class SamplingMethod;
 
-void PrintRangeFile(DataManager<AddressStreamStats*>* AllData, SamplingMethod* 
-  Sampler, int32_t index);
-void RangeFileName(AddressStreamStats* stats, std::string& oFile);
+class AddressRangeTool : public AddressStreamTool {
+  private:
+    int32_t indexInStats = -1;  // Where the AddressRangeHandler is located
+  public:
+    AddressRangeTool() : indexInStats(-1) {}
+    virtual ~AddressRangeTool() {}
+    virtual std::vector<MemoryStreamHandler*> CreateHandlers(uint32_t index);
+    virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
+      SamplingMethod* Sampler);
+    void RangeFileName(AddressStreamStats* stats, std::string& oFile);
+
+    int32_t GetIndex() { return indexInStats; }
+};
+
 
 struct AddressRange {
     uint64_t Minimum;

@@ -65,7 +65,7 @@ AddressStreamDriver::AddressStreamDriver() {
     runSpatialLocality = false;
 
     // Initialize default Memory Handler and Indices
-    addressRangeIndex = -1;
+    //addressRangeIndex = -1;
     cacheSimulationFirstIndex = -1;
     cacheSimulationLastIndex = -1;
     reuseDistanceIndex = -1;
@@ -176,7 +176,7 @@ void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
     
     // Create the reports 
     if (runAddressRange) {
-        PrintRangeFile(allData, sampler, addressRangeIndex);
+        addressRange->FinalizeTool(allData, sampler);
     }
     if (runCacheSimulation) {
         PrintCacheSimulationFile(allData, sampler, 
@@ -318,10 +318,11 @@ void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats*
     stats->RHandlers = new ReuseDistance*[GetNumReuseHandlers()];
 
     if (runAddressRange) {
+        int32_t newIndex = addressRange->GetIndex();
         AddressRangeHandler* oldHandler = (AddressRangeHandler*)
-          (tempMemoryHandlers->at(addressRangeIndex));
+          (tempMemoryHandlers->at(newIndex));
         AddressRangeHandler* newHandler = new AddressRangeHandler(*oldHandler);
-        stats->Handlers[addressRangeIndex] = newHandler;
+        stats->Handlers[newIndex] = newHandler;
     }
 
     if (runCacheSimulation) {
@@ -336,9 +337,11 @@ void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats*
     }
 
     if (runReuseDistance) {
-        ReuseDistance* oldHandler = (ReuseDistance*)(tempReuseHandlers->at(
-          reuseDistanceIndex));
-        stats->RHandlers[reuseDistanceIndex] = new ReuseDistance(*oldHandler);
+        ReuseDistanceHandler* oldHandler = (ReuseDistanceHandler*)(
+          tempMemoryHandlers->at(reuseDistanceIndex));
+        ReuseDistanceHandler* newHandler = new ReuseDistanceHandler(
+          *oldHandler);
+        stats->Handlers[reuseDistanceIndex] = newHandler;
     }
 
     if (runScatterLength) {
@@ -364,7 +367,8 @@ void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
     bzero(stats->Stats, sizeof(StreamStats*) * GetNumMemoryHandlers());
 
     if (runAddressRange) {
-        stats->Stats[addressRangeIndex] = new RangeStats(stats->AllocCount);
+        int32_t newIndex = addressRange->GetIndex();
+        stats->Stats[newIndex] = new RangeStats(stats->AllocCount);
     }
 
     if (runCacheSimulation) {
@@ -375,6 +379,10 @@ void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
             stats->Stats[i] = new CacheStats(c->levelCount, c->sysId, 
               stats->AllocCount, c->hybridCache);
         }
+    }
+
+    if (runReuseDistance) {
+        stats->Stats[reuseDistanceIndex] = new ReuseStreamStats(stats);
     }
 
     if (runScatterLength) {
@@ -390,7 +398,6 @@ void AddressStreamDriver::ProcessMemoryBuffer(image_key_t iid, thread_key_t tid,
     uint32_t numProcessed = 0;
 
     AddressStreamStats** faststats = fastData->GetBufferStats(tid);
-    //assert(faststats[0]->Stats[handlerIndex]->Verify());
     uint32_t elementIndex = 0; 
     for (elementIndex = 0; elementIndex < numElementsInBuffer; 
       elementIndex++){
@@ -646,8 +653,13 @@ void AddressStreamDriver::SetUpLibraries() {
     // need to be stored in the same order as in the AddressStreamStats data 
     // structure!)
     if (runAddressRange) {
-        addressRangeIndex = GetNumMemoryHandlers();
-        tempMemoryHandlers->push_back(new AddressRangeHandler());
+        addressRange = new AddressRangeTool();
+        vector<MemoryStreamHandler*> handlers;
+        handlers = addressRange->CreateHandlers(GetNumMemoryHandlers());
+        assert(handlers.size() > 0);
+        for (int32_t i = 0; i < handlers.size(); i++) {
+            tempMemoryHandlers->push_back(handlers[i]);
+        }
     }
 
     vector<CacheStructureHandler*> caches;
@@ -663,7 +675,7 @@ void AddressStreamDriver::SetUpLibraries() {
     }
 
     if (runReuseDistance) {
-        reuseDistanceIndex = GetNumReuseHandlers();
+        reuseDistanceIndex = GetNumMemoryHandlers();
 
         uint32_t reuseWindow;
         uint32_t reuseBin;
@@ -674,7 +686,8 @@ void AddressStreamDriver::SetUpLibraries() {
             reuseBin = 1;
         }
 
-        tempReuseHandlers->push_back(new ReuseDistance(reuseWindow, reuseBin));
+        tempMemoryHandlers->push_back(new ReuseDistanceHandler(reuseWindow, 
+          reuseBin));
     }
 
     if (runScatterLength) {

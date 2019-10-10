@@ -21,22 +21,34 @@
 #ifndef _AddressStreamBase_hpp_
 #define _AddressStreamBase_hpp_
 
+#include <vector>
 #include <string>
 #include <AddressStreamStats.hpp>
+
+template <class T> class DataManager;
+class MemoryStreamHandler;
+class SamplingMethod;
 
 #define KILO (1024)
 #define MEGA (KILO*KILO)
 #define GIGA (MEGA*KILO)
 
+class AddressStreamTool {
+  public:
+    virtual std::vector<MemoryStreamHandler*> CreateHandlers(uint32_t) = 0;
+    virtual void FinalizeTool(DataManager<AddressStreamStats*>*, 
+      SamplingMethod*) = 0;
+};
+
 class StreamStats {
-public:
+  public:
     virtual uint64_t GetAccessCount(uint32_t memid) = 0;
     virtual bool Verify() = 0;
 };
 
 // Note: User required to check if limit is hit
 class SamplingMethod {
-private:
+  private:
     uint32_t AccessLimit;
     uint32_t SampleOn;
     uint32_t SampleOff;
@@ -44,7 +56,7 @@ private:
 
     bool CurrentlySampling(uint64_t count);
 
-public:
+  public:
     SamplingMethod(uint32_t limit, uint32_t on, uint32_t off);
     virtual ~SamplingMethod();
 
@@ -62,9 +74,9 @@ public:
 
 // DFP and other interesting memory things extend this class.
 class MemoryStreamHandler {
-protected:
+  protected:
     pthread_mutex_t mlock;
-public:
+  public:
     MemoryStreamHandler();
     ~MemoryStreamHandler();
 
@@ -79,7 +91,7 @@ public:
 
 // Common string functions
 class StringParser {
-public:
+  public:
     StringParser() {};
     virtual ~StringParser() {};
 
@@ -91,7 +103,7 @@ public:
 };
 
 class Randomizer {
-public:
+  public:
     Randomizer() {};
     virtual ~Randomizer() {}    
 
