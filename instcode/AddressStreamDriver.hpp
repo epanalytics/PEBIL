@@ -29,6 +29,7 @@
 class MemoryStreamHandler;
 class SamplingMethod;
 class AddressRangeTool;
+class CacheSimulationTool;
 class ReuseDistanceTool;
 class ScatterGatherLengthTool;
 class SpatialLocalityTool;
@@ -46,6 +47,7 @@ class AddressStreamDriver {
   private:
   
     AddressRangeTool* addressRange;
+    CacheSimulationTool* cacheSimulation;
     ReuseDistanceTool* reuseDistance;
     ScatterGatherLengthTool* scatterLength;
     SpatialLocalityTool* spatialLocality;
@@ -57,18 +59,13 @@ class AddressStreamDriver {
     bool runScatterLength;
     bool runSpatialLocality;
 
+    // Holds the tools that are being run
+    std::vector<AddressStreamTool*>* tools = NULL;
+
     // Holds a copy of the handlers
     // This is for creating handlers in the AddressStreamStats structure
     // Otherwise, do not use them to process data!
     std::vector<MemoryStreamHandler*>* tempMemoryHandlers = NULL;
-
-    // Memory and Reuse handlers -- which tool owns which handler
-//    int32_t addressRangeIndex;
-    int32_t cacheSimulationFirstIndex;
-    int32_t cacheSimulationLastIndex; // Exclusive
-//    int32_t reuseDistanceIndex;
-//    int32_t scatterLengthIndex;
-//    int32_t spatialLocalityIndex;
 
     SamplingMethod* sampler = NULL;
     DataManager<AddressStreamStats*>* allData = NULL;
@@ -91,13 +88,6 @@ class AddressStreamDriver {
       return fastData; }
     SamplingMethod* GetSamplingMethod() { return sampler; }
     StringParser* GetStringParser() { return parser; }
-
-//    int32_t GetAddressRangeIndex() { return addressRangeIndex; }
-    int32_t GetCacheSimulationFirstIndex() { return cacheSimulationFirstIndex; }
-    int32_t GetCacheSimulationLastIndex() { return cacheSimulationLastIndex; }
-//    int32_t GetReuseDistanceIndex() { return reuseDistanceIndex; }
-//    int32_t GetScatterLengthIndex() { return scatterLengthIndex; }
-//    int32_t GetSpatialLocalityIndex() { return spatialLocalityIndex; }
 
     uint32_t GetNumMemoryHandlers() { return tempMemoryHandlers->size(); }
 

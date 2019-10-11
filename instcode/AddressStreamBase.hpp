@@ -35,6 +35,8 @@ class SamplingMethod;
 
 class AddressStreamTool {
   public:
+    //virtual void AddNewHandlers(AddressStreamStats* stats) = 0;
+    //virtual void AddNewStreamStats(AddressStreamStats* stats) = 0;
     virtual std::vector<MemoryStreamHandler*> CreateHandlers(uint32_t) = 0;
     virtual void FinalizeTool(DataManager<AddressStreamStats*>*, 
       SamplingMethod*) = 0;

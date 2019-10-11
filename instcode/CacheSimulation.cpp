@@ -49,10 +49,70 @@ static uint32_t MinimumHighAssociativity = 256;
 static uint32_t LoadStoreLogging = 0;
 static uint32_t DirtyCacheHandling = 0; 
 
-void PrintCacheSimulationFile(DataManager<AddressStreamStats*>* AllData,
-  SamplingMethod* Sampler, int32_t firstCacheIndex, int32_t lastCacheIndex) {
+vector<MemoryStreamHandler*> CacheSimulationTool::CreateHandlers(uint32_t
+  index){
+    indexInStats = index;
+  
+    // FIXME --> Make part of class
+    StringParser parser;
+    uint32_t SaveHashMin = MinimumHighAssociativity;
+    if (!(parser.ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
+      &MinimumHighAssociativity))){
+        MinimumHighAssociativity = SaveHashMin;
+    }
+
+    if(!(parser.ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging))){
+        LoadStoreLogging = 0;
+    }
+    if(!(parser.ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
+        DirtyCacheHandling = 0;
+    }
+
+    if(DirtyCacheHandling){
+        if(!LoadStoreLogging){
+            ErrorExit(" DirtyCacheHandling is enabled without LoadStoreLogging "
+              ,MetasimError_FileOp);
+        }
+    }
+
+    inform << " LoadStoreLogging " << LoadStoreLogging << " DirtyCacheHandling "
+      << DirtyCacheHandling << ENDL;
+
+    // read caches to simulate
+    string cachedf = GetCacheDescriptionFile();
+    const char* cs = cachedf.c_str();
+    ifstream CacheFile(cs);
+    if (CacheFile.fail()){
+        ErrorExit("cannot open cache descriptions file: " << cachedf, 
+          MetasimError_FileOp);
+    }
+    
+    string line;
+    vector<MemoryStreamHandler*> caches;
+    while (getline(CacheFile, line)){
+        if (parser.IsEmptyComment(line)){
+            continue;
+        }
+        CacheStructureHandler* c = new CacheStructureHandler();
+        if (!c->Init(line)){
+            ErrorExit("cannot parse cache description line: " << line, 
+              MetasimError_StringParse);
+        }
+        assert(!(c->hybridCache) && "Hybrid cache deprecated");
+        caches.push_back(c);
+    }
+    uint32_t CountCacheStructures = caches.size();
+    assert(CountCacheStructures > 0 && "No cache structures found for "
+      "simulation");
+    lastIndex = indexInStats + CountCacheStructures;
+    return caches;
+}
+
+
+void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>* 
+  AllData, SamplingMethod* Sampler) {
     AddressStreamStats* stats = AllData->GetData(*(AllData->allimages.begin()));
-    uint32_t numCaches = lastCacheIndex - firstCacheIndex;
+    uint32_t numCaches = lastIndex - indexInStats;
 
     // Create the Cache Simulation Report
     ofstream MemFile;
@@ -145,7 +205,7 @@ void PrintCacheSimulationFile(DataManager<AddressStreamStats*>* AllData,
     MemFile << ENDL;
 
     // Print statisics for each cache structure 
-    for (uint32_t sys = firstCacheIndex; sys < lastCacheIndex; sys++) {
+    for (uint32_t sys = indexInStats; sys < lastIndex; sys++) {
         for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
           iit != AllData->allimages.end(); iit++) {
 
@@ -230,7 +290,7 @@ void PrintCacheSimulationFile(DataManager<AddressStreamStats*>* AllData,
     // Create array to keep track of hybrid caches
     uint32_t* HybridCacheStatus = (uint32_t*)malloc(numCaches * 
       sizeof(uint32_t) );
-    for (uint32_t sys = firstCacheIndex; sys < lastCacheIndex; sys++) {
+    for (uint32_t sys = indexInStats; sys < lastIndex; sys++) {
         CacheStructureHandler* CheckHybridStructure = 
           (CacheStructureHandler*)stats->Handlers[sys];
         HybridCacheStatus[sys] = CheckHybridStructure->hybridCache;
@@ -262,7 +322,7 @@ void PrintCacheSimulationFile(DataManager<AddressStreamStats*>* AllData,
             aggstats = new CacheStats*[numCaches];
             for (uint32_t sys = 0; sys < numCaches; sys++) {
 
-                CacheStats* s = (CacheStats*)st->Stats[sys + firstCacheIndex];
+                CacheStats* s = (CacheStats*)st->Stats[sys + indexInStats];
                 assert(s);
                 s->Verify();
 
@@ -408,7 +468,8 @@ void PrintCacheSimulationFile(DataManager<AddressStreamStats*>* AllData,
     MemFile.close();
 }
 
-void CacheSimulationFileName(AddressStreamStats* stats, string& oFile){
+void CacheSimulationTool::CacheSimulationFileName(AddressStreamStats* stats, 
+  string& oFile){
     oFile.clear();
     const char* prefix = getenv(ENV_OUTPUT_PREFIX);
     if(prefix != NULL) {
@@ -424,7 +485,7 @@ void CacheSimulationFileName(AddressStreamStats* stats, string& oFile){
     oFile.append("cachesim");
 }
 
-string GetCacheDescriptionFile(){
+string CacheSimulationTool::GetCacheDescriptionFile(){
     char* e = getenv("METASIM_CACHE_DESCRIPTIONS");
     string knobvalue;
 
@@ -1729,59 +1790,4 @@ else if(access->type == PREFETCH_ENTRY) {
         return 0;
       }
    } */
-}
-
-vector<CacheStructureHandler*> ReadCacheSimulationSettings(){
-
-    // FIXME --> Make part of class
-    StringParser parser;
-    uint32_t SaveHashMin = MinimumHighAssociativity;
-    if (!(parser.ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
-      &MinimumHighAssociativity))){
-        MinimumHighAssociativity = SaveHashMin;
-    }
-
-    if(!(parser.ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging))){
-        LoadStoreLogging = 0;
-    }
-    if(!(parser.ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
-        DirtyCacheHandling = 0;
-    }
-
-    if(DirtyCacheHandling){
-        if(!LoadStoreLogging){
-            ErrorExit(" DirtyCacheHandling is enabled without LoadStoreLogging "
-              ,MetasimError_FileOp);
-        }
-    }
-
-    inform << " LoadStoreLogging " << LoadStoreLogging << " DirtyCacheHandling "
-      << DirtyCacheHandling << ENDL;
-
-    // read caches to simulate
-    string cachedf = GetCacheDescriptionFile();
-    const char* cs = cachedf.c_str();
-    ifstream CacheFile(cs);
-    if (CacheFile.fail()){
-        ErrorExit("cannot open cache descriptions file: " << cachedf, 
-          MetasimError_FileOp);
-    }
-    
-    string line;
-    vector<CacheStructureHandler*> caches;
-    while (getline(CacheFile, line)){
-        if (parser.IsEmptyComment(line)){
-            continue;
-        }
-        CacheStructureHandler* c = new CacheStructureHandler();
-        if (!c->Init(line)){
-            ErrorExit("cannot parse cache description line: " << line, 
-              MetasimError_StringParse);
-        }
-        caches.push_back(c);
-    }
-    uint32_t CountCacheStructures = caches.size();
-    assert(CountCacheStructures > 0 && "No cache structures found for "
-      "simulation");
-    return caches;
 }

@@ -35,6 +35,8 @@ class ReuseDistanceTool : public AddressStreamTool {
   public:
     ReuseDistanceTool() : indexInStats(-1) {}
     virtual ~ReuseDistanceTool() {}
+    //virtual void AddNewHandlers(AddressStreamStats* stats);
+    //virtual void AddNewStreamStats(AddressStreamStats* stats);
     virtual std::vector<MemoryStreamHandler*> CreateHandlers(uint32_t index);
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
       SamplingMethod* Sampler);

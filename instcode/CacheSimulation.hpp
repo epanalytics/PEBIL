@@ -69,9 +69,26 @@ struct LevelStats {
     uint64_t storeCount;
 };
 
-void PrintCacheSimulationFile(DataManager<AddressStreamStats*>* AllData,
-  SamplingMethod* Sampler, int32_t firstIndex, int32_t lastIndex);
-void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
+class CacheSimulationTool : public AddressStreamTool {
+  private:
+    int32_t indexInStats = -1;  // Where the CacheStructureHandlers begin
+    int32_t lastIndex = -1;
+  public:
+    CacheSimulationTool() : indexInStats(-1), lastIndex(-1) {}
+    virtual ~CacheSimulationTool() {}
+    //virtual void AddNewHandlers(AddressStreamStats* stats);
+    //virtual void AddNewStreamStats(AddressStreamStats* stats);
+    virtual std::vector<MemoryStreamHandler*> CreateHandlers(uint32_t index);
+    virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
+      SamplingMethod* Sampler);
+    void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
+
+    std::string GetCacheDescriptionFile();
+
+    int32_t GetIndex() { return indexInStats; }
+    int32_t GetLastIndex() { return lastIndex; }
+};
+
 
 class CacheStats : public StreamStats {
 public:
@@ -352,8 +369,6 @@ public:
     bool CheckRange(CacheStats* stats,uint64_t addr,uint64_t loadstoreflag,uint32_t memid); //, uint32_t* set, uint32_t* lineInSet);    
     void ExtractAddresses();
 };
-
-std::vector<CacheStructureHandler*> ReadCacheSimulationSettings();
 
 
 #endif /* _CacheSimulation_hpp_ */
