@@ -21,12 +21,39 @@
 #ifndef _SpatialLocality_hpp_
 #define _SpatialLocality_hpp_
 
+#include <ReuseDistanceASI.hpp>
+
 #include <string>
 
 typedef struct AddressStreamStats_s AddressStreamStats;
 
-void PrintSpatialLocalityFile(DataManager<AddressStreamStats*>* AllData, int32_t
-  index);
-void SpatialLocalityFileName(AddressStreamStats* stats, std::string& oFile);
+class SpatialLocalityTool : public AddressStreamTool {
+  private:
+    int32_t indexInStats = -1;
+  public:
+    SpatialLocalityTool() : indexInStats(-1) {}
+    virtual ~SpatialLocalityTool() {}
+    virtual std::vector<MemoryStreamHandler*> CreateHandlers(uint32_t index);
+    virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData, 
+      SamplingMethod* Sampler);
+    void SpatialLocalityFileName(AddressStreamStats* stats, std::string& oFile);
+
+    int32_t GetIndex() { return indexInStats; }
+};
+
+
+// Really just does what the ReuseStreamStats does
+class SpatialStreamStats : public ReuseStreamStats {
+  public:
+    SpatialStreamStats(AddressStreamStats* stats) : ReuseStreamStats(stats) {};
+};
+
+// Very similar to Reuse Distance Handler but built a little differently
+class SpatialLocalityHandler : public ReuseDistanceHandler {
+  public:
+    SpatialLocalityHandler(uint64_t w, uint64_t b, uint64_t n);
+    SpatialLocalityHandler(SpatialLocalityHandler &h);
+
+};
 
 #endif /* _SpatialLocality_hpp_ */

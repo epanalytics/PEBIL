@@ -24,7 +24,7 @@
 #include <AddressStreamBase.hpp>
 #include <string>
 
-class SamplingMethod;
+//class SamplingMethod;
 
 class AddressRangeTool : public AddressStreamTool {
   private:

@@ -39,8 +39,27 @@ using namespace std;
 //static const double ReusePrintScale = 1.5;
 //static const uint32_t ReuseIndivPrint = 32;
 
-void PrintReuseDistanceFile(DataManager<AddressStreamStats*>* AllData, 
-  int32_t reuseIndex) {
+vector<MemoryStreamHandler*> ReuseDistanceTool::CreateHandlers(uint32_t index) {
+    indexInStats = index;
+    vector<MemoryStreamHandler*> handlers;
+
+    StringParser parser;
+    uint32_t reuseWindow;
+    uint32_t reuseBin;
+    if (!(parser.ReadEnvUint32("METASIM_REUSE_WINDOW", &reuseWindow))) {
+        reuseWindow = 1;
+    }
+    if (!(parser.ReadEnvUint32("METASIM_REUSE_BIN", &reuseBin))) {
+        reuseBin = 1;
+    }
+
+    handlers.push_back(new ReuseDistanceHandler(reuseWindow, reuseBin));
+  
+    return handlers;
+}
+
+void ReuseDistanceTool::FinalizeTool(DataManager<AddressStreamStats*>* AllData,
+  SamplingMethod* Sampler) {
     // Create the Reuse Report(s)
     string oFile;
     const char* fileName;
@@ -60,7 +79,7 @@ void PrintReuseDistanceFile(DataManager<AddressStreamStats*>* AllData,
             ReuseDistFile << "IMAGE" << TAB << hex << (*iit) << TAB << "THREAD" << TAB << dec << AllData->GetThreadSequence(thread) << ENDL;
     
             ReuseDistanceHandler* rd = (ReuseDistanceHandler*)(s->Handlers[
-              reuseIndex]);
+              indexInStats]);
             assert(rd);
             inform << "Reuse distance bins for " << hex << s->Application << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
             //rd->Print();
@@ -71,7 +90,8 @@ void PrintReuseDistanceFile(DataManager<AddressStreamStats*>* AllData,
     ReuseDistFile.close();
 }
 
-void ReuseDistanceFileName(AddressStreamStats* stats, string& oFile){
+void ReuseDistanceTool::ReuseDistanceFileName(AddressStreamStats* stats, 
+  string& oFile){
     oFile.clear();
     oFile.append(stats->Application);
     oFile.append(".r");
@@ -131,4 +151,8 @@ uint32_t ReuseDistanceHandler::Process(void* stats, BufferEntry* access) {
     entry.address = access->address;
     internalHandler->Process(entry);
     return 0;
+}
+
+void ReuseDistanceHandler::SkipAddresses(uint32_t numToSkip) {
+    internalHandler->SkipAddresses(numToSkip);
 }

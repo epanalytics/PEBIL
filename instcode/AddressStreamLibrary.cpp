@@ -133,9 +133,6 @@ void DeleteStreamStats(AddressStreamStats* stats){
             delete stats->Stats[i];
             delete stats->Handlers[i];
         }
-        for (uint32_t i = 0; i < Driver->GetNumReuseHandlers(); i++){
-            delete stats->RHandlers[i];
-        }
         delete[] stats->Stats;
     }
 }

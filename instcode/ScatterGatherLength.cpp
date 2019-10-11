@@ -42,8 +42,16 @@
 
 using namespace std;
 
-void PrintSGLengthFile(DataManager<AddressStreamStats*>* AllData, 
-  SamplingMethod* Sampler, int32_t sglIndex) {
+vector<MemoryStreamHandler*> ScatterGatherLengthTool::CreateHandlers(uint32_t 
+  index) {
+    indexInStats = index;
+    vector<MemoryStreamHandler*> handlers;
+    handlers.push_back(new VectorLengthHandler());
+    return handlers;
+}
+
+void ScatterGatherLengthTool::FinalizeTool(DataManager<AddressStreamStats*>* 
+  AllData, SamplingMethod* Sampler) {
     AddressStreamStats* stats = AllData->GetData(*(AllData->allimages.begin()));
 
     // Create the Scatter Gather Vector Length report 
@@ -69,7 +77,7 @@ void PrintSGLengthFile(DataManager<AddressStreamStats*>* AllData,
             AddressStreamStats* s = it->second;
 
             VectorLengthStats* vls = (VectorLengthStats*)s->Stats[
-              sglIndex];
+              indexInStats];
             assert(vls);
             for (uint32_t i = 0; i < vls->Capacity; i++){
                 sampledCount += vls->Counts[i];
@@ -159,7 +167,7 @@ void PrintSGLengthFile(DataManager<AddressStreamStats*>* AllData,
             for (uint32_t memid = 0; memid < st->AllocCount; memid++){
                 uint32_t bbid;
                 VectorLengthStats* vls = (VectorLengthStats*)st->Stats[
-                  sglIndex];
+                  indexInStats];
                 if (st->PerInstruction){
                     bbid = memid;
                 } else {
@@ -224,7 +232,8 @@ void PrintSGLengthFile(DataManager<AddressStreamStats*>* AllData,
 
 }
 
-void SGLengthFileName(AddressStreamStats* stats, string& oFile){
+void ScatterGatherLengthTool::SGLengthFileName(AddressStreamStats* stats, 
+  string& oFile){
     oFile.clear();
     oFile.append(stats->Application);
     oFile.append(".r");

@@ -29,9 +29,19 @@
 
 typedef struct AddressStreamStats_s AddressStreamStats;
 
-void PrintReuseDistanceFile(DataManager<AddressStreamStats*>* AllData, int32_t
-  index);
-void ReuseDistanceFileName(AddressStreamStats* stats, std::string& oFile);
+class ReuseDistanceTool : public AddressStreamTool {
+  private:
+    int32_t indexInStats = -1;
+  public:
+    ReuseDistanceTool() : indexInStats(-1) {}
+    virtual ~ReuseDistanceTool() {}
+    virtual std::vector<MemoryStreamHandler*> CreateHandlers(uint32_t index);
+    virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
+      SamplingMethod* Sampler);
+    void ReuseDistanceFileName(AddressStreamStats* stats, std::string& oFile);
+
+    int32_t GetIndex() { return indexInStats; }
+};
 
 class ReuseStreamStats : public StreamStats {
   private:
@@ -52,7 +62,7 @@ class ReuseStreamStats : public StreamStats {
 };
 
 class ReuseDistanceHandler : public MemoryStreamHandler {
-  private:
+  protected:
     ReuseDistance* internalHandler;   // external ReuseDistance
   public:
     ReuseDistanceHandler(uint64_t w, uint64_t b);
@@ -61,6 +71,8 @@ class ReuseDistanceHandler : public MemoryStreamHandler {
 
     void Print(std::ofstream& f);
     uint32_t Process(void* stats, BufferEntry* access);
+
+    virtual void SkipAddresses(uint32_t numToSkip);
     bool Verify() { return true; }
 };
 

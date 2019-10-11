@@ -24,11 +24,14 @@
 #include <set>
 #include <cstdint>
 
-class ReuseDistance;   // EXTERNAL
-class SpatialLocality;   // EXTERNAL
+//class ReuseDistance;   // EXTERNAL
+//class SpatialLocality;   // EXTERNAL
 class MemoryStreamHandler;
 class SamplingMethod;
 class AddressRangeTool;
+class ReuseDistanceTool;
+class ScatterGatherLengthTool;
+class SpatialLocalityTool;
 template <class T> class DataManager;
 template <class T, class V> class FastData;
 typedef struct AddressStreamStats_s AddressStreamStats;
@@ -43,6 +46,9 @@ class AddressStreamDriver {
   private:
   
     AddressRangeTool* addressRange;
+    ReuseDistanceTool* reuseDistance;
+    ScatterGatherLengthTool* scatterLength;
+    SpatialLocalityTool* spatialLocality;
     
     // Are we running these tools?
     bool runAddressRange;
@@ -55,15 +61,14 @@ class AddressStreamDriver {
     // This is for creating handlers in the AddressStreamStats structure
     // Otherwise, do not use them to process data!
     std::vector<MemoryStreamHandler*>* tempMemoryHandlers = NULL;
-    std::vector<ReuseDistance*>* tempReuseHandlers = NULL;
 
     // Memory and Reuse handlers -- which tool owns which handler
 //    int32_t addressRangeIndex;
     int32_t cacheSimulationFirstIndex;
     int32_t cacheSimulationLastIndex; // Exclusive
-    int32_t reuseDistanceIndex;
-    int32_t scatterLengthIndex;
-    int32_t spatialLocalityIndex;
+//    int32_t reuseDistanceIndex;
+//    int32_t scatterLengthIndex;
+//    int32_t spatialLocalityIndex;
 
     SamplingMethod* sampler = NULL;
     DataManager<AddressStreamStats*>* allData = NULL;
@@ -90,12 +95,11 @@ class AddressStreamDriver {
 //    int32_t GetAddressRangeIndex() { return addressRangeIndex; }
     int32_t GetCacheSimulationFirstIndex() { return cacheSimulationFirstIndex; }
     int32_t GetCacheSimulationLastIndex() { return cacheSimulationLastIndex; }
-    int32_t GetReuseDistanceIndex() { return reuseDistanceIndex; }
-    int32_t GetScatterLengthIndex() { return scatterLengthIndex; }
-    int32_t GetSpatialLocalityIndex() { return spatialLocalityIndex; }
+//    int32_t GetReuseDistanceIndex() { return reuseDistanceIndex; }
+//    int32_t GetScatterLengthIndex() { return scatterLengthIndex; }
+//    int32_t GetSpatialLocalityIndex() { return spatialLocalityIndex; }
 
     uint32_t GetNumMemoryHandlers() { return tempMemoryHandlers->size(); }
-    uint32_t GetNumReuseHandlers() { return tempReuseHandlers->size(); }
 
     bool HasLiveInstrumentationPoints();
 
@@ -118,8 +122,6 @@ class AddressStreamDriver {
     void ProcessMemoryBuffer(image_key_t iid, thread_key_t tid, 
       MemoryStreamHandler* handler, uint32_t handlerIndex, uint32_t
       numElementsInBuffer);
-    void ProcessReuseBuffer(image_key_t iid, thread_key_t tid,
-      ReuseDistance* rd, uint32_t numElements);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
 
     void SetAllData(DataManager<AddressStreamStats*>* d) { allData = d; }

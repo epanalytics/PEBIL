@@ -24,11 +24,21 @@
 #include <AddressStreamBase.hpp>
 #include <string>
 
-class SamplingMethod;
+//class SamplingMethod;
 
-void PrintSGLengthFile(DataManager<AddressStreamStats*>* AllData, 
-  SamplingMethod* Sampler, int32_t index);
-void SGLengthFileName(AddressStreamStats* stats, std::string& oFile);
+class ScatterGatherLengthTool : public AddressStreamTool {
+  private:
+    int32_t indexInStats = -1;
+  public:
+    ScatterGatherLengthTool() : indexInStats(-1) {}
+    virtual ~ScatterGatherLengthTool() {}
+    virtual std::vector<MemoryStreamHandler*> CreateHandlers(uint32_t index);
+    virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData, 
+      SamplingMethod* Sampler);
+    void SGLengthFileName(AddressStreamStats* stats, std::string& oFile);
+
+    int32_t GetIndex() { return indexInStats; }
+};
 
 struct VectorLength {
     uint64_t Minimum;

@@ -31,8 +31,33 @@
 
 using namespace std;
 
-void PrintSpatialLocalityFile(DataManager<AddressStreamStats*>* AllData, int32_t
-  spatialIndex) {
+vector<MemoryStreamHandler*> SpatialLocalityTool::CreateHandlers(uint32_t index)
+{
+    indexInStats = index;
+    vector<MemoryStreamHandler*> handlers;
+
+    StringParser parser;
+    uint32_t spatialWindow;
+    uint32_t spatialBin;
+    uint32_t spatialNMAX;
+    if (!(parser.ReadEnvUint32("METASIM_SPATIAL_WINDOW", &spatialWindow))) {
+        spatialWindow = 1;
+    }
+    if (!(parser.ReadEnvUint32("METASIM_SPATIAL_BIN", &spatialBin))) {
+        spatialBin = 1;
+    }
+    if (!(parser.ReadEnvUint32("METASIM_SPATIAL_NMAX", &spatialNMAX))) {
+        spatialNMAX = ReuseDistance::Infinity;
+    }
+
+    handlers.push_back(new SpatialLocalityHandler(spatialWindow, spatialBin,
+      spatialNMAX));
+
+    return handlers;
+}
+
+void SpatialLocalityTool::FinalizeTool(DataManager<AddressStreamStats*>* 
+  AllData, SamplingMethod* sampler) {
     string oFile;
     const char* fileName;
 
@@ -51,18 +76,21 @@ void PrintSpatialLocalityFile(DataManager<AddressStreamStats*>* AllData, int32_t
 
             SpatialLocFile << "IMAGE" << TAB << hex << (*iit) << TAB << "THREAD" << TAB << dec << AllData->GetThreadSequence(thread) << ENDL;
 
-            ReuseDistance* sd = s->RHandlers[spatialIndex];
+            SpatialLocalityHandler* sd = (SpatialLocalityHandler*)(s->Handlers[
+              indexInStats]);
             assert(sd);
             inform << "Spatial locality bins for " << hex << s->Application << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
-            sd->Print();
-            sd->Print(SpatialLocFile, true);
+    //        sd->Print();
+    //        sd->Print(SpatialLocFile, true);
+            sd->Print(SpatialLocFile);
         }
     }
     SpatialLocFile.close();
 
 }
 
-void SpatialLocalityFileName(AddressStreamStats* stats, string& oFile){
+void SpatialLocalityTool::SpatialLocalityFileName(AddressStreamStats* stats, 
+  string& oFile){
     oFile.clear();
     oFile.append(stats->Application);
     oFile.append(".r");
@@ -72,3 +100,14 @@ void SpatialLocalityFileName(AddressStreamStats* stats, string& oFile){
     oFile.append(".spatial");
 }
 
+SpatialLocalityHandler::SpatialLocalityHandler(uint64_t w, uint64_t b, uint64_t
+  n) : ReuseDistanceHandler(0, 0) {
+    delete internalHandler;
+    internalHandler = new SpatialLocality(w, b, n);
+}
+
+SpatialLocalityHandler::SpatialLocalityHandler(SpatialLocalityHandler& h) :
+  ReuseDistanceHandler(0, 0) {
+    delete internalHandler;
+    internalHandler = new SpatialLocality((SpatialLocality*)h.internalHandler);
+}
