@@ -24,8 +24,6 @@
 #include <set>
 #include <cstdint>
 
-//class ReuseDistance;   // EXTERNAL
-//class SpatialLocality;   // EXTERNAL
 class MemoryStreamHandler;
 class SamplingMethod;
 class AddressRangeTool;
@@ -46,12 +44,6 @@ typedef struct BufferEntry_s BufferEntry;
 class AddressStreamDriver {
   private:
   
-    AddressRangeTool* addressRange;
-    CacheSimulationTool* cacheSimulation;
-    ReuseDistanceTool* reuseDistance;
-    ScatterGatherLengthTool* scatterLength;
-    SpatialLocalityTool* spatialLocality;
-    
     // Are we running these tools?
     bool runAddressRange;
     bool runCacheSimulation;
@@ -62,10 +54,7 @@ class AddressStreamDriver {
     // Holds the tools that are being run
     std::vector<AddressStreamTool*>* tools = NULL;
 
-    // Holds a copy of the handlers
-    // This is for creating handlers in the AddressStreamStats structure
-    // Otherwise, do not use them to process data!
-    std::vector<MemoryStreamHandler*>* tempMemoryHandlers = NULL;
+    uint32_t numMemoryHandlers;
 
     SamplingMethod* sampler = NULL;
     DataManager<AddressStreamStats*>* allData = NULL;
@@ -89,7 +78,7 @@ class AddressStreamDriver {
     SamplingMethod* GetSamplingMethod() { return sampler; }
     StringParser* GetStringParser() { return parser; }
 
-    uint32_t GetNumMemoryHandlers() { return tempMemoryHandlers->size(); }
+    uint32_t GetNumMemoryHandlers() { return numMemoryHandlers; }
 
     bool HasLiveInstrumentationPoints();
 
@@ -118,7 +107,7 @@ class AddressStreamDriver {
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
 
-    virtual void SetUpLibraries();
+    virtual void SetUpTools();
 
     // For Testing Purposes
     void SetAddressRange(bool b) { runAddressRange = b; }

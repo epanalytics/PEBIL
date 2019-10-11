@@ -70,23 +70,16 @@ struct LevelStats {
 };
 
 class CacheSimulationTool : public AddressStreamTool {
-  private:
-    int32_t indexInStats = -1;  // Where the CacheStructureHandlers begin
-    int32_t lastIndex = -1;
   public:
-    CacheSimulationTool() : indexInStats(-1), lastIndex(-1) {}
-    virtual ~CacheSimulationTool() {}
-    //virtual void AddNewHandlers(AddressStreamStats* stats);
-    //virtual void AddNewStreamStats(AddressStreamStats* stats);
-    virtual std::vector<MemoryStreamHandler*> CreateHandlers(uint32_t index);
+    CacheSimulationTool() : AddressStreamTool() {}
+    virtual void AddNewHandlers(AddressStreamStats* stats);
+    virtual void AddNewStreamStats(AddressStreamStats* stats);
+    virtual uint32_t CreateHandlers(uint32_t index);
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
       SamplingMethod* Sampler);
     void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
 
     std::string GetCacheDescriptionFile();
-
-    int32_t GetIndex() { return indexInStats; }
-    int32_t GetLastIndex() { return lastIndex; }
 };
 
 

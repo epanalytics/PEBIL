@@ -42,12 +42,20 @@
 
 using namespace std;
 
-vector<MemoryStreamHandler*> ScatterGatherLengthTool::CreateHandlers(uint32_t 
-  index) {
+void ScatterGatherLengthTool::AddNewHandlers(AddressStreamStats* stats) {
+    VectorLengthHandler* oldHandler = (VectorLengthHandler*)(handlers[0]);
+    VectorLengthHandler* newHandler = new VectorLengthHandler(*oldHandler);
+    stats->Handlers[indexInStats] = newHandler;
+}
+
+void ScatterGatherLengthTool::AddNewStreamStats(AddressStreamStats* stats) {
+    stats->Stats[indexInStats] = new VectorLengthStats(stats->AllocCount);
+}
+
+uint32_t ScatterGatherLengthTool::CreateHandlers(uint32_t index) {
     indexInStats = index;
-    vector<MemoryStreamHandler*> handlers;
     handlers.push_back(new VectorLengthHandler());
-    return handlers;
+    return handlers.size();
 }
 
 void ScatterGatherLengthTool::FinalizeTool(DataManager<AddressStreamStats*>* 

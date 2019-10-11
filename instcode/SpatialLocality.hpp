@@ -28,19 +28,14 @@
 typedef struct AddressStreamStats_s AddressStreamStats;
 
 class SpatialLocalityTool : public AddressStreamTool {
-  private:
-    int32_t indexInStats = -1;
   public:
-    SpatialLocalityTool() : indexInStats(-1) {}
-    virtual ~SpatialLocalityTool() {}
-    //virtual void AddNewHandlers(AddressStreamStats* stats);
-    //virtual void AddNewStreamStats(AddressStreamStats* stats);
-    virtual std::vector<MemoryStreamHandler*> CreateHandlers(uint32_t index);
+    SpatialLocalityTool() : AddressStreamTool() {}
+    virtual void AddNewHandlers(AddressStreamStats* stats);
+    virtual void AddNewStreamStats(AddressStreamStats* stats);
+    virtual uint32_t CreateHandlers(uint32_t index);
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData, 
       SamplingMethod* Sampler);
     void SpatialLocalityFileName(AddressStreamStats* stats, std::string& oFile);
-
-    int32_t GetIndex() { return indexInStats; }
 };
 
 

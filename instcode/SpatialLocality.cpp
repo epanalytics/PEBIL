@@ -31,10 +31,19 @@
 
 using namespace std;
 
-vector<MemoryStreamHandler*> SpatialLocalityTool::CreateHandlers(uint32_t index)
-{
+void SpatialLocalityTool::AddNewHandlers(AddressStreamStats* stats) {
+    SpatialLocalityHandler* oldHandler = (SpatialLocalityHandler*)(handlers[0]);
+    SpatialLocalityHandler* newHandler = new SpatialLocalityHandler(
+      *oldHandler);
+    stats->Handlers[indexInStats] = newHandler;
+}
+
+void SpatialLocalityTool::AddNewStreamStats(AddressStreamStats* stats) {
+    stats->Stats[indexInStats] = new SpatialStreamStats(stats);
+}
+
+uint32_t SpatialLocalityTool::CreateHandlers(uint32_t index) {
     indexInStats = index;
-    vector<MemoryStreamHandler*> handlers;
 
     StringParser parser;
     uint32_t spatialWindow;
@@ -53,7 +62,7 @@ vector<MemoryStreamHandler*> SpatialLocalityTool::CreateHandlers(uint32_t index)
     handlers.push_back(new SpatialLocalityHandler(spatialWindow, spatialBin,
       spatialNMAX));
 
-    return handlers;
+    return handlers.size();
 }
 
 void SpatialLocalityTool::FinalizeTool(DataManager<AddressStreamStats*>* 
@@ -80,8 +89,6 @@ void SpatialLocalityTool::FinalizeTool(DataManager<AddressStreamStats*>*
               indexInStats]);
             assert(sd);
             inform << "Spatial locality bins for " << hex << s->Application << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
-    //        sd->Print();
-    //        sd->Print(SpatialLocFile, true);
             sd->Print(SpatialLocFile);
         }
     }

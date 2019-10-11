@@ -49,8 +49,26 @@ static uint32_t MinimumHighAssociativity = 256;
 static uint32_t LoadStoreLogging = 0;
 static uint32_t DirtyCacheHandling = 0; 
 
-vector<MemoryStreamHandler*> CacheSimulationTool::CreateHandlers(uint32_t
-  index){
+void CacheSimulationTool::AddNewHandlers(AddressStreamStats* stats) {
+    for (uint32_t i = 0; i < handlers.size(); i++) {
+        CacheStructureHandler* oldHandler = (CacheStructureHandler*)(
+          handlers[i]);
+        CacheStructureHandler* newHandler = new CacheStructureHandler(
+          *oldHandler);
+        stats->Handlers[indexInStats + i] = newHandler;
+    }
+}
+
+void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
+    for (uint32_t i = 0; i < handlers.size(); i++) {
+        CacheStructureHandler* currHandler = (CacheStructureHandler*)(
+          handlers[i]);
+        stats->Stats[indexInStats + i] = new CacheStats(currHandler->levelCount,
+          currHandler->sysId, stats->AllocCount, currHandler->hybridCache);
+    }
+}
+
+uint32_t CacheSimulationTool::CreateHandlers(uint32_t index){
     indexInStats = index;
   
     // FIXME --> Make part of class
@@ -88,7 +106,6 @@ vector<MemoryStreamHandler*> CacheSimulationTool::CreateHandlers(uint32_t
     }
     
     string line;
-    vector<MemoryStreamHandler*> caches;
     while (getline(CacheFile, line)){
         if (parser.IsEmptyComment(line)){
             continue;
@@ -99,20 +116,19 @@ vector<MemoryStreamHandler*> CacheSimulationTool::CreateHandlers(uint32_t
               MetasimError_StringParse);
         }
         assert(!(c->hybridCache) && "Hybrid cache deprecated");
-        caches.push_back(c);
+        handlers.push_back(c);
     }
-    uint32_t CountCacheStructures = caches.size();
+    uint32_t CountCacheStructures = handlers.size();
     assert(CountCacheStructures > 0 && "No cache structures found for "
       "simulation");
-    lastIndex = indexInStats + CountCacheStructures;
-    return caches;
+    return handlers.size();
 }
 
 
 void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>* 
   AllData, SamplingMethod* Sampler) {
     AddressStreamStats* stats = AllData->GetData(*(AllData->allimages.begin()));
-    uint32_t numCaches = lastIndex - indexInStats;
+    uint32_t numCaches = handlers.size();
 
     // Create the Cache Simulation Report
     ofstream MemFile;
@@ -136,7 +152,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
             thread_key_t thread = it->first;
             AddressStreamStats* s = it->second;
 
-            CacheStats* c = (CacheStats*)(s->Stats[0]);
+            CacheStats* c = (CacheStats*)(s->Stats[indexInStats]);
             assert(c);
             for (uint32_t i = 0; i < c->Capacity; i++){
                 sampledCount += c->GetAccessCount(i);
@@ -205,7 +221,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     MemFile << ENDL;
 
     // Print statisics for each cache structure 
-    for (uint32_t sys = indexInStats; sys < lastIndex; sys++) {
+    for (uint32_t sys = indexInStats; sys < indexInStats + numCaches; sys++) {
         for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
           iit != AllData->allimages.end(); iit++) {
 
@@ -290,7 +306,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     // Create array to keep track of hybrid caches
     uint32_t* HybridCacheStatus = (uint32_t*)malloc(numCaches * 
       sizeof(uint32_t) );
-    for (uint32_t sys = indexInStats; sys < lastIndex; sys++) {
+    for (uint32_t sys = indexInStats; sys < indexInStats + numCaches; sys++) {
         CacheStructureHandler* CheckHybridStructure = 
           (CacheStructureHandler*)stats->Handlers[sys];
         HybridCacheStatus[sys] = CheckHybridStructure->hybridCache;

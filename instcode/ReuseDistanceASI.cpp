@@ -39,9 +39,19 @@ using namespace std;
 //static const double ReusePrintScale = 1.5;
 //static const uint32_t ReuseIndivPrint = 32;
 
-vector<MemoryStreamHandler*> ReuseDistanceTool::CreateHandlers(uint32_t index) {
+void ReuseDistanceTool::AddNewHandlers(AddressStreamStats* stats) {
+    ReuseDistanceHandler* oldHandler = (ReuseDistanceHandler*)(handlers[0]);
+    ReuseDistanceHandler* newHandler = new ReuseDistanceHandler(
+      *oldHandler);
+    stats->Handlers[indexInStats] = newHandler;
+}
+
+void ReuseDistanceTool::AddNewStreamStats(AddressStreamStats* stats) {
+    stats->Stats[indexInStats] = new ReuseStreamStats(stats);
+}
+
+uint32_t ReuseDistanceTool::CreateHandlers(uint32_t index) {
     indexInStats = index;
-    vector<MemoryStreamHandler*> handlers;
 
     StringParser parser;
     uint32_t reuseWindow;
@@ -55,7 +65,7 @@ vector<MemoryStreamHandler*> ReuseDistanceTool::CreateHandlers(uint32_t index) {
 
     handlers.push_back(new ReuseDistanceHandler(reuseWindow, reuseBin));
   
-    return handlers;
+    return handlers.size();
 }
 
 void ReuseDistanceTool::FinalizeTool(DataManager<AddressStreamStats*>* AllData,
@@ -82,8 +92,6 @@ void ReuseDistanceTool::FinalizeTool(DataManager<AddressStreamStats*>* AllData,
               indexInStats]);
             assert(rd);
             inform << "Reuse distance bins for " << hex << s->Application << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
-            //rd->Print();
-            //rd->Print(ReuseDistFile, true);
             rd->Print(ReuseDistFile);
         }
     }

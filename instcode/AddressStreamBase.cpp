@@ -30,6 +30,10 @@
 
 using namespace std;
 
+AddressStreamTool::~AddressStreamTool() {
+    handlers.clear();
+}
+
 SamplingMethod::SamplingMethod(uint32_t limit, uint32_t on, uint32_t off){
     AccessLimit = limit;
     SampleOn = on;

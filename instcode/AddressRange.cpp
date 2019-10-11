@@ -31,16 +31,24 @@
 
 using namespace std;
 
-vector<MemoryStreamHandler*> AddressRangeTool::CreateHandlers(uint32_t index) {
+void AddressRangeTool::AddNewHandlers(AddressStreamStats* stats) {
+    AddressRangeHandler* oldHandler = (AddressRangeHandler*)(handlers[0]);
+    AddressRangeHandler* newHandler = new AddressRangeHandler(*oldHandler);
+    stats->Handlers[indexInStats] = newHandler;
+}
+
+void AddressRangeTool::AddNewStreamStats(AddressStreamStats* stats) {
+    stats->Stats[indexInStats] = new RangeStats(stats->AllocCount);
+}
+
+uint32_t AddressRangeTool::CreateHandlers(uint32_t index) {
     indexInStats = index;
-    vector<MemoryStreamHandler*> handlers;
     handlers.push_back(new AddressRangeHandler());
-    return handlers;
+    return handlers.size();
 }
 
 void AddressRangeTool::FinalizeTool(DataManager<AddressStreamStats*>* AllData,
   SamplingMethod* Sampler) {
-
     
     AddressStreamStats* stats = AllData->GetData(*(AllData->allimages.begin()));
 

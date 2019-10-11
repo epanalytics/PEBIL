@@ -34,10 +34,15 @@ class SamplingMethod;
 #define GIGA (MEGA*KILO)
 
 class AddressStreamTool {
+  protected:
+    std::vector<MemoryStreamHandler*> handlers;
+    int32_t indexInStats = -1;
   public:
-    //virtual void AddNewHandlers(AddressStreamStats* stats) = 0;
-    //virtual void AddNewStreamStats(AddressStreamStats* stats) = 0;
-    virtual std::vector<MemoryStreamHandler*> CreateHandlers(uint32_t) = 0;
+    AddressStreamTool() : indexInStats(-1) {};
+    virtual ~AddressStreamTool();
+    virtual void AddNewHandlers(AddressStreamStats* stats) = 0;
+    virtual void AddNewStreamStats(AddressStreamStats* stats) = 0;
+    virtual uint32_t CreateHandlers(uint32_t) = 0;
     virtual void FinalizeTool(DataManager<AddressStreamStats*>*, 
       SamplingMethod*) = 0;
 };
@@ -84,6 +89,8 @@ class MemoryStreamHandler {
 
     virtual void Print(std::ofstream& f) = 0;
     virtual uint32_t Process(void* stats, BufferEntry* access) = 0;
+    // Number of addresses that appeared but aren't processed
+    virtual void SkipAddresses(uint32_t numToSkip) {};
     virtual bool Verify() = 0;
     bool Lock();
     bool UnLock();

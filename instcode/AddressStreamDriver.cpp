@@ -32,8 +32,6 @@
 #include <ScatterGatherLength.hpp>
 #include <SpatialLocality.hpp>
 
-//#include <ReuseDistance.hpp>   // external: Process Reuse handlers
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -67,8 +65,7 @@ AddressStreamDriver::AddressStreamDriver() {
     // Create the vector to store the tools
     tools = new vector<AddressStreamTool*>();
 
-    // Create the temporary Memory Handlers vector
-    tempMemoryHandlers = new vector<MemoryStreamHandler*>();
+    numMemoryHandlers = 0;
 
     // Create a parser for parsing
     parser = new StringParser();
@@ -82,8 +79,6 @@ AddressStreamDriver::~AddressStreamDriver() {
         delete liveInstPointKeys;
     if (parser)
         delete parser;
-    tempMemoryHandlers->clear();
-    delete tempMemoryHandlers;
     tools->clear();
     delete tools;
     delete fastData;
@@ -195,8 +190,8 @@ void AddressStreamDriver::InitializeAddressStreamDriver(
     // Initialize Sampler
     CreateSamplingMethod();
 
-    // Set up the libraries!
-    SetUpLibraries();
+    // Set up the tools!
+    SetUpTools();
 
 }
 
@@ -297,49 +292,10 @@ void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats*
     assert(GetNumMemoryHandlers() > 0);
     stats->Handlers = new MemoryStreamHandler*[GetNumMemoryHandlers()];
 
-    if (runAddressRange) {
-        int32_t newIndex = addressRange->GetIndex();
-        AddressRangeHandler* oldHandler = (AddressRangeHandler*)
-          (tempMemoryHandlers->at(newIndex));
-        AddressRangeHandler* newHandler = new AddressRangeHandler(*oldHandler);
-        stats->Handlers[newIndex] = newHandler;
-    }
-
-    if (runCacheSimulation) {
-        for (uint32_t i = cacheSimulation->GetIndex(); i < 
-          cacheSimulation->GetLastIndex(); i++) {
-            CacheStructureHandler* oldHandler = (CacheStructureHandler*)
-              (tempMemoryHandlers->at(i));
-            CacheStructureHandler* newHandler = new CacheStructureHandler(
-              *oldHandler);
-            stats->Handlers[i] = newHandler;
-        }
-    }
-
-    if (runReuseDistance) {
-        int32_t newIndex = reuseDistance->GetIndex();
-        ReuseDistanceHandler* oldHandler = (ReuseDistanceHandler*)(
-          tempMemoryHandlers->at(newIndex));
-        ReuseDistanceHandler* newHandler = new ReuseDistanceHandler(
-          *oldHandler);
-        stats->Handlers[newIndex] = newHandler;
-    }
-
-    if (runScatterLength) {
-        int32_t newIndex = scatterLength->GetIndex();
-        VectorLengthHandler* oldHandler = (VectorLengthHandler*)
-          (tempMemoryHandlers->at(newIndex));
-        VectorLengthHandler* newHandler = new VectorLengthHandler(*oldHandler);
-        stats->Handlers[newIndex] = newHandler; 
-    }
-    
-    if (runSpatialLocality) {
-        int32_t newIndex = spatialLocality->GetIndex();
-        SpatialLocalityHandler* oldHandler = (SpatialLocalityHandler*)(
-          tempMemoryHandlers->at(newIndex));
-        SpatialLocalityHandler* newHandler = new SpatialLocalityHandler(
-          *oldHandler);
-        stats->Handlers[newIndex] = newHandler;
+    for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
+      tools->end(); it++) {
+          AddressStreamTool* currentTool = (*it);
+          currentTool->AddNewHandlers(stats);
     }
 }
 
@@ -350,35 +306,10 @@ void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
     stats->Stats = new StreamStats*[GetNumMemoryHandlers()];
     bzero(stats->Stats, sizeof(StreamStats*) * GetNumMemoryHandlers());
 
-    if (runAddressRange) {
-        int32_t newIndex = addressRange->GetIndex();
-        stats->Stats[newIndex] = new RangeStats(stats->AllocCount);
-    }
-
-    if (runCacheSimulation) {
-        for (uint32_t i = cacheSimulation->GetIndex(); i < 
-          cacheSimulation->GetLastIndex(); i++) {
-            CacheStructureHandler* c = (CacheStructureHandler*)
-              (tempMemoryHandlers->at(i));
-            stats->Stats[i] = new CacheStats(c->levelCount, c->sysId, 
-              stats->AllocCount, c->hybridCache);
-        }
-    }
-
-    if (runReuseDistance) {
-        int32_t newIndex = reuseDistance->GetIndex();
-        stats->Stats[newIndex] = new ReuseStreamStats(stats);
-    }
-
-    if (runScatterLength) {
-        int32_t newIndex = scatterLength->GetIndex();
-        stats->Stats[newIndex] = new VectorLengthStats(
-          stats->AllocCount);
-    }
-
-    if (runSpatialLocality) {
-        int32_t newIndex = spatialLocality->GetIndex();
-        stats->Stats[newIndex] = new SpatialStreamStats(stats);
+    for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
+      tools->end(); it++) {
+          AddressStreamTool* currentTool = (*it);
+          currentTool->AddNewStreamStats(stats);
     }
 }
 
@@ -476,7 +407,13 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
                     stats->GroupCounters[blocksGroupId] = blockCount;
                 }
             }               
-        } 
+        } else {
+            // Let each handler know that addresses were skipped
+            for (uint32_t i = 0; i < GetNumMemoryHandlers(); i++) {
+                MemoryStreamHandler* m = stats->Handlers[i];
+                m->SkipAddresses(numElements);
+            }
+        }
     //}
 
     // Turn sampling on/off
@@ -566,20 +503,6 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
                 SetDynamicPoints(*liveInstPointKeys, true);
                 ResumeAllThreads();
             }
-
-            if (runReuseDistance) {
-                int32_t newIndex = reuseDistance->GetIndex();
-                ReuseDistanceHandler* handler = (ReuseDistanceHandler*)
-                  (stats->Handlers[newIndex]);
-                handler->SkipAddresses(numElements);
-            }
-
-            if (runSpatialLocality) {
-                int32_t newIndex = spatialLocality->GetIndex();
-                SpatialLocalityHandler* handler = (SpatialLocalityHandler*)
-                  stats->Handlers[newIndex];
-                handler->SkipAddresses(numElements);
-            }
         }
 
         sampler->IncrementAccessCount(numElements);
@@ -588,8 +511,8 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     DONE_WITH_BUFFER();
 }
 
-void AddressStreamDriver::SetUpLibraries() {
-    // Check for which libraries to use
+void AddressStreamDriver::SetUpTools() {
+    // Check for which tools to use
     uint32_t doAddressRange;
     uint32_t doCacheSimulation;
     uint32_t doReuseDistance;
@@ -611,45 +534,33 @@ void AddressStreamDriver::SetUpLibraries() {
         runSpatialLocality = (doSpatialLocality == 0) ? false : true;
     }
 
-    // Create temporary handlers for each library that we are running
-    // Keep track of which handler corresponds to which library (they will 
-    // need to be stored in the same order as in the AddressStreamStats data 
-    // structure!)
     if (runAddressRange) {
-        addressRange = new AddressRangeTool();
-        tools->push_back(addressRange);
+        tools->push_back(new AddressRangeTool());
     }
 
     if (runCacheSimulation) {
-        cacheSimulation = new CacheSimulationTool();
-        tools->push_back(cacheSimulation);
+        tools->push_back(new CacheSimulationTool());
     }
 
     if (runReuseDistance) {
-        reuseDistance = new ReuseDistanceTool();
-        tools->push_back(reuseDistance);
+        tools->push_back(new ReuseDistanceTool());
     }
 
     if (runScatterLength) {
-        scatterLength = new ScatterGatherLengthTool();
-        tools->push_back(scatterLength);
+        tools->push_back(new ScatterGatherLengthTool());
     }
 
     if (runSpatialLocality) {
-        spatialLocality = new SpatialLocalityTool();
-        tools->push_back(spatialLocality);
+        tools->push_back(new SpatialLocalityTool());
     }
 
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 
       tools->end(); it++) {
         AddressStreamTool* currentTool = (*it);
-        vector<MemoryStreamHandler*> handlers;
-        handlers = currentTool->CreateHandlers(GetNumMemoryHandlers());
-        assert(handlers.size() > 0);
-        for (int32_t i = 0; i < handlers.size(); i++) {
-            tempMemoryHandlers->push_back(handlers[i]);
-        }
-        
+        uint32_t handlersAdded = currentTool->CreateHandlers(
+          GetNumMemoryHandlers());
+        assert(handlersAdded > 0);
+        numMemoryHandlers += handlersAdded;
     }
 }
 
