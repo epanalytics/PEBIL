@@ -61,6 +61,11 @@ class SamplingMethod {
     uint32_t SampleOff;
     uint64_t AccessCount;
 
+    // Samplers can be shared by threads -- use a r/w lock so that 
+    // multiple threads can read at once
+    pthread_rwlock_t sampling_rwlock;
+    pthread_rwlockattr_t sampling_rwlock_attr;
+
     bool CurrentlySampling(uint64_t count);
 
   public:
@@ -77,6 +82,10 @@ class SamplingMethod {
     void IncrementAccessCount(uint64_t count);
     bool SwitchesMode(uint64_t count);
     void Print();
+
+    bool ReadLock();
+    bool UnLock();
+    bool WriteLock();
 };
 
 // DFP and other interesting memory things extend this class.

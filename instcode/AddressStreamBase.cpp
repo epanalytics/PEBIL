@@ -34,12 +34,19 @@ AddressStreamTool::~AddressStreamTool() {
     handlers.clear();
 }
 
+// Only one thread should construct a SamplingMethod at a time
 SamplingMethod::SamplingMethod(uint32_t limit, uint32_t on, uint32_t off){
     AccessLimit = limit;
     SampleOn = on;
     SampleOff = off;
 
     AccessCount = 0;
+
+    // Set to prefer to prevent starvation at thread initializeation
+    pthread_rwlockattr_init(&sampling_rwlock_attr);
+    pthread_rwlockattr_setkind_np(&sampling_rwlock_attr,
+      PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+    pthread_rwlock_init(&sampling_rwlock, &sampling_rwlock_attr);
 }
 
 SamplingMethod::~SamplingMethod(){
@@ -51,39 +58,52 @@ bool SamplingMethod::CurrentlySampling(){
 
 // Returns if would be sampling after "count" samples
 bool SamplingMethod::CurrentlySampling(uint64_t count){
+    ReadLock();
     uint32_t PeriodLength = SampleOn + SampleOff;
 
     bool res = false;
     if (SampleOn == 0){
+        UnLock();
         return res;
     }
 
     if (PeriodLength == 0){
         res = true;
     }
+
     if ((AccessCount + count) % PeriodLength < SampleOn){
         res = true;
     }
+    
+    UnLock();
     return res;
 }
 
 bool SamplingMethod::ExceedsAccessLimit(uint64_t count){
+    ReadLock();
     bool res = false;
     if (AccessLimit > 0 && count > AccessLimit){
         res = true;
     }
+    UnLock();
     return res;
 }
 
 double SamplingMethod::GetSamplingFrequency() {
+    ReadLock();
     if (SampleOn == 0) {
+        UnLock();
         return 0;
     }
-    return (double)SampleOn / (double)(SampleOn + SampleOff);
+    double frequency = (double)SampleOn / (double)(SampleOn + SampleOff);
+    UnLock();
+    return frequency;
 }
 
 void SamplingMethod::IncrementAccessCount(uint64_t count){
+    WriteLock();
     AccessCount += count;
+    UnLock();
 }
 
 bool SamplingMethod::SwitchesMode(uint64_t count){
@@ -91,7 +111,24 @@ bool SamplingMethod::SwitchesMode(uint64_t count){
 }
 
 void SamplingMethod::Print(){
+    ReadLock();
     inform << "SamplingMethod:" << TAB << "AccessLimit " << AccessLimit << " SampleOn " << SampleOn << " SampleOff " << SampleOff << ENDL;
+    UnLock();
+}
+
+bool SamplingMethod::ReadLock() {
+    bool res = (pthread_rwlock_rdlock(&sampling_rwlock) == 0);
+    return res;
+}
+
+bool SamplingMethod::UnLock() {
+    bool res = (pthread_rwlock_unlock(&sampling_rwlock) == 0);
+    return res;
+}
+
+bool SamplingMethod::WriteLock() {
+    bool res = (pthread_rwlock_wrlock(&sampling_rwlock) == 0);
+    return res;
 }
 
 MemoryStreamHandler::MemoryStreamHandler(){

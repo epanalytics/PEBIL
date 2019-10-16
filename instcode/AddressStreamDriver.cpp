@@ -49,9 +49,6 @@
 
 using namespace std;
 
-////#define synchronize(__locker) __locker->ReadLock(); for (bool __s = true; \
-//  __s == true; __locker->UnLock(), __s = false) 
-
 // Default Constructor
 AddressStreamDriver::AddressStreamDriver() {
 
@@ -111,7 +108,6 @@ void AddressStreamDriver::CreateSamplingMethod() {
     sampler->Print();
 }
 
-// AllData destructor requires # handlers
 void AddressStreamDriver::DeleteAllData() {
     delete allData;
 }
@@ -121,6 +117,7 @@ bool AddressStreamDriver::HasLiveInstrumentationPoints() {
     return !(liveInstPointKeys->empty());
 }
 
+// Should only be called once per image (only one thread should call it)
 void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
     image_key_t iid = *key;
 
@@ -181,6 +178,7 @@ void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
 
 }
 
+// Should only be called once per driver
 void AddressStreamDriver::InitializeAddressStreamDriver(
   DataManager<AddressStreamStats*>* d) {
 
@@ -199,7 +197,6 @@ void AddressStreamDriver::InitializeAddressStreamDriver(
 // Requires sampler and allData!
 void AddressStreamDriver::InitializeKeys() {
     assert(liveInstPointKeys == NULL);
-    //synchronize(AllData){
     liveInstPointKeys = new set<uint64_t>();
 
     // Get all the instrumetation points
@@ -233,6 +230,8 @@ void AddressStreamDriver::InitializeKeys() {
 
 }
 
+// Meant to only be called once per image (thus only one thread should 
+// ever call this)
 void* AddressStreamDriver::InitializeNewImage(image_key_t* iid, 
   AddressStreamStats* stats, ThreadData* threadData){
 
