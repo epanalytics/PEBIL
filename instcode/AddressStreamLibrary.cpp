@@ -153,7 +153,7 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
         AddressStreamStats* s = stats;
         stats = (AddressStreamStats*)malloc(sizeof(AddressStreamStats) + 
           (sizeof(uint64_t) * stats->BlockCount));
-        assert(stats);
+        assert(stats && "Couldn't allocate new stats object");
         memcpy(stats, s, sizeof(AddressStreamStats));
         stats->Initialized = false;
     }
@@ -182,9 +182,10 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
 
     // each thread gets its own buffer
     if (typ == allData->ThreadType){
-        stats->Buffer = new BufferEntry[BUFFER_CAPACITY(stats) + 1];
-        bzero(BUFFER_ENTRY(stats, 0), (BUFFER_CAPACITY(stats) + 1) * 
-          sizeof(BufferEntry));
+        uint64_t numEntries = BUFFER_CAPACITY(stats) + 1;
+        stats->Buffer = new BufferEntry[numEntries];
+        assert(stats->Buffer && "Couldn't create Buffer");
+        bzero(BUFFER_ENTRY(stats, 0), (numEntries) * sizeof(BufferEntry));
         BUFFER_CAPACITY(stats) = BUFFER_CAPACITY(s);
         BUFFER_CURRENT(stats) = 0;
     } else if (iid != firstimage){

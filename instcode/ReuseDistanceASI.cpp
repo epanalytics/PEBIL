@@ -73,7 +73,7 @@ void ReuseDistanceTool::FinalizeTool(DataManager<AddressStreamStats*>* AllData,
     // Create the Reuse Report(s)
     string oFile;
     const char* fileName;
-    AddressStreamStats* stats = AllData->GetData(*(AllData->allimages.begin()));
+    AddressStreamStats* stats = AllData->GetData(pthread_self());
 
     ofstream ReuseDistFile;
     ReuseDistanceFileName(stats, oFile);
