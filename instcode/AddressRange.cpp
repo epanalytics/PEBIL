@@ -50,7 +50,7 @@ uint32_t AddressRangeTool::CreateHandlers(uint32_t index) {
 void AddressRangeTool::FinalizeTool(DataManager<AddressStreamStats*>* AllData,
   SamplingMethod* Sampler) {
     
-    AddressStreamStats* stats = AllData->GetData(*(AllData->allimages.begin()));
+    AddressStreamStats* stats = AllData->GetData(pthread_self());
 
     // Create the Address Range report
     ofstream RangeFile;

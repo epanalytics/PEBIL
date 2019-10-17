@@ -70,7 +70,7 @@ void SpatialLocalityTool::FinalizeTool(DataManager<AddressStreamStats*>*
     string oFile;
     const char* fileName;
 
-    AddressStreamStats* stats = AllData->GetData(*(AllData->allimages.begin()));
+    AddressStreamStats* stats = AllData->GetData(pthread_self());
 
     ofstream SpatialLocFile;
     SpatialLocalityFileName(stats, oFile);
