@@ -2083,7 +2083,7 @@ X86Instruction* X86InstructionFactory64::emitMoveImmToRegaddrImm(uint64_t val, u
     // set opcode
     buff[0] = 0x48; // rex prefix 0x4WRXB
     if (idx >= X86_32BIT_GPRS){
-        buff[1]++;
+        buff[0]++;
     }
     buff[1] = 0xc7; // opcode
     buff[2] = 0x80 + (char)(idx % X86_32BIT_GPRS); // modrm?
