@@ -306,9 +306,9 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     // Create array to keep track of hybrid caches
     uint32_t* HybridCacheStatus = (uint32_t*)malloc(numCaches * 
       sizeof(uint32_t) );
-    for (uint32_t sys = indexInStats; sys < indexInStats + numCaches; sys++) {
+    for (uint32_t sys = 0; sys < numCaches; sys++) {
         CacheStructureHandler* CheckHybridStructure = 
-          (CacheStructureHandler*)stats->Handlers[sys];
+          (CacheStructureHandler*)stats->Handlers[sys + indexInStats];
         HybridCacheStatus[sys] = CheckHybridStructure->hybridCache;
     }
 
