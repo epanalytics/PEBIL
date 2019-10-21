@@ -38,6 +38,7 @@ extern "C" {
     const int SuspendSignal = SIGUSR2;
     uint32_t CountSuspended = 0;
     pthread_mutex_t countlock;
+    pthread_mutex_t leader;
     pthread_mutex_t pauser;
     bool CanSuspend = false;
 
@@ -57,6 +58,7 @@ extern "C" {
         pthread_mutex_lock(&countlock);
         CountSuspended--;
         pthread_mutex_unlock(&countlock);
+
     }
 
     void InitializeSuspendHandler(){
@@ -68,6 +70,7 @@ extern "C" {
 
         CountSuspended = 0;
         pthread_mutex_init(&pauser, NULL);
+        pthread_mutex_init(&leader, NULL);
         pthread_mutex_init(&countlock, NULL);
 
         CanSuspend = true;
@@ -87,8 +90,12 @@ extern "C" {
             return;
         }
 
-        pthread_mutex_lock(&pauser);
+        pthread_mutex_lock(&leader);
+        while (CountSuspended > 0){
+            pthread_yield();
+        }
         assert(CountSuspended == 0);
+        pthread_mutex_lock(&pauser);
 
         for (set<thread_key_t>::iterator tit = b; tit != e; tit++){
             if ((*tit) != pthread_self()){
@@ -116,6 +123,7 @@ extern "C" {
             pthread_yield();
         }
         assert(CountSuspended == 0);
+        pthread_mutex_unlock(&leader);
     }
 
     void* thread_started(void* args){
