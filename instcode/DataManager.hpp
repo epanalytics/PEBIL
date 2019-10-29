@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <set>
 
-#define DataMap std::pebil_map_type
+#define DataMap pebil_map_type
 #define ThreadHashShift (16)
 #define ThreadHashMod   (0x3ffff)
 
@@ -15,6 +15,12 @@
 
 typedef uint64_t image_key_t;
 typedef pthread_t thread_key_t;
+
+enum DataManagerTypes {
+    DataManagerType_Thread = 0,
+    DataManagerType_Image,
+    DataManagerType_Total
+};
 
 // data management support
 template <class T> class DataManager {
@@ -43,6 +49,7 @@ private:
     image_key_t firstimage;
 
     // map from image keys to each image's threaddata hashtable
+    // FIXME IS this even used?!
     DataMap <image_key_t, ThreadData*> threaddata;
 
     uint32_t HashThread(thread_key_t tid){
@@ -71,17 +78,19 @@ private:
         T d = datamap[iid][tid];
         td[actual].id = (uint64_t)tid;
         td[actual].data = (uint64_t)dataref(d);
-  /*
-        if (typ == ImageType){
-            warn << "Image " << std::hex << iid << " thread " << tid;
+
+ /* 
+        if (typ == DataManagerType_Image){
+            warn << "Image " << std::hex << iid << " thread " << tid << ENDL;
         } else {
-            warn << "Thread " << std::hex << tid << " image " << iid;
+            warn << "Thread " << std::hex << tid << " image " << iid << ENDL;
         }
         warn
             << " setting up thread data for " << tid << " at index "
-            << std::dec << actual << TAB << std::hex << td << "(" << GetThreadSequence(tid) << ")"
+            << std::dec << actual << TAB << std::hex << td << "(" 
+            << threadseq[tid] << ")"
             << " -> " << std::hex << td[actual].data
-            << endl;
+            << ENDL;
   */
         // just fail if there was a collision. it makes writing tools much easier so we see how well this works for now
         if (actual != h){
@@ -96,17 +105,44 @@ private:
         uint32_t h = HashThread(tid);
 
         assert(threaddata.count(iid) == 1);
-        assert(datamap.count(iid) == 1);
-        assert(datamap[iid].count(tid) == 1);
 
         ThreadData* td = threaddata[iid];
 
         uint32_t actual = h;
-        while (td[actual].id != tid){
+        while (td[actual].id != tid) {
             actual = (actual + 1) % (ThreadHashMod + 1);
         }
         td[actual].id = 0;
         td[actual].data = 0;
+    }
+
+    void RemoveData(image_key_t iid, thread_key_t tid){
+        assert(datamap.count(iid) == 1);
+        assert(datamap[iid].count(tid) == 1);
+
+        T data = datamap[iid][tid];
+        datadel(data);
+        datamap[iid].erase(tid);
+    }
+
+    void RemoveThread() {
+        RemoveThread(pthread_self());
+    }
+
+    void RemoveThread(thread_key_t tid){
+        WriteLock();
+        //assert(false);
+        assert(donethreads.count(tid) == 1);
+
+        for (std::set<image_key_t>::iterator iit = allimages.begin(); iit !=
+          allimages.end(); iit++){
+            assert(datamap[(*iit)].size() > 0);
+            assert(datamap[(*iit)].count(tid) == 1);
+            RemoveData((*iit), tid);
+            RemoveThreadData((*iit), tid);
+        }
+        donethreads.erase(tid);
+        UnLock();
     }
 
 public:
@@ -124,8 +160,8 @@ public:
     std::set<thread_key_t> donethreads;
     std::set<image_key_t> allimages;
 
-    static const uint32_t ThreadType = 0;
-    static const uint32_t ImageType = 1;
+//    static const uint32_t ThreadType = 0;
+//    static const uint32_t ImageType = 1;
 
     DataManager(T (*g)(T, uint32_t, image_key_t, thread_key_t, image_key_t), void (*d)(T), uint64_t (*r)(T)){
         datagen = g;
@@ -148,6 +184,20 @@ public:
     }
 
     virtual ~DataManager(){
+        // Finish any unfinished threads
+        for (std::set<thread_key_t>::iterator tit = allthreads.begin();
+          tit != allthreads.end(); tit++) {
+            if (ThreadLives(*tit)) {
+                FinishThread(*tit);
+            }
+            RemoveThread(*tit);
+        }
+
+        WriteLock();
+        datamap.clear();
+        threaddata.clear();
+
+        UnLock();
     }
 
     bool WriteLock(){
@@ -170,13 +220,17 @@ public:
         return pthread_self();
     }
 
+    image_key_t GetFirstImage() {
+        return firstimage;
+    }
+
     uint32_t GetThreadSequence(thread_key_t tid){
         ReadLock();
         if (threadseq.count(tid) != 1){
             inform << "Thread not available!?! " << std::hex << tid << ENDL;
         }
-        assert(threadseq.count(tid) == 1 && "thread must be added with "
-          "AddThread method");
+        assert(threadseq.count(tid) == 1 && 
+          "thread must be added with AddThread method");
         uint32_t ret = threadseq[tid];
         UnLock();
         return ret;
@@ -184,8 +238,8 @@ public:
 
     uint32_t GetImageSequence(image_key_t iid){
         ReadLock();
-        assert(imageseq.count(iid) == 1 && "image must be added with AddImage "
-          "method");
+        assert(imageseq.count(iid) == 1 && 
+          "image must be added with AddImage method");
         uint32_t ret = imageseq[iid];
         UnLock();
         return ret;
@@ -193,7 +247,8 @@ public:
 
     void FinishThread(thread_key_t tid){
         WriteLock();
-        assert(donethreads.count(tid) == 0);
+        assert(donethreads.count(tid) == 0 && 
+          "Finishing a thread that has already been finished");
         donethreads.insert(tid);
         UnLock();
     }
@@ -244,10 +299,10 @@ public:
 
             // Generate thread data for this image using some other thread's
             // data as a template
-            datamap[*iit][tid] = datagen(datamap[*iit][*tit], ThreadType, *iit,
-              tid, firstimage);
+            datamap[*iit][tid] = datagen(datamap[*iit][*tit], 
+              DataManagerType_Thread, *iit, tid, firstimage);
             // initialize the thread hashtable data for this image
-            SetThreadData((*iit), tid, ThreadType);
+            SetThreadData((*iit), tid, DataManagerType_Thread);
         }
         allthreads.insert(tid);
         UnLock();
@@ -257,32 +312,7 @@ public:
         AddThread(pthread_self());
     }
 
-    void RemoveData(image_key_t iid, thread_key_t tid){
-        assert(datamap.count(iid) == 1);
-        assert(datamap[iid].count(tid) == 1);
-
-        T data = datamap[iid][tid];
-        datadel(data);
-        datamap[iid].erase(tid);
-    }
-
-    void RemoveThread(){
-        WriteLock();
-        assert(false);
-        thread_key_t tid = pthread_self();
-        assert(allthreads.count(tid) == 1);
-
-        for (std::set<image_key_t>::iterator iit = allimages.begin(); iit !=
-          allimages.end(); iit++){
-            assert(datamap[(*iit)].size() > 0);
-            assert(datamap[(*iit)].count(tid) == 1);
-            RemoveData((*iit), tid);
-            RemoveThreadData((*iit), tid);
-        }
-        allthreads.erase(tid);
-        UnLock();
-    }
-
+    // Sets time (units in microseconds)
     void SetTimer(image_key_t iid, uint32_t idx){
         double t;
         ptimer(&t);
@@ -298,7 +328,7 @@ public:
 
     double GetTimer(image_key_t iid, uint32_t idx){
         ReadLock();
-        assert(timers.count(iid) == 1);
+        assert(timers.count(iid) == 1 && "Timers not created for this image");
         assert(timers[iid].count(idx) == 1);
         double t = timers[iid][idx];
         UnLock();
@@ -311,7 +341,7 @@ public:
     image_key_t AddImage(T data, ThreadData* t, image_key_t iid){
 
         ReadLock();
-        assert(allimages.count(iid) == 0);
+        assert(allimages.count(iid) == 0 && "Image has already been added");
         UnLock();
 
         // First initialize the thread (calls WriteLock())
@@ -322,26 +352,29 @@ public:
         // Initialize basic image data
         imageseq[iid] = currentimageseq++;
         allimages.insert(iid);
+        assert(allimages.count(iid) == 1);
         datamap[iid] = DataMap<thread_key_t, T>();
         if (firstimage == 0)
             firstimage = iid;
 
+        // Connect thread data to thread hashtable
+        assert(threaddata.count(iid) == 0);
+        threaddata[iid] = t;
+
         // create data for every thread
         for (std::set<thread_key_t>::iterator it = allthreads.begin(); it !=
           allthreads.end(); it++){
+            uint32_t type = DataManagerType_Thread;
             if(*it == tid)
-                datamap[iid][(*it)] = datagen(data, ImageType, iid, (*it),
-                  firstimage);
-            else
-                datamap[iid][(*it)] = datagen(data, ThreadType, iid, (*it),
-                  firstimage);
+                type = DataManagerType_Image;
+
+            datamap[iid][(*it)] = datagen(data, type, iid, (*it), firstimage);
+            SetThreadData(iid, *it, type);
         }
 
-        // Connect thread data to thread hashtable
-        threaddata[iid] = t;
 
-        uint64_t dataloc = SetThreadData(iid, tid, ImageType);
-
+//        uint64_t dataloc = SetThreadData(iid, tid, DataManagerType_Image);
+/*
         // FIXME
         // This is dubious, gives all threads the same buffer to work with
         // Prevents segfaults when threads aren't initialized properly
@@ -357,7 +390,7 @@ public:
                 t[i].data = dataloc;
             }
         }
-
+*/
         UnLock();
         return iid;
     }
@@ -389,7 +422,8 @@ public:
             inform << "About to fail iid check with " << std::dec <<
               datamap.count(iid) << ENDL;
         }
-        assert(datamap.count(iid) == 1);
+        assert(datamap.count(iid) == 1 && 
+          "Attempting to look up data for uninitialized image");
 
         if(datamap[iid].count(tid) != 1) {
             UnLock();

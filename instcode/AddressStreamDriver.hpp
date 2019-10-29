@@ -79,6 +79,8 @@ class AddressStreamDriver {
     StringParser* GetStringParser() { return parser; }
 
     uint32_t GetNumMemoryHandlers() { return numMemoryHandlers; }
+    uint32_t GetNumTools() { return tools->size(); }
+    AddressStreamTool* GetTool(uint32_t index);
 
     bool HasLiveInstrumentationPoints();
 

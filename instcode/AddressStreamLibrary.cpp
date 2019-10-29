@@ -127,13 +127,14 @@ void DeleteStreamStats(AddressStreamStats* stats){
     if (!stats->Initialized){
         // TODO: delete buffer only for thread-initialized structures?
 
-        delete[] stats->Counters;
-
         for (uint32_t i = 0; i < Driver->GetNumMemoryHandlers(); i++){
             delete stats->Stats[i];
             delete stats->Handlers[i];
         }
         delete[] stats->Stats;
+
+        // Counters initialized with stats so memory freed here
+        free(stats);
     }
 }
 
@@ -149,7 +150,7 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     // allocate Counters contiguously with AddressStreamStats. Since the 
     // address of AddressStreamStats is the address of the thread data, this 
     // allows us to avoid an extra memory ref on Counter updates
-    if (typ == allData->ThreadType){
+    if (typ == DataManagerType_Thread){
         AddressStreamStats* s = stats;
         stats = (AddressStreamStats*)malloc(sizeof(AddressStreamStats) + 
           (sizeof(uint64_t) * stats->BlockCount));
@@ -172,7 +173,7 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     Driver->InitializeStatsWithNewStreamStats(stats);
 
     // Initialize Memory Handlers
-    if (typ == allData->ThreadType || (iid == firstimage)){
+    if (typ == DataManagerType_Thread || (iid == firstimage)){
         Driver->InitializeStatsWithNewHandlers(stats);
     }
     else{
@@ -181,7 +182,7 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     }
 
     // each thread gets its own buffer
-    if (typ == allData->ThreadType){
+    if (typ == DataManagerType_Thread){
         uint64_t numEntries = BUFFER_CAPACITY(stats) + 1;
         stats->Buffer = new BufferEntry[numEntries];
         assert(stats->Buffer && "Couldn't create Buffer");
@@ -194,7 +195,7 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     }
 
     // each thread/image gets its own counters
-    if (typ == allData->ThreadType){
+    if (typ == DataManagerType_Thread){
         uint64_t tmp64 = (uint64_t)(stats) + (uint64_t)(sizeof(
           AddressStreamStats));
         stats->Counters = (uint64_t*)(tmp64);

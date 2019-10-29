@@ -46,7 +46,7 @@ typedef struct AddressStreamStats_s {
     // metadata
     thread_key_t threadid;
     image_key_t imageid;
-    bool Initialized;
+    bool Initialized;   // Set to false when created by thread
     bool PerInstruction;
     bool LoopInclusion; // when terminating sampling for a block,
                         // do this for all blocks within the loop

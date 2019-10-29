@@ -108,11 +108,11 @@ CounterArray* GenerateCounterArray(CounterArray* ctrs, uint32_t typ, image_key_t
     c->threadid = tid;
     c->imageid = iid;
 
-    if (typ == AllData->ImageType){
+    if (typ == DataManagerType_Image){
         return c;
     }
 
-    assert(typ == AllData->ThreadType);
+    assert(typ == DataManagerType_Thread);
 
     c = (CounterArray*)malloc(sizeof(CounterArray));
     assert(c);

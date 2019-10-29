@@ -112,6 +112,12 @@ void AddressStreamDriver::DeleteAllData() {
     delete allData;
 }
 
+AddressStreamTool* AddressStreamDriver::GetTool(uint32_t index) {
+    assert(index < GetNumTools());
+
+    return tools->at(index);
+}
+
 bool AddressStreamDriver::HasLiveInstrumentationPoints() {
     // if there are keys, then still live
     return !(liveInstPointKeys->empty());

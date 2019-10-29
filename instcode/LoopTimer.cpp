@@ -66,7 +66,7 @@ LoopTimers* GenerateLoopTimers(LoopTimers* timers, uint32_t typ, image_key_t iid
     LoopTimers* retval;
     retval = new LoopTimers();
 
-    retval->master = timers->master && typ == AllData->ImageType;
+    retval->master = timers->master && typ == DataManagerType_Image;
     retval->application = timers->application;
     retval->extension = timers->extension;
     retval->loopCount = timers->loopCount;

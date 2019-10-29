@@ -93,7 +93,8 @@ FunctionTimers* GenerateFunctionTimers(FunctionTimers* timers, uint32_t typ, ima
     FunctionTimers* retval;
     retval = new FunctionTimers();
 
-    retval->master = timers->master && typ == AllData->ImageType;
+    retval->master = timers->master && typ == DataManagerType_Image;
+    //retval->master = timers->master && typ == AllData->ImageType;
     retval->application = timers->application;
     retval->extension = timers->extension;
     retval->functionCount = timers->functionCount;
