@@ -61,11 +61,6 @@ else
 	EXTRA_LIBS = -ldl -lpthread
 endif
 
-# openmpi does not autmatically link fortran mpi
-ifeq ($(MPICC), mpicc)
-  EXTRA_LIBS = -lmpi_mpifh
-endif
-
 all: $(ALL_TARGETS)
 
 $(LIBDIR)/%.o: %.c
