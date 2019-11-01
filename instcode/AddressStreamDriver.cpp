@@ -76,6 +76,10 @@ AddressStreamDriver::~AddressStreamDriver() {
         delete liveInstPointKeys;
     if (parser)
         delete parser;
+    for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
+      tools->end(); it++) {
+          delete (*it);
+    }
     tools->clear();
     delete tools;
     delete fastData;

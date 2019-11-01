@@ -94,7 +94,7 @@ class MemoryStreamHandler {
     pthread_mutex_t mlock;
   public:
     MemoryStreamHandler();
-    ~MemoryStreamHandler();
+    virtual ~MemoryStreamHandler();
 
     virtual void Print(std::ofstream& f) = 0;
     virtual uint32_t Process(void* stats, BufferEntry* access) = 0;

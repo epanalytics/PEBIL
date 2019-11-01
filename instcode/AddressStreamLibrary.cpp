@@ -124,14 +124,13 @@ uint64_t ReferenceStreamStats(AddressStreamStats* stats){
 }
 
 void DeleteStreamStats(AddressStreamStats* stats){
-    if (!stats->Initialized){
-        // TODO: delete buffer only for thread-initialized structures?
+    if (!stats->Initialized){  // If created for thread
+        delete[] stats->Buffer;
 
-        for (uint32_t i = 0; i < Driver->GetNumMemoryHandlers(); i++){
-            delete stats->Stats[i];
-            delete stats->Handlers[i];
+        if (Driver->GetNumMemoryHandlers() > 0) {
+            delete[] stats->Stats;
+            delete[] stats->Handlers;
         }
-        delete[] stats->Stats;
 
         // Counters initialized with stats so memory freed here
         free(stats);
@@ -146,6 +145,8 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     assert(stats);
     AddressStreamStats* s = stats;
     DataManager<AddressStreamStats*>* allData = Driver->GetAllData();
+    
+    // every thread and image gets its own statistics
 
     // allocate Counters contiguously with AddressStreamStats. Since the 
     // address of AddressStreamStats is the address of the thread data, this 
@@ -162,7 +163,6 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     stats->threadid = tid;
     stats->imageid = iid;
 
-    // every thread and image gets its own statistics
     if(stats->MemopCount > stats->BlockCount) {
         stats->AllocCount = stats->MemopCount;
     } else {
@@ -173,18 +173,24 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     Driver->InitializeStatsWithNewStreamStats(stats);
 
     // Initialize Memory Handlers
+    // TODO: This is not entirely correct. Handlers should be shared by images
+    // but each thread needs its own handlers. As long as there is only one 
+    // image, this should be fine (or a single-threaded multi-image app). 
+    // But, the first image may not even be the one to spawn the threads so 
+    // this is not a trivial issue.
     if (typ == DataManagerType_Thread || (iid == firstimage)){
         Driver->InitializeStatsWithNewHandlers(stats);
-    }
-    else{
+    } else {
+        // Other images would share the handlers
         AddressStreamStats * fs = allData->GetData(firstimage, tid);
         stats->Handlers = fs->Handlers;
     }
 
     // each thread gets its own buffer
+    // TODO: Again, will not work for multi-threaded, multi-image apps
     if (typ == DataManagerType_Thread){
-        uint64_t numEntries = BUFFER_CAPACITY(stats) + 1;
-        stats->Buffer = new BufferEntry[numEntries];
+        uint64_t numEntries = BUFFER_CAPACITY(stats);
+        stats->Buffer = new BufferEntry[numEntries + 1];
         assert(stats->Buffer && "Couldn't create Buffer");
         bzero(BUFFER_ENTRY(stats, 0), (numEntries) * sizeof(BufferEntry));
         BUFFER_CAPACITY(stats) = BUFFER_CAPACITY(s);
@@ -208,6 +214,7 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
             }
         }
     }
+  
 
     return stats;
 }

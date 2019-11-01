@@ -49,7 +49,6 @@ private:
     image_key_t firstimage;
 
     // map from image keys to each image's threaddata hashtable
-    // FIXME IS this even used?!
     DataMap <image_key_t, ThreadData*> threaddata;
 
     uint32_t HashThread(thread_key_t tid){
