@@ -223,7 +223,7 @@ public:
         return firstimage;
     }
 
-    uint32_t GetThreadSequence(thread_key_t tid){
+    virtual uint32_t GetThreadSequence(thread_key_t tid){
         ReadLock();
         if (threadseq.count(tid) != 1){
             inform << "Thread not available!?! " << std::hex << tid << ENDL;
@@ -395,7 +395,7 @@ public:
     }
     // Return data for any image and this thread.
     // Probably best used when only one image exists.
-    T GetData(){
+    virtual T GetData(){
         // This GetData calls ReadLock()
         T retVal = GetData(pthread_self());
         return retVal;
@@ -434,13 +434,13 @@ public:
         return retVal;
     }
 
-    uint32_t CountThreads(){
+    virtual uint32_t CountThreads(){
         ReadLock();
         uint32_t ret = allthreads.size();
         UnLock();
         return ret;
     }
-    uint32_t CountImages(){
+    virtual uint32_t CountImages(){
         ReadLock();
         uint32_t ret = allimages.size();
         UnLock();
@@ -627,6 +627,10 @@ public:
         assert(threadseq < threadcount);
 
         return stats[threadseq];
+    }
+
+    uint32_t GetCapacity() {
+        return capacity;
     }
 };
 #endif // _DataManager_hpp_
