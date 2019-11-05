@@ -15,11 +15,26 @@
 
 typedef struct DynamicInst_s DynamicInst;
 
-void PrintDynamicPoint(DynamicInst* d); 
-void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag);
-void GetAllDynamicKeys(std::set<uint64_t>& keys);
-void SetDynamicPointStatus(DynamicInst* d, bool state);
-void SetDynamicPoints(std::set<uint64_t>& keys, bool state);
-bool isThreadedMode();
+class DynamicInstrumentation {
+  protected:
+    pebil_map_type < uint64_t, std::vector < DynamicInst* > > * Dynamics;
+    bool ThreadedMode;
+    
+  public:
+    DynamicInstrumentation();
+    virtual ~DynamicInstrumentation();
+
+    void GetAllDynamicKeys(std::set<uint64_t>& keys);
+    void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn,
+      bool* isThreadedModeFlag);
+    bool IsThreadedMode() { return ThreadedMode; }
+
+    void PrintAllDynamicPoints(); 
+    void PrintDynamicPoint(DynamicInst* d); 
+    void SetDynamicPointStatus(DynamicInst* d, bool state);
+    void SetDynamicPoints(std::set<uint64_t>& keys, bool state);
+    
+    
+};
 
 #endif // _DynamicInstrumentation_hpp_

@@ -24,6 +24,7 @@
 #include <set>
 #include <cstdint>
 
+class DynamicInstrumentation;
 class MemoryStreamHandler;
 class SamplingMethod;
 class AddressRangeTool;
@@ -56,6 +57,7 @@ class AddressStreamDriver {
 
     uint32_t numMemoryHandlers;
 
+    DynamicInstrumentation* dynamicPoints = NULL;
     SamplingMethod* sampler = NULL;
     DataManager<AddressStreamStats*>* allData = NULL;
     FastData<AddressStreamStats*, BufferEntry*>* fastData = NULL;
@@ -108,6 +110,7 @@ class AddressStreamDriver {
     void SetAllData(DataManager<AddressStreamStats*>* d) { allData = d; }
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
+    void SetDynamicPoints(DynamicInstrumentation* d) { dynamicPoints = d; }
 
     virtual void SetUpTools();
 

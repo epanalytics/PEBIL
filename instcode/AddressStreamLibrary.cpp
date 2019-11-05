@@ -44,7 +44,13 @@ extern "C" {
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
       isThreadedModeFlag){
         SAVE_STREAM_FLAGS(cout);
-        InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
+        if (Driver == NULL) {
+            Driver = new AddressStreamDriver();
+        }
+        DynamicInstrumentation* dynamicPoints = new DynamicInstrumentation();
+        dynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+          isThreadedModeFlag);
+        Driver->SetDynamicPoints(dynamicPoints);
         RESTORE_STREAM_FLAGS(cout);
         return NULL;
     }
@@ -79,13 +85,12 @@ extern "C" {
 
         pthread_mutex_lock(&image_init_mutex);
 
-        // initialize Driver/AllData once per address space
-        if (Driver == NULL){
+        // initialize AllData once per address space
+        if (Driver->GetAllData() == NULL){
             init_signal_handlers();
             DataManager<AddressStreamStats*>* AllData;
             AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats, 
               DeleteStreamStats, ReferenceStreamStats);
-            Driver = new AddressStreamDriver();
             Driver->InitializeAddressStreamDriver(AllData);
         }
         assert(Driver);

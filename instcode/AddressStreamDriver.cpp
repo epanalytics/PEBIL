@@ -70,11 +70,14 @@ AddressStreamDriver::AddressStreamDriver() {
 }
 
 AddressStreamDriver::~AddressStreamDriver() {
-    if (sampler)
+    if (sampler != NULL)
         delete sampler;
-    if (liveInstPointKeys)
+    if (liveInstPointKeys != NULL)
         delete liveInstPointKeys;
-    if (parser)
+    if (dynamicPoints != NULL) {
+        delete dynamicPoints;
+    }
+    if (parser != NULL)
         delete parser;
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
       tools->end(); it++) {
@@ -211,7 +214,7 @@ void AddressStreamDriver::InitializeKeys() {
 
     // Get all the instrumetation points
     set<uint64_t> keys;
-    GetAllDynamicKeys(keys);
+    dynamicPoints->GetAllDynamicKeys(keys);
     for (set<uint64_t>::iterator it = keys.begin(); it != keys.end(); it++) {
         uint64_t k = (*it);
         if (GET_TYPE(k) == PointType_bufferfill && 
@@ -234,7 +237,7 @@ void AddressStreamDriver::InitializeKeys() {
             AllSimPoints.insert(GENERATE_KEY(GET_BLOCKID((*it)), 
               PointType_bufferfill));
         }
-        SetDynamicPoints(AllSimPoints, false);
+        dynamicPoints->SetDynamicPoints(AllSimPoints, false);
         liveInstPointKeys->clear();
     }
 
@@ -274,18 +277,18 @@ void* AddressStreamDriver::InitializeNewImage(image_key_t* iid,
     // Remove initialization instrumentation points for this image
     set<uint64_t> inits;
     inits.insert(*iid);
-    SetDynamicPoints(inits, false);
+    dynamicPoints->SetDynamicPoints(inits, false);
 }
 
 void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
     SAVE_STREAM_FLAGS(cout);
     if (allData){
-        if(isThreadedMode())
+        if(dynamicPoints->IsThreadedMode())
             allData->AddThread(tid);
         InitializeSuspendHandler();
 
         assert(fastData);
-        if(isThreadedMode())
+        if(dynamicPoints->IsThreadedMode())
             fastData->AddThread(tid);
     } else {
         ErrorExit("Calling PEBIL thread initialization library for thread " 
@@ -494,14 +497,14 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
                   / 3) << " blocks" << ENDL);
                 SuspendAllThreads(allData->CountThreads(), 
                   allData->allthreads.begin(), allData->allthreads.end());
-                SetDynamicPoints(MemsRemoved, false);
+                dynamicPoints->SetDynamicPoints(MemsRemoved, false);
                 ResumeAllThreads();
             }
 
             if (sampler->SwitchesMode(numElements)){
                 SuspendAllThreads(allData->CountThreads(), 
                   allData->allthreads.begin(), allData->allthreads.end());
-                SetDynamicPoints(*liveInstPointKeys, false);
+                dynamicPoints->SetDynamicPoints(*liveInstPointKeys, false);
                 ResumeAllThreads();
             }
 
@@ -509,7 +512,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
             if (sampler->SwitchesMode(numElements)){
                 SuspendAllThreads(allData->CountThreads(), 
                   allData->allthreads.begin(), allData->allthreads.end());
-                SetDynamicPoints(*liveInstPointKeys, true);
+                dynamicPoints->SetDynamicPoints(*liveInstPointKeys, true);
                 ResumeAllThreads();
             }
         }

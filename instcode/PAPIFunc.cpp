@@ -61,6 +61,8 @@ using namespace std;
 #define CLOCK_RATE_HZ 3200000000
 static uint32_t timerCPUFreq = CLOCK_RATE_HZ;
 
+DynamicInstrumentation* DynamicPoints = NULL;
+
 static uint32_t hwcSetNumber = 0;
 
 // Set with FPAPI_SHUTOFF - enables function shutoff
@@ -389,7 +391,9 @@ extern "C"
   
   void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
     isThreadedModeFlag) {
-      InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
+      DynamicPoints = new DynamicInstrumentation();
+      DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+        isThreadedModeFlag);
       return NULL;
   }
   
@@ -399,7 +403,7 @@ extern "C"
   
   void* tool_thread_init(thread_key_t tid) {
       if (AllData) {
-          if (isThreadedMode()) {
+          if (DynamicPoints->isThreadedMode()) {
               AllData->AddThread(tid);
           }
       } else {
@@ -420,7 +424,7 @@ extern "C"
     
       set<uint64_t> inits;
       inits.insert(*key);
-      SetDynamicPoints(inits, false);
+      DynamicPoints->SetDynamicPoints(inits, false);
     
       if (AllData == NULL) {
           AllData = new DataManager<FunctionPAPI*>(GenerateFunctionPAPI, 
@@ -441,6 +445,10 @@ extern "C"
   
   void* tool_image_fini(image_key_t* key) {
       image_key_t iid = *key;
+
+      if (DynamicPoints != NULL) {
+          delete DynamicPoints;
+      }
   
       if (AllData == NULL) {
           ErrorExit("data manager does not exist. no images were intialized", 

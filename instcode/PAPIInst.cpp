@@ -72,6 +72,8 @@ inline uint64_t read_timestamp_counter(){
 
 DataManager<PAPIInst*>* AllData = NULL;
 
+DynamicInstrumentation* DynamicPoints = NULL;
+
 PAPIInst* GeneratePAPIInst(PAPIInst* counters, uint32_t typ, image_key_t iid,
 			   thread_key_t tid, image_key_t firstimage) {
 
@@ -295,9 +297,10 @@ extern "C"
   }
 
   void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* isThreadedModeFlag) {
-    InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
-    //InitializeDynamicInstrumentation(count, dyn);
-    return NULL;
+      DynamicPoints = new DynamicInstrumentation();
+      DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+        isThreadedModeFlag);
+      return NULL;
   }
 
   void* tool_mpi_init() {
@@ -306,7 +309,7 @@ extern "C"
 
   void* tool_thread_init(thread_key_t tid) {
     if (AllData){
-      if(isThreadedMode())	
+      if(DynamicPoints->IsThreadedMode())	
 	AllData->AddThread(tid);
     } else {
       ErrorExit("Calling PEBIL thread initialization library for thread " <<
@@ -326,7 +329,7 @@ extern "C"
 
     set<uint64_t> inits;
     inits.insert(*key);
-    SetDynamicPoints(inits, false);
+    DynamicPoints->SetDynamicPoints(inits, false);
 
     if (AllData == NULL){
       AllData = new DataManager<PAPIInst*>(GeneratePAPIInst, DeletePAPIInst, ReferencePAPIInst);
@@ -347,6 +350,10 @@ extern "C"
   void* tool_image_fini(image_key_t* key)
   {
     image_key_t iid = *key;
+
+    if (DynamicPoints != NULL) {
+        delete DynamicPoints;
+    }
 
     if (AllData == NULL){
       ErrorExit("data manager does not exist. no images were intialized", MetasimError_NoImage);

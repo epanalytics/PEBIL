@@ -32,6 +32,8 @@ using namespace std;
 
 DataManager<FunctionTimers*>* AllData = NULL;
 
+DynamicInstrumentation* DynamicPoints = NULL;
+
 // by default, do not shut off function timing instrumentation.
 // please set FTIMER_SHUTOFF to something other than zero to enable
 //  function timer shutoff.
@@ -247,7 +249,7 @@ extern "C"
                         set<uint64_t> inits;
                         inits.insert(this_key);
                         inits.insert(corresponding_entry_key);
-                        SetDynamicPoints(inits, false); 
+                        DynamicPoints->SetDynamicPoints(inits, false); 
                         timers->functionShutoff[funcIndex]=1;
                         AllData->UnLock();
                     }
@@ -258,7 +260,9 @@ extern "C"
 
     // initialize dynamic instrumentation
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag) {
-        InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
+        DynamicPoints = new DynamicInstrumentation();
+        DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+          isThreadedModeFlag);
         return NULL;
     }
 
@@ -270,7 +274,7 @@ extern "C"
     // Entry function for threads
     void* tool_thread_init(thread_key_t tid) {
         if (AllData){
-            if(isThreadedMode())
+            if(DynamicPoints->IsThreadedMode())
                 AllData->AddThread(tid);
         } else {
             ErrorExit("Calling PEBIL thread initialization library for thread "
@@ -298,7 +302,7 @@ extern "C"
         // Remove this instrumentation
         set<uint64_t> inits;
         inits.insert(*key);
-        SetDynamicPoints(inits, false);
+        DynamicPoints->SetDynamicPoints(inits, false);
 
         // If this is the first image, set up a data manager
         if (AllData == NULL){
@@ -315,6 +319,10 @@ extern "C"
     void* tool_image_fini(image_key_t* key) {
 
         image_key_t iid = *key;
+
+        if (DynamicPoints != NULL) {
+            delete DynamicPoints;
+        }
 
         if (AllData == NULL){
             ErrorExit("data manager does not exist. no images were intialized",
