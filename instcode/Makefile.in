@@ -61,9 +61,13 @@ else
 	EXTRA_LIBS = -ldl -lpthread
 endif
 
-# openmpi does not autmatically link fortran mpi
+# opempi does not automatically link fortran mpi
 ifeq ($(MPICC), mpicc)
-  EXTRA_LIBS = -lmpi_mpifh
+  MPITYPE := $(shell mpirun --version | grep "Open MPI")
+  # If using openmpi
+  ifneq ($(MPITYPE), "")
+	  EXTRA_LIBS += @PEBIL_MPIFC_OPENMPI_LIB@
+  endif
 endif
 
 all: $(ALL_TARGETS)
