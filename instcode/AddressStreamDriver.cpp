@@ -72,8 +72,8 @@ AddressStreamDriver::AddressStreamDriver() {
 AddressStreamDriver::~AddressStreamDriver() {
     if (sampler != NULL)
         delete sampler;
-    if (liveInstPointKeys != NULL)
-        delete liveInstPointKeys;
+    if (liveMemoryAccessInstPointKeys != NULL)
+        delete liveMemoryAccessInstPointKeys;
     if (dynamicPoints != NULL) {
         delete dynamicPoints;
     }
@@ -127,7 +127,7 @@ AddressStreamTool* AddressStreamDriver::GetTool(uint32_t index) {
 
 bool AddressStreamDriver::HasLiveInstrumentationPoints() {
     // if there are keys, then still live
-    return !(liveInstPointKeys->empty());
+    return !(liveMemoryAccessInstPointKeys->empty());
 }
 
 // Should only be called once per image (only one thread should call it)
@@ -206,20 +206,21 @@ void AddressStreamDriver::InitializeAddressStreamDriver(
 
 }
 
-// Initialize the Instrumentation Point Keys
+// Initialize the Instrumentation Points that the sampler needs to turn off
 // Requires sampler and allData!
 void AddressStreamDriver::InitializeKeys() {
-    assert(liveInstPointKeys == NULL);
-    liveInstPointKeys = new set<uint64_t>();
+    assert(liveMemoryAccessInstPointKeys == NULL);
+    liveMemoryAccessInstPointKeys = new set<uint64_t>();
 
-    // Get all the instrumetation points
+    // Get all the instrumentation points that put memory addresses in the 
+    // buffer (PointType_bufferfill) so the sampler can turn them on/off
     set<uint64_t> keys;
     dynamicPoints->GetAllDynamicKeys(keys);
     for (set<uint64_t>::iterator it = keys.begin(); it != keys.end(); it++) {
         uint64_t k = (*it);
         if (GET_TYPE(k) == PointType_bufferfill && 
           allData->allimages.count(k) == 0){
-            liveInstPointKeys->insert(k);
+            liveMemoryAccessInstPointKeys->insert(k);
         }
     }
 
@@ -227,18 +228,7 @@ void AddressStreamDriver::InitializeKeys() {
     if (sampler->GetSamplingFrequency() == 0){
         inform << "Disabling all simulation-related instrumentation"
           " because METASIM_SAMPLE_ON is set to 0" << ENDL;
-        set<uint64_t> AllSimPoints;
-        for (set<uint64_t>::iterator it = liveInstPointKeys->begin(); 
-          it != liveInstPointKeys->end(); it++){
-            AllSimPoints.insert(GENERATE_KEY(GET_BLOCKID((*it)), 
-              PointType_buffercheck));
-            AllSimPoints.insert(GENERATE_KEY(GET_BLOCKID((*it)), 
-              PointType_bufferinc));
-            AllSimPoints.insert(GENERATE_KEY(GET_BLOCKID((*it)), 
-              PointType_bufferfill));
-        }
-        dynamicPoints->SetDynamicPoints(AllSimPoints, false);
-        liveInstPointKeys->clear();
+        ShutOffInstrumentationInAllBlocks();
     }
 
 }
@@ -469,7 +459,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
                     uint64_t k2 = GENERATE_KEY(gidx, PointType_bufferinc);
                     uint64_t k3 = GENERATE_KEY(gidx, PointType_bufferfill);
 
-                    if (liveInstPointKeys->count(k3) > 0){
+                    if (liveMemoryAccessInstPointKeys->count(k3) > 0){
 
                         if (MemsRemoved.count(k1) == 0){
                             MemsRemoved.insert(k1);
@@ -486,8 +476,8 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
                         }
                         assert(MemsRemoved.count(k3) == 1);
 
-                        liveInstPointKeys->erase(k3);
-                        assert(liveInstPointKeys->count(k3) == 0);
+                        liveMemoryAccessInstPointKeys->erase(k3);
+                        assert(liveMemoryAccessInstPointKeys->count(k3) == 0);
                     }
                 }
             }
@@ -504,7 +494,8 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
             if (sampler->SwitchesMode(numElements)){
                 SuspendAllThreads(allData->CountThreads(), 
                   allData->allthreads.begin(), allData->allthreads.end());
-                dynamicPoints->SetDynamicPoints(*liveInstPointKeys, false);
+                dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys,
+                  false);
                 ResumeAllThreads();
             }
 
@@ -512,7 +503,8 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
             if (sampler->SwitchesMode(numElements)){
                 SuspendAllThreads(allData->CountThreads(), 
                   allData->allthreads.begin(), allData->allthreads.end());
-                dynamicPoints->SetDynamicPoints(*liveInstPointKeys, true);
+                dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys,
+                  true);
                 ResumeAllThreads();
             }
         }
@@ -574,6 +566,53 @@ void AddressStreamDriver::SetUpTools() {
         assert(handlersAdded > 0);
         numMemoryHandlers += handlersAdded;
     }
+}
+
+void AddressStreamDriver::ShutOffInstrumentationInAllBlocks() {
+    set<uint32_t> allBlocks;
+    for (set<uint64_t>::iterator it = liveMemoryAccessInstPointKeys->begin();
+      it != liveMemoryAccessInstPointKeys->end(); it++) {
+        allBlocks.insert(GET_BLOCKID(*it));
+    }
+    ShutOffInstrumentationInBlocks(allBlocks);
+}
+
+// Not thread-safe! For performance, thread suspension should happen outside 
+// this function
+void AddressStreamDriver::ShutOffInstrumentationInBlock(uint32_t blockID) {
+
+    set<uint64_t> keysToRemove;
+    uint64_t kcheck = GENERATE_KEY(blockID, PointType_buffercheck);
+    uint64_t kinc = GENERATE_KEY(blockID, PointType_bufferinc);
+    uint64_t kfill = GENERATE_KEY(blockID, PointType_bufferfill);
+
+    // If this key is not active, then done
+    if (liveMemoryAccessInstPointKeys->count(kfill) == 0){
+        return;
+    }
+
+    // Otherwise, remove the instrumentation for this block
+    keysToRemove.insert(kcheck);
+    keysToRemove.insert(kinc);
+    keysToRemove.insert(kfill);
+    
+    dynamicPoints->SetDynamicPoints(keysToRemove, false);
+    liveMemoryAccessInstPointKeys->erase(kfill);
+
+}
+
+void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint32_t>& blocks){
+    // Make sure only one thread is executing this code
+    SuspendAllThreads(allData->CountThreads(), 
+      allData->allthreads.begin(), allData->allthreads.end());
+    
+    for (set<uint32_t>::iterator it = blocks.begin(); it != blocks.end(); 
+      it++) {
+        uint32_t blockID = *it;
+        ShutOffInstrumentationInBlock(blockID);
+    }
+
+    ResumeAllThreads();
 }
 
 // For testing

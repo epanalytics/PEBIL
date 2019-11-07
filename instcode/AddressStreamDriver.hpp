@@ -61,8 +61,8 @@ class AddressStreamDriver {
     SamplingMethod* sampler = NULL;
     DataManager<AddressStreamStats*>* allData = NULL;
     FastData<AddressStreamStats*, BufferEntry*>* fastData = NULL;
-    std::set<uint64_t>* liveInstPointKeys = NULL;  // set of keys of active 
-                                                   // inst points
+    // set of instrumentation points that add addresses to the buffer
+    std::set<uint64_t>* liveMemoryAccessInstPointKeys = NULL;  
 
     StringParser* parser = NULL;
   public:
@@ -75,8 +75,11 @@ class AddressStreamDriver {
     void DeleteAllData();
 
     DataManager<AddressStreamStats*>* GetAllData() { return allData; }
+    DynamicInstrumentation* GetDynamicPoints() { return dynamicPoints; }
     FastData<AddressStreamStats*, BufferEntry*>* GetFastData() { 
       return fastData; }
+    std::set<uint64_t>* GetLiveInstKeys() { return 
+      liveMemoryAccessInstPointKeys; }
     SamplingMethod* GetSamplingMethod() { return sampler; }
     StringParser* GetStringParser() { return parser; }
 
@@ -113,6 +116,10 @@ class AddressStreamDriver {
     void SetDynamicPoints(DynamicInstrumentation* d) { dynamicPoints = d; }
 
     virtual void SetUpTools();
+
+    void ShutOffInstrumentationInAllBlocks();
+    void ShutOffInstrumentationInBlock(uint32_t blockID);
+    void ShutOffInstrumentationInBlocks(std::set<uint32_t>& blocks);
 
     // For Testing Purposes
     void SetAddressRange(bool b) { runAddressRange = b; }

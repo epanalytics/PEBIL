@@ -76,7 +76,7 @@ class SamplingMethod {
     bool ExceedsAccessLimit(uint64_t count);
     uint64_t GetAccessCount() { return AccessCount; }
     uint64_t GetAccessLimit() { return AccessLimit; }
-    double GetSamplingFrequency();
+    virtual double GetSamplingFrequency();
     uint32_t GetSampleOn() { return SampleOn; }
     uint32_t GetSampleOff() { return SampleOff; }
     void IncrementAccessCount(uint64_t count);
