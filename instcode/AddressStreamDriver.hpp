@@ -105,9 +105,8 @@ class AddressStreamDriver {
     bool IsScatterLength() { return runScatterLength; }
     bool IsSpatialLocality() { return runSpatialLocality; }
 
-    void ProcessMemoryBuffer(image_key_t iid, thread_key_t tid, 
-      MemoryStreamHandler* handler, uint32_t handlerIndex, uint32_t
-      numElementsInBuffer);
+    void ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
+      uint32_t numElementsInBuffer);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
 
     void SetAllData(DataManager<AddressStreamStats*>* d) { allData = d; }
@@ -122,16 +121,16 @@ class AddressStreamDriver {
     void ShutOffInstrumentationInBlocks(std::set<uint32_t>& blocks);
 
     // For Testing Purposes
+    void AddTool(AddressStreamTool* t) { tools->push_back(t); }
     void SetAddressRange(bool b) { runAddressRange = b; }
     void SetCacheSimulation(bool b) { runCacheSimulation = b; }
     void SetReuseDistance(bool b) { runReuseDistance = b; }
     void SetScatterLength(bool b) { runScatterLength = b; }
     void SetSpatialLocality(bool b) { runSpatialLocality = b; }
 
+    void SetNumMemoryHandlers(uint32_t n) { numMemoryHandlers = n; }
     void SetParser(StringParser* p);
     void SetSampler(SamplingMethod* s);
-
-
 };
 
 void GetBufferIds(BufferEntry* b, image_key_t* i);

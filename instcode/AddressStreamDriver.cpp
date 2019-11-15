@@ -265,9 +265,7 @@ void* AddressStreamDriver::InitializeNewImage(image_key_t* iid,
     allData->SetTimer(*iid, 0);
 
     // Remove initialization instrumentation points for this image
-    set<uint64_t> inits;
-    inits.insert(*iid);
-    dynamicPoints->SetDynamicPoints(inits, false);
+    dynamicPoints->SetDynamicPoint((*iid), false);
 }
 
 void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
@@ -293,6 +291,8 @@ void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats*
   stats) {
     assert(GetNumMemoryHandlers() > 0);
     stats->Handlers = new MemoryStreamHandler*[GetNumMemoryHandlers()];
+    bzero(stats->Handlers, sizeof(MemoryStreamHandler*) * 
+      GetNumMemoryHandlers());
 
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
       tools->end(); it++) {
@@ -315,11 +315,11 @@ void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
     }
 }
 
-void AddressStreamDriver::ProcessMemoryBuffer(image_key_t iid, thread_key_t tid,  MemoryStreamHandler* handler, uint32_t handlerIndex, uint32_t 
-  numElementsInBuffer) {
+void AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid, 
+  thread_key_t tid, uint32_t numElementsInBuffer) {
 
-    uint32_t threadSeq = allData->GetThreadSequence(tid);
-    uint32_t numProcessed = 0;
+    //uint32_t threadSeq = allData->GetThreadSequence(tid);
+    //uint32_t numProcessed = 0;
 
     AddressStreamStats** faststats = fastData->GetBufferStats(tid);
     uint32_t elementIndex = 0; 
@@ -329,17 +329,23 @@ void AddressStreamDriver::ProcessMemoryBuffer(image_key_t iid, thread_key_t tid,
         debug(assert(faststats[elementIndex]->Stats));
 
         AddressStreamStats* stats = faststats[elementIndex];
-        StreamStats* ss = stats->Stats[handlerIndex];
 
-        BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
+        // Process for each memory handler
+        for (uint32_t handlerIndex = 0; handlerIndex < GetNumMemoryHandlers(); 
+          handlerIndex++) {
+            MemoryStreamHandler* handler = stats->Handlers[handlerIndex];
+            StreamStats* ss = stats->Stats[handlerIndex];
 
-        if (reference->imageid == 0){
-            debug(assert(AllData->CountThreads() > 1));
-            continue;
+            BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
+
+            if (reference->imageid == 0){
+                debug(assert(AllData->CountThreads() > 1));
+                continue;
+            }
+
+            handler->Process((void*)ss, reference);
+      //      numProcessed++;
         }
-
-        handler->Process((void*)ss, reference);
-        numProcessed++;
     }
 }
 
@@ -380,7 +386,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     //synchronize(AllData){
         isSampling = sampler->CurrentlySampling();
         if (!HasLiveInstrumentationPoints()){
-            allData->UnLock();
+            //allData->UnLock();
             DONE_WITH_BUFFER();
         }
     //}
@@ -392,10 +398,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
             fastData->Refresh(buffer, numElements, tid);
 
             // Process the buffer for each memory handler
-            for (uint32_t i = 0; i < GetNumMemoryHandlers(); i++) {
-                MemoryStreamHandler* m = stats->Handlers[i];
-                ProcessMemoryBuffer(iid, tid, m, i, numElements);
-            }
+            ProcessBufferForEachHandler(iid, tid, numElements);
 
             // Update the GroupCounters for sampling purposes
             for(uint32_t i = 0; i < (stats->BlockCount); i++) {

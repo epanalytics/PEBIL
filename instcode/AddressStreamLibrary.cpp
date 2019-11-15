@@ -133,6 +133,10 @@ void DeleteStreamStats(AddressStreamStats* stats){
         delete[] stats->Buffer;
 
         if (Driver->GetNumMemoryHandlers() > 0) {
+            for (uint32_t i = 0; i < Driver->GetNumMemoryHandlers(); i++) {
+                delete stats->Stats[i];
+                delete stats->Handlers[i];
+            }
             delete[] stats->Stats;
             delete[] stats->Handlers;
         }

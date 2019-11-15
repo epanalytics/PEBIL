@@ -215,7 +215,7 @@ public:
     }
 
     // these can only be called correctly by the current thread
-    thread_key_t GenerateThreadKey(){
+    virtual thread_key_t GenerateThreadKey(){
         return pthread_self();
     }
 
@@ -312,7 +312,7 @@ public:
     }
 
     // Sets time (units in microseconds)
-    void SetTimer(image_key_t iid, uint32_t idx){
+    virtual void SetTimer(image_key_t iid, uint32_t idx){
         double t;
         ptimer(&t);
 
@@ -337,7 +337,7 @@ public:
     // Add an image
     // The calling thread may or not have been initialized
     // This image must not have been added before
-    image_key_t AddImage(T data, ThreadData* t, image_key_t iid){
+    virtual image_key_t AddImage(T data, ThreadData* t, image_key_t iid){
 
         ReadLock();
         assert(allimages.count(iid) == 0 && "Image has already been added");
@@ -475,7 +475,8 @@ private:
     uint32_t threadcount;
     uint32_t imagecount;
     T** stats;
-    // FIXME --> might need to be a rwlock
+    // No STL containers and stats is indexed by thread...just a regular lock
+    // should suffice
     pthread_mutex_t lock;
 
     void Lock(){ pthread_mutex_lock(&lock); }
@@ -504,7 +505,7 @@ public:
         pthread_mutex_init(&lock, NULL);
     }
 
-    ~FastData(){
+    virtual ~FastData(){
         if (stats){
             for (uint32_t i = 0; i < threadcount; i++){
                 delete[] stats[i];
@@ -557,7 +558,7 @@ public:
     // Increments image count
     // If first image, initializes stats
     // FIXME, this method can probably be gotten rid of
-    void AddImage(){
+    virtual void AddImage(){
         Lock();
         imagecount++;
         if (imagecount == 1){
@@ -619,7 +620,7 @@ public:
         }
     };
 
-    T* GetBufferStats(thread_key_t tid){
+    virtual T* GetBufferStats(thread_key_t tid){
         assert(imagecount > 0);
         assert(threadcount > 0);
 
