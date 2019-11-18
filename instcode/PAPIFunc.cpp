@@ -90,7 +90,7 @@ FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ,
 
     FunctionPAPI* retval;
     retval = new FunctionPAPI();
-    retval->master = counters->master && typ == AllData->ImageType;
+    retval->master = counters->master && typ == DataManagerType_Image;
     retval->application = counters->application;
     retval->extension = counters->extension;
     retval->functionCount = counters->functionCount;
@@ -379,7 +379,7 @@ extern "C"
                   set<uint64_t> inits;
                   inits.insert(this_key);
                   inits.insert(corresponding_entry_key);
-                  SetDynamicPoints(inits, false);
+                  DynamicPoints->SetDynamicPoints(inits, false);
                   counters->functionShutoff[funcIndex] = 1;
                   AllData->UnLock();
               }
@@ -403,7 +403,7 @@ extern "C"
   
   void* tool_thread_init(thread_key_t tid) {
       if (AllData) {
-          if (DynamicPoints->isThreadedMode()) {
+          if (DynamicPoints->IsThreadedMode()) {
               AllData->AddThread(tid);
           }
       } else {

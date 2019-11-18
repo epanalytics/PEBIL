@@ -79,7 +79,7 @@ PAPIInst* GeneratePAPIInst(PAPIInst* counters, uint32_t typ, image_key_t iid,
 
   PAPIInst* retval;
   retval = new PAPIInst();
-  retval->master = counters->master && typ == AllData->ImageType;
+  retval->master = counters->master && typ == DataManagerType_Image;
   retval->application = counters->application;
   retval->extension = counters->extension;
   retval->loopCount = counters->loopCount;
