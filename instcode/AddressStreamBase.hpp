@@ -72,15 +72,15 @@ class SamplingMethod {
     SamplingMethod(uint32_t limit, uint32_t on, uint32_t off);
     virtual ~SamplingMethod();
 
-    bool CurrentlySampling();
-    bool ExceedsAccessLimit(uint64_t count);
-    uint64_t GetAccessCount() { return AccessCount; }
+    virtual bool CurrentlySampling();
+    virtual bool ExceedsAccessLimit(uint64_t count);
+    virtual uint64_t GetAccessCount() { return AccessCount; }
     uint64_t GetAccessLimit() { return AccessLimit; }
     virtual double GetSamplingFrequency();
     uint32_t GetSampleOn() { return SampleOn; }
     uint32_t GetSampleOff() { return SampleOff; }
     void IncrementAccessCount(uint64_t count);
-    bool SwitchesMode(uint64_t count);
+    virtual bool SwitchesMode(uint64_t count);
     void Print();
 
     bool ReadLock();

@@ -269,7 +269,7 @@ public:
     // Adds tid to threads to be tracked
     // If there are images initialized, creates initial data for each
     // No pre-conditions
-    void AddThread(thread_key_t tid){
+    virtual void AddThread(thread_key_t tid){
         WriteLock();
 
         // If it's been initialized before, just return
@@ -325,7 +325,7 @@ public:
         UnLock();
     }
 
-    double GetTimer(image_key_t iid, uint32_t idx){
+    virtual double GetTimer(image_key_t iid, uint32_t idx){
         ReadLock();
         assert(timers.count(iid) == 1 && "Timers not created for this image");
         assert(timers[iid].count(idx) == 1);
@@ -415,7 +415,7 @@ public:
     // The image must have been initialized
     // The thread might have escaped initialization if it was created before
     // this library was loaded
-    T GetData(image_key_t iid, thread_key_t tid){
+    virtual T GetData(image_key_t iid, thread_key_t tid){
         ReadLock();
         if (datamap.count(iid) != 1){
             inform << "About to fail iid check with " << std::dec <<
@@ -517,7 +517,7 @@ public:
     // tid must have already been added to alldata
     // Expands stats to hold new thread data
     // If this is the only image, it also pulls data from allData
-    void AddThread(thread_key_t tid){
+    virtual void AddThread(thread_key_t tid){
         Lock();
         uint32_t tid_index = alldata->GetThreadSequence(tid);
         uint32_t newsize = tid_index+1 > threadcount ? tid_index+1 : threadcount;
@@ -574,7 +574,7 @@ public:
 
     // synchronize this threads entry in stats with first num ids taken from
     // buffer using dataid
-    void Refresh(V buffer, uint32_t num, thread_key_t tid){
+    virtual void Refresh(V buffer, uint32_t num, thread_key_t tid){
         debug(assert(imagecount > 0));
         debug(assert(threadcount > 0));
         debug(assert(num <= capacity));

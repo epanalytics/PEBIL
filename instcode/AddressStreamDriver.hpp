@@ -74,6 +74,8 @@ class AddressStreamDriver {
 
     void DeleteAllData();
 
+    void* FinalizeImage(image_key_t*);
+
     DataManager<AddressStreamStats*>* GetAllData() { return allData; }
     DynamicInstrumentation* GetDynamicPoints() { return dynamicPoints; }
     FastData<AddressStreamStats*, BufferEntry*>* GetFastData() { 
@@ -88,8 +90,6 @@ class AddressStreamDriver {
     AddressStreamTool* GetTool(uint32_t index);
 
     bool HasLiveInstrumentationPoints();
-
-    void* FinalizeImage(image_key_t*);
 
     void InitializeAddressStreamDriver(DataManager<AddressStreamStats*>* d);
     void InitializeKeys();
@@ -109,7 +109,6 @@ class AddressStreamDriver {
       uint32_t numElementsInBuffer);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
 
-    void SetAllData(DataManager<AddressStreamStats*>* d) { allData = d; }
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
     void SetDynamicPoints(DynamicInstrumentation* d) { dynamicPoints = d; }
@@ -119,6 +118,7 @@ class AddressStreamDriver {
     void ShutOffInstrumentationInAllBlocks();
     void ShutOffInstrumentationInBlock(uint32_t blockID);
     void ShutOffInstrumentationInBlocks(std::set<uint32_t>& blocks);
+    void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
 
     // For Testing Purposes
     void AddTool(AddressStreamTool* t) { tools->push_back(t); }
