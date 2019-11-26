@@ -317,7 +317,8 @@ public:
      * @param inv  The value which represents a miss
      */
     ReuseStats(uint64_t idx, uint64_t bin, uint64_t num, uint64_t inv)
-        : accesses(0), id(idx), binindividual(bin), maxtracking(num), invalid(inv) {}
+      : accesses(0), id(idx), binindividual(bin), maxtracking(num), 
+        invalid(inv) {}
 
     /**
      * Destroys a ReuseStats object.
@@ -359,7 +360,8 @@ public:
      *
      * @return none
      */
-    virtual void Print(std::ostream& f,reuse_map_type<uint64_t,uint64_t>& BinTotal, bool annotate=false);
+    virtual void Print(std::ostream& f, reuse_map_type<uint64_t,uint64_t>& 
+      BinTotal, bool annotate=false);
 
     /**
      * Print information about the output format of ReuseStats
@@ -452,19 +454,22 @@ public:
      * n == ReuseDistance::Infinity for no limit. n >= b is enforced at runtime.
      *
      */
-    SpatialLocality(uint64_t w, uint64_t b, uint64_t n) : ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, b, n); }
+    SpatialLocality(uint64_t w, uint64_t b, uint64_t n) : 
+      ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, b, n); }
 
     /**
      * Constructs a SpatialLocality object. Equivalent to calling the other 
      * 3-argument constructor with n == ReuseDistance::Infinity
      */
-    SpatialLocality(uint64_t w, uint64_t b) : ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, b, INFINITY_REUSE); }
+    SpatialLocality(uint64_t w, uint64_t b) : ReuseDistance((uint64_t)0) { 
+        SpatialLocality::Init(w, b, INFINITY_REUSE); }
 
     /**
      * Constructs a SpatialLocality object. Equivalent to calling the other 
      * 3-argument constructor with w == b and n == ReuseDistance::Infinity
      */
-    SpatialLocality(uint64_t w) : ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, w, INFINITY_REUSE); }
+    SpatialLocality(uint64_t w) : ReuseDistance((uint64_t)0) { 
+      SpatialLocality::Init(w, w, INFINITY_REUSE); }
  
     /**
      * Constructs a SpatialLocality object. Equivalent to calling the other 
@@ -472,13 +477,16 @@ public:
      * w == b == SpatialLocality::DefaultWindowSize and 
      * n == ReuseDistance::Infinity
      */
-    SpatialLocality() : ReuseDistance((uint64_t)0) {  SpatialLocality::Init(DefaultWindowSize, DefaultWindowSize, INFINITY_REUSE); }
+    SpatialLocality() : ReuseDistance((uint64_t)0) { 
+      SpatialLocality::Init(DefaultWindowSize, DefaultWindowSize, 
+      INFINITY_REUSE); }
  
     /**
      * Constructs a SpatialLocality object equivalent to the given 
      * SpatialLocality object
      */
-    SpatialLocality(SpatialLocality* s) : ReuseDistance((uint64_t)0) {  SpatialLocality::Init(s->capacity, s->binindividual, s->maxtracking); }
+    SpatialLocality(SpatialLocality* s) : ReuseDistance((uint64_t)0) {
+      SpatialLocality::Init(s->capacity, s->binindividual, s->maxtracking); }
 
     /**
      * Destroys a SpatialLocality object.
