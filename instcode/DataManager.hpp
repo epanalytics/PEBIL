@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <set>
 
-#define DataMap std::pebil_map_type
+#define DataMap pebil_map_type
 #define ThreadHashShift (16)
 #define ThreadHashMod   (0x3ffff)
 

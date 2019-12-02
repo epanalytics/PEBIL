@@ -216,7 +216,7 @@ class JbbTraceFile:
     def __init__(self, tfile):
         self.tfile = tfile
         if not file_exists(self.tfile):
-            print_usage(str(f) + ' is not a valid file') # FIXME f? not tfile?
+            print_usage(str(tfile) + ' is not a valid file') # FIXME f? not tfile?
 
         r = re.compile(INPUT_JBB_NAME_REGEX)
         p = r.match(self.tfile)

@@ -80,6 +80,11 @@ class CacheSimulationTool : public AddressStreamTool {
     void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
 
     std::string GetCacheDescriptionFile();
+
+  protected:
+    uint32_t MinimumHighAssociativity = 256;
+    uint32_t LoadStoreLogging = 0;
+    uint32_t DirtyCacheHandling = 0;
 };
 
 
@@ -155,8 +160,8 @@ public:
 };
 
 #define USES_MARKERS(__pol) (__pol == ReplacementPolicy_nmru)
-#define CacheLevel_Init_Interface uint32_t lvl, uint32_t sizeInBytes, uint32_t assoc, uint32_t lineSz, ReplacementPolicy pol
-#define CacheLevel_Init_Arguments lvl, sizeInBytes, assoc, lineSz, pol
+#define CacheLevel_Init_Interface uint32_t lvl, uint32_t sizeInBytes, uint32_t assoc, uint32_t lineSz, ReplacementPolicy pol, uint32_t loadStore, uint32_t dirtyCache
+#define CacheLevel_Init_Arguments lvl, sizeInBytes, assoc, lineSz, pol, loadStore, dirtyCache
 
 struct history {
     uint32_t prev;
@@ -184,6 +189,9 @@ protected:
     history** historyUsed;
     bool toEvict;
 
+	uint32_t loadStoreLogging;
+	uint32_t dirtyCacheHandling;
+
 public:
     std::vector<uint64_t>* toEvictAddresses;
     CacheLevel();
@@ -202,6 +210,8 @@ public:
     uint32_t GetAssociativity() { return associativity; }
     uint32_t GetSetCount() { return countsets; }
     uint32_t GetLineSize() { return linesize; }
+	uint32_t GetLoadStoreLog() { return loadStoreLogging; }
+	uint32_t GetDirtyCacheHandle() { return dirtyCacheHandling; }
     uint64_t CountColdMisses();
 
     void Print(std::ofstream& f, uint32_t sysid);
@@ -337,6 +347,10 @@ public:
     std::string description;
 
 protected: 
+      uint32_t MinimumHighAssociativity = 256;
+      uint32_t LoadStoreLogging = 0;
+      uint32_t DirtyCacheHandling = 0;
+
       uint64_t hits;
       uint64_t misses;
       uint64_t AddressRangesCount;
@@ -350,7 +364,8 @@ public:
     CacheStructureHandler();
     CacheStructureHandler(CacheStructureHandler& h);
     ~CacheStructureHandler();
-    bool Init(std::string desc);
+    bool Init(std::string desc, uint32_t MinimumHighAssociativity, 
+	  uint32_t LoadStoreLogging, uint32_t DirtyCacheHandling);
 
     void Print(std::ofstream& f);
     uint32_t Process(void* stats, BufferEntry* access);
