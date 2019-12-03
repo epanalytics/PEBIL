@@ -35,7 +35,7 @@
 #define INST_LIB_NAME "libaddressstream.so"
 
 #define NOSTRING "__pebil_no_string__"
-#define BUFFER_ENTRIES 0x40
+#define BUFFER_ENTRIES 0x10000
 
 #define LOAD 1
 #define STORE 0

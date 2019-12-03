@@ -42,13 +42,6 @@
 
 using namespace std;
 
-// Can tinker with this at runtime using the environment variable
-// METASIM_LIMIT_HIGH_ASSOC if desired.
-//static uint32_t MinimumHighAssociativity = 256;
-
-//static uint32_t LoadStoreLogging = 0;
-//static uint32_t DirtyCacheHandling = 0; 
-
 void CacheSimulationTool::AddNewHandlers(AddressStreamStats* stats) {
     for (uint32_t i = 0; i < handlers.size(); i++) {
         CacheStructureHandler* oldHandler = (CacheStructureHandler*)(
@@ -72,6 +65,8 @@ uint32_t CacheSimulationTool::CreateHandlers(uint32_t index){
     indexInStats = index;
   
     // FIXME --> Make part of class
+	// Can tinker with this at runtime using the environment variable
+	// METASIM_LIMIT_HIGH_ASSOC if desired.
     StringParser parser;
     uint32_t SaveHashMin = MinimumHighAssociativity;
     if (!(parser.ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
@@ -867,8 +862,6 @@ void CacheLevel::Init(CacheLevel_Init_Interface){
 }
 
 void HighlyAssociativeCacheLevel::Init(CacheLevel_Init_Interface){
-    //TODO see if this is still needed
-	//assert(associativity >= MinimumHighAssociativity);
     fastcontents = new pebil_map_type<uint64_t, uint32_t>*[countsets];
     fastcontentsdirty = new pebil_map_type<uint64_t, bool>*[countsets];
     for (uint32_t i = 0; i < countsets; i++){
