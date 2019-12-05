@@ -42,13 +42,6 @@
 
 using namespace std;
 
-// Can tinker with this at runtime using the environment variable
-// METASIM_LIMIT_HIGH_ASSOC if desired.
-static uint32_t MinimumHighAssociativity = 256;
-
-static uint32_t LoadStoreLogging = 0;
-static uint32_t DirtyCacheHandling = 0; 
-
 void CacheSimulationTool::AddNewHandlers(AddressStreamStats* stats) {
     for (uint32_t i = 0; i < handlers.size(); i++) {
         CacheStructureHandler* oldHandler = (CacheStructureHandler*)(
@@ -72,6 +65,8 @@ uint32_t CacheSimulationTool::CreateHandlers(uint32_t index){
     indexInStats = index;
   
     // FIXME --> Make part of class
+	// Can tinker with this at runtime using the environment variable
+	// METASIM_LIMIT_HIGH_ASSOC if desired.
     StringParser parser;
     uint32_t SaveHashMin = MinimumHighAssociativity;
     if (!(parser.ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
@@ -111,7 +106,7 @@ uint32_t CacheSimulationTool::CreateHandlers(uint32_t index){
             continue;
         }
         CacheStructureHandler* c = new CacheStructureHandler();
-        if (!c->Init(line)){
+        if (!c->Init(line, MinimumHighAssociativity, LoadStoreLogging, DirtyCacheHandling)){
             ErrorExit("cannot parse cache description line: " << line, 
               MetasimError_StringParse);
         }
@@ -820,6 +815,8 @@ void CacheLevel::Init(CacheLevel_Init_Interface){
     associativity = assoc;
     linesize = lineSz;
     replpolicy = pol;
+	loadStoreLogging = loadStore;
+	dirtyCacheHandling = dirtyCache;
     toEvict=false;
     toEvictAddresses=new vector<uint64_t>;
 
@@ -865,7 +862,6 @@ void CacheLevel::Init(CacheLevel_Init_Interface){
 }
 
 void HighlyAssociativeCacheLevel::Init(CacheLevel_Init_Interface){
-    assert(associativity >= MinimumHighAssociativity);
     fastcontents = new pebil_map_type<uint64_t, uint32_t>*[countsets];
     fastcontentsdirty = new pebil_map_type<uint64_t, bool>*[countsets];
     for (uint32_t i = 0; i < countsets; i++){
@@ -989,7 +985,7 @@ uint64_t CacheLevel::Replace(uint64_t store, uint32_t setid, uint32_t lineid,
     // Since the new address 'store' has been loaded just now and is not
     // touched yet, we can reset the dirty flag if it is indeed dirty!
     contents[setid][lineid] = store;
-    if(LoadStoreLogging){
+    if(loadStoreLogging){
         if(loadstoreflag)
             ResetDirty(setid,lineid,store);
         else
@@ -1017,7 +1013,7 @@ uint64_t HighlyAssociativeCacheLevel::Replace(uint64_t store, uint32_t setid,
         toEvictAddresses->push_back(prev);
     }
    
-    if(LoadStoreLogging){
+    if(loadStoreLogging){
         if(loadstoreflag)
             ResetDirty(setid,lineid,store);
         else
@@ -1030,7 +1026,7 @@ uint64_t HighlyAssociativeCacheLevel::Replace(uint64_t store, uint32_t setid,
 
 inline void CacheLevel::MarkUsed(uint32_t setid, uint32_t lineid, 
   uint64_t loadstoreflag){
-    if(LoadStoreLogging){
+    if(loadStoreLogging){
         if(!(loadstoreflag))
             SetDirty(setid,lineid,contents[setid][lineid]);
     }
@@ -1121,7 +1117,7 @@ uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr,
     debug(assert(stats->Stats[memid]));
 
 
-    if(LoadStoreLogging){
+    if(loadStoreLogging){
         if(loadstoreflag){
             stats->Stats[memid][level].loadCount++;
         } else{
@@ -1263,7 +1259,7 @@ uint32_t NonInclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
     debug(assert(stats->Stats));
     debug(assert(stats->Stats[memid]));
 
-    if(LoadStoreLogging){
+    if(loadStoreLogging){
         if(loadstoreflag){
             stats->Stats[memid][level].loadCount++;
         } else{
@@ -1434,7 +1430,7 @@ CacheStructureHandler::CacheStructureHandler(CacheStructureHandler& h) {
 #define LVLF(__i, __feature) (h.levels[__i])->Get ## __feature
 #define Extract_Level_Args(__i) LVLF(__i, Level()), LVLF(__i, SizeInBytes()), \
   LVLF(__i, Associativity()), LVLF(__i, LineSize()), LVLF(__i, \
-  ReplacementPolicy())
+  ReplacementPolicy()), LVLF(__i, LoadStoreLog()), LVLF(__i, DirtyCacheHandle())
 
     levels = new CacheLevel*[levelCount];
     for (uint32_t i = 0; i < levelCount; i++){
@@ -1552,7 +1548,8 @@ bool CacheStructureHandler::Verify(){
     return passes;
 }
 
-bool CacheStructureHandler::Init(string desc){
+bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity, 
+	  uint32_t LoadStoreLogging, uint32_t DirtyCacheHandling){
     description = desc;
 
     stringstream tokenizer(description);
@@ -1659,31 +1656,35 @@ bool CacheStructureHandler::Init(string desc){
                     HighlyAssociativeExclusiveCacheLevel* l = new 
                       HighlyAssociativeExclusiveCacheLevel();
                     l->Init(levelId, sizeInBytes, assoc, lineSize, repl, 
-                      firstExcl, levelCount - 1);
+					  LoadStoreLogging, DirtyCacheHandling, firstExcl, levelCount - 1);
                     levels[levelId] = (CacheLevel*)l;
                 } else if (nonInclusive) {
                     NonInclusiveCacheLevel* l = new NonInclusiveCacheLevel();
-                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl);
+                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl, 
+					  LoadStoreLogging, DirtyCacheHandling);
                     levels[levelId] = l;
                 } else {
                     HighlyAssociativeInclusiveCacheLevel* l = new 
                       HighlyAssociativeInclusiveCacheLevel();
-                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl);
+                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
+					  LoadStoreLogging, DirtyCacheHandling);
                     levels[levelId] = (CacheLevel*)l;
                 }
             } else {
                 if (firstExcl != INVALID_CACHE_LEVEL){
                     ExclusiveCacheLevel* l = new ExclusiveCacheLevel();
                     l->Init(levelId, sizeInBytes, assoc, lineSize, repl, 
-                      firstExcl, levelCount - 1);
+                      LoadStoreLogging, DirtyCacheHandling, firstExcl, levelCount - 1);
                     levels[levelId] = l;
                 } else if (nonInclusive) {
                     NonInclusiveCacheLevel* l = new NonInclusiveCacheLevel();
-                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl);
+                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
+					  LoadStoreLogging, DirtyCacheHandling);
                     levels[levelId] = l;
                 } else {
                     InclusiveCacheLevel* l = new InclusiveCacheLevel();
-                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl);
+                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
+					  LoadStoreLogging, DirtyCacheHandling);
                     levels[levelId] = l;
                 }
             }
