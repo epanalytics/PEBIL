@@ -91,6 +91,14 @@ else
 fi
 AC_SUBST(PEBIL_CXX_BINDINGS)
 
+AC_CHECK_PROG(OPENMPI_IS_NEW, mpifort, "yes")
+if test x"$OPENMPI_IS_NEW" == x"yes"; then
+  PEBIL_MPIFC_OPENMPI_LIB="-lmpi_mpifh"
+else
+  PEBIL_MPIFC_OPENMPI_LIB="-lmpi_f77 -lmpi_f90"
+fi
+AC_SUBST(PEBIL_MPIFC_OPENMPI_LIB)
+
 AC_ARG_ENABLE(adamant, AC_HELP_STRING([--enable-adamant], [enable adamant [yes]]), adamant_ok=$enableval)
 AC_CHECK_HEADERS([adm.h],
   [

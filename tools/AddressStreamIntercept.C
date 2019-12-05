@@ -32,7 +32,7 @@
 #define ENTRY_FUNCTION "tool_image_init"
 #define SIM_FUNCTION "process_buffer"
 #define EXIT_FUNCTION "tool_image_fini"
-#define INST_LIB_NAME "libaddrrange.so"
+#define INST_LIB_NAME "libaddressstream.so"
 
 #define NOSTRING "__pebil_no_string__"
 #define BUFFER_ENTRIES 0x10000
@@ -175,6 +175,9 @@ void AddressStreamIntercept::declare(){
     ASSERT(exitFunc && "Cannot find exit function, are you sure it was declared?");
     entryFunc = declareFunction(ENTRY_FUNCTION);
     ASSERT(entryFunc && "Cannot find entry function, are you sure it was declared?");
+
+    declareLibrary(INST_LIB_NAME);
+
 }
 
 uint64_t AddressStreamIntercept::getNullLineInfoValue() {

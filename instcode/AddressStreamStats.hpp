@@ -4,6 +4,9 @@
 //#define debug(...) __VA_ARGS__
 #define debug(...)
 
+typedef uint64_t image_key_t;
+typedef pthread_t thread_key_t;
+
 enum EntryType: uint8_t {
   MEM_ENTRY = 0,
   VECTOR_ENTRY
@@ -17,7 +20,7 @@ struct VectorAddress {
     uint32_t  numIndices;
 };
 
-typedef struct {
+typedef struct BufferEntry_s {
     enum EntryType  type;
     uint8_t         swprefetchflag;  // Is a software prefetch op
     uint8_t         loadstoreflag;   // Dirty Caching
@@ -36,7 +39,7 @@ class StreamStats;
 class MemoryStreamHandler;
 class ReuseDistance;
 
-typedef struct {
+typedef struct AddressStreamStats_s {
     // memory buffer
     BufferEntry* Buffer;
 

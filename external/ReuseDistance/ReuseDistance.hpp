@@ -131,6 +131,12 @@ public:
     ReuseDistance(uint64_t w);
 
     /**
+     * Contructs a ReuseDistance object equivalent to the given ReuseDistance
+     * object
+     */
+    ReuseDistance(ReuseDistance* r);
+
+    /**
      * Destroys a ReuseDistance object.
      */
     virtual ~ReuseDistance();
@@ -415,25 +421,31 @@ public:
      * @param n  All distances greater than n will be counted as infinite. Use n == ReuseDistance::Infinity for no limit. n >= b is enforced at runtime.
      *
      */
-    SpatialLocality(uint64_t w, uint64_t b, uint64_t n) : ReuseDistance(0) { SpatialLocality::Init(w, b, n); }
+    SpatialLocality(uint64_t w, uint64_t b, uint64_t n) : ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, b, n); }
 
     /**
      * Constructs a SpatialLocality object. Equivalent to calling the other 3-argument constructor
      * with n == ReuseDistance::Infinity
      */
-    SpatialLocality(uint64_t w, uint64_t b) : ReuseDistance(0) { SpatialLocality::Init(w, b, INFINITY_REUSE); }
+    SpatialLocality(uint64_t w, uint64_t b) : ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, b, INFINITY_REUSE); }
 
     /**
      * Constructs a SpatialLocality object. Equivalent to calling the other 3-argument constructor
      * with w == b and n == ReuseDistance::Infinity
      */
-    SpatialLocality(uint64_t w) : ReuseDistance(0) { SpatialLocality::Init(w, w, INFINITY_REUSE); }
+    SpatialLocality(uint64_t w) : ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, w, INFINITY_REUSE); }
  
     /**
      * Constructs a SpatialLocality object. Equivalent to calling the other 3-argument constructor
      * with w == b == SpatialLocality::DefaultWindowSize and n == ReuseDistance::Infinity
      */
-    SpatialLocality() : ReuseDistance(0) {  SpatialLocality::Init(DefaultWindowSize, DefaultWindowSize, INFINITY_REUSE); }
+    SpatialLocality() : ReuseDistance((uint64_t)0) {  SpatialLocality::Init(DefaultWindowSize, DefaultWindowSize, INFINITY_REUSE); }
+ 
+    /**
+     * Constructs a SpatialLocality object equivalent to the given 
+     * SpatialLocality object
+     */
+    SpatialLocality(SpatialLocality* s) : ReuseDistance((uint64_t)0) {  SpatialLocality::Init(s->capacity, s->binindividual, s->maxtracking); }
 
     /**
      * Destroys a SpatialLocality object.

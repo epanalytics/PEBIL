@@ -19,6 +19,9 @@
  */
 
 #include <InstrumentationCommon.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <ThreadedCommon.hpp>
 //#include <Simulation.hpp>
 #include <CounterFunctions.hpp>
 
@@ -32,6 +35,8 @@
 #include <signal.h>
 
 #define PRINT_MINIMUM 1
+
+using namespace std;
 
 static DataManager<CounterArray*>* AllData = NULL;
 

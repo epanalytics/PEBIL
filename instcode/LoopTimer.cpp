@@ -9,6 +9,10 @@
  */
 
 #include <InstrumentationCommon.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <Metasim.hpp>
+#include <ThreadedCommon.hpp>
 #include <LoopTimer.hpp>
 
 #include <stdio.h>
@@ -22,6 +26,9 @@
 #include <sstream>
 #include <algorithm>
 #include <string>
+#include <cstring>
+
+using namespace std;
 
 // HPE EPYC: note that if the env variable is not defined, we default to                                            
 //    what is defined here:

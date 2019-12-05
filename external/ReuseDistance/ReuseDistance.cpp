@@ -59,6 +59,10 @@ ReuseDistance::ReuseDistance(uint64_t w){
     ReuseDistance::Init(w, DefaultBinIndividual);
 }
 
+ReuseDistance::ReuseDistance(ReuseDistance* r){
+    ReuseDistance::Init(r->capacity, r->binindividual);
+}
+
 ReuseDistance::~ReuseDistance(){
 
     for (reuse_map_type<uint64_t, uint64_t*>::const_iterator it = PINReuseStats.begin(); it != PINReuseStats.end(); it++){
