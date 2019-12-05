@@ -294,9 +294,6 @@ bool RangeStats::Verify(){
 
 AddressRangeHandler::AddressRangeHandler(){
 }
-AddressRangeHandler::AddressRangeHandler(AddressRangeHandler& h){
-    pthread_mutex_init(&mlock, NULL);
-}
 AddressRangeHandler::~AddressRangeHandler(){
 }
 

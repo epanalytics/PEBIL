@@ -69,7 +69,6 @@ public:
 class AddressRangeHandler : public MemoryStreamHandler {
 public:
     AddressRangeHandler();
-    AddressRangeHandler(AddressRangeHandler& h);
     ~AddressRangeHandler();
 
     void Print(std::ofstream& f);
