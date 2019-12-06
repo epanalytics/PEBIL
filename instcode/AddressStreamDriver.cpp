@@ -49,9 +49,6 @@
 
 using namespace std;
 
-////#define synchronize(__locker) __locker->ReadLock(); for (bool __s = true; \
-//  __s == true; __locker->UnLock(), __s = false) 
-
 // Default Constructor
 AddressStreamDriver::AddressStreamDriver() {
 
@@ -73,12 +70,19 @@ AddressStreamDriver::AddressStreamDriver() {
 }
 
 AddressStreamDriver::~AddressStreamDriver() {
-    if (sampler)
+    if (sampler != NULL)
         delete sampler;
-    if (liveInstPointKeys)
-        delete liveInstPointKeys;
-    if (parser)
+    if (liveMemoryAccessInstPointKeys != NULL)
+        delete liveMemoryAccessInstPointKeys;
+    if (dynamicPoints != NULL) {
+        delete dynamicPoints;
+    }
+    if (parser != NULL)
         delete parser;
+    for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
+      tools->end(); it++) {
+          delete (*it);
+    }
     tools->clear();
     delete tools;
     delete fastData;
@@ -111,16 +115,25 @@ void AddressStreamDriver::CreateSamplingMethod() {
     sampler->Print();
 }
 
-// AllData destructor requires # handlers
 void AddressStreamDriver::DeleteAllData() {
     delete allData;
 }
 
-bool AddressStreamDriver::HasLiveInstrumentationPoints() {
-    // if there are keys, then still live
-    return !(liveInstPointKeys->empty());
+AddressStreamTool* AddressStreamDriver::GetTool(uint32_t index) {
+    assert(index < GetNumTools());
+
+    return tools->at(index);
 }
 
+bool AddressStreamDriver::HasLiveInstrumentationPoints() {
+    // if there are keys, then still live
+    allData->ReadLock();
+    bool stillLive = !(liveMemoryAccessInstPointKeys->empty());
+    allData->UnLock();
+    return stillLive;
+}
+
+// Should only be called once per image (only one thread should call it)
 void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
     image_key_t iid = *key;
 
@@ -181,6 +194,7 @@ void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
 
 }
 
+// Should only be called once per driver
 void AddressStreamDriver::InitializeAddressStreamDriver(
   DataManager<AddressStreamStats*>* d) {
 
@@ -195,44 +209,36 @@ void AddressStreamDriver::InitializeAddressStreamDriver(
 
 }
 
-// Initialize the Instrumentation Point Keys
+// Initialize the Instrumentation Points that the sampler needs to turn off
 // Requires sampler and allData!
 void AddressStreamDriver::InitializeKeys() {
-    assert(liveInstPointKeys == NULL);
-    //synchronize(AllData){
-    liveInstPointKeys = new set<uint64_t>();
+    assert(liveMemoryAccessInstPointKeys == NULL);
+    liveMemoryAccessInstPointKeys = new set<uint64_t>();
 
-    // Get all the instrumetation points
+    // Get all the instrumentation points that put memory addresses in the 
+    // buffer (PointType_bufferfill) so the sampler can turn them on/off
     set<uint64_t> keys;
-    GetAllDynamicKeys(keys);
+    dynamicPoints->GetAllDynamicKeys(keys);
     for (set<uint64_t>::iterator it = keys.begin(); it != keys.end(); it++) {
         uint64_t k = (*it);
         if (GET_TYPE(k) == PointType_bufferfill && 
           allData->allimages.count(k) == 0){
-            liveInstPointKeys->insert(k);
+            liveMemoryAccessInstPointKeys->insert(k);
         }
     }
 
+  
     // Disable them if sampling is turned off
     if (sampler->GetSamplingFrequency() == 0){
         inform << "Disabling all simulation-related instrumentation"
           " because METASIM_SAMPLE_ON is set to 0" << ENDL;
-        set<uint64_t> AllSimPoints;
-        for (set<uint64_t>::iterator it = liveInstPointKeys->begin(); 
-          it != liveInstPointKeys->end(); it++){
-            AllSimPoints.insert(GENERATE_KEY(GET_BLOCKID((*it)), 
-              PointType_buffercheck));
-            AllSimPoints.insert(GENERATE_KEY(GET_BLOCKID((*it)), 
-              PointType_bufferinc));
-            AllSimPoints.insert(GENERATE_KEY(GET_BLOCKID((*it)), 
-              PointType_bufferfill));
-        }
-        SetDynamicPoints(AllSimPoints, false);
-        liveInstPointKeys->clear();
+        ShutOffInstrumentationInAllBlocks();
     }
 
 }
 
+// Meant to only be called once per image (thus only one thread should 
+// ever call this)
 void* AddressStreamDriver::InitializeNewImage(image_key_t* iid, 
   AddressStreamStats* stats, ThreadData* threadData){
 
@@ -263,20 +269,18 @@ void* AddressStreamDriver::InitializeNewImage(image_key_t* iid,
     allData->SetTimer(*iid, 0);
 
     // Remove initialization instrumentation points for this image
-    set<uint64_t> inits;
-    inits.insert(*iid);
-    SetDynamicPoints(inits, false);
+    dynamicPoints->SetDynamicPoint((*iid), false);
 }
 
 void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
     SAVE_STREAM_FLAGS(cout);
     if (allData){
-        if(isThreadedMode())
+        if(dynamicPoints->IsThreadedMode())
             allData->AddThread(tid);
         InitializeSuspendHandler();
 
         assert(fastData);
-        if(isThreadedMode())
+        if(dynamicPoints->IsThreadedMode())
             fastData->AddThread(tid);
     } else {
         ErrorExit("Calling PEBIL thread initialization library for thread " 
@@ -291,6 +295,8 @@ void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats*
   stats) {
     assert(GetNumMemoryHandlers() > 0);
     stats->Handlers = new MemoryStreamHandler*[GetNumMemoryHandlers()];
+    bzero(stats->Handlers, sizeof(MemoryStreamHandler*) * 
+      GetNumMemoryHandlers());
 
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
       tools->end(); it++) {
@@ -313,11 +319,12 @@ void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
     }
 }
 
-void AddressStreamDriver::ProcessMemoryBuffer(image_key_t iid, thread_key_t tid,  MemoryStreamHandler* handler, uint32_t handlerIndex, uint32_t 
-  numElementsInBuffer) {
+// Thread-safe function
+void AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid, 
+  thread_key_t tid, uint32_t numElementsInBuffer) {
 
-    uint32_t threadSeq = allData->GetThreadSequence(tid);
-    uint32_t numProcessed = 0;
+    //uint32_t threadSeq = allData->GetThreadSequence(tid);
+    //uint32_t numProcessed = 0;
 
     AddressStreamStats** faststats = fastData->GetBufferStats(tid);
     uint32_t elementIndex = 0; 
@@ -327,20 +334,39 @@ void AddressStreamDriver::ProcessMemoryBuffer(image_key_t iid, thread_key_t tid,
         debug(assert(faststats[elementIndex]->Stats));
 
         AddressStreamStats* stats = faststats[elementIndex];
-        StreamStats* ss = stats->Stats[handlerIndex];
 
-        BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
+        // Process for each memory handler
+        for (uint32_t handlerIndex = 0; handlerIndex < GetNumMemoryHandlers(); 
+          handlerIndex++) {
+            MemoryStreamHandler* handler = stats->Handlers[handlerIndex];
+            StreamStats* ss = stats->Stats[handlerIndex];
 
-        if (reference->imageid == 0){
-            debug(assert(AllData->CountThreads() > 1));
-            continue;
+            BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
+
+            if (reference->imageid == 0){
+                debug(assert(AllData->CountThreads() > 1));
+                continue;
+            }
+
+            handler->Process((void*)ss, reference);
+      //      numProcessed++;
         }
-
-        handler->Process((void*)ss, reference);
-        numProcessed++;
     }
 }
 
+// Thread-safe
+// ProcessThreadBuffer
+// Input: image ID and thread ID
+// Return: none
+// Side effects:
+//   * The buffer should always be reset (bring "current" back to the front)
+//   * If all address collection is shut off, then don't do anything else
+//   * If sampling is "on" (collecting addresses), process the buffer through
+//     each handlers Process function. Then, check if we should shut off any
+//     address collection
+//   * If sampling is "off", tell the handlers how many addresses were not 
+//     collected
+//   * Switch sampling on/off depending on sampler settings
 void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t 
   tid) {
 
@@ -356,16 +382,23 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     // Buffer is shared between all images
     debug(inform << "Getting data for image " << hex << iid << " thread " 
       << tid << ENDL);
+
+    // Thread-safe call
     AddressStreamStats* stats = (AddressStreamStats*)allData->GetData(iid, 
       tid);
+
+    // Thread-safe: Each thread has its own stats
     if (stats == NULL){
         ErrorExit("Cannot retreive image data using key " << dec << iid, 
           MetasimError_NoImage);
         return NULL;
     }
 
+    // Thread-safe: Each thread has its own stats
     uint64_t numElements = BUFFER_CURRENT(stats);
     uint64_t capacity = BUFFER_CAPACITY(stats);
+
+    // Thread-safe call
     uint32_t threadSeq = allData->GetThreadSequence(tid);
 
     debug(inform << "Thread " << hex << tid << TAB << "Image " << hex 
@@ -373,140 +406,53 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
       << "Capacity " << dec << capacity << TAB << "Total " << dec 
       << sampler->AccessCount << ENDL);
 
-    bool isSampling;
+    // If there is no more instrumentation, return
+    // Thread-Safe call
+    if (!HasLiveInstrumentationPoints()){
+        DONE_WITH_BUFFER();
+    }
+
     // Check if we are sampling
-    //synchronize(AllData){
-        isSampling = sampler->CurrentlySampling();
-        if (!HasLiveInstrumentationPoints()){
-            allData->UnLock();
-            DONE_WITH_BUFFER();
+    // Thread-safe: Sampling method protected with lock
+    bool isSampling;
+    isSampling = sampler->CurrentlySampling();
+
+    if (isSampling){
+        // Refresh FastStats so it can be used
+        // Thread-safe call
+        BufferEntry* buffer = &(stats->Buffer[1]);
+        fastData->Refresh(buffer, numElements, tid);
+
+        // Process the buffer for each memory handler
+        // Thread-safe call
+        ProcessBufferForEachHandler(iid, tid, numElements);
+
+        // Shut off any instrumentation if sample max is hit
+        // Thread-safe: Calls thread-safe functions
+        ShutOffInstrumentationInMaxedGroups(iid, tid);
+
+    // if not sampling            
+    } else {
+        // Let each handler know that addresses were skipped
+        // Thread-safe calls since each thread has its own stats/handlers
+        for (uint32_t i = 0; i < GetNumMemoryHandlers(); i++) {
+            MemoryStreamHandler* m = stats->Handlers[i];
+            m->SkipAddresses(numElements);
         }
-    //}
-
-    //synchronize(AllData){
-        if (isSampling){
-            BufferEntry* buffer = &(stats->Buffer[1]);
-            // Refresh FastStats so it can be used
-            fastData->Refresh(buffer, numElements, tid);
-
-            // Process the buffer for each memory handler
-            for (uint32_t i = 0; i < GetNumMemoryHandlers(); i++) {
-                MemoryStreamHandler* m = stats->Handlers[i];
-                ProcessMemoryBuffer(iid, tid, m, i, numElements);
-            }
-
-            // Update the GroupCounters for sampling purposes
-            for(uint32_t i = 0; i < (stats->BlockCount); i++) {
-                uint32_t idx = i;
-                if (stats->Types[i] == CounterType_instruction) {
-                    idx = stats->Counters[i];
-                }
-                uint64_t blocksGroupId = stats->GroupIds[i]; 
-                uint64_t blockCount = stats->Counters[idx];
-                if(stats->GroupCounters[blocksGroupId] < blockCount) {
-                    stats->GroupCounters[blocksGroupId] = blockCount;
-                }
-            }               
-        } else {
-            // Let each handler know that addresses were skipped
-            for (uint32_t i = 0; i < GetNumMemoryHandlers(); i++) {
-                MemoryStreamHandler* m = stats->Handlers[i];
-                m->SkipAddresses(numElements);
-            }
-        }
-    //}
+    }
 
     // Turn sampling on/off
-    //synchronize(AllData){
-        if (isSampling){
-            set<uint64_t> MemsRemoved;
-            AddressStreamStats** faststats = fastData->GetBufferStats(tid);
-            for (uint32_t j = 0; j < numElements; j++){
-                AddressStreamStats* s = faststats[j];
-                BufferEntry* reference = BUFFER_ENTRY(s, j);
+    // Sampler is thread-safe
+    if (sampler->SwitchesMode(numElements)){
+        SuspendAllThreads(allData->CountThreads(), 
+          allData->allthreads.begin(), allData->allthreads.end());
+        dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys,
+          !(isSampling));
+        ResumeAllThreads();
+    }
 
-                debug(inform << "Memseq " << dec << reference->memseq << 
-                  " has " << s->Stats[0]->GetAccessCount(reference->memseq)
-                   << ENDL);
-
-                uint32_t bbid = s->BlockIds[reference->memseq];
-
-                // if max block count is reached, disable all buffer-related
-                //  points related to this block
-                uint32_t idx = bbid;
-                uint32_t gidx = stats->GroupIds[bbid];
-
-                if (s->Types[bbid] == CounterType_instruction){
-                    idx = s->Counters[bbid];
-                }
-
-                debug(inform << "Slot " << dec << j << TAB << "Thread " 
-                  << dec << AllData->GetThreadSequence(pthread_self())
-                  << TAB << "Block " << bbid << TAB << "Index " << idx
-                  << TAB << "Group " << stats->GroupIds[bbid]
-                  << TAB << "Counter " << s->Counters[bbid]
-                  << TAB << "Real " << s->Counters[idx]
-                  << TAB << "GroupCount " << stats->GroupCounters[gidx] 
-                  << ENDL);
-
-                if (sampler->ExceedsAccessLimit(s->Counters[idx]) ||
-                  (sampler->ExceedsAccessLimit(stats->GroupCounters[gidx]))
-                  ) {
-
-                    uint64_t k1 = GENERATE_KEY(gidx, PointType_buffercheck);
-                    uint64_t k2 = GENERATE_KEY(gidx, PointType_bufferinc);
-                    uint64_t k3 = GENERATE_KEY(gidx, PointType_bufferfill);
-
-                    if (liveInstPointKeys->count(k3) > 0){
-
-                        if (MemsRemoved.count(k1) == 0){
-                            MemsRemoved.insert(k1);
-                        }
-                        assert(MemsRemoved.count(k1) == 1);
-
-                        if (MemsRemoved.count(k2) == 0){
-                            MemsRemoved.insert(k2);
-                        }
-                        assert(MemsRemoved.count(k2) == 1);
-
-                        if (MemsRemoved.count(k3) == 0){
-                            MemsRemoved.insert(k3);
-                        }
-                        assert(MemsRemoved.count(k3) == 1);
-
-                        liveInstPointKeys->erase(k3);
-                        assert(liveInstPointKeys->count(k3) == 0);
-                    }
-                }
-            }
-            if (MemsRemoved.size()){
-                assert(MemsRemoved.size() % 3 == 0);
-                debug(inform << "REMOVING " << dec << (MemsRemoved.size() 
-                  / 3) << " blocks" << ENDL);
-                SuspendAllThreads(allData->CountThreads(), 
-                  allData->allthreads.begin(), allData->allthreads.end());
-                SetDynamicPoints(MemsRemoved, false);
-                ResumeAllThreads();
-            }
-
-            if (sampler->SwitchesMode(numElements)){
-                SuspendAllThreads(allData->CountThreads(), 
-                  allData->allthreads.begin(), allData->allthreads.end());
-                SetDynamicPoints(*liveInstPointKeys, false);
-                ResumeAllThreads();
-            }
-
-        } else { // if not sampling
-            if (sampler->SwitchesMode(numElements)){
-                SuspendAllThreads(allData->CountThreads(), 
-                  allData->allthreads.begin(), allData->allthreads.end());
-                SetDynamicPoints(*liveInstPointKeys, true);
-                ResumeAllThreads();
-            }
-        }
-
-        sampler->IncrementAccessCount(numElements);
-    //}
+    // Thread-safe
+    sampler->IncrementAccessCount(numElements);
 
     DONE_WITH_BUFFER();
 }
@@ -562,6 +508,92 @@ void AddressStreamDriver::SetUpTools() {
         assert(handlersAdded > 0);
         numMemoryHandlers += handlersAdded;
     }
+}
+
+void AddressStreamDriver::ShutOffInstrumentationInAllBlocks() {
+    set<uint32_t> allBlocks;
+    for (set<uint64_t>::iterator it = liveMemoryAccessInstPointKeys->begin();
+      it != liveMemoryAccessInstPointKeys->end(); it++) {
+        allBlocks.insert(GET_BLOCKID(*it));
+    }
+    ShutOffInstrumentationInBlocks(allBlocks);
+}
+
+// Not thread-safe! For performance, thread suspension should happen outside 
+// this function
+void AddressStreamDriver::ShutOffInstrumentationInBlock(uint32_t blockID) {
+
+    set<uint64_t> keysToRemove;
+    uint64_t kcheck = GENERATE_KEY(blockID, PointType_buffercheck);
+    uint64_t kinc = GENERATE_KEY(blockID, PointType_bufferinc);
+    uint64_t kfill = GENERATE_KEY(blockID, PointType_bufferfill);
+
+    // If this key is not active, then done
+    if (liveMemoryAccessInstPointKeys->count(kfill) == 0){
+        return;
+    }
+
+    // Otherwise, remove the instrumentation for this block
+    keysToRemove.insert(kcheck);
+    keysToRemove.insert(kinc);
+    keysToRemove.insert(kfill);
+    
+    dynamicPoints->SetDynamicPoints(keysToRemove, false);
+    liveMemoryAccessInstPointKeys->erase(kfill);
+
+}
+
+void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint32_t>& blocks){
+    // Make sure only one thread is executing this code
+    SuspendAllThreads(allData->CountThreads(), 
+      allData->allthreads.begin(), allData->allthreads.end());
+    
+    for (set<uint32_t>::iterator it = blocks.begin(); it != blocks.end(); 
+      it++) {
+        uint32_t blockID = *it;
+        ShutOffInstrumentationInBlock(blockID);
+    }
+
+    ResumeAllThreads();
+}
+
+void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid, 
+  thread_key_t tid) {
+
+    // Thread-safe call
+    AddressStreamStats* stats = (AddressStreamStats*)allData->GetData(iid, 
+      tid);
+
+    // Make sure group counters are up to date
+    for(uint32_t i = 0; i < (stats->BlockCount); i++) {
+        uint32_t idx = i;
+        if (stats->Types[i] == CounterType_instruction) {
+            idx = stats->Counters[i];
+        }
+        uint64_t blocksGroupId = stats->GroupIds[i]; 
+        uint64_t blockCount = stats->Counters[idx];
+        if(stats->GroupCounters[blocksGroupId] < blockCount) {
+            stats->GroupCounters[blocksGroupId] = blockCount;
+        }
+    }
+
+    // Can't combine this with above because a later block could cause 
+    // group to exceed max
+    set<uint32_t> blocksToRemove;
+    for (set<uint64_t>::iterator it = liveMemoryAccessInstPointKeys->begin();
+      it != liveMemoryAccessInstPointKeys->end(); it++) {
+        uint32_t blockID = GET_BLOCKID(*it);
+        // If max count is reached, we will remove this block
+        uint64_t blocksGroupId = stats->GroupIds[blockID]; 
+        if (sampler->ExceedsAccessLimit(stats->GroupCounters[blocksGroupId])) {
+            blocksToRemove.insert(blockID);            
+        }
+    }
+
+    // Only call this if there are blocks to remove since it will suspend 
+    // threads
+    if (blocksToRemove.size() > 0)
+        ShutOffInstrumentationInBlocks(blocksToRemove);
 }
 
 // For testing

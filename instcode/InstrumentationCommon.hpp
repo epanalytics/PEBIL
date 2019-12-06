@@ -126,7 +126,7 @@ enum MetasimErrors {
     MetasimError_Env,
     MetasimError_NoImage,
     MetaSimError_ExternalLib,
-    MetasimError_Total,
+    MetasimError_Total
 };
 
 void TryOpen(std::ofstream& f, const char* name);

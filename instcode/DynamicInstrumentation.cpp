@@ -4,28 +4,31 @@
 #include <cassert>
 #include <cstring>
 
-static pebil_map_type < uint64_t, std::vector < DynamicInst* > > * Dynamics = 
-  NULL;
-static bool ThreadedModeFlag;
+using namespace std;
 
-void PrintDynamicPoint(DynamicInst* d) {
-    std::cout
-        << "\t"
-        << "\t" << "Key 0x" << std::hex << d->Key
-        << "\t" << "Vaddr 0x" << std::hex << d->VirtualAddress
-        << "\t" << "Oaddr 0x" << std::hex << d->ProgramAddress
-        << "\t" << "Size " << std::dec << d->Size
-        << "\t" << "Enabled " << (d->IsEnabled? "yes":"no")
-        << "\n";
+DynamicInstrumentation::DynamicInstrumentation() : ThreadedMode(false) {
+    Dynamics = new pebil_map_type < uint64_t, vector < DynamicInst* > > ();
 }
 
-void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn, 
-  bool* isThreadedModeFlag) {
-    if (Dynamics == NULL){
-        Dynamics = new pebil_map_type < uint64_t, std::vector < DynamicInst* > > ();
+DynamicInstrumentation::~DynamicInstrumentation() {
+    // DynamicInst objects SHOULD be within binary so no need to manage them?
+    Dynamics->clear();
+    delete Dynamics;
+}
+
+void DynamicInstrumentation::GetAllDynamicKeys(set<uint64_t>& keys) {
+    assert(keys.size() == 0);
+    for (pebil_map_type<uint64_t, vector<DynamicInst*> >::iterator it = 
+      Dynamics->begin(); it != Dynamics->end(); it++){
+        uint64_t k = (*it).first;
+        keys.insert(k);
     }
+}
+
+void DynamicInstrumentation::InitializeDynamicInstrumentation(uint64_t* count, 
+  DynamicInst** dyn, bool* isThreadedModeFlag) {
     assert(Dynamics != NULL);
-    ThreadedModeFlag=(*isThreadedModeFlag);
+    ThreadedMode = (*isThreadedModeFlag);
 
 
     DynamicInst* dd = *dyn;
@@ -34,23 +37,35 @@ void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn,
             assert(dd[i].IsEnabled);
             uint64_t k = dd[i].Key;
             if (Dynamics->count(k) == 0){
-                (*Dynamics)[k] = std::vector<DynamicInst*>();
+                (*Dynamics)[k] = vector<DynamicInst*>();
             }
             (*Dynamics)[k].push_back(&dd[i]);
         }
     }
 }
 
-void GetAllDynamicKeys(std::set<uint64_t>& keys) {
-    assert(keys.size() == 0);
-    for (pebil_map_type<uint64_t, std::vector<DynamicInst*> >::iterator it = 
+void DynamicInstrumentation::PrintAllDynamicPoints() {
+    for (pebil_map_type<uint64_t, vector<DynamicInst*> >::iterator it = 
       Dynamics->begin(); it != Dynamics->end(); it++){
         uint64_t k = (*it).first;
-        keys.insert(k);
+        for (int i = 0; i < ((*Dynamics)[k].size()); i++) {
+            PrintDynamicPoint((*Dynamics)[k].at(i));
+        }
     }
 }
 
-void SetDynamicPointStatus(DynamicInst* d, bool state) {
+void DynamicInstrumentation::PrintDynamicPoint(DynamicInst* d) {
+    cout
+        << "\t" << "Key 0x" << std::hex << d->Key
+        << "\t" << "Vaddr 0x" << std::hex << d->VirtualAddress
+        << "\t" << "Oaddr 0x" << std::hex << d->ProgramAddress
+        << "\t" << "Size " << std::dec << d->Size
+        << "\t" << "Enabled " << (d->IsEnabled? "yes":"no")
+        << "\n";
+}
+
+void DynamicInstrumentation::SetDynamicPointStatus(DynamicInst* d, bool state) {
+    assert(state != d->IsEnabled);
 
     uint8_t t[DYNAMIC_POINT_SIZE_LIMIT];
     memcpy(t, (uint8_t*)d->VirtualAddress, d->Size);
@@ -58,32 +73,30 @@ void SetDynamicPointStatus(DynamicInst* d, bool state) {
     memcpy(d->OppContent, t, d->Size);
 
     d->IsEnabled = state;
-    //PrintDynamicPoint(d);
 }
 
-void SetDynamicPoints(std::set<uint64_t>& keys, bool state) {
-    uint32_t count = 0;
-    for (pebil_map_type<uint64_t, std::vector<DynamicInst*> >::iterator it = 
-      Dynamics->begin(); it != Dynamics->end(); it++){
-        uint64_t k = (*it).first;
-        if (keys.count(k) > 0){
-            std::vector<DynamicInst*> dyns = (*it).second;
-            for (std::vector<DynamicInst*>::iterator dit = dyns.begin(); dit != 
-              dyns.end(); dit++){
-                DynamicInst* d = (*dit);
-                if (state != d->IsEnabled){
-                    count++;
-                    SetDynamicPointStatus(d, state);
-                }
+void DynamicInstrumentation::SetDynamicPoint(uint64_t key, bool state) {
+    pebil_map_type < uint64_t, vector<DynamicInst*> >::iterator mit;
+    mit = Dynamics->find(key);
+    if (mit != Dynamics->end()) {
+        vector<DynamicInst*> dyns = mit->second;
+        for (vector<DynamicInst*>::iterator dit = dyns.begin(); dit != 
+          dyns.end(); dit++){
+            DynamicInst* d = (*dit);
+            if (state != d->IsEnabled){
+                SetDynamicPointStatus(d, state);
             }
         }
     }
-    debug(std::cout << "Thread " << std::hex << pthread_self() << " switched " 
-      << std::dec << count << " to " << (state? "on" : "off") << std::endl);
 }
 
-//Mostly needs to be static value?
-bool isThreadedMode() {
-    return ThreadedModeFlag;
+void DynamicInstrumentation::SetDynamicPoints(set<uint64_t>& keys, bool state) {
+    for (set<uint64_t>::iterator it = keys.begin(); it != keys.end(); it++) {
+        uint64_t k = (*it);
+        SetDynamicPoint(k, state);
+    }
+    debug(cout << "Thread " << std::hex << pthread_self() << " switched " 
+      << std::dec << keys.size() << " to " << (state? "on" : "off") 
+      << std::endl);
 }
 

@@ -2050,20 +2050,19 @@ X86Instruction* X86InstructionFactory64::emitMoveImmToRegaddrImm(
     uint8_t rm = base & 0x7;
     uint8_t modrm = mod | reg | rm;
 
-    int len = 5 + sizeof(off) + mem_size;
+    int len = 4 + sizeof(off) + mem_size;
     char* buff = new char[len];
-    buff[0] = 0x67;
-    buff[1] = rex;
-    buff[2] = opcode;
-    buff[3] = modrm;
+    buff[0] = rex;
+    buff[1] = opcode;
+    buff[2] = modrm;
 
     char* offStart = NULL;
     if(base % X86_32BIT_GPRS == X86_REG_SP) {
-        buff[4] = 0x24; // SIB byte
-        offStart = buff+5;
+        buff[3] = 0x24; // SIB byte
+        offStart = buff+4;
     } else {
         --len;
-        offStart = buff+4;
+        offStart = buff+3;
     }
 
     memcpy(offStart, &off, sizeof(off));
@@ -2074,24 +2073,23 @@ X86Instruction* X86InstructionFactory64::emitMoveImmToRegaddrImm(
 
 X86Instruction* X86InstructionFactory64::emitMoveImmToRegaddrImm(uint64_t val, uint32_t idx, uint64_t off){
     ASSERT(idx < X86_64BIT_GPRS && "Illegal register index given");
-    uint32_t len = 12;
-    uint32_t immoff = 4;
+    uint32_t len = 11;
+    uint32_t immoff = 3;
     if (idx % X86_32BIT_GPRS == X86_REG_SP){
         len++;
         immoff++;
     }
     char* buff = new char[len];
     // set opcode
-    buff[0] = 0x67; // address override prefix
-    buff[1] = 0x48; // rex prefix 0x4WRXB
+    buff[0] = 0x48; // rex prefix 0x4WRXB
     if (idx >= X86_32BIT_GPRS){
-        buff[1]++;
+        buff[0]++;
     }
-    buff[2] = 0xc7; // opcode
-    buff[3] = 0x80 + (char)(idx % X86_32BIT_GPRS); // modrm?
+    buff[1] = 0xc7; // opcode
+    buff[2] = 0x80 + (char)(idx % X86_32BIT_GPRS); // modrm?
 
 
-    buff[4] = 0x24; // N/A?
+    buff[3] = 0x24; // N/A?
 
     uint32_t off32 = (uint32_t)off;
     ASSERT(off32 == (uint32_t)off && "Cannot use more than 32 bits for the immediate");

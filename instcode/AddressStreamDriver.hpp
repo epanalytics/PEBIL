@@ -24,6 +24,7 @@
 #include <set>
 #include <cstdint>
 
+class DynamicInstrumentation;
 class MemoryStreamHandler;
 class SamplingMethod;
 class AddressRangeTool;
@@ -56,11 +57,12 @@ class AddressStreamDriver {
 
     uint32_t numMemoryHandlers;
 
+    DynamicInstrumentation* dynamicPoints = NULL;
     SamplingMethod* sampler = NULL;
     DataManager<AddressStreamStats*>* allData = NULL;
     FastData<AddressStreamStats*, BufferEntry*>* fastData = NULL;
-    std::set<uint64_t>* liveInstPointKeys = NULL;  // set of keys of active 
-                                                   // inst points
+    // set of instrumentation points that add addresses to the buffer
+    std::set<uint64_t>* liveMemoryAccessInstPointKeys = NULL;  
 
     StringParser* parser = NULL;
   public:
@@ -72,17 +74,22 @@ class AddressStreamDriver {
 
     void DeleteAllData();
 
+    void* FinalizeImage(image_key_t*);
+
     DataManager<AddressStreamStats*>* GetAllData() { return allData; }
+    DynamicInstrumentation* GetDynamicPoints() { return dynamicPoints; }
     FastData<AddressStreamStats*, BufferEntry*>* GetFastData() { 
       return fastData; }
+    std::set<uint64_t>* GetLiveInstKeys() { return 
+      liveMemoryAccessInstPointKeys; }
     SamplingMethod* GetSamplingMethod() { return sampler; }
     StringParser* GetStringParser() { return parser; }
 
     uint32_t GetNumMemoryHandlers() { return numMemoryHandlers; }
+    uint32_t GetNumTools() { return tools->size(); }
+    AddressStreamTool* GetTool(uint32_t index);
 
     bool HasLiveInstrumentationPoints();
-
-    void* FinalizeImage(image_key_t*);
 
     void InitializeAddressStreamDriver(DataManager<AddressStreamStats*>* d);
     void InitializeKeys();
@@ -98,28 +105,32 @@ class AddressStreamDriver {
     bool IsScatterLength() { return runScatterLength; }
     bool IsSpatialLocality() { return runSpatialLocality; }
 
-    void ProcessMemoryBuffer(image_key_t iid, thread_key_t tid, 
-      MemoryStreamHandler* handler, uint32_t handlerIndex, uint32_t
-      numElementsInBuffer);
+    void ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
+      uint32_t numElementsInBuffer);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
 
-    void SetAllData(DataManager<AddressStreamStats*>* d) { allData = d; }
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
+    void SetDynamicPoints(DynamicInstrumentation* d) { dynamicPoints = d; }
 
     virtual void SetUpTools();
 
+    void ShutOffInstrumentationInAllBlocks();
+    void ShutOffInstrumentationInBlock(uint32_t blockID);
+    void ShutOffInstrumentationInBlocks(std::set<uint32_t>& blocks);
+    void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
+
     // For Testing Purposes
+    void AddTool(AddressStreamTool* t) { tools->push_back(t); }
     void SetAddressRange(bool b) { runAddressRange = b; }
     void SetCacheSimulation(bool b) { runCacheSimulation = b; }
     void SetReuseDistance(bool b) { runReuseDistance = b; }
     void SetScatterLength(bool b) { runScatterLength = b; }
     void SetSpatialLocality(bool b) { runSpatialLocality = b; }
 
+    void SetNumMemoryHandlers(uint32_t n) { numMemoryHandlers = n; }
     void SetParser(StringParser* p);
     void SetSampler(SamplingMethod* s);
-
-
 };
 
 void GetBufferIds(BufferEntry* b, image_key_t* i);

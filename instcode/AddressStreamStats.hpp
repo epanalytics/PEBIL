@@ -46,12 +46,12 @@ typedef struct AddressStreamStats_s {
     // metadata
     thread_key_t threadid;
     image_key_t imageid;
-    bool Initialized;
+    bool Initialized;   // Set to false when created by thread
     bool PerInstruction;
     bool LoopInclusion; // when terminating sampling for a block,
                         // do this for all blocks within the loop
                         // Note: includes all other blocks in the loop
-    bool Master;
+    bool Master;        // Master image?
     uint32_t Phase;
     uint32_t AllocCount;
     uint32_t BlockCount;
@@ -64,7 +64,7 @@ typedef struct AddressStreamStats_s {
     uint64_t* BlockIds;   // Indices into per-block data, like counter
 
     // per-block data
-    CounterTypes* Types; // ??
+    CounterTypes* Types; // If Counter is a count or index to a count
     uint64_t* Counters;
     uint32_t* MemopsPerBlock;
     // True for blocks where dynamic memops cannot be determinied at runtime

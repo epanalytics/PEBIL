@@ -545,7 +545,7 @@ CacheStats::~CacheStats(){
     if (Stats){
         for (uint32_t i = 0; i < Capacity; i++){
             if (Stats[i]){
-                delete Stats[i];
+                delete[] Stats[i];
             }
         }
         delete[] Stats;
