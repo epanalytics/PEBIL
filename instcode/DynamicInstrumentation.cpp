@@ -56,7 +56,6 @@ void DynamicInstrumentation::PrintAllDynamicPoints() {
 
 void DynamicInstrumentation::PrintDynamicPoint(DynamicInst* d) {
     cout
-        << "\t"
         << "\t" << "Key 0x" << std::hex << d->Key
         << "\t" << "Vaddr 0x" << std::hex << d->VirtualAddress
         << "\t" << "Oaddr 0x" << std::hex << d->ProgramAddress

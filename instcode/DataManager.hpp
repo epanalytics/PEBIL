@@ -159,9 +159,6 @@ public:
     std::set<thread_key_t> donethreads;
     std::set<image_key_t> allimages;
 
-//    static const uint32_t ThreadType = 0;
-//    static const uint32_t ImageType = 1;
-
     DataManager(T (*g)(T, uint32_t, image_key_t, thread_key_t, image_key_t), void (*d)(T), uint64_t (*r)(T)){
         datagen = g;
         datadel = d;
