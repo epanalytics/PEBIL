@@ -351,6 +351,8 @@ protected:
       uint32_t LoadStoreLogging = 0;
       uint32_t DirtyCacheHandling = 0;
 
+      bool isInitialized = false;
+
       uint64_t hits;
       uint64_t misses;
       uint64_t AddressRangesCount;

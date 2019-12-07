@@ -1695,17 +1695,20 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
         return false;
     }
 
+    isInitialized = true;
     return Verify();
 }
 
 CacheStructureHandler::~CacheStructureHandler(){
-    if (levels){
-        for (uint32_t i = 0; i < levelCount; i++){
-            if (levels[i]){
-                delete levels[i];
+    if(isInitialized){
+        if (levels){
+            for (uint32_t i = 0; i < levelCount; i++){
+                if (levels[i]){
+                    delete levels[i];
+                }
             }
+            delete[] levels;
         }
-        delete[] levels;
     }
 }
 
