@@ -34,12 +34,14 @@
 
 using namespace std;
 
-int GetTaskId(){
+int GetTaskId() {
     return __taskid;
 }
+
 int GetNTasks(){
     return __ntasks;
 }
+
 // a timer
 void ptimer(double *tmr) {
     struct timeval timestr;

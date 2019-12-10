@@ -39,6 +39,7 @@
 using namespace std;
 
 static DataManager<CounterArray*>* AllData = NULL;
+static DynamicInstrumentation* DynamicPoints = NULL;
 
 void print_loop_array(FILE* stream, CounterArray* ctrs){
     if (ctrs == NULL){
@@ -108,11 +109,11 @@ CounterArray* GenerateCounterArray(CounterArray* ctrs, uint32_t typ, image_key_t
     c->threadid = tid;
     c->imageid = iid;
 
-    if (typ == AllData->ImageType){
+    if (typ == DataManagerType_Image){
         return c;
     }
 
-    assert(typ == AllData->ThreadType);
+    assert(typ == DataManagerType_Thread);
 
     c = (CounterArray*)malloc(sizeof(CounterArray));
     assert(c);
@@ -149,7 +150,7 @@ void* tool_thread_init(thread_key_t tid){
     SAVE_STREAM_FLAGS(cout);
     //init_signal_handlers();
     if (AllData){
-        if(isThreadedMode())
+        if(DynamicPoints->IsThreadedMode())
             AllData->AddThread(tid);
     } else {
         ErrorExit("Calling PEBIL thread initialization library for thread " << hex << tid << " but no images have been initialized.", MetasimError_NoThread);
@@ -167,7 +168,9 @@ extern "C"
 {
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag){
         SAVE_STREAM_FLAGS(cout);
-        InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
+        DynamicPoints = new DynamicInstrumentation();
+        DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+          isThreadedModeFlag);
 
         RESTORE_STREAM_FLAGS(cout);
         //inform << "Leaving tool_dynamic_init" << ENDL;
@@ -212,7 +215,7 @@ extern "C"
             set<uint64_t> inits;
             inits.insert(*key);
             inform << "Removing init points for image " << hex << (*key) << ENDL;
-            SetDynamicPoints(inits, false);
+            DynamicPoints->SetDynamicPoints(inits, false);
 
             // Add data for this image -- once per image
             AllData->AddImage(ctrs, td, *key);
@@ -251,6 +254,10 @@ extern "C"
             return NULL;
         }
 #endif
+
+        if (DynamicPoints != NULL) {
+            delete DynamicPoints;
+        }
 
         if (AllData == NULL){
             ErrorExit("data manager does not exist. no images were initialized", MetasimError_NoImage);

@@ -27,10 +27,10 @@
 
 #ifdef HAVE_UNORDERED_MAP
 #include <tr1/unordered_map>
-#define pebil_map_type tr1::unordered_map
+#define pebil_map_type std::tr1::unordered_map
 #else
 #include <map>
-#define pebil_map_type map
+#define pebil_map_type std::map
 #endif
 
 #define ENV_OUTPUT_PREFIX "PEBIL_OUTPUT_PREFIX"
@@ -126,7 +126,7 @@ enum MetasimErrors {
     MetasimError_Env,
     MetasimError_NoImage,
     MetaSimError_ExternalLib,
-    MetasimError_Total,
+    MetasimError_Total
 };
 
 void TryOpen(std::ofstream& f, const char* name);

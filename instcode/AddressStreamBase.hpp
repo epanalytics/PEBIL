@@ -61,22 +61,31 @@ class SamplingMethod {
     uint32_t SampleOff;
     uint64_t AccessCount;
 
+    // Samplers can be shared by threads -- use a r/w lock so that 
+    // multiple threads can read at once
+    pthread_rwlock_t sampling_rwlock;
+    pthread_rwlockattr_t sampling_rwlock_attr;
+
     bool CurrentlySampling(uint64_t count);
 
   public:
     SamplingMethod(uint32_t limit, uint32_t on, uint32_t off);
     virtual ~SamplingMethod();
 
-    bool CurrentlySampling();
-    bool ExceedsAccessLimit(uint64_t count);
-    uint64_t GetAccessCount() { return AccessCount; }
+    virtual bool CurrentlySampling();
+    virtual bool ExceedsAccessLimit(uint64_t count);
+    virtual uint64_t GetAccessCount() { return AccessCount; }
     uint64_t GetAccessLimit() { return AccessLimit; }
-    double GetSamplingFrequency();
+    virtual double GetSamplingFrequency();
     uint32_t GetSampleOn() { return SampleOn; }
     uint32_t GetSampleOff() { return SampleOff; }
     void IncrementAccessCount(uint64_t count);
-    bool SwitchesMode(uint64_t count);
+    virtual bool SwitchesMode(uint64_t count);
     void Print();
+
+    bool ReadLock();
+    bool UnLock();
+    bool WriteLock();
 };
 
 // DFP and other interesting memory things extend this class.
@@ -85,7 +94,7 @@ class MemoryStreamHandler {
     pthread_mutex_t mlock;
   public:
     MemoryStreamHandler();
-    ~MemoryStreamHandler();
+    virtual ~MemoryStreamHandler();
 
     virtual void Print(std::ofstream& f) = 0;
     virtual uint32_t Process(void* stats, BufferEntry* access) = 0;
