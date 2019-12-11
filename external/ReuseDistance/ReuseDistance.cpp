@@ -29,6 +29,57 @@ using namespace std;
 #define debug_assert(...)
 #endif
 
+#define REUSE_PROFILE
+#ifdef REUSE_PROFILE
+
+#define CLOCK_RATE_HZ 1800000000
+#define PROCESS_TREE_TIME 0
+#define PROCESS_TIME 1
+#define PROCESS_UPDATE_TIME 2
+#define PROCESS_SLOT_TIME 3
+#define ADD_SLOT_TIME 4
+#define NEW_SLOT_TIME 5
+#define FIND_SLOT_TIME 6
+//#define REUSE_TIME 1
+
+static double timerValues[7] = {0, 0, 0, 0, 0, 0, 0};
+static string timerNames[7] = {"Process Tree", "Total Process", "Process Update", "Process Slot", "Add Slot", "New Slot", "Old Slot"};
+
+inline uint64_t read_timestamp_counter() {
+    unsigned low, high;
+    __asm__ volatile ("rdtsc" : "=a" (low), "=d" (high));
+    return ((unsigned long long)low | (((unsigned long long)high) << 32));
+}
+
+//static double diffTime(struct timeval t1, struct timeval t2) {
+//    struct timeval diff;
+//    if (t2.tv_usec < t1.tv_usec) {
+//          diff.tv_usec = 1000000 + t2.tv_usec - t1.tv_usec;
+//          diff.tv_sec = t2.tv_usec - t1.tv_sec - 1;
+//    } else {
+//          diff.tv_usec = t2.tv_usec - t1.tv_usec;
+//          diff.tv_sec = t2.tv_usec - t1.tv_sec;
+//    }
+//
+//    double time = (double)diff.tv_sec + (diff.tv_usec / 1000000.0);
+//    return time;
+//}
+
+#define profile_declare(__timer) uint64_t t##__timer##_s, t##__timer##_e
+#define profile_start(__timer) t##__timer##_s = read_timestamp_counter()
+#define profile_end(__timer) t##__timer##_e = read_timestamp_counter(); \
+                             timerValues[__timer] += (double)((t##__timer##_e - t##__timer##_s) / (double)(CLOCK_RATE_HZ))
+#define profile_report(__timer) printf("REUSE PROFILER: Time in %s = %f\n", \
+                             timerNames[__timer].c_str(), timerValues[__timer]);
+
+#else  // not REUSE_PROFILE
+
+#define profile_declare(...)
+#define profile_start(...)
+#define profile_end(...)
+
+#endif  // if REUSE_PROFILE
+
 inline uint64_t uint64abs(uint64_t a){
     if (a < 0x8000000000000000L){
         return a;
@@ -46,10 +97,10 @@ void ReuseDistance::Init(uint64_t w, uint64_t b){
 
     current = 0;
     sequence = 1;
-
     window = newtree234();
     assert(window);
-    LRUDistanceAnalyzer::Init(); // Does this need a protection mechanism?
+    mwindow.clear();
+//    LRUDistanceAnalyzer::Init(); // Does this need a protection mechanism?
     assert(ReuseDistance::Infinity == NULL && "NULL is non-zero!?");
 }
 
@@ -62,19 +113,19 @@ ReuseStats* ReuseDistance::GetStats(uint64_t id, bool gen){
     return s;
 }
 
-uint64_t* ReuseDistance::GetPINStats(uint64_t id, bool gen)
-{
-    uint64_t* s = PINReuseStats[id];
-    if (s == NULL && gen){
-        s = new uint64_t[BIN_SIZE]; //ReuseStats(id, binindividual, capacity, ReuseDistance::Infinity);
-        PINReuseStats[id] = s;
-      
-       for(int i=0;i<BIN_SIZE;i++)
-           s[i]=0;
-      
-    }
-    return s;
-}
+//uint64_t* ReuseDistance::GetPINStats(uint64_t id, bool gen)
+//{
+//    uint64_t* s = PINReuseStats[id];
+//    if (s == NULL && gen){
+//        s = new uint64_t[BIN_SIZE]; //ReuseStats(id, binindividual, capacity, ReuseDistance::Infinity);
+//        PINReuseStats[id] = s;
+//      
+//       for(int i=0;i<BIN_SIZE;i++)
+//           s[i]=0;
+//      
+//    }
+//    return s;
+//}
 
 
 ReuseDistance::ReuseDistance(uint64_t w, uint64_t b){
@@ -91,9 +142,9 @@ ReuseDistance::ReuseDistance(ReuseDistance* r){
 
 ReuseDistance::~ReuseDistance(){
 
-    for (reuse_map_type<uint64_t, uint64_t*>::const_iterator it = PINReuseStats.begin(); it != PINReuseStats.end(); it++){
+    for (reuse_map_type<uint64_t, ReuseStats*>::const_iterator it = stats.begin(); it != stats.end(); it++){
         uint64_t id = it->first;
-        delete PINReuseStats[id];
+        delete stats[id];
     }    
 
     debug_assert(current == count234(window));
@@ -106,29 +157,43 @@ ReuseDistance::~ReuseDistance(){
 }
 
 void ReuseDistance::Print(ostream& f, bool annotate){
-    LRUDistanceAnalyzer::OutputResults();
-    uint64_t BinStats[BIN_SIZE];
-    uint64_t idTotals[PINReuseStats.size()];
-    int tot = 0;
-    for(int i=0;i<BIN_SIZE;i++)
-       BinStats[i]=0;
-    for(int i=0; i<PINReuseStats.size();i++)
-        idTotals[i] = 0;
-    int index = 0;
-    for(reuse_map_type<uint64_t,uint64_t*>::const_iterator it=PINReuseStats.begin(); it!=PINReuseStats.end();it++){
-        int tempTotal = 0;
-        for(int i=0;i<BIN_SIZE;i++)
-        {
-            if(it->second[i])
-            {
-               tot+=it->second[i];
-               tempTotal+=it->second[i];
-               BinStats[i]+=it->second[i];
-            }
-        }
-        idTotals[index] = tempTotal;
-        index++;
-    }    
+    //LRUDistanceAnalyzer::OutputResults();
+    //uint64_t BinStats[BIN_SIZE];
+    //uint64_t idTotals[PINReuseStats.size()];
+    //int tot = 0;
+    //for(int i=0;i<BIN_SIZE;i++)
+    //   BinStats[i]=0;
+    //for(int i=0; i<PINReuseStats.size();i++)
+    //    idTotals[i] = 0;
+    //int index = 0;
+    vector <uint64_t> keys;
+    for(reuse_map_type<uint64_t,ReuseStats*>::const_iterator it=stats.begin(); it!=stats.end();it++){
+        keys.push_back(it->first);
+    }
+    sort(keys.begin(), keys.end());
+
+//        int tempTotal = 0;
+//        for(int i=0;i<BIN_SIZE;i++)
+//        {
+//            if(it->second[i])
+//            {
+//               tot+=it->second[i];
+//               tempTotal+=it->second[i];
+//               BinStats[i]+=it->second[i];
+//            }
+//        }
+//        idTotals[index] = tempTotal;
+//        index++;
+//    }    
+
+    uint64_t tot = 0, mis = 0;
+    for (vector<uint64_t>::const_iterator it = keys.begin(); it != keys.end(); it++) {
+        uint64_t id = (*it);
+        ReuseStats* r= (ReuseStats*)stats[id];
+        tot += r->GetAccessCount();
+        mis += r->GetMissCount();
+    }
+
     if (annotate){
         ReuseDistance::PrintFormat(f);
         ReuseStats::PrintFormat(f);
@@ -138,23 +203,37 @@ void ReuseDistance::Print(ostream& f, bool annotate){
       << TAB << dec << capacity
       << TAB << binindividual
       << TAB << maxtracking
-      << TAB << PINReuseStats.size()
+      << TAB << keys.size()
       << TAB << tot 
-      << TAB << "n/a" //We do not seem to record misses anymore
+      << TAB << mis //We do not seem to record misses anymore
       << ENDL;
-    index = 0;
-    for(reuse_map_type<uint64_t,uint64_t*>::const_iterator it=PINReuseStats.begin(); it!=PINReuseStats.end();it++)    
-    {
-        f << "\tREUSEID\t" << hex << it->first << "\t" << dec << idTotals[index] << "\t" << "n/a"<< "\n";
-        for(int i=0;i<BIN_SIZE;i++)
-        {
-            if(it->second[i])
-            {
-               f << "\t\t" << ((int)(pow(2,(i-1))+1)) << "\t" << ((int)(pow(2,i))) << "\t" << it->second[i] << "\n";
-            }
-        }
-        index++;
+
+    for (vector<uint64_t>::const_iterator it = keys.begin(); it != keys.end(); it++) {
+
+        uint64_t id = (*it);
+        ReuseStats* r= (ReuseStats*)stats[id];
+    f << TAB << Describe() << "ID"
+      << TAB << dec << id
+      << TAB << r->GetAccessCount()
+      << TAB << r->GetMissCount()
+      << ENDL;
+
+      r->Print(f);
     }
+
+//    index = 0;
+    //for(reuse_map_type<uint64_t,uint64_t*>::const_iterator it=PINReuseStats.begin(); it!=PINReuseStats.end();it++)    
+    //{
+    //    f << "\tREUSEID\t" << hex << it->first << "\t" << dec << idTotals[index] << "\t" << "n/a"<< "\n";
+    //    for(int i=0;i<BIN_SIZE;i++)
+    //    {
+    //        if(it->second[i])
+    //        {
+    //           f << "\t\t" << ((int)(pow(2,(i-1))+1)) << "\t" << ((int)(pow(2,i))) << "\t" << it->second[i] << "\n";
+    //        }
+    //    }
+    //    index++;
+    //}
    /* 
     f<<"\n\n";
     for(int i=0;i<BIN_SIZE;i++)
@@ -163,6 +242,14 @@ void ReuseDistance::Print(ostream& f, bool annotate){
         f<<"\n\t Bin: "<<i<<dec<<" Hits: "<<BinStats[i];
     }
     */
+
+//    profile_report(PROCESS_TREE_TIME);
+//    profile_report(PROCESS_UPDATE_TIME);
+    profile_report(NEW_SLOT_TIME);
+    profile_report(FIND_SLOT_TIME);
+    profile_report(ADD_SLOT_TIME);
+    profile_report(PROCESS_SLOT_TIME);
+    profile_report(PROCESS_TIME);
     return;
     
 }
@@ -191,8 +278,78 @@ void ReuseDistance::PrintFormat(ostream& f){
 }
 
 void ReuseDistance::Process(ReuseEntry& r){
-  uint64_t* BBStats= GetPINStats(r.id,true);
-  LRUDistanceAnalyzer::RecordMemAccess((void*)r.address,BBStats);
+    //profile_declare(PROCESS_TREE_TIME);
+    profile_declare(PROCESS_TIME);
+    //profile_declare(PROCESS_UPDATE_TIME);
+    profile_declare(NEW_SLOT_TIME);
+    profile_declare(FIND_SLOT_TIME);
+    profile_declare(ADD_SLOT_TIME);
+    profile_declare(PROCESS_SLOT_TIME);
+    profile_start(PROCESS_TIME);
+  uint64_t addr = r.address;
+//  uint64_t* BBStats= GetPINStats(r.id,true);
+//  LRUDistanceAnalyzer::RecordMemAccess((void*)r.address,BBStats);
+    uint64_t id = r.id;
+    uint64_t mres = mwindow.count(addr);
+
+    ReuseStats* stats = GetStats(id, true);
+
+    int dist = 0;
+    ReuseEntry* result;
+//    profile_start(PROCESS_UPDATE_TIME);
+    if (mres) {
+        mres = mwindow[addr];
+        ReuseEntry key;
+        key.address = addr;
+        key.__seq = mres;
+//        profile_start(PROCESS_TREE_TIME);
+        result = findrelpos234(window, &key, &dist);
+//        profile_end(PROCESS_TREE_TIME);
+
+        debug_assert(result);
+
+        if (capacity != ReuseDistance::Infinity) {
+            debug_assert(current - dist <= capacity);
+        }
+        stats->Update(current - dist);
+    } else {
+        stats->Update(ReuseDistance::Infinity);
+    }
+//    profile_end(PROCESS_UPDATE_TIME);
+
+    profile_start(PROCESS_SLOT_TIME);
+    ReuseEntry* slot = NULL;
+    if (mres || (capacity != ReuseDistance::Infinity && current >= capacity)) {
+        profile_start(FIND_SLOT_TIME);
+//        profile_start(PROCESS_TREE_TIME);
+        slot = (ReuseEntry*)delpos234(window, dist);
+//        profile_end(PROCESS_TREE_TIME);
+        debug_assert(mwindow[slot->address]);
+        mwindow.erase(slot->address);
+        debug_assert(count234(window) == mwindow.size());
+        profile_end(FIND_SLOT_TIME);
+    } else {
+        slot = new ReuseEntry();
+        current++;
+    }
+
+        profile_start(NEW_SLOT_TIME);
+    mwindow[addr] = sequence;
+        profile_end(NEW_SLOT_TIME);
+
+    slot->__seq = sequence;
+    slot->address = addr;
+//    profile_start(PROCESS_TREE_TIME);
+    profile_start(ADD_SLOT_TIME);
+    add234(window, slot);
+    profile_end(ADD_SLOT_TIME);
+    profile_end(PROCESS_SLOT_TIME);
+
+    debug_assert(count234(window) == mwindow.size());
+//    profile_end(PROCESS_TREE_TIME);
+    debug_assert(mwindow.size() <= current);
+    sequence++;
+    profile_end(PROCESS_TIME);
    return;
 }
 
@@ -249,6 +406,8 @@ void ReuseDistance::SkipAddresses(uint64_t amount){
         delete delpos234(window, 0);
         current--;
     }
+    mwindow.clear();
+    assert(mwindow.size() == 0);
     assert(count234(window) == 0);
 }
 
@@ -295,8 +454,9 @@ uint64_t ReuseStats::GetMissCount(){
     return distcounts[invalid];
 }
 
-void ReuseStats::Print(ostream& f, reuse_map_type<uint64_t,uint64_t>& BinTotal,
-  bool annotate){
+//void ReuseStats::Print(ostream& f, reuse_map_type<uint64_t,uint64_t>& BinTotal,
+//  bool annotate){
+void ReuseStats::Print(ostream& f,  bool annotate){
     vector<uint64_t> keys;
     GetSortedDistances(keys);
 
@@ -326,10 +486,10 @@ void ReuseStats::Print(ostream& f, reuse_map_type<uint64_t,uint64_t>& BinTotal,
               << ENDL;
               
    
-              if(BinTotal.count(p))
-                   BinTotal[p]+=cnt;
-               else
-                BinTotal[p]=cnt;
+              //if(BinTotal.count(p))
+              //     BinTotal[p]+=cnt;
+              // else
+              //  BinTotal[p]=cnt;
           
         }
     }
@@ -515,7 +675,8 @@ void SpatialLocality::Print(ostream& f, bool annotate){
           << TAB << r->GetMissCount()
           << ENDL;
 
-        r->Print(f,BinTotal);
+        //r->Print(f,BinTotal);
+        r->Print(f);
     }
    /* 
     vector<uint64_t> BinTotalKeys;
