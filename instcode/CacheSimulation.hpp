@@ -203,15 +203,15 @@ public:
     uint32_t GetLevelCount() { return levelCount;}
     uint32_t SetLevelCount(uint32_t inpLevelCount) { return levelCount = 
       inpLevelCount; }
-    CacheLevelType GetType() { return type; }
+    virtual CacheLevelType GetType() { return type; }
     ReplacementPolicy GetReplacementPolicy() { return replpolicy; }
-    uint32_t GetLevel() { return level; }
-    uint32_t GetSizeInBytes() { return size; }
-    uint32_t GetAssociativity() { return associativity; }
-    uint32_t GetSetCount() { return countsets; }
-    uint32_t GetLineSize() { return linesize; }
-	uint32_t GetLoadStoreLog() { return loadStoreLogging; }
-	uint32_t GetDirtyCacheHandle() { return dirtyCacheHandling; }
+    virtual uint32_t GetLevel() { return level; }
+    virtual uint32_t GetSizeInBytes() { return size; }
+    virtual uint32_t GetAssociativity() { return associativity; }
+    virtual uint32_t GetSetCount() { return countsets; }
+    virtual uint32_t GetLineSize() { return linesize; }
+	virtual uint32_t GetLoadStoreLog() { return loadStoreLogging; }
+	virtual uint32_t GetDirtyCacheHandle() { return dirtyCacheHandling; }
     uint64_t CountColdMisses();
 
     void Print(std::ofstream& f, uint32_t sysid);
