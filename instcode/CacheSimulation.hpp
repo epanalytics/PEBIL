@@ -183,10 +183,10 @@ protected:
     uint32_t countsets;
     uint32_t linesizeBits;
 
-    uint64_t** contents;
-    bool**  dirtystatus;
-    uint32_t* recentlyUsed;
-    history** historyUsed;
+    uint64_t** contents = nullptr;
+    bool**  dirtystatus = nullptr;
+    uint32_t* recentlyUsed = nullptr;
+    history** historyUsed = nullptr;
     bool toEvict;
 
 	uint32_t loadStoreLogging;
@@ -195,7 +195,7 @@ protected:
 public:
     std::vector<uint64_t>* toEvictAddresses;
     CacheLevel();
-    ~CacheLevel();
+    virtual ~CacheLevel();
 
     bool IsExclusive() { return (type == CacheLevelType_ExclusiveLowassoc || 
       type == CacheLevelType_ExclusiveHighassoc); }
@@ -255,6 +255,7 @@ protected:
 class InclusiveCacheLevel : public virtual CacheLevel {
 public:
     InclusiveCacheLevel() {}
+    //~InclusiveCacheLevel() {}
 
     virtual void Init (CacheLevel_Init_Interface){
         CacheLevel::Init(CacheLevel_Init_Arguments);

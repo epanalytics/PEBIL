@@ -907,9 +907,21 @@ CacheLevel::~CacheLevel(){
         delete[] recentlyUsed;
     }
     if (historyUsed){
-        for(int s = 0; s < countsets; ++s)
+        for(int s = 0; s < countsets; ++s){
             delete[] historyUsed[s];
+        }
         delete[] historyUsed;
+    }
+    if(toEvictAddresses){
+        delete toEvictAddresses;
+    }
+    if (dirtystatus){
+        for (uint32_t i = 0; i < countsets; i++){
+            if (dirtystatus[i]){
+                delete[] dirtystatus[i];
+            }
+        }
+        delete[] dirtystatus;
     }
 }
 
@@ -1683,9 +1695,13 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
                     levels[levelId] = l;
                 } else {
                     InclusiveCacheLevel* l = new InclusiveCacheLevel();
+                    //cout << "l: " << l;
                     l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
 					  LoadStoreLogging, DirtyCacheHandling);
                     levels[levelId] = l;
+                    //levels[levelId] = (InclusiveCacheLevel *)l;
+                    //cout << "; levels[" << levelId << "]: " << levels[levelId] << endl;
+                    //levels[levelId] -= 1;
                 }
             }
         }
@@ -1704,7 +1720,10 @@ CacheStructureHandler::~CacheStructureHandler(){
         if (levels){
             for (uint32_t i = 0; i < levelCount; i++){
                 if (levels[i]){
-                    delete levels[i];
+                    CacheLevel* toDelete = levels[i];
+                    //(*toDelete).~CacheLevel();
+                    //cout << "toDelete: " << toDelete << endl;
+                    delete toDelete;
                 }
             }
             delete[] levels;
