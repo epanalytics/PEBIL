@@ -193,7 +193,7 @@ protected:
 	uint32_t dirtyCacheHandling;
 
 public:
-    std::vector<uint64_t>* toEvictAddresses;
+    std::vector<uint64_t>* toEvictAddresses = nullptr;
     CacheLevel();
     virtual ~CacheLevel();
 
@@ -255,7 +255,7 @@ protected:
 class InclusiveCacheLevel : public virtual CacheLevel {
 public:
     InclusiveCacheLevel() {}
-    //~InclusiveCacheLevel() {}
+    ~InclusiveCacheLevel() {}
 
     virtual void Init (CacheLevel_Init_Interface){
         CacheLevel::Init(CacheLevel_Init_Arguments);
