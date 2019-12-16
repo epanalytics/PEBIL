@@ -505,7 +505,7 @@ void AddressStreamDriver::SetUpTools() {
         AddressStreamTool* currentTool = (*it);
         StringParser parser;
         uint32_t handlersAdded = currentTool->CreateHandlers(
-          GetNumMemoryHandlers(), parser);
+          GetNumMemoryHandlers(), &parser);
         assert(handlersAdded > 0);
         numMemoryHandlers += handlersAdded;
     }

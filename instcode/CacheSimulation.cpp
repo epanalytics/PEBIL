@@ -61,7 +61,7 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
     }
 }
 
-uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser parser){
+uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* parser){
     indexInStats = index;
   
     // FIXME --> Make part of class
@@ -69,15 +69,16 @@ uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser parser
 	// METASIM_LIMIT_HIGH_ASSOC if desired.
     //StringParser parser;
     uint32_t SaveHashMin = MinimumHighAssociativity;
-    if (!(parser.ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
-      &MinimumHighAssociativity))){
+    bool flag = (parser->ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
+      &MinimumHighAssociativity));
+    if (!flag){
         MinimumHighAssociativity = SaveHashMin;
     }
 
-    if(!(parser.ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging))){
+    if(!(parser->ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging))){
         LoadStoreLogging = 0;
     }
-    if(!(parser.ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
+    if(!(parser->ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
         DirtyCacheHandling = 0;
     }
 
@@ -102,7 +103,7 @@ uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser parser
     
     string line;
     while (getline(CacheFile, line)){
-        if (parser.IsEmptyComment(line)){
+        if (parser->IsEmptyComment(line)){
             continue;
         }
         CacheStructureHandler* c = new CacheStructureHandler();

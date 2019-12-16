@@ -43,7 +43,7 @@ class AddressStreamTool {
     virtual ~AddressStreamTool();
     virtual void AddNewHandlers(AddressStreamStats* stats) = 0;
     virtual void AddNewStreamStats(AddressStreamStats* stats) = 0;
-    virtual uint32_t CreateHandlers(uint32_t, StringParser) = 0;
+    virtual uint32_t CreateHandlers(uint32_t, StringParser*) = 0;
     virtual void FinalizeTool(DataManager<AddressStreamStats*>*, 
       SamplingMethod*) = 0;
 };
