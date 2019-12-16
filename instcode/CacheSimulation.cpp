@@ -61,13 +61,13 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
     }
 }
 
-uint32_t CacheSimulationTool::CreateHandlers(uint32_t index){
+uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser parser){
     indexInStats = index;
   
     // FIXME --> Make part of class
 	// Can tinker with this at runtime using the environment variable
 	// METASIM_LIMIT_HIGH_ASSOC if desired.
-    StringParser parser;
+    //StringParser parser;
     uint32_t SaveHashMin = MinimumHighAssociativity;
     if (!(parser.ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
       &MinimumHighAssociativity))){

@@ -52,7 +52,7 @@ void ScatterGatherLengthTool::AddNewStreamStats(AddressStreamStats* stats) {
     stats->Stats[indexInStats] = new VectorLengthStats(stats->AllocCount);
 }
 
-uint32_t ScatterGatherLengthTool::CreateHandlers(uint32_t index) {
+uint32_t ScatterGatherLengthTool::CreateHandlers(uint32_t index, StringParser parser) {
     indexInStats = index;
     handlers.push_back(new VectorLengthHandler());
     return handlers.size();

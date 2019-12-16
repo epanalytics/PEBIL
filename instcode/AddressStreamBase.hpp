@@ -28,6 +28,7 @@
 template <class T> class DataManager;
 class MemoryStreamHandler;
 class SamplingMethod;
+class StringParser;
 
 #define KILO (1024)
 #define MEGA (KILO*KILO)
@@ -42,7 +43,7 @@ class AddressStreamTool {
     virtual ~AddressStreamTool();
     virtual void AddNewHandlers(AddressStreamStats* stats) = 0;
     virtual void AddNewStreamStats(AddressStreamStats* stats) = 0;
-    virtual uint32_t CreateHandlers(uint32_t) = 0;
+    virtual uint32_t CreateHandlers(uint32_t, StringParser) = 0;
     virtual void FinalizeTool(DataManager<AddressStreamStats*>*, 
       SamplingMethod*) = 0;
 };
