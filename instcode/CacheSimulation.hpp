@@ -69,6 +69,15 @@ struct LevelStats {
     uint64_t storeCount;
 };
 
+class IfStreamByteStream : public IByteStream {
+  public:
+    IfStreamByteStream(ifstream& stream) : stream(stream) {}
+    bool fail() override { return stream.fail(); }
+    bool getLine(string& line) override { return getline(stream, line); }
+  private:
+    ifstream stream;
+};
+
 class CacheSimulationTool : public AddressStreamTool {
   public:
     CacheSimulationTool() : AddressStreamTool() {}

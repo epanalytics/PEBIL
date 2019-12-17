@@ -94,6 +94,7 @@ uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* parse
 
     // read caches to simulate
     string cachedf = GetCacheDescriptionFile();
+    //IByteStream stream = GetIByteStream(cachedf);
     const char* cs = cachedf.c_str();
     ifstream CacheFile(cs);
     if (CacheFile.fail()){
