@@ -73,35 +73,39 @@ tree234 *newtree234(){
 }
 
 /*
- * Free a 2-3-4 tree (not including freeing the elements).
+ * Internal function: Frees given node and its subnodes
  */
-static void freenode234(node234 *n) {
+static void freenode234_internal(node234 *n) {
     if (!n)
-	return;
-    freenode234(n->kids[0]);
-    freenode234(n->kids[1]);
-    freenode234(n->kids[2]);
-    freenode234(n->kids[3]);
+	      return;
+    freenode234_internal(n->kids[0]);
+    freenode234_internal(n->kids[1]);
+    freenode234_internal(n->kids[2]);
+    freenode234_internal(n->kids[3]);
     sfree(n);
 }
+
+/*
+ * Free a 2-3-4 tree
+ */
 void freetree234(tree234 *t) {
-    freenode234(t->root);
+    freenode234_internal(t->root);
     sfree(t);
 }
 
 /*
  * Internal function to count a node.
  */
-static int countnode234(node234 *n) {
+static int countnode234_internal(node234 *n) {
     int count = 0;
     int i;
     if (!n)
-	return 0;
+	      return 0;
     for (i = 0; i < 4; i++)
-	count += n->counts[i];
+	      count += n->counts[i];
     for (i = 0; i < 3; i++)
-	if (n->elems[i])
-	    count++;
+	      if (n->elems[i])
+	          count++;
     return count;
 }
 
@@ -110,9 +114,9 @@ static int countnode234(node234 *n) {
  */
 int count234(tree234 *t) {
     if (t->root)
-	return countnode234(t->root);
+	      return countnode234_internal(t->root);
     else
-	return 0;
+	      return 0;
 }
 
 /*
@@ -126,84 +130,84 @@ static inline ReuseEntry* add234_internal(tree234 *t, ReuseEntry* e, int index) 
 
     LOG(("adding node %p to tree %p\n", e, t));
     if (t->root == NULL) {
-	t->root = mknew(node234);
-	t->root->elems[1] = t->root->elems[2] = NULL;
-	t->root->kids[0] = t->root->kids[1] = NULL;
-	t->root->kids[2] = t->root->kids[3] = NULL;
-	t->root->counts[0] = t->root->counts[1] = 0;
-	t->root->counts[2] = t->root->counts[3] = 0;
-	t->root->parent = NULL;
-	t->root->elems[0] = e;
-	LOG(("  created root %p\n", t->root));
-	return orig_e;
+      	t->root = mknew(node234);
+      	t->root->elems[1] = t->root->elems[2] = NULL;
+      	t->root->kids[0] = t->root->kids[1] = NULL;
+      	t->root->kids[2] = t->root->kids[3] = NULL;
+      	t->root->counts[0] = t->root->counts[1] = 0;
+      	t->root->counts[2] = t->root->counts[3] = 0;
+      	t->root->parent = NULL;
+      	t->root->elems[0] = e;
+      	LOG(("  created root %p\n", t->root));
+      	return orig_e;
     }
 
     np = &t->root;
     while (*np) {
-	int childnum;
-	n = *np;
-	LOG(("  node %p: %p/%d [%p] %p/%d [%p] %p/%d [%p] %p/%d\n",
-	     n,
-	     n->kids[0], n->counts[0], n->elems[0],
-	     n->kids[1], n->counts[1], n->elems[1],
-	     n->kids[2], n->counts[2], n->elems[2],
-	     n->kids[3], n->counts[3]));
-	if (index >= 0) {
-	    if (!n->kids[0]) {
-		/*
-		 * Leaf node. We want to insert at kid position
-		 * equal to the index:
-		 * 
-		 *   0 A 1 B 2 C 3
-		 */
-		childnum = index;
-	    } else {
-		/*
-		 * Internal node. We always descend through it (add
-		 * always starts at the bottom, never in the
-		 * middle).
-		 */
-		do { /* this is a do ... while (0) to allow `break' */
-		    if (index <= n->counts[0]) {
-			childnum = 0;
-			break;
-		    }
-		    index -= n->counts[0] + 1;
-		    if (index <= n->counts[1]) {
-			childnum = 1;
-			break;
-		    }
-		    index -= n->counts[1] + 1;
-		    if (index <= n->counts[2]) {
-			childnum = 2;
-			break;
-		    }
-		    index -= n->counts[2] + 1;
-		    if (index <= n->counts[3]) {
-			childnum = 3;
-			break;
-		    }
-		    return NULL;       /* error: index out of range */
-		} while (0);
-	    }
-	} else {
-	    if ((c = reusecmp(e, n->elems[0])) < 0)
-		childnum = 0;
-	    else if (c == 0)
-		return n->elems[0];	       /* already exists */
-	    else if (n->elems[1] == NULL || (c = reusecmp(e, n->elems[1])) < 0)
-		childnum = 1;
-	    else if (c == 0)
-		return n->elems[1];	       /* already exists */
-	    else if (n->elems[2] == NULL || (c = reusecmp(e, n->elems[2])) < 0)
-		childnum = 2;
-	    else if (c == 0)
-		return n->elems[2];	       /* already exists */
-	    else
-		childnum = 3;
-	}
-	np = &n->kids[childnum];
-	LOG(("  moving to child %d (%p)\n", childnum, *np));
+	      int childnum;
+	      n = *np;
+	      LOG(("  node %p: %p/%d [%p] %p/%d [%p] %p/%d [%p] %p/%d\n",
+	        n,
+	        n->kids[0], n->counts[0], n->elems[0],
+	        n->kids[1], n->counts[1], n->elems[1],
+	        n->kids[2], n->counts[2], n->elems[2],
+	        n->kids[3], n->counts[3]));
+	      if (index >= 0) {
+	          if (!n->kids[0]) {
+		            /*
+		             * Leaf node. We want to insert at kid position
+		             * equal to the index:
+		             * 
+		             *   0 A 1 B 2 C 3
+		             */
+		            childnum = index;
+	          } else {
+		            /*
+		             * Internal node. We always descend through it (add
+		             * always starts at the bottom, never in the
+		             * middle).
+		             */
+		            do { /* this is a do ... while (0) to allow `break' */
+		                if (index <= n->counts[0]) {
+		            	      childnum = 0;
+		            	      break;
+		                }
+		                index -= n->counts[0] + 1;
+		                if (index <= n->counts[1]) {
+		            	      childnum = 1;
+		            	      break;
+		                }
+		                index -= n->counts[1] + 1;
+		                if (index <= n->counts[2]) {
+		            	      childnum = 2;
+		            	      break;
+		                }
+		                index -= n->counts[2] + 1;
+		                if (index <= n->counts[3]) {
+		            	      childnum = 3;
+		            	      break;
+		                }
+		                return NULL;       /* error: index out of range */
+		            } while (0);
+	          }
+	      } else {
+	          if ((c = reusecmp(e, n->elems[0])) < 0)
+	      	      childnum = 0;
+	          else if (c == 0)
+	      	      return n->elems[0];	       /* already exists */
+	          else if (n->elems[1] == NULL || (c = reusecmp(e, n->elems[1])) < 0)
+	      	      childnum = 1;
+	          else if (c == 0)
+	      	      return n->elems[1];	       /* already exists */
+	          else if (n->elems[2] == NULL || (c = reusecmp(e, n->elems[2])) < 0)
+	      	      childnum = 2;
+	          else if (c == 0)
+	      	      return n->elems[2];	       /* already exists */
+	          else
+	      	      childnum = 3;
+	      }
+	      np = &n->kids[childnum];
+	      LOG(("  moving to child %d (%p)\n", childnum, *np));
     }
 
     /*
@@ -212,181 +216,181 @@ static inline ReuseEntry* add234_internal(tree234 *t, ReuseEntry* e, int index) 
     left = NULL;  lcount = 0;
     right = NULL; rcount = 0;
     while (n) {
-	LOG(("  at %p: %p/%d [%p] %p/%d [%p] %p/%d [%p] %p/%d\n",
-	     n,
-	     n->kids[0], n->counts[0], n->elems[0],
-	     n->kids[1], n->counts[1], n->elems[1],
-	     n->kids[2], n->counts[2], n->elems[2],
-	     n->kids[3], n->counts[3]));
-	LOG(("  need to insert %p/%d [%p] %p/%d at position %d\n",
-	     left, lcount, e, right, rcount, np - n->kids));
-	if (n->elems[1] == NULL) {
-	    /*
-	     * Insert in a 2-node; simple.
-	     */
-	    if (np == &n->kids[0]) {
-		LOG(("  inserting on left of 2-node\n"));
-		n->kids[2] = n->kids[1];     n->counts[2] = n->counts[1];
-		n->elems[1] = n->elems[0];
-		n->kids[1] = right;          n->counts[1] = rcount;
-		n->elems[0] = e;
-		n->kids[0] = left;           n->counts[0] = lcount;
-	    } else { /* np == &n->kids[1] */
-		LOG(("  inserting on right of 2-node\n"));
-		n->kids[2] = right;          n->counts[2] = rcount;
-		n->elems[1] = e;
-		n->kids[1] = left;           n->counts[1] = lcount;
-	    }
-	    if (n->kids[0]) n->kids[0]->parent = n;
-	    if (n->kids[1]) n->kids[1]->parent = n;
-	    if (n->kids[2]) n->kids[2]->parent = n;
-	    LOG(("  done\n"));
-	    break;
-	} else if (n->elems[2] == NULL) {
-	    /*
-	     * Insert in a 3-node; simple.
-	     */
-	    if (np == &n->kids[0]) {
-		LOG(("  inserting on left of 3-node\n"));
-		n->kids[3] = n->kids[2];    n->counts[3] = n->counts[2];
-		n->elems[2] = n->elems[1];
-		n->kids[2] = n->kids[1];    n->counts[2] = n->counts[1];
-		n->elems[1] = n->elems[0];
-		n->kids[1] = right;         n->counts[1] = rcount;
-		n->elems[0] = e;
-		n->kids[0] = left;          n->counts[0] = lcount;
-	    } else if (np == &n->kids[1]) {
-		LOG(("  inserting in middle of 3-node\n"));
-		n->kids[3] = n->kids[2];    n->counts[3] = n->counts[2];
-		n->elems[2] = n->elems[1];
-		n->kids[2] = right;         n->counts[2] = rcount;
-		n->elems[1] = e;
-		n->kids[1] = left;          n->counts[1] = lcount;
-	    } else { /* np == &n->kids[2] */
-		LOG(("  inserting on right of 3-node\n"));
-		n->kids[3] = right;         n->counts[3] = rcount;
-		n->elems[2] = e;
-		n->kids[2] = left;          n->counts[2] = lcount;
-	    }
-	    if (n->kids[0]) n->kids[0]->parent = n;
-	    if (n->kids[1]) n->kids[1]->parent = n;
-	    if (n->kids[2]) n->kids[2]->parent = n;
-	    if (n->kids[3]) n->kids[3]->parent = n;
-	    LOG(("  done\n"));
-	    break;
-	} else {
-	    node234 *m = mknew(node234);
-	    m->parent = n->parent;
-	    LOG(("  splitting a 4-node; created new node %p\n", m));
-	    /*
-	     * Insert in a 4-node; split into a 2-node and a
-	     * 3-node, and move focus up a level.
-	     * 
-	     * I don't think it matters which way round we put the
-	     * 2 and the 3. For simplicity, we'll put the 3 first
-	     * always.
-	     */
-	    if (np == &n->kids[0]) {
-		m->kids[0] = left;          m->counts[0] = lcount;
-		m->elems[0] = e;
-		m->kids[1] = right;         m->counts[1] = rcount;
-		m->elems[1] = n->elems[0];
-		m->kids[2] = n->kids[1];    m->counts[2] = n->counts[1];
-		e = n->elems[1];
-		n->kids[0] = n->kids[2];    n->counts[0] = n->counts[2];
-		n->elems[0] = n->elems[2];
-		n->kids[1] = n->kids[3];    n->counts[1] = n->counts[3];
-	    } else if (np == &n->kids[1]) {
-		m->kids[0] = n->kids[0];    m->counts[0] = n->counts[0];
-		m->elems[0] = n->elems[0];
-		m->kids[1] = left;          m->counts[1] = lcount;
-		m->elems[1] = e;
-		m->kids[2] = right;         m->counts[2] = rcount;
-		e = n->elems[1];
-		n->kids[0] = n->kids[2];    n->counts[0] = n->counts[2];
-		n->elems[0] = n->elems[2];
-		n->kids[1] = n->kids[3];    n->counts[1] = n->counts[3];
-	    } else if (np == &n->kids[2]) {
-		m->kids[0] = n->kids[0];    m->counts[0] = n->counts[0];
-		m->elems[0] = n->elems[0];
-		m->kids[1] = n->kids[1];    m->counts[1] = n->counts[1];
-		m->elems[1] = n->elems[1];
-		m->kids[2] = left;          m->counts[2] = lcount;
-		/* e = e; */
-		n->kids[0] = right;         n->counts[0] = rcount;
-		n->elems[0] = n->elems[2];
-		n->kids[1] = n->kids[3];    n->counts[1] = n->counts[3];
-	    } else { /* np == &n->kids[3] */
-		m->kids[0] = n->kids[0];    m->counts[0] = n->counts[0];
-		m->elems[0] = n->elems[0];
-		m->kids[1] = n->kids[1];    m->counts[1] = n->counts[1];
-		m->elems[1] = n->elems[1];
-		m->kids[2] = n->kids[2];    m->counts[2] = n->counts[2];
-		n->kids[0] = left;          n->counts[0] = lcount;
-		n->elems[0] = e;
-		n->kids[1] = right;         n->counts[1] = rcount;
-		e = n->elems[2];
-	    }
-	    m->kids[3] = n->kids[3] = n->kids[2] = NULL;
-	    m->counts[3] = n->counts[3] = n->counts[2] = 0;
-	    m->elems[2] = n->elems[2] = n->elems[1] = NULL;
-	    if (m->kids[0]) m->kids[0]->parent = m;
-	    if (m->kids[1]) m->kids[1]->parent = m;
-	    if (m->kids[2]) m->kids[2]->parent = m;
-	    if (n->kids[0]) n->kids[0]->parent = n;
-	    if (n->kids[1]) n->kids[1]->parent = n;
-	    LOG(("  left (%p): %p/%d [%p] %p/%d [%p] %p/%d\n", m,
-		 m->kids[0], m->counts[0], m->elems[0],
-		 m->kids[1], m->counts[1], m->elems[1],
-		 m->kids[2], m->counts[2]));
-	    LOG(("  right (%p): %p/%d [%p] %p/%d\n", n,
-		 n->kids[0], n->counts[0], n->elems[0],
-		 n->kids[1], n->counts[1]));
-	    left = m;  lcount = countnode234(left);
-	    right = n; rcount = countnode234(right);
-	}
-	if (n->parent)
-	    np = (n->parent->kids[0] == n ? &n->parent->kids[0] :
-		  n->parent->kids[1] == n ? &n->parent->kids[1] :
-		  n->parent->kids[2] == n ? &n->parent->kids[2] :
-		  &n->parent->kids[3]);
-	n = n->parent;
-    }
+        LOG(("  at %p: %p/%d [%p] %p/%d [%p] %p/%d [%p] %p/%d\n",
+          n,
+          n->kids[0], n->counts[0], n->elems[0],
+          n->kids[1], n->counts[1], n->elems[1],
+          n->kids[2], n->counts[2], n->elems[2],
+          n->kids[3], n->counts[3]));
+        LOG(("  need to insert %p/%d [%p] %p/%d at position %d\n",
+          left, lcount, e, right, rcount, np - n->kids));
+        if (n->elems[1] == NULL) {
+	          /*
+	           * Insert in a 2-node; simple.
+	           */
+	          if (np == &n->kids[0]) {
+                LOG(("  inserting on left of 2-node\n"));
+                n->kids[2] = n->kids[1];     n->counts[2] = n->counts[1];
+                n->elems[1] = n->elems[0];
+                n->kids[1] = right;          n->counts[1] = rcount;
+                n->elems[0] = e;
+                n->kids[0] = left;           n->counts[0] = lcount;
+            } else { /* np == &n->kids[1] */
+                LOG(("  inserting on right of 2-node\n"));
+                n->kids[2] = right;          n->counts[2] = rcount;
+                n->elems[1] = e;
+                n->kids[1] = left;           n->counts[1] = lcount;
+            }
+            if (n->kids[0]) n->kids[0]->parent = n;
+            if (n->kids[1]) n->kids[1]->parent = n;
+            if (n->kids[2]) n->kids[2]->parent = n;
+            LOG(("  done\n"));
+            break;
+        } else if (n->elems[2] == NULL) {
+            /*
+             * Insert in a 3-node; simple.
+             */
+            if (np == &n->kids[0]) {
+                LOG(("  inserting on left of 3-node\n"));
+                n->kids[3] = n->kids[2];    n->counts[3] = n->counts[2];
+                n->elems[2] = n->elems[1];
+                n->kids[2] = n->kids[1];    n->counts[2] = n->counts[1];
+                n->elems[1] = n->elems[0];
+                n->kids[1] = right;         n->counts[1] = rcount;
+                n->elems[0] = e;
+                n->kids[0] = left;          n->counts[0] = lcount;
+            } else if (np == &n->kids[1]) {
+                LOG(("  inserting in middle of 3-node\n"));
+                n->kids[3] = n->kids[2];    n->counts[3] = n->counts[2];
+                n->elems[2] = n->elems[1];
+                n->kids[2] = right;         n->counts[2] = rcount;
+                n->elems[1] = e;
+                n->kids[1] = left;          n->counts[1] = lcount;
+            } else { /* np == &n->kids[2] */
+                LOG(("  inserting on right of 3-node\n"));
+                n->kids[3] = right;         n->counts[3] = rcount;
+                n->elems[2] = e;
+                n->kids[2] = left;          n->counts[2] = lcount;
+            }
+            if (n->kids[0]) n->kids[0]->parent = n;
+            if (n->kids[1]) n->kids[1]->parent = n;
+            if (n->kids[2]) n->kids[2]->parent = n;
+            if (n->kids[3]) n->kids[3]->parent = n;
+            LOG(("  done\n"));
+            break;
+        } else {
+            node234 *m = mknew(node234);
+            m->parent = n->parent;
+            LOG(("  splitting a 4-node; created new node %p\n", m));
+            /*
+             * Insert in a 4-node; split into a 2-node and a
+             * 3-node, and move focus up a level.
+             * 
+             * I don't think it matters which way round we put the
+             * 2 and the 3. For simplicity, we'll put the 3 first
+             * always.
+             */
+            if (np == &n->kids[0]) {
+                m->kids[0] = left;          m->counts[0] = lcount;
+                m->elems[0] = e;
+                m->kids[1] = right;         m->counts[1] = rcount;
+                m->elems[1] = n->elems[0];
+                m->kids[2] = n->kids[1];    m->counts[2] = n->counts[1];
+                e = n->elems[1];
+                n->kids[0] = n->kids[2];    n->counts[0] = n->counts[2];
+                n->elems[0] = n->elems[2];
+                n->kids[1] = n->kids[3];    n->counts[1] = n->counts[3];
+            } else if (np == &n->kids[1]) {
+                m->kids[0] = n->kids[0];    m->counts[0] = n->counts[0];
+                m->elems[0] = n->elems[0];
+                m->kids[1] = left;          m->counts[1] = lcount;
+                m->elems[1] = e;
+                m->kids[2] = right;         m->counts[2] = rcount;
+                e = n->elems[1];
+                n->kids[0] = n->kids[2];    n->counts[0] = n->counts[2];
+                n->elems[0] = n->elems[2];
+                n->kids[1] = n->kids[3];    n->counts[1] = n->counts[3];
+            } else if (np == &n->kids[2]) {
+                m->kids[0] = n->kids[0];    m->counts[0] = n->counts[0];
+                m->elems[0] = n->elems[0];
+                m->kids[1] = n->kids[1];    m->counts[1] = n->counts[1];
+                m->elems[1] = n->elems[1];
+                m->kids[2] = left;          m->counts[2] = lcount;
+                /* e = e; */
+                n->kids[0] = right;         n->counts[0] = rcount;
+                n->elems[0] = n->elems[2];
+                n->kids[1] = n->kids[3];    n->counts[1] = n->counts[3];
+            } else { /* np == &n->kids[3] */
+                m->kids[0] = n->kids[0];    m->counts[0] = n->counts[0];
+                m->elems[0] = n->elems[0];
+                m->kids[1] = n->kids[1];    m->counts[1] = n->counts[1];
+                m->elems[1] = n->elems[1];
+                m->kids[2] = n->kids[2];    m->counts[2] = n->counts[2];
+                n->kids[0] = left;          n->counts[0] = lcount;
+                n->elems[0] = e;
+                n->kids[1] = right;         n->counts[1] = rcount;
+                e = n->elems[2];
+            }
+            m->kids[3] = n->kids[3] = n->kids[2] = NULL;
+            m->counts[3] = n->counts[3] = n->counts[2] = 0;
+            m->elems[2] = n->elems[2] = n->elems[1] = NULL;
+            if (m->kids[0]) m->kids[0]->parent = m;
+            if (m->kids[1]) m->kids[1]->parent = m;
+            if (m->kids[2]) m->kids[2]->parent = m;
+            if (n->kids[0]) n->kids[0]->parent = n;
+            if (n->kids[1]) n->kids[1]->parent = n;
+            LOG(("  left (%p): %p/%d [%p] %p/%d [%p] %p/%d\n", m,
+              m->kids[0], m->counts[0], m->elems[0],
+              m->kids[1], m->counts[1], m->elems[1],
+              m->kids[2], m->counts[2]));
+            LOG(("  right (%p): %p/%d [%p] %p/%d\n", n,
+              n->kids[0], n->counts[0], n->elems[0],
+              n->kids[1], n->counts[1]));
+            left = m;  lcount = countnode234_internal(left);
+            right = n; rcount = countnode234_internal(right);
+        }
+        if (n->parent)
+            np = (n->parent->kids[0] == n ? &n->parent->kids[0] :
+              n->parent->kids[1] == n ? &n->parent->kids[1] :
+              n->parent->kids[2] == n ? &n->parent->kids[2] :
+              &n->parent->kids[3]);
+            n = n->parent;
+        }
 
-    /*
-     * If we've come out of here by `break', n will still be
-     * non-NULL and all we need to do is go back up the tree
-     * updating counts. If we've come here because n is NULL, we
-     * need to create a new root for the tree because the old one
-     * has just split into two. */
-    if (n) {
-	while (n->parent) {
-	    int count = countnode234(n);
-	    int childnum;
-	    childnum = (n->parent->kids[0] == n ? 0 :
-			n->parent->kids[1] == n ? 1 :
-			n->parent->kids[2] == n ? 2 : 3);
-	    n->parent->counts[childnum] = count;
-	    n = n->parent;
-	}
-    } else {
-	LOG(("  root is overloaded, split into two\n"));
-	t->root = mknew(node234);
-	t->root->kids[0] = left;     t->root->counts[0] = lcount;
-	t->root->elems[0] = e;
-	t->root->kids[1] = right;    t->root->counts[1] = rcount;
-	t->root->elems[1] = NULL;
-	t->root->kids[2] = NULL;     t->root->counts[2] = 0;
-	t->root->elems[2] = NULL;
-	t->root->kids[3] = NULL;     t->root->counts[3] = 0;
-	t->root->parent = NULL;
-	if (t->root->kids[0]) t->root->kids[0]->parent = t->root;
-	if (t->root->kids[1]) t->root->kids[1]->parent = t->root;
-	LOG(("  new root is %p/%d [%p] %p/%d\n",
-	     t->root->kids[0], t->root->counts[0],
-	     t->root->elems[0],
-	     t->root->kids[1], t->root->counts[1]));
-    }
+        /*
+         * If we've come out of here by `break', n will still be
+         * non-NULL and all we need to do is go back up the tree
+         * updating counts. If we've come here because n is NULL, we
+         * need to create a new root for the tree because the old one
+         * has just split into two. */
+        if (n) {
+            while (n->parent) {
+                int count = countnode234_internal(n);
+                int childnum;
+                childnum = (n->parent->kids[0] == n ? 0 :
+                n->parent->kids[1] == n ? 1 :
+                n->parent->kids[2] == n ? 2 : 3);
+                n->parent->counts[childnum] = count;
+                n = n->parent;
+            }
+        } else {
+            LOG(("  root is overloaded, split into two\n"));
+            t->root = mknew(node234);
+            t->root->kids[0] = left;     t->root->counts[0] = lcount;
+            t->root->elems[0] = e;
+            t->root->kids[1] = right;    t->root->counts[1] = rcount;
+            t->root->elems[1] = NULL;
+            t->root->kids[2] = NULL;     t->root->counts[2] = 0;
+            t->root->elems[2] = NULL;
+            t->root->kids[3] = NULL;     t->root->counts[3] = 0;
+            t->root->parent = NULL;
+            if (t->root->kids[0]) t->root->kids[0]->parent = t->root;
+            if (t->root->kids[1]) t->root->kids[1]->parent = t->root;
+            LOG(("  new root is %p/%d [%p] %p/%d\n",
+              t->root->kids[0], t->root->counts[0],
+              t->root->elems[0],
+              t->root->kids[1], t->root->counts[1]));
+        }
 
     return orig_e;
 }
@@ -405,7 +409,7 @@ ReuseEntry* index234(tree234 *t, int index) {
     if (!t->root)
 	return NULL;		       /* tree is empty */
 
-    if (index < 0 || index >= countnode234(t->root))
+    if (index < 0 || index >= countnode234_internal(t->root))
 	return NULL;		       /* out of range */
 
     n = t->root;
@@ -570,12 +574,12 @@ static inline ReuseEntry* delpos234_internal(tree234 *t, int index) {
 		    sib->kids[lastelem+1] = NULL;
 		    sib->counts[lastelem+1] = 0;
 		    sib->elems[lastelem] = NULL;
-		    n->counts[ki] = countnode234(sub);
+		    n->counts[ki] = countnode234_internal(sub);
 		    LOG(("  case 3a left\n"));
 		    LOG(("  index and left subtree count before adjustment: %d, %d\n",
 			 index, n->counts[ki-1]));
 		    index += n->counts[ki-1];
-		    n->counts[ki-1] = countnode234(sib);
+		    n->counts[ki-1] = countnode234_internal(sib);
 		    index -= n->counts[ki-1];
 		    LOG(("  index and left subtree count after adjustment: %d, %d\n",
 			 index, n->counts[ki-1]));
@@ -607,8 +611,8 @@ static inline ReuseEntry* delpos234_internal(tree234 *t, int index) {
 		    sib->kids[j+1] = NULL;
 		    sib->counts[j+1] = 0;
 		    sib->elems[j] = NULL;
-		    n->counts[ki] = countnode234(sub);
-		    n->counts[ki+1] = countnode234(sib);
+		    n->counts[ki] = countnode234_internal(sub);
+		    n->counts[ki+1] = countnode234_internal(sib);
 		    LOG(("  case 3a right\n"));
 		} else {
 		    /*
@@ -654,7 +658,7 @@ static inline ReuseEntry* delpos234_internal(tree234 *t, int index) {
 		    sub->counts[0] = sib->counts[0];
 		    if (sub->kids[0]) sub->kids[0]->parent = sub;
 
-		    n->counts[ki+1] = countnode234(sub);
+		    n->counts[ki+1] = countnode234_internal(sub);
 
 		    sfree(sib);
 
@@ -793,7 +797,7 @@ static inline ReuseEntry* delpos234_internal(tree234 *t, int index) {
 	    a->counts[3] = b->counts[1];
 	    if (a->kids[3]) a->kids[3]->parent = a;
 	    sfree(b);
-	    n->counts[ei] = countnode234(a);
+	    n->counts[ei] = countnode234_internal(a);
 	    /*
 	     * That's built the big node in a, and destroyed b. Now
 	     * remove the reference to b (and e) in n.
@@ -828,7 +832,7 @@ static inline ReuseEntry* delpos234_internal(tree234 *t, int index) {
 }
 
 ReuseEntry* delpos234(tree234 *t, int index) {
-    if (index < 0 || index >= countnode234(t->root))
+    if (index < 0 || index >= countnode234_internal(t->root))
 	return NULL;
     return delpos234_internal(t, index);
 }

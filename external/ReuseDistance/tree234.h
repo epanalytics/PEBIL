@@ -43,9 +43,14 @@ typedef struct tree234_Tag tree234;
 tree234 *newtree234();
 
 /*
- * Free a 2-3-4 tree (not including freeing the elements).
+ * Free a 2-3-4 and its elements
  */
 void freetree234(tree234 *t);
+
+/*
+ * Return the total element count of a tree234.
+ */
+int count234(tree234 *t);
 
 /*
  * Add an element e to a sorted 2-3-4 tree t. Returns e on success,
@@ -144,10 +149,5 @@ ReuseEntry* findrelpos234(tree234 *t, ReuseEntry* e, int *index);
  */
 ReuseEntry* del234(tree234 *t, ReuseEntry* e);
 ReuseEntry* delpos234(tree234 *t, int index);
-
-/*
- * Return the total element count of a tree234.
- */
-int count234(tree234 *t);
 
 #endif /* TREE234_H */

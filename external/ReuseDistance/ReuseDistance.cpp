@@ -43,7 +43,7 @@ using namespace std;
 //#define REUSE_TIME 1
 
 static double timerValues[7] = {0, 0, 0, 0, 0, 0, 0};
-static string timerNames[7] = {"Process Tree", "Total Process", "Process Update", "Process Slot", "Add Slot", "New Slot", "Old Slot"};
+static string timerNames[7] = {"Find Pos Tree", "Total Process", "Process Update", "Process Slot", "Add Slot", "New Slot", "Old Slot"};
 
 inline uint64_t read_timestamp_counter() {
     unsigned low, high;
@@ -100,6 +100,8 @@ void ReuseDistance::Init(uint64_t w, uint64_t b){
     window = newtree234();
     assert(window);
     mwindow.clear();
+// TODO: Does adding reserve help improve hash table?
+    mwindow.reserve(1000000);
 //    LRUDistanceAnalyzer::Init(); // Does this need a protection mechanism?
     assert(ReuseDistance::Infinity == NULL && "NULL is non-zero!?");
 }
@@ -243,7 +245,7 @@ void ReuseDistance::Print(ostream& f, bool annotate){
     }
     */
 
-//    profile_report(PROCESS_TREE_TIME);
+    profile_report(PROCESS_TREE_TIME);
 //    profile_report(PROCESS_UPDATE_TIME);
     profile_report(NEW_SLOT_TIME);
     profile_report(FIND_SLOT_TIME);
@@ -278,7 +280,7 @@ void ReuseDistance::PrintFormat(ostream& f){
 }
 
 void ReuseDistance::Process(ReuseEntry& r){
-    //profile_declare(PROCESS_TREE_TIME);
+    profile_declare(PROCESS_TREE_TIME);
     profile_declare(PROCESS_TIME);
     //profile_declare(PROCESS_UPDATE_TIME);
     profile_declare(NEW_SLOT_TIME);
@@ -302,9 +304,9 @@ void ReuseDistance::Process(ReuseEntry& r){
         ReuseEntry key;
         key.address = addr;
         key.__seq = mres;
-//        profile_start(PROCESS_TREE_TIME);
+        profile_start(PROCESS_TREE_TIME);
         result = findrelpos234(window, &key, &dist);
-//        profile_end(PROCESS_TREE_TIME);
+        profile_end(PROCESS_TREE_TIME);
 
         debug_assert(result);
 
@@ -320,14 +322,14 @@ void ReuseDistance::Process(ReuseEntry& r){
     profile_start(PROCESS_SLOT_TIME);
     ReuseEntry* slot = NULL;
     if (mres || (capacity != ReuseDistance::Infinity && current >= capacity)) {
-        profile_start(FIND_SLOT_TIME);
 //        profile_start(PROCESS_TREE_TIME);
+        profile_start(FIND_SLOT_TIME);
         slot = (ReuseEntry*)delpos234(window, dist);
+        profile_end(FIND_SLOT_TIME);
 //        profile_end(PROCESS_TREE_TIME);
         debug_assert(mwindow[slot->address]);
         mwindow.erase(slot->address);
         debug_assert(count234(window) == mwindow.size());
-        profile_end(FIND_SLOT_TIME);
     } else {
         slot = new ReuseEntry();
         current++;
