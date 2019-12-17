@@ -69,13 +69,22 @@ struct LevelStats {
     uint64_t storeCount;
 };
 
+class IByteStream {
+  public:
+    virtual ~IByteStream() = default;
+    virtual bool fail() = 0;
+    virtual std::istream& getLine(std::string& line) = 0;
+};
+
 class IfStreamByteStream : public IByteStream {
   public:
-    IfStreamByteStream(ifstream& stream) : stream(stream) {}
-    bool fail() override { return stream.fail(); }
-    bool getLine(string& line) override { return getline(stream, line); }
-  private:
-    ifstream stream;
+    IfStreamByteStream(std::ifstream& stream) : internalStream(stream) {}
+    virtual bool fail() override { return internalStream.fail(); }
+    virtual std::istream& getLine(std::string& line) override { 
+        return getline(internalStream, line); 
+    }
+  protected:
+    std::ifstream &internalStream;
 };
 
 class CacheSimulationTool : public AddressStreamTool {
@@ -88,6 +97,9 @@ class CacheSimulationTool : public AddressStreamTool {
       SamplingMethod* Sampler);
     void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
 
+    const char* HandleEnvVariables(uint32_t index, StringParser* parser, std::string& cachedf);
+    uint32_t ReadCacheDescription(
+      IfStreamByteStream stream, StringParser* parser, std::string& cachedf);
     std::string GetCacheDescriptionFile();
 
   protected:

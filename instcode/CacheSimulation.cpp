@@ -42,6 +42,10 @@
 
 using namespace std;
 
+/*IfStreamByteStream::IfStreamByteStream(ifstream& stream){
+    internalStream = stream;
+}*/
+
 void CacheSimulationTool::AddNewHandlers(AddressStreamStats* stats) {
     for (uint32_t i = 0; i < handlers.size(); i++) {
         CacheStructureHandler* oldHandler = (CacheStructureHandler*)(
@@ -61,7 +65,8 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
     }
 }
 
-uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* parser){
+const char* CacheSimulationTool::HandleEnvVariables(
+  uint32_t index, StringParser* parser, string& cachedf){
     indexInStats = index;
   
     // FIXME --> Make part of class
@@ -93,17 +98,19 @@ uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* parse
       << DirtyCacheHandling << ENDL;
 
     // read caches to simulate
-    string cachedf = GetCacheDescriptionFile();
-    //IByteStream stream = GetIByteStream(cachedf);
-    const char* cs = cachedf.c_str();
-    ifstream CacheFile(cs);
-    if (CacheFile.fail()){
+    cachedf = GetCacheDescriptionFile();
+    return cachedf.c_str();
+}
+
+uint32_t CacheSimulationTool::ReadCacheDescription(
+  IfStreamByteStream stream, StringParser* parser, string& cachedf){
+    if (stream.fail()){
         ErrorExit("cannot open cache descriptions file: " << cachedf, 
           MetasimError_FileOp);
     }
     
     string line;
-    while (getline(CacheFile, line)){
+    while (stream.getLine(line)){
         if (parser->IsEmptyComment(line)){
             continue;
         }
@@ -119,6 +126,17 @@ uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* parse
     assert(CountCacheStructures > 0 && "No cache structures found for "
       "simulation");
     return handlers.size();
+}
+
+uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* parser){
+    string cachedf;
+    const char* cs = HandleEnvVariables(index, parser, cachedf);
+
+    ifstream CacheFile(cs);
+    IfStreamByteStream stream = IfStreamByteStream(CacheFile);
+    uint32_t retSize = ReadCacheDescription(stream, parser, cachedf);
+
+    return retSize;
 }
 
 

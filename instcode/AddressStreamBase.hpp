@@ -29,7 +29,6 @@ template <class T> class DataManager;
 class MemoryStreamHandler;
 class SamplingMethod;
 class StringParser;
-class IByteStream;
 
 #define KILO (1024)
 #define MEGA (KILO*KILO)
@@ -128,13 +127,6 @@ class Randomizer {
     virtual ~Randomizer() {}    
 
     virtual uint32_t RandomInt(uint32_t max);
-};
-
-class IByteStream {
-  public:
-    virtual ~IByteStream() = default;
-    virtual bool fail() = 0;
-    virtual bool getLine(string& line) = 0;
 };
 
 #endif /* _AddressStreamBase_hpp_ */
