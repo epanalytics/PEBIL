@@ -73,18 +73,17 @@ class IByteStream {
   public:
     virtual ~IByteStream() = default;
     virtual bool fail() = 0;
-    virtual std::istream& getLine(std::string& line) = 0;
+    virtual std::istream* getLine(std::string& line) = 0;
 };
 
 class IfStreamByteStream : public IByteStream {
   public:
     IfStreamByteStream(std::ifstream& stream) : internalStream(stream) {}
     virtual bool fail() override { return internalStream.fail(); }
-    virtual std::istream& getLine(std::string& line) override { 
-        return getline(internalStream, line); 
-    }
+    virtual std::istream* getLine(std::string& line) override;
+
   protected:
-    std::ifstream &internalStream;
+    std::ifstream& internalStream;
 };
 
 class CacheSimulationTool : public AddressStreamTool {

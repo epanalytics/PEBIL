@@ -42,9 +42,12 @@
 
 using namespace std;
 
-/*IfStreamByteStream::IfStreamByteStream(ifstream& stream){
-    internalStream = stream;
-}*/
+std::istream* IfStreamByteStream::getLine(std::string& line){
+    std::istream& val = std::getline(internalStream, line);
+    std::istream* toRet;
+    toRet = &val;
+    return toRet;
+}
 
 void CacheSimulationTool::AddNewHandlers(AddressStreamStats* stats) {
     for (uint32_t i = 0; i < handlers.size(); i++) {
