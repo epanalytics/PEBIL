@@ -113,7 +113,7 @@ uint32_t CacheSimulationTool::ReadCacheDescription(
     }
     
     string line;
-    while (stream.getLine(line)){
+    while (*(stream.getLine(line))){
         if (parser->IsEmptyComment(line)){
             continue;
         }
