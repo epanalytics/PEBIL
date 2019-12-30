@@ -79,7 +79,7 @@ class IByteStream {
 class IfStreamByteStream : public IByteStream {
   public:
     IfStreamByteStream(std::ifstream& stream) : internalStream(stream) {}
-    virtual bool fail() override { return internalStream.fail(); }
+    virtual bool fail() override; 
     virtual std::istream* getLine(std::string& line) override;
 
   protected:
@@ -98,7 +98,7 @@ class CacheSimulationTool : public AddressStreamTool {
 
     const char* HandleEnvVariables(uint32_t index, StringParser* parser, std::string& cachedf);
     uint32_t ReadCacheDescription(
-      IfStreamByteStream stream, StringParser* parser, std::string& cachedf);
+      std::istream& stream, StringParser* parser, std::string& cachedf);
     std::string GetCacheDescriptionFile();
 
   protected:

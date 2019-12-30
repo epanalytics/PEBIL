@@ -42,6 +42,10 @@
 
 using namespace std;
 
+bool IfStreamByteStream::fail(){ 
+    return internalStream.fail(); 
+}
+
 std::istream* IfStreamByteStream::getLine(std::string& line){
     std::istream& val = std::getline(internalStream, line);
     std::istream* toRet;
@@ -106,14 +110,15 @@ const char* CacheSimulationTool::HandleEnvVariables(
 }
 
 uint32_t CacheSimulationTool::ReadCacheDescription(
-  IfStreamByteStream stream, StringParser* parser, string& cachedf){
-    if (stream.fail()){
+  std::istream& stream, StringParser* parser, string& cachedf){
+    bool streamResult = stream.fail();
+    if (streamResult){
         ErrorExit("cannot open cache descriptions file: " << cachedf, 
           MetasimError_FileOp);
     }
     
     string line;
-    while (*(stream.getLine(line))){
+    while (std::getline(stream, line)){
         if (parser->IsEmptyComment(line)){
             continue;
         }
@@ -136,8 +141,8 @@ uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* parse
     const char* cs = HandleEnvVariables(index, parser, cachedf);
 
     ifstream CacheFile(cs);
-    IfStreamByteStream stream = IfStreamByteStream(CacheFile);
-    uint32_t retSize = ReadCacheDescription(stream, parser, cachedf);
+    //IfStreamByteStream stream = IfStreamByteStream(CacheFile);
+    uint32_t retSize = ReadCacheDescription(CacheFile, parser, cachedf);
 
     return retSize;
 }
