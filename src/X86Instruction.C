@@ -1053,7 +1053,7 @@ bool OperandX86::isSameOperand(OperandX86* other){
 
 OperandX86* X86Instruction::getDestOperand(){
     // compares and branches dont define anything
-    if (isConditionCompare() || isBranch() || CHECK_IMPLICIT_STORE){
+    if (isConditionCompare() || isBranch() || isCall() || CHECK_IMPLICIT_STORE){
         return NULL;
     }
     return operands[DEST_OPERAND];
