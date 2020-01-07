@@ -69,7 +69,7 @@ struct LevelStats {
     uint64_t storeCount;
 };
 
-class IByteStream {
+/*class IByteStream {
   public:
     virtual ~IByteStream() = default;
     virtual bool fail() = 0;
@@ -84,7 +84,7 @@ class IfStreamByteStream : public IByteStream {
 
   protected:
     std::ifstream& internalStream;
-};
+}; */
 
 class CacheSimulationTool : public AddressStreamTool {
   public:
