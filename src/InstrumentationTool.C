@@ -1668,14 +1668,6 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
   FILE* staticFD = fopen(staticFile, "w");
   delete[] staticFile;
   
-  //char* debugFile = "problemInstructions";
-  //FILE* debugFD = fopen(debugFile, "w");
-  
-  //char* vectorInstructions = "vectorInstructions";
-  //FILE* vectorFD = fopen(vectorInstructions, "w");
-  
-  //FILE* skippedFD = fopen("nonVecInstructions", "w");
-  
   TextSection* text = getDotTextSection();
   
   fprintf(staticFD, "# appname   = %s\n", getApplicationName());
