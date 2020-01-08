@@ -153,6 +153,9 @@ bool MemoryStreamHandler::UnLock(){
     return (pthread_mutex_unlock(&mlock) == 0);
 }
 
+char* StringParser::GetEnv(const char* variable){
+	return getenv(variable);
+}
 
 bool StringParser::IsEmptyComment(string str){
     if (str == ""){

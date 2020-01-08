@@ -79,7 +79,7 @@ class CacheSimulationTool : public AddressStreamTool {
       SamplingMethod* Sampler);
     void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
 
-    std::string GetCacheDescriptionFile();
+    std::string GetCacheDescriptionFile(StringParser* parser);
     const char* HandleEnvVariables(uint32_t index, StringParser* parser, 
       std::string& cachedf);
     uint32_t ReadCacheDescription(std::istream& stream, StringParser* parser,

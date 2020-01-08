@@ -114,6 +114,7 @@ class StringParser {
     StringParser() {};
     virtual ~StringParser() {};
 
+	virtual char* GetEnv(const char* var);
     virtual bool IsEmptyComment(std::string str);
     virtual bool ParseInt32(std::string token, int32_t* value, int32_t min);
     virtual bool ParsePositiveInt32(std::string token, uint32_t* value);

@@ -449,8 +449,8 @@ void CacheSimulationTool::CacheSimulationFileName(AddressStreamStats* stats,
     oFile.append("cachesim");
 }
 
-string CacheSimulationTool::GetCacheDescriptionFile(){
-    char* e = getenv("METASIM_CACHE_DESCRIPTIONS");
+string CacheSimulationTool::GetCacheDescriptionFile(StringParser* parser){
+    char* e = parser->GetEnv("METASIM_CACHE_DESCRIPTIONS");
     string knobvalue;
 
     if (e != NULL){
@@ -504,7 +504,7 @@ const char* CacheSimulationTool::HandleEnvVariables(uint32_t index,
       << DirtyCacheHandling << ENDL;
 
     // read caches to simulate
-    cachedf = GetCacheDescriptionFile();
+    cachedf = GetCacheDescriptionFile(parser);
     return cachedf.c_str();
 }
 
