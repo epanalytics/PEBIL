@@ -42,7 +42,7 @@
 
 using namespace std;
 
-bool IfStreamByteStream::fail(){ 
+/*bool IfStreamByteStream::fail(){ 
     return internalStream.fail(); 
 }
 
@@ -51,7 +51,7 @@ std::istream* IfStreamByteStream::getLine(std::string& line){
     std::istream* toRet;
     toRet = &val;
     return toRet;
-}
+}*/
 
 void CacheSimulationTool::AddNewHandlers(AddressStreamStats* stats) {
     for (uint32_t i = 0; i < handlers.size(); i++) {

@@ -1053,7 +1053,7 @@ bool OperandX86::isSameOperand(OperandX86* other){
 
 OperandX86* X86Instruction::getDestOperand(){
     // compares and branches dont define anything
-    if (isConditionCompare() || isBranch() || CHECK_IMPLICIT_STORE){
+    if (isConditionCompare() || isBranch() || isCall() || CHECK_IMPLICIT_STORE){
         return NULL;
     }
     return operands[DEST_OPERAND];
@@ -2803,6 +2803,7 @@ void X86InstructionClassifier::generateTable(){
     }
 
     //               mnemonic,     type      bin  fmt msize  mloc        eSize
+    // fmt == X86OperandFormat
     mkclass(           3dnow,  special,   other,   0,    0,    0,          0)
     mkclass(             aaa,      int,   other,   0,    0,    0,          0)
     mkclass(             aad,      int,   other,   0,    0,    0,          0)
@@ -3014,9 +3015,10 @@ void X86InstructionClassifier::generateTable(){
     mkclass(          fucomp,    float,   float,   0, VRSZ,    0,          0)
     mkclass(         fucompp,    float,   float,   0, VRSZ,    0,          0)
     mkclass(            fxam,    float,   float,   0, VRSZ,    0,          0)
-    mkclass(            fxch,     move,    move,  di, VRSZ,    0,          0)
-    mkclass(           fxch4,     move,    move,  di, VRSZ,    0,          0)
-    mkclass(           fxch7,     move,    move,  di, VRSZ,    0,          0)
+    // fxch: FPU stack is a register stack (not mem) so it acts on regs
+    mkclass(            fxch,     move,    move,  0,  VRSZ,    0,          0)
+    mkclass(           fxch4,     move,    move,  0,  VRSZ,    0,          0)
+    mkclass(           fxch7,     move,    move,  0,  VRSZ,    0,          0)
     mkclass(         fxrstor,  special,   stack,   0,    0,    BinFrame,   0)
     mkclass(          fxsave,  special,   stack,   0,    0,    BinFrame,   0)
     mkclass(           fyl2x,    float,   float,   0, VRSZ,    0,          0)
