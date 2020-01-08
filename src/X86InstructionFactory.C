@@ -836,6 +836,7 @@ X86Instruction* X86InstructionFactory32::emitMoveSegmentRegToReg(uint32_t src, u
 }
 
 // impAddrFlag is for implicit addresses that have more than one memory operand
+// Also used for push/pop instructions to know which memory operation to load
 // 1 -> the LOADED address
 // 0 -> the STORED address
 // Unused for any other instruction
@@ -849,11 +850,21 @@ Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Inst
       PRINT_DEBUG_LOADADDR("---");
     )
 
+    bool doImplicitOperation = false;
+    // If a push instruction but doing a STORE, then lea the implicit operation
+    if (instruction->isStackPush() && impAddrFlag == 0) {
+        doImplicitOperation = true;
+    }
+    // If a pop instruction but doing a LOAD, then lea the implicit operation
+    if (instruction->isStackPop() && impAddrFlag == 1) {
+        doImplicitOperation = true;
+    }
+
     Vector<X86Instruction*>* compInstructions = new Vector<X86Instruction*>();
     OperandX86* op = NULL;
 
-    if (instruction->isExplicitMemoryOperation() || 
-      instruction->isSoftwarePrefetch()){
+    if ((instruction->isExplicitMemoryOperation() || 
+      instruction->isSoftwarePrefetch()) && !doImplicitOperation){
 
         op = instruction->getMemoryOperand();
 
