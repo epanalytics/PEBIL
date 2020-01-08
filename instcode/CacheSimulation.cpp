@@ -61,76 +61,12 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
     }
 }
 
-const char* CacheSimulationTool::HandleEnvVariables(
-  uint32_t index, StringParser* parser, string& cachedf){
-    indexInStats = index;
-  
-    // FIXME --> Make part of class
-	// Can tinker with this at runtime using the environment variable
-	// METASIM_LIMIT_HIGH_ASSOC if desired.
-    //StringParser parser;
-    uint32_t SaveHashMin = MinimumHighAssociativity;
-    bool flag = (parser->ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
-      &MinimumHighAssociativity));
-    if (!flag){
-        MinimumHighAssociativity = SaveHashMin;
-    }
-
-    if(!(parser->ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging))){
-        LoadStoreLogging = 0;
-    }
-    if(!(parser->ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
-        DirtyCacheHandling = 0;
-    }
-
-    if(DirtyCacheHandling){
-        if(!LoadStoreLogging){
-            ErrorExit(" DirtyCacheHandling is enabled without LoadStoreLogging "
-              ,MetasimError_FileOp);
-        }
-    }
-
-    inform << " LoadStoreLogging " << LoadStoreLogging << " DirtyCacheHandling "
-      << DirtyCacheHandling << ENDL;
-
-    // read caches to simulate
-    cachedf = GetCacheDescriptionFile();
-    return cachedf.c_str();
-}
-
-uint32_t CacheSimulationTool::ReadCacheDescription(
-  std::istream& stream, StringParser* parser, string& cachedf){
-    bool streamResult = stream.fail();
-    if (streamResult){
-        ErrorExit("cannot open cache descriptions file: " << cachedf, 
-          MetasimError_FileOp);
-    }
-    
-    string line;
-    while (std::getline(stream, line)){
-        if (parser->IsEmptyComment(line)){
-            continue;
-        }
-        CacheStructureHandler* c = new CacheStructureHandler();
-        if (!c->Init(line, MinimumHighAssociativity, LoadStoreLogging, DirtyCacheHandling)){
-            ErrorExit("cannot parse cache description line: " << line, 
-              MetasimError_StringParse);
-        }
-        assert(!(c->hybridCache) && "Hybrid cache deprecated");
-        handlers.push_back(c);
-    }
-    uint32_t CountCacheStructures = handlers.size();
-    assert(CountCacheStructures > 0 && "No cache structures found for "
-      "simulation");
-    return handlers.size();
-}
-
-uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* parser){
+uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* 
+  parser){
     string cachedf;
     const char* cs = HandleEnvVariables(index, parser, cachedf);
 
     ifstream CacheFile(cs);
-    //IfStreamByteStream stream = IfStreamByteStream(CacheFile);
     uint32_t retSize = ReadCacheDescription(CacheFile, parser, cachedf);
 
     return retSize;
@@ -535,6 +471,68 @@ string CacheSimulationTool::GetCacheDescriptionFile(){
         return str;
     }
     return knobvalue;
+}
+
+const char* CacheSimulationTool::HandleEnvVariables(uint32_t index, 
+  StringParser* parser, string& cachedf){
+    indexInStats = index;
+  
+    // Can tinker with this at runtime using the environment variable
+    // METASIM_LIMIT_HIGH_ASSOC if desired.
+    uint32_t SaveHashMin = MinimumHighAssociativity;
+    bool flag = (parser->ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
+      &MinimumHighAssociativity));
+    if (!flag){
+        MinimumHighAssociativity = SaveHashMin;
+    }
+
+    if(!(parser->ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging))){
+        LoadStoreLogging = 0;
+    }
+    if(!(parser->ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
+        DirtyCacheHandling = 0;
+    }
+
+    if(DirtyCacheHandling){
+        if(!LoadStoreLogging){
+            ErrorExit(" DirtyCacheHandling is enabled without LoadStoreLogging "
+              ,MetasimError_FileOp);
+        }
+    }
+
+    inform << " LoadStoreLogging " << LoadStoreLogging << " DirtyCacheHandling "
+      << DirtyCacheHandling << ENDL;
+
+    // read caches to simulate
+    cachedf = GetCacheDescriptionFile();
+    return cachedf.c_str();
+}
+
+uint32_t CacheSimulationTool::ReadCacheDescription(istream& stream, 
+  StringParser* parser, string& cachedf){
+    bool streamResult = stream.fail();
+    if (streamResult){
+        ErrorExit("cannot open cache descriptions file: " << cachedf, 
+          MetasimError_FileOp);
+    }
+    
+    string line;
+    while (getline(stream, line)){
+        if (parser->IsEmptyComment(line)){
+            continue;
+        }
+        CacheStructureHandler* c = new CacheStructureHandler();
+        if (!c->Init(line, MinimumHighAssociativity, LoadStoreLogging, DirtyCacheHandling)){
+            ErrorExit("cannot parse cache description line: " << line, 
+              MetasimError_StringParse);
+        }
+        assert(!(c->hybridCache) && "Hybrid cache deprecated");
+        handlers.push_back(c);
+    }
+    uint32_t CountCacheStructures = handlers.size();
+    assert(CountCacheStructures > 0 && "No cache structures found for "
+      "simulation");
+    return handlers.size();
 }
 
 CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, 
