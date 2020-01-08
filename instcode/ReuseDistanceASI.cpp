@@ -53,7 +53,6 @@ void ReuseDistanceTool::AddNewStreamStats(AddressStreamStats* stats) {
 uint32_t ReuseDistanceTool::CreateHandlers(uint32_t index, StringParser* parser) {
     indexInStats = index;
 
-    //StringParser parser;
     uint32_t reuseWindow;
     uint32_t reuseBin;
     if (!(parser->ReadEnvUint32("METASIM_REUSE_WINDOW", &reuseWindow))) {

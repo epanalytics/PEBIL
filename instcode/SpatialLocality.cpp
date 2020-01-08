@@ -45,7 +45,6 @@ void SpatialLocalityTool::AddNewStreamStats(AddressStreamStats* stats) {
 uint32_t SpatialLocalityTool::CreateHandlers(uint32_t index, StringParser* parser) {
     indexInStats = index;
 
-    //StringParser parser;
     uint32_t spatialWindow;
     uint32_t spatialBin;
     uint32_t spatialNMAX;
