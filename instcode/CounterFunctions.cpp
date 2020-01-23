@@ -38,8 +38,8 @@
 
 using namespace std;
 
-DataManager<CounterArray*>* AllData = NULL;
-DynamicInstrumentation* DynamicPoints = NULL;
+static DataManager<CounterArray*>* AllData = NULL;
+static DynamicInstrumentation* DynamicPoints = NULL;
 
 void print_loop_array(FILE* stream, CounterArray* ctrs){
     if (ctrs == NULL){
