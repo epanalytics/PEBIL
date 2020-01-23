@@ -195,7 +195,7 @@ protected:
 public:
     std::vector<uint64_t>* toEvictAddresses;
     CacheLevel();
-    ~CacheLevel();
+    virtual ~CacheLevel();
 
     bool IsExclusive() { return (type == CacheLevelType_ExclusiveLowassoc || 
       type == CacheLevelType_ExclusiveHighassoc); }
