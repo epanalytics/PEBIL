@@ -41,7 +41,7 @@ void AddressRangeTool::AddNewStreamStats(AddressStreamStats* stats) {
     stats->Stats[indexInStats] = new RangeStats(stats->AllocCount);
 }
 
-uint32_t AddressRangeTool::CreateHandlers(uint32_t index) {
+uint32_t AddressRangeTool::CreateHandlers(uint32_t index, StringParser* parser) {
     indexInStats = index;
     handlers.push_back(new AddressRangeHandler());
     return handlers.size();

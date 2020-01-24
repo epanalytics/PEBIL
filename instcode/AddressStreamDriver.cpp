@@ -503,8 +503,9 @@ void AddressStreamDriver::SetUpTools() {
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 
       tools->end(); it++) {
         AddressStreamTool* currentTool = (*it);
+        StringParser parser;
         uint32_t handlersAdded = currentTool->CreateHandlers(
-          GetNumMemoryHandlers());
+          GetNumMemoryHandlers(), &parser);
         assert(handlersAdded > 0);
         numMemoryHandlers += handlersAdded;
     }

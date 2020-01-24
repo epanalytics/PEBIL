@@ -74,12 +74,16 @@ class CacheSimulationTool : public AddressStreamTool {
     CacheSimulationTool() : AddressStreamTool() {}
     virtual void AddNewHandlers(AddressStreamStats* stats);
     virtual void AddNewStreamStats(AddressStreamStats* stats);
-    virtual uint32_t CreateHandlers(uint32_t index);
+    virtual uint32_t CreateHandlers(uint32_t index, StringParser* parser);
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
       SamplingMethod* Sampler);
     void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
 
-    std::string GetCacheDescriptionFile();
+    std::string GetCacheDescriptionFile(StringParser* parser);
+    const char* HandleEnvVariables(uint32_t index, StringParser* parser, 
+      std::string& cachedf);
+    uint32_t ReadCacheDescription(std::istream& stream, StringParser* parser,
+      std::string& cachedf);
 
   protected:
     uint32_t MinimumHighAssociativity = 256;
@@ -183,17 +187,17 @@ protected:
     uint32_t countsets;
     uint32_t linesizeBits;
 
-    uint64_t** contents;
-    bool**  dirtystatus;
-    uint32_t* recentlyUsed;
-    history** historyUsed;
+    uint64_t** contents = nullptr;
+    bool**  dirtystatus = nullptr;
+    uint32_t* recentlyUsed = nullptr;
+    history** historyUsed = nullptr;
     bool toEvict;
 
 	uint32_t loadStoreLogging;
 	uint32_t dirtyCacheHandling;
 
 public:
-    std::vector<uint64_t>* toEvictAddresses;
+    std::vector<uint64_t>* toEvictAddresses = nullptr;
     CacheLevel();
     virtual ~CacheLevel();
 
@@ -203,15 +207,15 @@ public:
     uint32_t GetLevelCount() { return levelCount;}
     uint32_t SetLevelCount(uint32_t inpLevelCount) { return levelCount = 
       inpLevelCount; }
-    CacheLevelType GetType() { return type; }
+    virtual CacheLevelType GetType() { return type; }
     ReplacementPolicy GetReplacementPolicy() { return replpolicy; }
-    uint32_t GetLevel() { return level; }
-    uint32_t GetSizeInBytes() { return size; }
-    uint32_t GetAssociativity() { return associativity; }
-    uint32_t GetSetCount() { return countsets; }
-    uint32_t GetLineSize() { return linesize; }
-	uint32_t GetLoadStoreLog() { return loadStoreLogging; }
-	uint32_t GetDirtyCacheHandle() { return dirtyCacheHandling; }
+    virtual uint32_t GetLevel() { return level; }
+    virtual uint32_t GetSizeInBytes() { return size; }
+    virtual uint32_t GetAssociativity() { return associativity; }
+    virtual uint32_t GetSetCount() { return countsets; }
+    virtual uint32_t GetLineSize() { return linesize; }
+	virtual uint32_t GetLoadStoreLog() { return loadStoreLogging; }
+	virtual uint32_t GetDirtyCacheHandle() { return dirtyCacheHandling; }
     uint64_t CountColdMisses();
 
     void Print(std::ofstream& f, uint32_t sysid);
@@ -255,6 +259,7 @@ protected:
 class InclusiveCacheLevel : public virtual CacheLevel {
 public:
     InclusiveCacheLevel() {}
+    ~InclusiveCacheLevel() {}
 
     virtual void Init (CacheLevel_Init_Interface){
         CacheLevel::Init(CacheLevel_Init_Arguments);
@@ -350,6 +355,8 @@ protected:
       uint32_t MinimumHighAssociativity = 256;
       uint32_t LoadStoreLogging = 0;
       uint32_t DirtyCacheHandling = 0;
+
+      bool isInitialized = false;
 
       uint64_t hits;
       uint64_t misses;

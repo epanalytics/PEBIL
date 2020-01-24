@@ -61,62 +61,15 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
     }
 }
 
-uint32_t CacheSimulationTool::CreateHandlers(uint32_t index){
-    indexInStats = index;
-  
-    // FIXME --> Make part of class
-	// Can tinker with this at runtime using the environment variable
-	// METASIM_LIMIT_HIGH_ASSOC if desired.
-    StringParser parser;
-    uint32_t SaveHashMin = MinimumHighAssociativity;
-    if (!(parser.ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
-      &MinimumHighAssociativity))){
-        MinimumHighAssociativity = SaveHashMin;
-    }
+uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* 
+  parser){
+    string cachedf;
+    const char* cs = HandleEnvVariables(index, parser, cachedf);
 
-    if(!(parser.ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging))){
-        LoadStoreLogging = 0;
-    }
-    if(!(parser.ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
-        DirtyCacheHandling = 0;
-    }
-
-    if(DirtyCacheHandling){
-        if(!LoadStoreLogging){
-            ErrorExit(" DirtyCacheHandling is enabled without LoadStoreLogging "
-              ,MetasimError_FileOp);
-        }
-    }
-
-    inform << " LoadStoreLogging " << LoadStoreLogging << " DirtyCacheHandling "
-      << DirtyCacheHandling << ENDL;
-
-    // read caches to simulate
-    string cachedf = GetCacheDescriptionFile();
-    const char* cs = cachedf.c_str();
     ifstream CacheFile(cs);
-    if (CacheFile.fail()){
-        ErrorExit("cannot open cache descriptions file: " << cachedf, 
-          MetasimError_FileOp);
-    }
-    
-    string line;
-    while (getline(CacheFile, line)){
-        if (parser.IsEmptyComment(line)){
-            continue;
-        }
-        CacheStructureHandler* c = new CacheStructureHandler();
-        if (!c->Init(line, MinimumHighAssociativity, LoadStoreLogging, DirtyCacheHandling)){
-            ErrorExit("cannot parse cache description line: " << line, 
-              MetasimError_StringParse);
-        }
-        assert(!(c->hybridCache) && "Hybrid cache deprecated");
-        handlers.push_back(c);
-    }
-    uint32_t CountCacheStructures = handlers.size();
-    assert(CountCacheStructures > 0 && "No cache structures found for "
-      "simulation");
-    return handlers.size();
+    uint32_t retSize = ReadCacheDescription(CacheFile, parser, cachedf);
+
+    return retSize;
 }
 
 
@@ -496,8 +449,8 @@ void CacheSimulationTool::CacheSimulationFileName(AddressStreamStats* stats,
     oFile.append("cachesim");
 }
 
-string CacheSimulationTool::GetCacheDescriptionFile(){
-    char* e = getenv("METASIM_CACHE_DESCRIPTIONS");
+string CacheSimulationTool::GetCacheDescriptionFile(StringParser* parser){
+    char* e = parser->GetEnv("METASIM_CACHE_DESCRIPTIONS");
     string knobvalue;
 
     if (e != NULL){
@@ -518,6 +471,68 @@ string CacheSimulationTool::GetCacheDescriptionFile(){
         return str;
     }
     return knobvalue;
+}
+
+const char* CacheSimulationTool::HandleEnvVariables(uint32_t index, 
+  StringParser* parser, string& cachedf){
+    indexInStats = index;
+  
+    // Can tinker with this at runtime using the environment variable
+    // METASIM_LIMIT_HIGH_ASSOC if desired.
+    uint32_t SaveHashMin = MinimumHighAssociativity;
+    bool flag = (parser->ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
+      &MinimumHighAssociativity));
+    if (!flag){
+        MinimumHighAssociativity = SaveHashMin;
+    }
+
+    if(!(parser->ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging))){
+        LoadStoreLogging = 0;
+    }
+    if(!(parser->ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
+        DirtyCacheHandling = 0;
+    }
+
+    if(DirtyCacheHandling){
+        if(!LoadStoreLogging){
+            ErrorExit(" DirtyCacheHandling is enabled without LoadStoreLogging "
+              ,MetasimError_FileOp);
+        }
+    }
+
+    inform << " LoadStoreLogging " << LoadStoreLogging << " DirtyCacheHandling "
+      << DirtyCacheHandling << ENDL;
+
+    // read caches to simulate
+    cachedf = GetCacheDescriptionFile(parser);
+    return cachedf.c_str();
+}
+
+uint32_t CacheSimulationTool::ReadCacheDescription(istream& stream, 
+  StringParser* parser, string& cachedf){
+    bool streamResult = stream.fail();
+    if (streamResult){
+        ErrorExit("cannot open cache descriptions file: " << cachedf, 
+          MetasimError_FileOp);
+    }
+    
+    string line;
+    while (getline(stream, line)){
+        if (parser->IsEmptyComment(line)){
+            continue;
+        }
+        CacheStructureHandler* c = new CacheStructureHandler();
+        if (!c->Init(line, MinimumHighAssociativity, LoadStoreLogging, DirtyCacheHandling)){
+            ErrorExit("cannot parse cache description line: " << line, 
+              MetasimError_StringParse);
+        }
+        assert(!(c->hybridCache) && "Hybrid cache deprecated");
+        handlers.push_back(c);
+    }
+    uint32_t CountCacheStructures = handlers.size();
+    assert(CountCacheStructures > 0 && "No cache structures found for "
+      "simulation");
+    return handlers.size();
 }
 
 CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, 
@@ -907,9 +922,21 @@ CacheLevel::~CacheLevel(){
         delete[] recentlyUsed;
     }
     if (historyUsed){
-        for(int s = 0; s < countsets; ++s)
+        for(int s = 0; s < countsets; ++s){
             delete[] historyUsed[s];
+        }
         delete[] historyUsed;
+    }
+    if(toEvictAddresses){
+        delete toEvictAddresses;
+    }
+    if (dirtystatus){
+        for (uint32_t i = 0; i < countsets; i++){
+            if (dirtystatus[i]){
+                delete[] dirtystatus[i];
+            }
+        }
+        delete[] dirtystatus;
     }
 }
 
@@ -1695,17 +1722,21 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
         return false;
     }
 
+    isInitialized = true;
     return Verify();
 }
 
 CacheStructureHandler::~CacheStructureHandler(){
-    if (levels){
-        for (uint32_t i = 0; i < levelCount; i++){
-            if (levels[i]){
-                delete levels[i];
+    if(isInitialized){
+        if (levels){
+            for (uint32_t i = 0; i < levelCount; i++){
+                if (levels[i]){
+                    CacheLevel* toDelete = levels[i];
+                    delete toDelete;
+                }
             }
+            delete[] levels;
         }
-        delete[] levels;
     }
 }
 
