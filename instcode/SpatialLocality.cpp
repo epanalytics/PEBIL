@@ -42,20 +42,19 @@ void SpatialLocalityTool::AddNewStreamStats(AddressStreamStats* stats) {
     stats->Stats[indexInStats] = new SpatialStreamStats(stats);
 }
 
-uint32_t SpatialLocalityTool::CreateHandlers(uint32_t index) {
+uint32_t SpatialLocalityTool::CreateHandlers(uint32_t index, StringParser* parser) {
     indexInStats = index;
 
-    StringParser parser;
     uint32_t spatialWindow;
     uint32_t spatialBin;
     uint32_t spatialNMAX;
-    if (!(parser.ReadEnvUint32("METASIM_SPATIAL_WINDOW", &spatialWindow))) {
+    if (!(parser->ReadEnvUint32("METASIM_SPATIAL_WINDOW", &spatialWindow))) {
         spatialWindow = 1;
     }
-    if (!(parser.ReadEnvUint32("METASIM_SPATIAL_BIN", &spatialBin))) {
+    if (!(parser->ReadEnvUint32("METASIM_SPATIAL_BIN", &spatialBin))) {
         spatialBin = 1;
     }
-    if (!(parser.ReadEnvUint32("METASIM_SPATIAL_NMAX", &spatialNMAX))) {
+    if (!(parser->ReadEnvUint32("METASIM_SPATIAL_NMAX", &spatialNMAX))) {
         spatialNMAX = ReuseDistance::Infinity;
     }
 
