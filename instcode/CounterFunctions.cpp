@@ -450,18 +450,19 @@ extern "C"
     }
 };
 
+// For testing only
 void InitializeAllData(DataManager<CounterArray*>* d){
-	AllData = d;
+    AllData = d;
 }
 
 void InitializeDynamicInstrumentation(DynamicInstrumentation* p){
-	DynamicPoints = p;
+    DynamicPoints = p;
 }
 
 DataManager<CounterArray*>* GetAllData(){
-	return AllData;
+    return AllData;
 }
 
 DynamicInstrumentation* GetDynamicInstrumentation(){
-	return DynamicPoints;
+    return DynamicPoints;
 }
