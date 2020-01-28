@@ -449,3 +449,20 @@ extern "C"
         return NULL;
     }
 };
+
+// For testing only
+void InitializeAllData(DataManager<CounterArray*>* d){
+    AllData = d;
+}
+
+void InitializeDynamicInstrumentation(DynamicInstrumentation* p){
+    DynamicPoints = p;
+}
+
+DataManager<CounterArray*>* GetAllData(){
+    return AllData;
+}
+
+DynamicInstrumentation* GetDynamicInstrumentation(){
+    return DynamicPoints;
+}
