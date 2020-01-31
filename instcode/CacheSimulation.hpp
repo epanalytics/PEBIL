@@ -340,7 +340,15 @@ public:
 };
 
 class MainMemory {
+private:
+    uint32_t numOfSets; //based on Last Level Cache
+    uint32_t numOfLinesInSet;
+    uint32_t sizeOfLine
+    uint32_t** writeOuts; //2d array indexed by set and lineInSet
+    uint32_t** readIns; //2d array indexed by set and lineInSet
 
+public:
+    MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize);
 };
 
 class CacheStructureHandler : public MemoryStreamHandler {
