@@ -339,6 +339,10 @@ public:
     const char* TypeString() { return "exclusive_H"; }
 };
 
+class MainMemory {
+
+};
+
 class CacheStructureHandler : public MemoryStreamHandler {
 public:
     uint32_t sysId;

@@ -1174,7 +1174,7 @@ uint32_t CacheLevel::EvictProcess(CacheStats* stats, uint32_t memid,
   uint64_t addr, uint64_t loadstoreflag, void* info){
 
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct 
+    correct */
     uint32_t set = 0, lineInSet = 0;
     uint64_t store = addr;
     debug(assert(stats));
@@ -1186,7 +1186,7 @@ uint32_t CacheLevel::EvictProcess(CacheStats* stats, uint32_t memid,
         MarkUsed(set, lineInSet,loadstoreflag);
         return INVALID_CACHE_LEVEL;
     }
-    */    
+        
     return level + 1;
 }
 
@@ -1198,7 +1198,7 @@ uint32_t ExclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
 
     uint64_t store = GetStorage(addr);
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct 
+    correct */
     // handle victimizing
     EvictionInfo* e = (EvictionInfo*)info; 
     if (e->level != INVALID_CACHE_LEVEL){ 
@@ -1230,7 +1230,7 @@ uint32_t ExclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
         }
     }
 
-    if(LoadStoreLogging){
+    if(loadStoreLogging){
         if(loadstoreflag){
             stats->Stats[memid][level].loadCount++;
         }else{
@@ -1268,7 +1268,7 @@ uint32_t ExclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
         return FirstExclusive;
     }
     *(anyEvict) = false;
-*/    return level + 1;
+    return level + 1;
 }
 
 uint32_t NonInclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid, 
@@ -1346,25 +1346,25 @@ void CacheLevel::EvictDirty(CacheStats* stats, CacheLevel** levels,
     uint64_t victim;
 
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct 
+    correct */
     victim=toEvictAddresses->back();    
     // vector "toEvictAddresses" will be empty by the end of this. Vector 
     // was designed to handle 
     toEvictAddresses->pop_back();
     uint32_t next=level+1;
     uint64_t loadstoreflag=0;
-   */
-    /* next=levels[next]->EvictProcess(stats,memid,victim,loadstoreflag,
+   
+    next=levels[next]->EvictProcess(stats,memid,victim,loadstoreflag,
       (void*)info);   
     assert( next == INVALID_CACHE_LEVEL); 
     // If assert fails, implies the memory address which was to be evicted was 
     // not found which is violation in an inclusive cache.
     assert(toEvictAddresses->size()==0); // INFO: Should be removed before
     // merging to dev branch, altho this checks a legal case but is it needed?
-    */
+    
 
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct 
+    correct */
     while(toEvictAddresses->size()){ 
         // To handle cases where an address from Ln is missing in Ln+1 
         // (e.g  missing in L2, found in L1). 
@@ -1382,7 +1382,7 @@ void CacheLevel::EvictDirty(CacheStats* stats, CacheLevel** levels,
         }
     }
 
-    toEvict=false;  */
+    toEvict=false;
     return;
 }
 
@@ -1756,13 +1756,15 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
         resLevel = next;
         next = levels[next]->Process(stats, memseq, victim, loadstoreflag,
           &anyEvict,(void*)(&evictInfo));
-        if(next != 0) loadstoreflag = 1; 
+        if(next != 0) {
+            loadstoreflag = 1; 
+        }
         // If next level is checked, then it should be a miss from current 
         // level, which implies next operation is a load to a next level!!
     }
 
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct 
+    correct */
     if(DirtyCacheHandling&&anyEvict){
         while( (tmpNext<levelCount) ){
             if(levels[tmpNext]->GetEvictStatus()){
@@ -1772,10 +1774,11 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
             tmpNext++;
         }
     } 
-*/      
+    return resLevel;
+
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct 
-    if((hybridCache) && (next!=INVALID_CACHE_LEVEL) && (next>=levelCount)){ 
+    correct */
+    /*if((hybridCache) && (next!=INVALID_CACHE_LEVEL) && (next>=levelCount)){ 
         // Implies miss at LLC 
         CheckRange(stats,victim,loadstoreflag,memseq); 
         uint32_t lastLevel = levelCount-1;
@@ -1795,8 +1798,7 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
             }
         }
         resLevel = levelCount+1;
-    } */
-    return resLevel;
+    }*/ 
 }
 
 uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access){
