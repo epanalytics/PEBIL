@@ -1390,8 +1390,36 @@ bool CacheLevel::GetEvictStatus(){
     return toEvict;
 }
 
+MainMemory::MainMemory(){}
+
+MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize){
+    numOfSets = setSize;
+    numOfLinesInSet = numOfLines;
+    sizeOfLine = lineSize;
+    uint32_t** writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
+    uint32_t** readIns = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
+    for(int i=0;i<numOfSets;i++){
+        writeOuts[i] = new uint32_t[numOfLinesInSet];
+        readIns[i] = new uint32_t[numOfLinesInSet];
+    }
+}
+
+MainMemory::~MainMemory(){
+    for(int i=0;i<numOfSets;i++){
+        delete[] writeOuts[i];
+        delete[] readIns;
+    }
+    delete[] writeOuts;
+    delete[] readIns;
+}
+
 CacheStructureHandler::CacheStructureHandler(){
 }
+
+/*CacheStructureHandler::~CacheStructureHandler(){
+    delete mainMemory;
+}*/
+
 
 void CacheStructureHandler::ExtractAddresses(){
     stringstream tokenizer(description);
@@ -1718,6 +1746,14 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
         }
     }
 
+    //This doesn't work CacheLevel is virtual, how to find type
+    CacheLevel LastLevel = levels[levelCount-1];
+    uint32_t numOfSets = LastLevel.GetSetCount(); //based on Last Level Cache
+    uint32_t numOfLinesInSet = LastLevel.GetAssociativity();
+    uint32_t sizeOfLine = LastLevel.GetLineSize();
+
+    mainMemory = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
+
     if (whichTok != levelCount * 4 + 2){
         return false;
     }
@@ -1841,3 +1877,5 @@ else if(access->type == PREFETCH_ENTRY) {
       }
    } */
 }
+
+MainMemory 
