@@ -1166,6 +1166,7 @@ uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr,
       loadstoreflag);
     evicInfo->level = level;
     evicInfo->addr = evictedStore;
+    *anyEvict = true;
 
     return level + 1;
 }
