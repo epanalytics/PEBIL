@@ -724,12 +724,12 @@ inline bool X86Instruction::defsFlag(uint32_t flg) {
     return (GET(flags_def) & (1 << flg));
 }
 
-inline bool X86Instruction::implicitlyUsesReg(uint32_t alu){
-    return (GET(impreg_use) & (1 << alu));
+inline bool X86Instruction::implicitlyUsesReg(uint64_t alu){
+    return (GET(impreg_use) & (((uint64_t)1) << alu));
 }
 
-inline bool X86Instruction::implicitlyDefinesReg(uint32_t alu){
-    return (GET(impreg_def) & (1 << alu));
+inline bool X86Instruction::implicitlyDefinesReg(uint64_t alu){
+    return (GET(impreg_def) & (((uint64_t)1) << alu));
 }
 
 // Get flag registers
@@ -1053,7 +1053,9 @@ bool OperandX86::isSameOperand(OperandX86* other){
 
 OperandX86* X86Instruction::getDestOperand(){
     // compares and branches dont define anything
-    if (isConditionCompare() || isBranch() || isCall() || CHECK_IMPLICIT_STORE){
+    // Stack pushes have implicite destination 
+    if (isConditionCompare() || isBranch() || isCall() || CHECK_IMPLICIT_STORE 
+      || isStackPush()){
         return NULL;
     }
     return operands[DEST_OPERAND];
