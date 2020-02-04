@@ -1145,9 +1145,9 @@ uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr,
 
 
     if(loadStoreLogging){
-        if(loadstoreflag){
+        if(loadstoreflag){ //1 = true = load
             stats->Stats[memid][level].loadCount++;
-        } else{
+        } else{ //0 = false = store
             stats->Stats[memid][level].storeCount++;
         }         
     }    
@@ -1746,11 +1746,9 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
         }
     }
 
-    //This doesn't work CacheLevel is virtual, how to find type
-    CacheLevel LastLevel = levels[levelCount-1];
-    uint32_t numOfSets = LastLevel.GetSetCount(); //based on Last Level Cache
-    uint32_t numOfLinesInSet = LastLevel.GetAssociativity();
-    uint32_t sizeOfLine = LastLevel.GetLineSize();
+    uint32_t numOfSets = levels[levelCount-1]->GetSetCount(); //based on Last Level Cache
+    uint32_t numOfLinesInSet = levels[levelCount-1]->GetAssociativity();
+    uint32_t sizeOfLine = levels[levelCount-1]->GetLineSize();
 
     mainMemory = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
 
@@ -1878,4 +1876,3 @@ else if(access->type == PREFETCH_ENTRY) {
    } */
 }
 
-MainMemory 

@@ -365,7 +365,7 @@ public:
     CacheLevel** levels;
     std::string description;
 
-    MainMemory mainMemory;
+    MainMemory* mainMemory;
 
 protected: 
       uint32_t MinimumHighAssociativity = 256;
