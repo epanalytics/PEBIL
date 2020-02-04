@@ -96,7 +96,7 @@ class CacheStats : public StreamStats {
 public:
     uint32_t LevelCount;
     uint32_t SysId;
-    LevelStats** Stats; // indexed by [memid][level]
+    LevelStats** Stats; // indexed by [memid][level] //want to make Last Level MainMemory
     LevelStats* HybridMemStats; // indexed by [memid]
     uint32_t Capacity;
     uint32_t hybridCache;
@@ -344,13 +344,14 @@ private:
     uint32_t numOfSets; //based on Last Level Cache
     uint32_t numOfLinesInSet;
     uint32_t sizeOfLine;
-    uint32_t** writeOuts; //2d array indexed by set and lineInSet
-    uint32_t** readIns; //2d array indexed by set and lineInSet
 
 public:
     MainMemory();
     MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize); 
     ~MainMemory();
+
+    uint32_t** writeOuts; //2d array indexed by set and lineInSet
+    uint32_t** readIns; //2d array indexed by set and lineInSet
 };
 
 class CacheStructureHandler : public MemoryStreamHandler {

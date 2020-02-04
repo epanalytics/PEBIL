@@ -391,9 +391,13 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
                     for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
                         if(LoadStoreLogging){
-                            MemFile << TAB << dec << c->SysId
-                              << TAB << dec << (lvl+1)
-                              << TAB << dec << c->GetHits(bbid, lvl)
+                            MemFile << TAB << dec << c->SysId;
+                              if(lvl == (c->LevelCount-1)){
+                                MemFile << TAB << "M";
+                              } else {
+                                MemFile << TAB << dec << (lvl+1);
+                              }
+                              MemFile << TAB << dec << c->GetHits(bbid, lvl)
                               << TAB << dec << c->GetMisses(bbid, lvl)
                               << TAB << dec << c->GetLoads(bbid,lvl)
                               << TAB << dec << c->GetStores(bbid,lvl)
@@ -406,6 +410,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                               << ENDL;
                          } // if LoadStoreLogginb
                     } // for each cache level
+                    MemFile<<"Hiya Barbie\n";
 
                     if(HybridCacheStatus[sys]){
                         MemFile << TAB << dec << c->SysId
@@ -1162,10 +1167,13 @@ uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr,
     // miss
     EvictionInfo* evicInfo = (EvictionInfo*)info; 
     stats->Stats[memid][level].missCount++;
-    uint64_t evictedStore = Replace(store, set, LineToReplace(set),
+    uint32_t line2rep = LineToReplace(set);
+    uint64_t evictedStore = Replace(store, set, line2rep,
       loadstoreflag);
     evicInfo->level = level;
     evicInfo->addr = evictedStore;
+    evicInfo->setid = set;
+    evicInfo->lineid = line2rep;
     *anyEvict = true;
 
     return level + 1;
@@ -1807,6 +1815,17 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
                   (void*)(&evictInfo));
             }
             tmpNext++;
+        }
+
+        if(next == (levelCount+1)){ // Missed on last level
+            uint32_t evicSet = evictInfo.setid;
+            uint32_t evicLine = evictInfo.lineid;
+            // write to stats mainMemory
+            if(loadstoreflag){
+                mainMemory->readIns[evicSet][evicLine]++;
+            } else {
+                mainMemory->writeOuts[evicSet][evicLine]++;
+            }
         }
     } 
     return resLevel;

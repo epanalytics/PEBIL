@@ -15,4 +15,4 @@
 
 #27   3    512    4    32    lru      1024  4    32    lru     2048    8   32  lru   #Made up relatively small 4 way association
 28   3    128    1    32    lru       256  1    32    lru      512    1   32  lru   #Made up even smaller direct mapping
-303 4 32KB  8 64  trulru  1024KB  16  64  trulru  1408KB  11  64  trulru  16384KB  1 4096  dir #example directly from Boss
+#303 4 32KB  8 64  trulru  1024KB  16  64  trulru  1408KB  11  64  trulru  16384KB  1 4096  dir #example directly from Boss
