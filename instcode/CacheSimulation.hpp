@@ -98,6 +98,7 @@ public:
     uint32_t SysId;
     LevelStats** Stats; // indexed by [memid][level] //want to make Last Level MainMemory
     LevelStats* HybridMemStats; // indexed by [memid]
+    MainMemory* maimMemoryStats; // indexed by [memid]
     uint32_t Capacity;
     uint32_t hybridCache;
     CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 

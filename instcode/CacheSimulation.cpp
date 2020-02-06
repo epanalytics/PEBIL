@@ -56,7 +56,7 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
     for (uint32_t i = 0; i < handlers.size(); i++) {
         CacheStructureHandler* currHandler = (CacheStructureHandler*)(
           handlers[i]);
-        stats->Stats[indexInStats + i] = new CacheStats(currHandler->levelCount,
+        stats->Stats[indexInStats + i] = new CacheStats((currHandler->levelCount+1),
           currHandler->sysId, stats->AllocCount, currHandler->hybridCache);
     }
 }
@@ -410,7 +410,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                               << ENDL;
                          } // if LoadStoreLogginb
                     } // for each cache level
-                    MemFile<<"Hiya Barbie\n";
+                    //MemFile<<"Hiya Barbie\n";
 
                     if(HybridCacheStatus[sys]){
                         MemFile << TAB << dec << c->SysId
@@ -597,7 +597,7 @@ void CacheStats::ExtendCapacity(uint32_t newSize){
 void CacheStats::NewMem(uint32_t memid){
     assert(memid < Capacity);
 
-    LevelStats* mem = new LevelStats[LevelCount];
+    LevelStats* mem = new LevelStats[(LevelCount+1)];
     memset(mem, 0, sizeof(LevelStats) * LevelCount);
     Stats[memid] = mem;
 }
@@ -1794,6 +1794,7 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
     evictInfo.level = INVALID_CACHE_LEVEL;
     bool anyEvict = false;
     uint32_t resLevel = 0;
+    uint8_t initLoadStoreFlag = loadstoreflag;
 
     while (next < levelCount){
         resLevel = next;
@@ -1821,7 +1822,8 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
             uint32_t evicSet = evictInfo.setid;
             uint32_t evicLine = evictInfo.lineid;
             // write to stats mainMemory
-            if(loadstoreflag){
+            //memseq
+            if(initLoadStoreFlag){
                 mainMemory->readIns[evicSet][evicLine]++;
             } else {
                 mainMemory->writeOuts[evicSet][evicLine]++;
