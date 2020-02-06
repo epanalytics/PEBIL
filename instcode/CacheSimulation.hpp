@@ -69,6 +69,21 @@ struct LevelStats {
     uint64_t storeCount;
 };
 
+class MainMemory {
+private:
+    uint32_t numOfSets; //based on Last Level Cache
+    uint32_t numOfLinesInSet;
+    uint32_t sizeOfLine;
+
+public:
+    MainMemory();
+    MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize); 
+    ~MainMemory();
+
+    uint32_t** writeOuts; //2d array indexed by set and lineInSet
+    uint32_t** readIns; //2d array indexed by set and lineInSet
+};
+
 class CacheSimulationTool : public AddressStreamTool {
   public:
     CacheSimulationTool() : AddressStreamTool() {}
@@ -338,21 +353,6 @@ public:
         type = CacheLevelType_ExclusiveHighassoc;
     }
     const char* TypeString() { return "exclusive_H"; }
-};
-
-class MainMemory {
-private:
-    uint32_t numOfSets; //based on Last Level Cache
-    uint32_t numOfLinesInSet;
-    uint32_t sizeOfLine;
-
-public:
-    MainMemory();
-    MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize); 
-    ~MainMemory();
-
-    uint32_t** writeOuts; //2d array indexed by set and lineInSet
-    uint32_t** readIns; //2d array indexed by set and lineInSet
 };
 
 class CacheStructureHandler : public MemoryStreamHandler {
