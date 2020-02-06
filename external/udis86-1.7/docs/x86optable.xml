@@ -576,22 +576,22 @@ MAL MISSING PRE SSE?
 
   <instruction mnemonic="call">
     <opcode mode="def64" cast="1"> aso oso rexw rexr rexx rexb ; FF /2 ; Ev ; ;
-      u:ax u:bx u:cx u:dx u:sp u:bp u:si u:di u:8 u:9 u:10      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
+      u:ax u:cx u:dx u:si u:di u:8 u:9 u:10 u:11      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
       d:ax d:cx d:dx d:si d:di                d:8 d:9 d:10 d:11 d:mm0 d:mm1 d:mm2 d:mm3 d:mm4 d:mm5 d:mm6 d:mm7 d:st0
     </opcode>
 
     <opcode cast="1"> aso oso rexw rexr rexx rexb ; FF /3 ; Ep ; ;
-      u:ax u:bx u:cx u:dx u:sp u:bp u:si u:di u:8 u:9 u:10      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
+      u:ax u:cx u:dx u:si u:di u:8 u:9 u:10 u:11      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
       d:ax d:cx d:dx d:si d:di                d:8 d:9 d:10 d:11 d:mm0 d:mm1 d:mm2 d:mm3 d:mm4 d:mm5 d:mm6 d:mm7 d:st0
     </opcode>
 
     <opcode mode="def64"> oso ; e8 ; Jz ; ;
-      u:ax u:bx u:cx u:dx u:sp u:bp u:si u:di u:8 u:9 u:10      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
+      u:ax u:cx u:dx u:si u:di u:8 u:9 u:10 u:11      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
       d:ax d:cx d:dx d:si d:di                d:8 d:9 d:10 d:11 d:mm0 d:mm1 d:mm2 d:mm3 d:mm4 d:mm5 d:mm6 d:mm7 d:st0
     </opcode>
 
     <opcode mode="inv64"> oso ; 9a ; Ap ; ;
-      u:ax u:bx u:cx u:dx u:sp u:bp u:si u:di u:8 u:9 u:10      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
+      u:ax u:cx u:dx u:si u:di u:8 u:9 u:10 u:11      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
       d:ax d:cx d:dx d:si d:di                d:8 d:9 d:10 d:11 d:mm0 d:mm1 d:mm2 d:mm3 d:mm4 d:mm5 d:mm6 d:mm7 d:st0
     </opcode>
   </instruction>
