@@ -392,16 +392,21 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
                         if(LoadStoreLogging){
                             MemFile << TAB << dec << c->SysId;
-                              if(lvl == (c->LevelCount-1)){
+                            if(lvl == (c->LevelCount-1)){
                                 MemFile << TAB << "M";
+                                /*<< TAB << dec << c->GetHits(bbid, lvl)
+                                << TAB << dec << c->GetMisses(bbid, lvl)
+                                << TAB << dec << c->GetLoads(bbid,lvl)
+                                << TAB << dec << c->GetStores(bbid,lvl)
+                                << ENDL;*/ //TODO above needs to be changed
                               } else {
                                 MemFile << TAB << dec << (lvl+1);
+                                MemFile << TAB << dec << c->GetHits(bbid, lvl)
+                                << TAB << dec << c->GetMisses(bbid, lvl)
+                                << TAB << dec << c->GetLoads(bbid,lvl)
+                                << TAB << dec << c->GetStores(bbid,lvl)
+                                << ENDL;  
                               }
-                              MemFile << TAB << dec << c->GetHits(bbid, lvl)
-                              << TAB << dec << c->GetMisses(bbid, lvl)
-                              << TAB << dec << c->GetLoads(bbid,lvl)
-                              << TAB << dec << c->GetStores(bbid,lvl)
-                              << ENDL;  
                          } else {
                             MemFile << TAB << dec << c->SysId
                               << TAB << dec << (lvl+1)
@@ -548,6 +553,7 @@ CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity,
     hybridCache=hybridcache;
 
     Stats = new LevelStats*[Capacity];
+    mainMemoryStats = new MainMemory[Capacity];
     if(hybridCache){   
         HybridMemStats=new LevelStats[Capacity];
         for (uint32_t i = 0; i < Capacity; i++){
@@ -1824,9 +1830,9 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
             // write to stats mainMemory
             //memseq
             if(initLoadStoreFlag){
-                mainMemory->readIns[evicSet][evicLine]++;
+                stats->mainMemoryStats[memseq].readIns[evicSet][evicLine]++;
             } else {
-                mainMemory->writeOuts[evicSet][evicLine]++;
+                stats->mainMemoryStats[memseq].writeOuts[evicSet][evicLine]++;
             }
         }
     } 
