@@ -56,8 +56,10 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
     for (uint32_t i = 0; i < handlers.size(); i++) {
         CacheStructureHandler* currHandler = (CacheStructureHandler*)(
           handlers[i]);
-        stats->Stats[indexInStats + i] = new CacheStats((currHandler->levelCount+1),
+        stats->Stats[indexInStats + i] = new CacheStats((currHandler->levelCount),
           currHandler->sysId, stats->AllocCount, currHandler->hybridCache);
+        CacheStats* cacheStats = (CacheStats*)stats->Stats[indexInStats + i];
+        cacheStats->InitMainMemoryStats(currHandler);
     }
 }
 
@@ -393,12 +395,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                         if(LoadStoreLogging){
                             MemFile << TAB << dec << c->SysId;
                             if(lvl == (c->LevelCount-1)){
-                                MemFile << TAB << "M";
-                                /*<< TAB << dec << c->GetHits(bbid, lvl)
-                                << TAB << dec << c->GetMisses(bbid, lvl)
-                                << TAB << dec << c->GetLoads(bbid,lvl)
-                                << TAB << dec << c->GetStores(bbid,lvl)
-                                << ENDL;*/ //TODO above needs to be changed
+                                
                               } else {
                                 MemFile << TAB << dec << (lvl+1);
                                 MemFile << TAB << dec << c->GetHits(bbid, lvl)
@@ -415,6 +412,13 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                               << ENDL;
                          } // if LoadStoreLogginb
                     } // for each cache level
+                    //move to here
+                    MemFile << TAB << "M"
+                    << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
+                    << TAB << dec << 0
+                    << TAB << dec << c->mainMemoryStats[bbid]->GetLoads()
+                    << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
+                    << ENDL; 
                     //MemFile<<"Hiya Barbie\n";
 
                     if(HybridCacheStatus[sys]){
@@ -553,7 +557,7 @@ CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity,
     hybridCache=hybridcache;
 
     Stats = new LevelStats*[Capacity];
-    mainMemoryStats = new MainMemory[Capacity];
+    mainMemoryStats = new MainMemory*[Capacity];
     if(hybridCache){   
         HybridMemStats=new LevelStats[Capacity];
         for (uint32_t i = 0; i < Capacity; i++){
@@ -575,6 +579,16 @@ CacheStats::~CacheStats(){
             }
         }
         delete[] Stats;
+    }
+}
+
+void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler){
+    uint32_t lastLevel = handler->levelCount-1;
+    uint32_t numOfSets = handler->levels[lastLevel]->GetSetCount();
+    uint32_t numOfLinesInSet = handler->levels[lastLevel]->GetAssociativity();
+    uint32_t sizeOfLine = handler->levels[lastLevel]->GetLineSize();
+    for(int i=0;i<Capacity;i++){
+        mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
     }
 }
 
@@ -603,7 +617,7 @@ void CacheStats::ExtendCapacity(uint32_t newSize){
 void CacheStats::NewMem(uint32_t memid){
     assert(memid < Capacity);
 
-    LevelStats* mem = new LevelStats[(LevelCount+1)];
+    LevelStats* mem = new LevelStats[(LevelCount)];
     memset(mem, 0, sizeof(LevelStats) * LevelCount);
     Stats[memid] = mem;
 }
@@ -1422,10 +1436,34 @@ MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize)
 MainMemory::~MainMemory(){
     for(int i=0;i<numOfSets;i++){
         delete[] writeOuts[i];
-        delete[] readIns;
+        delete[] readIns[i];
     }
     delete[] writeOuts;
     delete[] readIns;
+}
+
+uint32_t MainMemory::GetLoads(){
+    uint32_t sum = 0;
+
+    for(int i=0;i<numOfSets;i++){
+        for(int j=0;j<numOfLinesInSet;j++){
+            sum += readIns[i][j];
+        }
+    }
+
+    return sum;
+}
+
+uint32_t MainMemory::GetStores(){
+    uint32_t sum = 0;
+
+    for(int i=0;i<numOfSets;i++){
+        for(int j=0;j<numOfLinesInSet;j++){
+            sum += writeOuts[i][j];
+        }
+    }
+
+    return sum;
 }
 
 CacheStructureHandler::CacheStructureHandler(){
@@ -1761,6 +1799,7 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
         }
     }
 
+    //TODO comment out below and rebuild
     uint32_t numOfSets = levels[levelCount-1]->GetSetCount(); //based on Last Level Cache
     uint32_t numOfLinesInSet = levels[levelCount-1]->GetAssociativity();
     uint32_t sizeOfLine = levels[levelCount-1]->GetLineSize();
@@ -1830,9 +1869,9 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
             // write to stats mainMemory
             //memseq
             if(initLoadStoreFlag){
-                stats->mainMemoryStats[memseq].readIns[evicSet][evicLine]++;
+                stats->mainMemoryStats[memseq]->readIns[evicSet][evicLine]++;
             } else {
-                stats->mainMemoryStats[memseq].writeOuts[evicSet][evicLine]++;
+                stats->mainMemoryStats[memseq]->writeOuts[evicSet][evicLine]++;
             }
         }
     } 

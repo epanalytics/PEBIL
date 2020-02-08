@@ -28,6 +28,8 @@
 
 #define INVALID_CACHE_LEVEL (0xffffffff)
 
+class CacheStructureHandler;
+
 enum CacheLevelType {
     CacheLevelType_Undefined,
     CacheLevelType_InclusiveLowassoc,
@@ -82,6 +84,9 @@ public:
 
     uint32_t** writeOuts; //2d array indexed by set and lineInSet
     uint32_t** readIns; //2d array indexed by set and lineInSet
+
+    uint32_t GetLoads(); //loops through all of readIns and gets a total sum
+    uint32_t GetStores(); //loops through all of writeOuts and gets a total sum
 };
 
 class CacheSimulationTool : public AddressStreamTool {
@@ -113,12 +118,13 @@ public:
     uint32_t SysId;
     LevelStats** Stats; // indexed by [memid][level] //want to make Last Level MainMemory
     LevelStats* HybridMemStats; // indexed by [memid]
-    MainMemory* mainMemoryStats; // indexed by [memid]
+    MainMemory** mainMemoryStats; // indexed by [memid]
     uint32_t Capacity;
     uint32_t hybridCache;
     CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
       hybridCache);
     ~CacheStats();
+    void InitMainMemoryStats(CacheStructureHandler* handler);
 
     bool HasMemId(uint32_t memid);
     void ExtendCapacity(uint32_t newSize);
