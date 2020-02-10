@@ -1425,11 +1425,13 @@ MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize)
     numOfSets = setSize;
     numOfLinesInSet = numOfLines;
     sizeOfLine = lineSize;
-    uint32_t** writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
-    uint32_t** readIns = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
+    /*uint32_t**/ writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
+    /*uint32_t**/ readIns = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
     for(int i=0;i<numOfSets;i++){
         writeOuts[i] = new uint32_t[numOfLinesInSet];
         readIns[i] = new uint32_t[numOfLinesInSet];
+        //memset(writeOuts[i],0,sizeof(uint32_t)*numOfLinesInSet);
+        //memset(readIns[i],0,sizeof(uint32_t)*numOfLinesInSet);
     }
 }
 
