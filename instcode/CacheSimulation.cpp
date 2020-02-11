@@ -1194,6 +1194,7 @@ uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr,
     evicInfo->addr = evictedStore;
     evicInfo->setid = set;
     evicInfo->lineid = line2rep;
+    toEvict = true;//TODO
     *anyEvict = true;
 
     return level + 1;
@@ -1537,6 +1538,9 @@ CacheStructureHandler::CacheStructureHandler(CacheStructureHandler& h) {
     hits=0;
     misses=0;
 
+    this->LoadStoreLogging = h.LoadStoreLogging;
+    this->DirtyCacheHandling = h.DirtyCacheHandling;
+
 #define LVLF(__i, __feature) (h.levels[__i])->Get ## __feature
 #define Extract_Level_Args(__i) LVLF(__i, Level()), LVLF(__i, SizeInBytes()), \
   LVLF(__i, Associativity()), LVLF(__i, LineSize()), LVLF(__i, \
@@ -1661,6 +1665,8 @@ bool CacheStructureHandler::Verify(){
 bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity, 
 	  uint32_t LoadStoreLogging, uint32_t DirtyCacheHandling){
     description = desc;
+    this->LoadStoreLogging = LoadStoreLogging;
+    this->DirtyCacheHandling = DirtyCacheHandling;
 
     stringstream tokenizer(description);
     string token;
@@ -1847,9 +1853,9 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
         resLevel = next;
         next = levels[next]->Process(stats, memseq, victim, loadstoreflag,
           &anyEvict,(void*)(&evictInfo));
-        if(next != 0) {
+        /*if(next != 0) {
             loadstoreflag = 1; 
-        }
+        }*/
         // If next level is checked, then it should be a miss from current 
         // level, which implies next operation is a load to a next level!!
     }
