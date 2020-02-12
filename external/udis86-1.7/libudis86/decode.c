@@ -1243,13 +1243,15 @@ decode_vector_modrm_rm(struct ud* u,
     op->size = resolve_operand_size(u, size);
 
     uint8_t scale = SIB_SCALE(inp_curr(u));
-    if(IS_EVEX(u->evex)) {
-        op->scale = scale;
-    } else if(P_AVX(u->pfx_insn)) {
-        op->scale = (1 << scale);
-    } else {
-        assert(0);
-    }
+    op->scale = scale;
+
+   // if(IS_EVEX(u->evex)) {
+   //     op->scale = scale;
+   // } else if(P_AVX(u->pfx_insn)) {
+   //     op->scale = (1 << scale);
+   // } else {
+   //     assert(0);
+   // }
     
     PEBIL_DEBUG("\tdecode_vector_modrm_rm: size = %d, scale = %d", 
       op->size, op->scale);
