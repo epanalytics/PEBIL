@@ -1430,8 +1430,8 @@ MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize)
     for(int i=0;i<numOfSets;i++){
         writeOuts[i] = new uint32_t[numOfLinesInSet];
         readIns[i] = new uint32_t[numOfLinesInSet];
-        //memset(writeOuts[i],0,sizeof(uint32_t)*numOfLinesInSet);
-        //memset(readIns[i],0,sizeof(uint32_t)*numOfLinesInSet);
+        memset(writeOuts[i],0,sizeof(uint32_t)*numOfLinesInSet);
+        memset(readIns[i],0,sizeof(uint32_t)*numOfLinesInSet);
     }
 }
 
@@ -1536,6 +1536,9 @@ CacheStructureHandler::CacheStructureHandler(CacheStructureHandler& h) {
     hybridCache=h.hybridCache;
     hits=0;
     misses=0;
+
+    this->LoadStoreLogging = h.LoadStoreLogging;
+    this->DirtyCacheHandling = h.DirtyCacheHandling;
 
 #define LVLF(__i, __feature) (h.levels[__i])->Get ## __feature
 #define Extract_Level_Args(__i) LVLF(__i, Level()), LVLF(__i, SizeInBytes()), \
@@ -1666,6 +1669,9 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
     string token;
     uint32_t cacheValues[3];
     ReplacementPolicy repl;
+
+    this->LoadStoreLogging = LoadStoreLogging;
+    this->DirtyCacheHandling = DirtyCacheHandling;
 
     sysId = 0;
     levelCount = 0;
@@ -1806,7 +1812,7 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
     uint32_t numOfLinesInSet = levels[levelCount-1]->GetAssociativity();
     uint32_t sizeOfLine = levels[levelCount-1]->GetLineSize();
 
-    mainMemory = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
+    //mainMemory = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
 
     if (whichTok != levelCount * 4 + 2){
         return false;
