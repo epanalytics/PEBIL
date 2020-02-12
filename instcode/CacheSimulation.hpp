@@ -62,6 +62,7 @@ struct EvictionInfo {
     uint32_t level;
     uint32_t setid;
     uint32_t lineid;
+    //uint32_t loadstoreflag;
 };
 
 struct LevelStats {
