@@ -1842,20 +1842,28 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
     uint64_t victim = address;
 
     CacheStats* stats = (CacheStats*)stats_in;
-
-    EvictionInfo evictInfo;
-    evictInfo.level = INVALID_CACHE_LEVEL;
-    bool anyEvict = false;
-    uint32_t resLevel = 0;
     uint8_t initLoadStoreFlag = loadstoreflag;
 
+    EvictionInfo evicInfoArray[] = new EvictionInfo[levelCount];//Delete before exiting function
+    for(int i=0;i<levelCount;i++){
+        evicInfoArray[i] = NULL;
+    }
+
     while (next < levelCount){
+        EvictionInfo evictInfo;
+        evictInfo.level = INVALID_CACHE_LEVEL;
+        //evictInfo.loadstoreflag = initLoadStoreFlag;
+        bool anyEvict = false;
+        uint32_t resLevel = 0;
         resLevel = next;
         next = levels[next]->Process(stats, memseq, victim, loadstoreflag,
           &anyEvict,(void*)(&evictInfo));
         /*if(next != 0) {
             loadstoreflag = 1; 
         }*/
+        if(anyEvict){
+            evicInfoArray[resLevel] = evictInfo;
+        }
         // If next level is checked, then it should be a miss from current 
         // level, which implies next operation is a load to a next level!!
     }
