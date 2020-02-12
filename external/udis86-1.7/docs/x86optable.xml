@@ -5059,6 +5059,7 @@ MAL MISSING PRE SSE?
   </instruction>
 
   <instruction mnemonic="vgatherdps">
+    <opcode> aso rexr rexx rexb ; avxC4 sse66 0f /3byte=38 92 /W=0 ; V ZVM X; ; </opcode> 
     <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 92 /W=0 ; ZR ZVM ; ; </opcode>
   </instruction>
 
