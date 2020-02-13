@@ -56,7 +56,7 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
     for (uint32_t i = 0; i < handlers.size(); i++) {
         CacheStructureHandler* currHandler = (CacheStructureHandler*)(
           handlers[i]);
-        stats->Stats[indexInStats + i] = new CacheStats((currHandler->levelCount),
+        stats->Stats[indexInStats + i] = new CacheStats(currHandler->levelCount,
           currHandler->sysId, stats->AllocCount, currHandler->hybridCache);
         CacheStats* cacheStats = (CacheStats*)stats->Stats[indexInStats + i];
         cacheStats->InitMainMemoryStats(currHandler);
@@ -394,32 +394,29 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
                         if(LoadStoreLogging){
                             MemFile << TAB << dec << c->SysId;
-                            if(lvl == (c->LevelCount-1)){
-                                
-                              } else {
-                                MemFile << TAB << dec << (lvl+1);
-                                MemFile << TAB << dec << c->GetHits(bbid, lvl)
-                                << TAB << dec << c->GetMisses(bbid, lvl)
-                                << TAB << dec << c->GetLoads(bbid,lvl)
-                                << TAB << dec << c->GetStores(bbid,lvl)
-                                << ENDL;  
-                              }
+                            MemFile << TAB << dec << (lvl+1);
+                            MemFile << TAB << dec << c->GetHits(bbid, lvl)
+                            << TAB << dec << c->GetMisses(bbid, lvl)
+                            << TAB << dec << c->GetLoads(bbid,lvl)
+                            << TAB << dec << c->GetStores(bbid,lvl)
+                            << ENDL;  
                          } else {
                             MemFile << TAB << dec << c->SysId
                               << TAB << dec << (lvl+1)
                               << TAB << dec << c->GetHits(bbid, lvl)
                               << TAB << dec << c->GetMisses(bbid, lvl)
                               << ENDL;
-                         } // if LoadStoreLogginb
-                    } // for each cache level
-                    //move to here
-                    MemFile << TAB << "M"
-                    << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
-                    << TAB << dec << 0
-                    << TAB << dec << c->mainMemoryStats[bbid]->GetLoads()
-                    << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
-                    << ENDL; 
-                    //MemFile<<"Hiya Barbie\n";
+                         }
+                    }
+                    if (LoadStoreLogging) {
+                        MemFile << TAB << "M"
+                        << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
+                        << TAB << dec << 0
+                        << TAB << dec << c->mainMemoryStats[bbid]->GetLoads()
+                        << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
+                        << ENDL; 
+                        //MemFile<<"Hiya Barbie\n";
+                    }
 
                     if(HybridCacheStatus[sys]){
                         MemFile << TAB << dec << c->SysId
@@ -555,9 +552,9 @@ CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity,
     SysId = sysid;
     Capacity = capacity;
     hybridCache=hybridcache;
+    mainMemoryStats = new MainMemory*[Capacity];
 
     Stats = new LevelStats*[Capacity];
-    mainMemoryStats = new MainMemory*[Capacity];
     if(hybridCache){   
         HybridMemStats=new LevelStats[Capacity];
         for (uint32_t i = 0; i < Capacity; i++){
@@ -577,8 +574,12 @@ CacheStats::~CacheStats(){
             if (Stats[i]){
                 delete[] Stats[i];
             }
+            if (mainMemoryStats[i]){
+                delete mainMemoryStats[i];
+            }
         }
         delete[] Stats;
+        delete[] mainMemoryStats;
     }
 }
 
@@ -617,7 +618,7 @@ void CacheStats::ExtendCapacity(uint32_t newSize){
 void CacheStats::NewMem(uint32_t memid){
     assert(memid < Capacity);
 
-    LevelStats* mem = new LevelStats[(LevelCount)];
+    LevelStats* mem = new LevelStats[LevelCount];
     memset(mem, 0, sizeof(LevelStats) * LevelCount);
     Stats[memid] = mem;
 }
@@ -1194,8 +1195,8 @@ uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr,
     evicInfo->addr = evictedStore;
     evicInfo->setid = set;
     evicInfo->lineid = line2rep;
-    toEvict = true;//TODO
     *anyEvict = true;
+    toEvict = true;//TODO
 
     return level + 1;
 }
@@ -1204,7 +1205,7 @@ uint32_t CacheLevel::EvictProcess(CacheStats* stats, uint32_t memid,
   uint64_t addr, uint64_t loadstoreflag, void* info){
 
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct */
+    correct 
     uint32_t set = 0, lineInSet = 0;
     uint64_t store = addr;
     debug(assert(stats));
@@ -1215,7 +1216,7 @@ uint32_t CacheLevel::EvictProcess(CacheStats* stats, uint32_t memid,
         stats->Stats[memid][level].storeCount++;
         MarkUsed(set, lineInSet,loadstoreflag);
         return INVALID_CACHE_LEVEL;
-    }
+    } */
         
     return level + 1;
 }
@@ -1228,7 +1229,7 @@ uint32_t ExclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
 
     uint64_t store = GetStorage(addr);
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct */
+    correct 
     // handle victimizing
     EvictionInfo* e = (EvictionInfo*)info; 
     if (e->level != INVALID_CACHE_LEVEL){ 
@@ -1260,7 +1261,7 @@ uint32_t ExclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
         }
     }
 
-    if(loadStoreLogging){
+    if(LoadStoreLogging){
         if(loadstoreflag){
             stats->Stats[memid][level].loadCount++;
         }else{
@@ -1297,7 +1298,7 @@ uint32_t ExclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
         *(anyEvict) = ( 1 & loadstoreflag);
         return FirstExclusive;
     }
-    *(anyEvict) = false;
+    *(anyEvict) = false; */
     return level + 1;
 }
 
@@ -1376,25 +1377,25 @@ void CacheLevel::EvictDirty(CacheStats* stats, CacheLevel** levels,
     uint64_t victim;
 
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct */
+    correct 
     victim=toEvictAddresses->back();    
     // vector "toEvictAddresses" will be empty by the end of this. Vector 
     // was designed to handle 
     toEvictAddresses->pop_back();
     uint32_t next=level+1;
     uint64_t loadstoreflag=0;
-   
-    next=levels[next]->EvictProcess(stats,memid,victim,loadstoreflag,
+   */
+    /* next=levels[next]->EvictProcess(stats,memid,victim,loadstoreflag,
       (void*)info);   
     assert( next == INVALID_CACHE_LEVEL); 
     // If assert fails, implies the memory address which was to be evicted was 
     // not found which is violation in an inclusive cache.
     assert(toEvictAddresses->size()==0); // INFO: Should be removed before
     // merging to dev branch, altho this checks a legal case but is it needed?
-    
+    */
 
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct */
+    correct 
     while(toEvictAddresses->size()){ 
         // To handle cases where an address from Ln is missing in Ln+1 
         // (e.g  missing in L2, found in L1). 
@@ -1412,7 +1413,7 @@ void CacheLevel::EvictDirty(CacheStats* stats, CacheLevel** levels,
         }
     }
 
-    toEvict=false;
+    toEvict=false; */
     return;
 }
 
@@ -1431,8 +1432,12 @@ MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize)
     for(int i=0;i<numOfSets;i++){
         writeOuts[i] = new uint32_t[numOfLinesInSet];
         readIns[i] = new uint32_t[numOfLinesInSet];
-        memset(writeOuts[i],0,sizeof(uint32_t)*numOfLinesInSet);
-        memset(readIns[i],0,sizeof(uint32_t)*numOfLinesInSet);
+        //memset(writeOuts[i],0,sizeof(uint32_t)*numOfLinesInSet);
+        //memset(readIns[i],0,sizeof(uint32_t)*numOfLinesInSet);
+        for(int j=0;j<numOfLinesInSet;j++){
+            writeOuts[i][j] = 0;
+            readIns[i][j] = 0;
+        }
     }
 }
 
@@ -1471,11 +1476,6 @@ uint32_t MainMemory::GetStores(){
 
 CacheStructureHandler::CacheStructureHandler(){
 }
-
-/*CacheStructureHandler::~CacheStructureHandler(){
-    delete mainMemory;
-}*/
-
 
 void CacheStructureHandler::ExtractAddresses(){
     stringstream tokenizer(description);
@@ -1673,9 +1673,6 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
     uint32_t cacheValues[3];
     ReplacementPolicy repl;
 
-    this->LoadStoreLogging = LoadStoreLogging;
-    this->DirtyCacheHandling = DirtyCacheHandling;
-
     sysId = 0;
     levelCount = 0;
     hybridCache=-1;
@@ -1810,13 +1807,6 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
         }
     }
 
-    //TODO comment out below and rebuild
-    uint32_t numOfSets = levels[levelCount-1]->GetSetCount(); //based on Last Level Cache
-    uint32_t numOfLinesInSet = levels[levelCount-1]->GetAssociativity();
-    uint32_t sizeOfLine = levels[levelCount-1]->GetLineSize();
-
-    //mainMemory = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
-
     if (whichTok != levelCount * 4 + 2){
         return false;
     }
@@ -1847,32 +1837,43 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
     CacheStats* stats = (CacheStats*)stats_in;
     uint8_t initLoadStoreFlag = loadstoreflag;
 
-    EvictionInfo evicInfoArray[] = new EvictionInfo[levelCount];//Delete before exiting function
-    for(int i=0;i<levelCount;i++){
-        evicInfoArray[i] = NULL;
-    }
+    //EvictionInfo* evicInfoArray = new EvictionInfo[levelCount];//Delete before exiting func
+    //bzero(evicInfoArray, levelCount*sizeof(EvictionInfo));
+    bool anyEvict = false;
+
+    EvictionInfo evictInfo;
+    evictInfo.level = INVALID_CACHE_LEVEL;
+    //evictInfo.loadstoreflag = initLoadStoreFlag;
+    uint32_t resLevel = 0;
 
     while (next < levelCount){
-        EvictionInfo evictInfo;
-        evictInfo.level = INVALID_CACHE_LEVEL;
-        //evictInfo.loadstoreflag = initLoadStoreFlag;
-        bool anyEvict = false;
-        uint32_t resLevel = 0;
         resLevel = next;
         next = levels[next]->Process(stats, memseq, victim, loadstoreflag,
           &anyEvict,(void*)(&evictInfo));
         /*if(next != 0) {
             loadstoreflag = 1; 
         }*/
-        if(anyEvict){
+        /*if(anyEvict){
             evicInfoArray[resLevel] = evictInfo;
-        }
+        }*/
         // If next level is checked, then it should be a miss from current 
         // level, which implies next operation is a load to a next level!!
     }
 
+    if(next == levelCount){ // Missed on last level
+        uint32_t evicSet = evictInfo.setid;
+        uint32_t evicLine = evictInfo.lineid;
+        // write to stats mainMemory
+        //memseq
+        if(initLoadStoreFlag){
+            stats->mainMemoryStats[memseq]->readIns[evicSet][evicLine]++;
+        } else {
+            stats->mainMemoryStats[memseq]->writeOuts[evicSet][evicLine]++;
+        }
+    }
+
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct */
+    correct 
     if(DirtyCacheHandling&&anyEvict){
         while( (tmpNext<levelCount) ){
             if(levels[tmpNext]->GetEvictStatus()){
@@ -1881,24 +1882,12 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
             }
             tmpNext++;
         }
-
-        if(next == (levelCount+1)){ // Missed on last level
-            uint32_t evicSet = evictInfo.setid;
-            uint32_t evicLine = evictInfo.lineid;
-            // write to stats mainMemory
-            //memseq
-            if(initLoadStoreFlag){
-                stats->mainMemoryStats[memseq]->readIns[evicSet][evicLine]++;
-            } else {
-                stats->mainMemoryStats[memseq]->writeOuts[evicSet][evicLine]++;
-            }
-        }
+        
     } 
-    return resLevel;
-
+*/
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-    correct */
-    /*if((hybridCache) && (next!=INVALID_CACHE_LEVEL) && (next>=levelCount)){ 
+    correct 
+    if((hybridCache) && (next!=INVALID_CACHE_LEVEL) && (next>=levelCount)){ 
         // Implies miss at LLC 
         CheckRange(stats,victim,loadstoreflag,memseq); 
         uint32_t lastLevel = levelCount-1;
@@ -1919,6 +1908,7 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
         }
         resLevel = levelCount+1;
     }*/ 
+    return resLevel;
 }
 
 uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access){

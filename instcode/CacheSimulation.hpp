@@ -117,7 +117,7 @@ class CacheStats : public StreamStats {
 public:
     uint32_t LevelCount;
     uint32_t SysId;
-    LevelStats** Stats; // indexed by [memid][level] //want to make Last Level MainMemory
+    LevelStats** Stats; // indexed by [memid][level]
     LevelStats* HybridMemStats; // indexed by [memid]
     MainMemory** mainMemoryStats; // indexed by [memid]
     uint32_t Capacity;
@@ -373,8 +373,6 @@ public:
 
     CacheLevel** levels;
     std::string description;
-
-    MainMemory* mainMemory;
 
 protected: 
       uint32_t MinimumHighAssociativity = 256;
