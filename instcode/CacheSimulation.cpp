@@ -294,6 +294,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
                 CacheStats* c = new CacheStats(s->LevelCount, s->SysId,
                   st->BlockCount, s->hybridCache);
+                c->mainMemoryStats = s->mainMemoryStats;
                 aggstats[sys] = c;
 
                 for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++) {
@@ -590,7 +591,10 @@ void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler){
     uint32_t sizeOfLine = handler->levels[lastLevel]->GetLineSize();
     for(int i=0;i<Capacity;i++){
         mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
+        assert(mainMemoryStats[i]->GetLoads()==0);
     }
+    //mainMemoryStats[1] = 0x53cb0
+    //mainMemoryStats[1]->readIns = 0x 53cd8
 }
 
 float CacheStats::GetHitRate(LevelStats* stats){
