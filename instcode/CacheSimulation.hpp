@@ -73,14 +73,10 @@ struct LevelStats {
 };
 
 class MainMemory {
-private:
-    uint32_t numOfSets; //based on Last Level Cache
-    uint32_t numOfLinesInSet;
-    uint32_t sizeOfLine;
-
 public:
     MainMemory();
     MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize); 
+    MainMemory(MainMemory& mem);
     ~MainMemory();
 
     uint32_t** writeOuts; //2d array indexed by set and lineInSet
@@ -88,6 +84,10 @@ public:
 
     uint32_t GetLoads(); //loops through all of readIns and gets a total sum
     uint32_t GetStores(); //loops through all of writeOuts and gets a total sum
+
+    uint32_t numOfSets; //based on Last Level Cache
+    uint32_t numOfLinesInSet;
+    uint32_t sizeOfLine;
 };
 
 class CacheSimulationTool : public AddressStreamTool {
