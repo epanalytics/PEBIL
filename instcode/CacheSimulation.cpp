@@ -323,16 +323,33 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                             //TODO my new code goes here
                             //c->mainMemoryStats[bbid]->readIns += s->mainMemoryStats[memid]->GetLoads();
                             //c->mainMemoryStats[bbid]->writeOuts += s->mainMemoryStats[memid]->GetStores();
-                            for (int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
+                            /*for (int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
                                 for (int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
                                     c->mainMemoryStats[bbid]->readIns[i][j] += s->mainMemoryStats[memid]->readIns[i][j];
                                     c->mainMemoryStats[bbid]->writeOuts[i][j] += s->mainMemoryStats[memid]->writeOuts[i][j];
                                     //Currently return a value 3x higher than it should be...
+                                    //returns value 4x when cache is 4 levels...
                                 }
-                            }
+                            }*/
                         }
                     } // for each memop
                 } // for each cache level
+                if(LoadStoreLogging){
+                    for(uint32_t memid = 0;memid < st->AllocCount; memid++){
+                        uint32_t bbid;
+                        if (st->PerInstruction){
+                            bbid = memid;
+                        } else {
+                            bbid = st->BlockIds[memid];
+                        }
+                        for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
+                            for(int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
+                                c->mainMemoryStats[bbid]->readIns[i][j] += s->mainMemoryStats[memid]->readIns[i][j];
+                                c->mainMemoryStats[bbid]->writeOuts[i][j] += s->mainMemoryStats[memid]->writeOuts[i][j];
+                            }
+                        }
+                    }
+                }
 
                 if(!c->Verify()) {
                     warn << "Failed check on aggregated cache stats" 
