@@ -1682,8 +1682,58 @@ uint32_t FlowGraph::buildLoops(){
     // Sort loops by loop head
     if (numberOfLoops){
         uint32_t i = 0;
+        Vector<uint32_t> subsetIndices;
         while (!loopList.empty()){
-            loops.append(loopList.shift());
+            Loop* currentLoop = loopList.shift();
+            PRINT_DEBUG("Try adding loop with head %#llx and %d nodes\n", 
+              currentLoop->getHead()->getBaseAddress(), 
+              currentLoop->getNumberOfBlocks());
+            // Check for loops with the same header
+            bool okayToInsert = true;
+            for (uint32_t i = 0; (i < loops.size()) && (okayToInsert); i++) {
+                if (loops[i]->getHead() != currentLoop->getHead())
+                    continue;
+
+                if (loops[i]->isIdenticalLoop(currentLoop) || 
+                  currentLoop->isInnerLoopOf(loops[i])) {
+                    PRINT_DEBUG("Found identical or bigger loop with head " 
+                      "%#llx and %d nodes\n", 
+                      loops[i]->getHead()->getBaseAddress(), 
+                      loops[i]->getNumberOfBlocks());
+                    okayToInsert = false;
+                    continue;
+                }
+
+                if (loops[i]->isInnerLoopOf(currentLoop)) {
+                    PRINT_DEBUG("Found subset with head %#llx and %d nodes at "
+                      "index %d\n", loops[i]->getHead()->getBaseAddress(), 
+                      loops[i]->getNumberOfBlocks(), i);
+                    subsetIndices.append(i);
+                }
+            }
+
+            // If our current loop was a subset of another loop in the array 
+            // then its subsets should not have ever been inserted or they 
+            // should have been deleted!
+           assert(!(subsetIndices.size()) || okayToInsert);
+
+            // TODO: Implement merging of loops -- unsure if this is even 
+            // possible -- and if it doesn, the loop removal is going to be 
+            // wrong
+            assert(subsetIndices.size() <= 1);
+            for (uint32_t i = 0; i < subsetIndices.size(); i++) {
+                PRINT_DEBUG("Removing subset %d\n", subsetIndices[i]);
+                Loop* loopToDelete = loops.remove(subsetIndices[i]);
+                delete loopToDelete;
+                excluded++;
+            }
+
+            if (okayToInsert) {
+                loops.append(currentLoop);
+            } else {
+                delete currentLoop;
+                excluded++;
+            }
         }
         qsort(loops.array(),loops.size(),sizeof(Loop*),compareLoopEntry);
         for (i=0; i < loops.size(); i++){
