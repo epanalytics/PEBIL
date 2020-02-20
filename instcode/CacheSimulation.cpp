@@ -304,15 +304,16 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
                 aggstats[sys] = c;
 
-                for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++) {
-                    for (uint32_t memid = 0; memid < st->AllocCount; 
-                            memid++){
-                        uint32_t bbid;
-                        if (st->PerInstruction){
-                            bbid = memid;
-                        } else {
-                            bbid = st->BlockIds[memid];
-                        }
+                for (uint32_t memid = 0; memid < st->AllocCount; 
+                        memid++){
+
+                    uint32_t bbid;
+                    if (st->PerInstruction){
+                        bbid = memid;
+                    } else {
+                        bbid = st->BlockIds[memid];
+                    }
+                    for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++) {
 
                         c->Hit(bbid, lvl, s->GetHits(memid, lvl));
                         c->Miss(bbid, lvl, s->GetMisses(memid, lvl));
@@ -332,9 +333,15 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                                 }
                             }*/
                         }
-                    } // for each memop
-                } // for each cache level
-                if(LoadStoreLogging){
+                    } // for each cache level
+                    for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
+                        for(int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
+                            c->mainMemoryStats[bbid]->readIns[i][j] += s->mainMemoryStats[memid]->readIns[i][j];
+                            c->mainMemoryStats[bbid]->writeOuts[i][j] += s->mainMemoryStats[memid]->writeOuts[i][j];
+                        }
+                    }
+                } // for each memop
+                /*if(LoadStoreLogging){
                     for(uint32_t memid = 0;memid < st->AllocCount; memid++){
                         uint32_t bbid;
                         if (st->PerInstruction){
@@ -349,7 +356,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                             }
                         }
                     }
-                }
+                }*/
 
                 if(!c->Verify()) {
                     warn << "Failed check on aggregated cache stats" 
