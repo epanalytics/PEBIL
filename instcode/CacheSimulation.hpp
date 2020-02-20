@@ -62,7 +62,6 @@ struct EvictionInfo {
     uint32_t level;
     uint32_t setid;
     uint32_t lineid;
-    //uint32_t loadstoreflag;
 };
 
 struct LevelStats {
@@ -74,7 +73,6 @@ struct LevelStats {
 
 class MainMemory {
 public:
-    MainMemory();
     MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize); 
     MainMemory(MainMemory& mem);
     ~MainMemory();

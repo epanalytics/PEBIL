@@ -321,46 +321,22 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                         if(LoadStoreLogging){
                             c->Load(bbid, lvl, s->GetLoads(memid, lvl));
                             c->Store(bbid, lvl, s->GetStores(memid, lvl));
-                            //TODO my new code goes here
-                            //c->mainMemoryStats[bbid]->readIns += s->mainMemoryStats[memid]->GetLoads();
-                            //c->mainMemoryStats[bbid]->writeOuts += s->mainMemoryStats[memid]->GetStores();
-                            /*for (int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
-                                for (int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
-                                    c->mainMemoryStats[bbid]->readIns[i][j] += s->mainMemoryStats[memid]->readIns[i][j];
-                                    c->mainMemoryStats[bbid]->writeOuts[i][j] += s->mainMemoryStats[memid]->writeOuts[i][j];
-                                    //Currently return a value 3x higher than it should be...
-                                    //returns value 4x when cache is 4 levels...
-                                }
-                            }*/
                         }
                     } // for each cache level
-                    for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
-                        for(int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
-                            c->mainMemoryStats[bbid]->readIns[i][j] += s->mainMemoryStats[memid]->readIns[i][j];
-                            c->mainMemoryStats[bbid]->writeOuts[i][j] += s->mainMemoryStats[memid]->writeOuts[i][j];
-                        }
-                    }
-                } // for each memop
-                /*if(LoadStoreLogging){
-                    for(uint32_t memid = 0;memid < st->AllocCount; memid++){
-                        uint32_t bbid;
-                        if (st->PerInstruction){
-                            bbid = memid;
-                        } else {
-                            bbid = st->BlockIds[memid];
-                        }
+                    if(LoadStoreLogging){
                         for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
                             for(int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
+                                //TODO make these lines shorter?
                                 c->mainMemoryStats[bbid]->readIns[i][j] += s->mainMemoryStats[memid]->readIns[i][j];
                                 c->mainMemoryStats[bbid]->writeOuts[i][j] += s->mainMemoryStats[memid]->writeOuts[i][j];
                             }
                         }
                     }
-                }*/
+                } // for each memop
 
                 if(!c->Verify()) {
                     warn << "Failed check on aggregated cache stats" 
-                        << ENDL;
+                      << ENDL;
                 }
 
                 if(c->hybridCache){
@@ -401,16 +377,16 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 // multiple addresses processed per address 
                 // (e.g. with scatter/gather)
                 if ((AllData->CountThreads() == 1) && 
-                        !st->HasNonDeterministicMemop[bbid]){
+                  !st->HasNonDeterministicMemop[bbid]){
                     if ((root->GetAccessCount(bbid) % 
-                                st->MemopsPerBlock[bbid]) != 0){
+                      st->MemopsPerBlock[bbid]) != 0){
                         inform << "bbid " << dec << bbid << " image " << 
-                            hex << (*iit) << " accesses " << dec << 
-                            root->GetAccessCount(bbid) << " memops " << 
-                            st->MemopsPerBlock[bbid] << ENDL;
+                          hex << (*iit) << " accesses " << dec << 
+                          root->GetAccessCount(bbid) << " memops " << 
+                          st->MemopsPerBlock[bbid] << ENDL;
                     }
                     assert(root->GetAccessCount(bbid) % 
-                            st->MemopsPerBlock[bbid] == 0);
+                      st->MemopsPerBlock[bbid] == 0);
                 }
 
                 uint32_t idx;
@@ -421,16 +397,16 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 }
 
                 MemFile << "BLK" << TAB << dec << bbid
-                    << TAB << hex << st->Hashes[bbid]
-                    << TAB << dec << AllData->GetImageSequence((*iit))
-                    << TAB << dec << AllData->GetThreadSequence(st->threadid)
-                    << ENDL;
+                  << TAB << hex << st->Hashes[bbid]
+                  << TAB << dec << AllData->GetImageSequence((*iit))
+                  << TAB << dec << AllData->GetThreadSequence(st->threadid)
+                  << ENDL;
 
                 for (uint32_t sys = 0; sys < numCaches; sys++){
                     CacheStats* c = aggstats[sys];
                     if (AllData->CountThreads() == 1){
                         assert(root->GetAccessCount(bbid) == 
-                                c->GetHits(bbid, 0) + c->GetMisses(bbid, 0));
+                          c->GetHits(bbid, 0) + c->GetMisses(bbid, 0));
                     }
 
                     for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
@@ -438,26 +414,25 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                             MemFile << TAB << dec << c->SysId;
                             MemFile << TAB << dec << (lvl+1);
                             MemFile << TAB << dec << c->GetHits(bbid, lvl)
-                                << TAB << dec << c->GetMisses(bbid, lvl)
-                                << TAB << dec << c->GetLoads(bbid,lvl)
-                                << TAB << dec << c->GetStores(bbid,lvl)
-                                << ENDL;  
+                              << TAB << dec << c->GetMisses(bbid, lvl)
+                              << TAB << dec << c->GetLoads(bbid,lvl)
+                              << TAB << dec << c->GetStores(bbid,lvl)
+                              << ENDL;  
                         } else {
                             MemFile << TAB << dec << c->SysId
-                                << TAB << dec << (lvl+1)
-                                << TAB << dec << c->GetHits(bbid, lvl)
-                                << TAB << dec << c->GetMisses(bbid, lvl)
-                                << ENDL;
+                              << TAB << dec << (lvl+1)
+                              << TAB << dec << c->GetHits(bbid, lvl)
+                              << TAB << dec << c->GetMisses(bbid, lvl)
+                              << ENDL;
                         }
                     }
                     if (LoadStoreLogging) {
                         MemFile << TAB << "M"
-                            << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
-                            << TAB << dec << 0
-                            << TAB << dec << c->mainMemoryStats[bbid]->GetLoads()
-                            << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
-                            << ENDL; 
-                        //MemFile<<"Hiya Barbie\n";
+                          << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
+                          << TAB << dec << 0
+                          << TAB << dec << c->mainMemoryStats[bbid]->GetLoads()
+                          << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
+                          << ENDL; 
                     }
 
                     if(HybridCacheStatus[sys]){
@@ -486,7 +461,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 }
 
 void CacheSimulationTool::CacheSimulationFileName(AddressStreamStats* stats, 
-        string& oFile){
+  string& oFile){
     oFile.clear();
     const char* prefix = getenv(ENV_OUTPUT_PREFIX);
     if(prefix != NULL) {
@@ -534,7 +509,7 @@ const char* CacheSimulationTool::HandleEnvVariables(uint32_t index,
     // METASIM_LIMIT_HIGH_ASSOC if desired.
     uint32_t SaveHashMin = MinimumHighAssociativity;
     bool flag = (parser->ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
-                &MinimumHighAssociativity));
+      &MinimumHighAssociativity));
     if (!flag){
         MinimumHighAssociativity = SaveHashMin;
     }
@@ -549,12 +524,12 @@ const char* CacheSimulationTool::HandleEnvVariables(uint32_t index,
     if(DirtyCacheHandling){
         if(!LoadStoreLogging){
             ErrorExit(" DirtyCacheHandling is enabled without LoadStoreLogging "
-                    ,MetasimError_FileOp);
+              ,MetasimError_FileOp);
         }
     }
 
     inform << " LoadStoreLogging " << LoadStoreLogging << " DirtyCacheHandling "
-        << DirtyCacheHandling << ENDL;
+      << DirtyCacheHandling << ENDL;
 
     // read caches to simulate
     cachedf = GetCacheDescriptionFile(parser);
@@ -562,11 +537,11 @@ const char* CacheSimulationTool::HandleEnvVariables(uint32_t index,
 }
 
 uint32_t CacheSimulationTool::ReadCacheDescription(istream& stream, 
-        StringParser* parser, string& cachedf){
+  StringParser* parser, string& cachedf){
     bool streamResult = stream.fail();
     if (streamResult){
         ErrorExit("cannot open cache descriptions file: " << cachedf, 
-                MetasimError_FileOp);
+          MetasimError_FileOp);
     }
 
     string line;
@@ -577,7 +552,7 @@ uint32_t CacheSimulationTool::ReadCacheDescription(istream& stream,
         CacheStructureHandler* c = new CacheStructureHandler();
         if (!c->Init(line, MinimumHighAssociativity, LoadStoreLogging, DirtyCacheHandling)){
             ErrorExit("cannot parse cache description line: " << line, 
-                    MetasimError_StringParse);
+              MetasimError_StringParse);
         }
         assert(!(c->hybridCache) && "Hybrid cache deprecated");
         handlers.push_back(c);
@@ -589,7 +564,7 @@ uint32_t CacheSimulationTool::ReadCacheDescription(istream& stream,
 }
 
 CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, 
-        uint32_t hybridcache){
+  uint32_t hybridcache){
     LevelCount = lvl;
     SysId = sysid;
     Capacity = capacity;
@@ -634,8 +609,6 @@ void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler){
         mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
         assert(mainMemoryStats[i]->GetLoads()==0);
     }
-    //mainMemoryStats[1] = 0x53cb0
-    //mainMemoryStats[1]->readIns = 0x 53cd8
 }
 
 float CacheStats::GetHitRate(LevelStats* stats){
@@ -882,8 +855,8 @@ bool CacheStats::Verify(){
             uint64_t misses = Stats[memid][level].missCount;
             if(hits + misses != prevMisses){
                 warn << "Inconsistent hits/misses for memid " << memid << 
-                    " level " << level << " " << hits << " + " << misses << 
-                    " != " << prevMisses << ENDL;
+                  " level " << level << " " << hits << " + " << misses << 
+                  " != " << prevMisses << ENDL;
                 return false;
             }
             prevMisses = misses;
@@ -1017,13 +990,13 @@ uint64_t CacheLevel::CountColdMisses(){
 
 void CacheLevel::Print(ofstream& f, uint32_t sysid){
     f << TAB << dec << sysid
-        << TAB << dec << level
-        << TAB << dec << size
-        << TAB << dec << associativity
-        << TAB << dec << linesize
-        << TAB << ReplacementPolicyNames[replpolicy]
-        << TAB << TypeString()
-        << ENDL;
+      << TAB << dec << level
+      << TAB << dec << size
+      << TAB << dec << associativity
+      << TAB << dec << linesize
+      << TAB << ReplacementPolicyNames[replpolicy]
+      << TAB << TypeString()
+      << ENDL;
 }
 
 uint64_t CacheLevel::GetStorage(uint64_t addr){
@@ -1053,7 +1026,8 @@ uint32_t CacheLevel::LineToReplace(uint32_t setid){
     return 0;
 }
 
-bool HighlyAssociativeCacheLevel::GetDirtyStatus(uint32_t setid,uint32_t lineid,uint64_t store){
+bool HighlyAssociativeCacheLevel::GetDirtyStatus(
+  uint32_t setid,uint32_t lineid,uint64_t store){
     {
         if( fastcontentsdirty[setid]->count(store) > 0 )
             return (*(fastcontentsdirty[setid]))[store]; //.second; 
@@ -1062,18 +1036,21 @@ bool HighlyAssociativeCacheLevel::GetDirtyStatus(uint32_t setid,uint32_t lineid,
     }        
 }
 
-void HighlyAssociativeCacheLevel::SetDirty(uint32_t setid, uint32_t lineid,
-        uint64_t store){
+void HighlyAssociativeCacheLevel::SetDirty(
+  uint32_t setid, uint32_t lineid, uint64_t store){
+
     (*(fastcontentsdirty[setid]))[lineid]=true;
 }
 
-void HighlyAssociativeCacheLevel::ResetDirty(uint32_t setid, uint32_t lineid,
-        uint64_t store){
+void HighlyAssociativeCacheLevel::ResetDirty(
+  uint32_t setid, uint32_t lineid, uint64_t store){
+
     (*(fastcontentsdirty[setid]))[lineid]=false;
 }
 
-uint64_t CacheLevel::Replace(uint64_t store, uint32_t setid, uint32_t lineid,
-        uint64_t loadstoreflag){
+uint64_t CacheLevel::Replace( uint64_t store, 
+  uint32_t setid, uint32_t lineid, uint64_t loadstoreflag){
+
     uint64_t prev = contents[setid][lineid];
 
     if(GetDirtyStatus(setid,lineid,prev)){
@@ -1094,8 +1071,9 @@ uint64_t CacheLevel::Replace(uint64_t store, uint32_t setid, uint32_t lineid,
     return prev;
 }
 
-uint64_t HighlyAssociativeCacheLevel::Replace(uint64_t store, uint32_t setid, 
-        uint32_t lineid, uint64_t loadstoreflag){
+uint64_t HighlyAssociativeCacheLevel::Replace(
+  uint64_t store, uint32_t setid, uint32_t lineid, uint64_t loadstoreflag){
+
     uint64_t prev = contents[setid][lineid];
     contents[setid][lineid] = store;
 
@@ -1122,18 +1100,23 @@ uint64_t HighlyAssociativeCacheLevel::Replace(uint64_t store, uint32_t setid,
     return prev;
 }
 
-inline void CacheLevel::MarkUsed(uint32_t setid, uint32_t lineid, 
-        uint64_t loadstoreflag){
+inline void CacheLevel::MarkUsed(
+  uint32_t setid, uint32_t lineid, uint64_t loadstoreflag){
+
     if(loadStoreLogging){
         if(!(loadstoreflag))
             SetDirty(setid,lineid,contents[setid][lineid]);
     }
     if (USES_MARKERS(replpolicy)){
-        debug(inform << "level " << dec << level << " USING set " << dec << setid << " line " << lineid << ENDL << flush);
+        debug(inform << "level " << dec << level 
+          << " USING set " << dec << setid 
+          << " line " << lineid << ENDL << flush);
         recentlyUsed[setid] = lineid;
     }
     else if(replpolicy == ReplacementPolicy_trulru) {
-        debug(inform << "level " << dec << level << " USING set " << dec << setid << " line " << lineid << ENDL << flush);
+        debug(inform << "level " << dec << level 
+          << " USING set " << dec << setid 
+          << " line " << lineid << ENDL << flush);
         if(recentlyUsed[setid] == lineid)
             recentlyUsed[setid] = historyUsed[setid][lineid].next;
         else {
@@ -1147,10 +1130,13 @@ inline void CacheLevel::MarkUsed(uint32_t setid, uint32_t lineid,
     }
 }
 
-bool HighlyAssociativeCacheLevel::Search(uint64_t store, uint32_t* set, 
-        uint32_t* lineInSet){
+bool HighlyAssociativeCacheLevel::Search(
+  uint64_t store, uint32_t* set, uint32_t* lineInSet){
+
     uint32_t setId = GetSet(store);
-    debug(inform << TAB << TAB << "stored " << hex << store << " set " << dec << setId << endl << flush);
+    debug(inform << TAB << TAB 
+      << "stored " << hex << store 
+      << " set " << dec << setId << endl << flush);
     if (set){
         (*set) = setId;
     }
@@ -1168,7 +1154,9 @@ bool HighlyAssociativeCacheLevel::Search(uint64_t store, uint32_t* set,
 
 bool CacheLevel::Search(uint64_t store, uint32_t* set, uint32_t* lineInSet){
     uint32_t setId = GetSet(store);
-    debug(inform << TAB << TAB << "stored " << hex << store << " set " << dec << setId << endl << flush);
+    debug(inform << TAB << TAB 
+      << "stored " << hex << store 
+      << " set " << dec << setId << endl << flush);
     if (set){
         (*set) = setId;
     }
@@ -1216,9 +1204,9 @@ uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr,
 
 
     if(loadStoreLogging){
-        if(loadstoreflag){ //1 = true = load
+        if(loadstoreflag){
             stats->Stats[memid][level].loadCount++;
-        } else{ //0 = false = store
+        } else{
             stats->Stats[memid][level].storeCount++;
         }         
     }    
@@ -1235,13 +1223,13 @@ uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr,
     stats->Stats[memid][level].missCount++;
     uint32_t line2rep = LineToReplace(set);
     uint64_t evictedStore = Replace(store, set, line2rep,
-            loadstoreflag);
+      loadstoreflag);
     evicInfo->level = level;
     evicInfo->addr = evictedStore;
     evicInfo->setid = set;
     evicInfo->lineid = line2rep;
     *anyEvict = true;
-    toEvict = true;//TODO
+    toEvict = true;
 
     return level + 1;
 }
@@ -1267,7 +1255,7 @@ uint32_t CacheLevel::EvictProcess(CacheStats* stats, uint32_t memid,
 }
 
 uint32_t ExclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid, 
-        uint64_t addr, uint64_t loadstoreflag, bool* anyEvict, void* info){
+  uint64_t addr, uint64_t loadstoreflag, bool* anyEvict, void* info){
 
     uint32_t set = 0;
     uint32_t lineInSet = 0;
@@ -1278,77 +1266,77 @@ uint32_t ExclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
     // handle victimizing
     EvictionInfo* e = (EvictionInfo*)info; 
     if (e->level != INVALID_CACHE_LEVEL){ 
-    set = GetSet(e->addr);
-    lineInSet = LineToReplace(set);
+        set = GetSet(e->addr);
+        lineInSet = LineToReplace(set);
 
-    // use the location of the replaced line if the eviction happens to go 
-    // to the same set
-    if (level == e->level){
-    if (e->setid == set){
-    lineInSet = e->lineid;
+        // use the location of the replaced line if the eviction happens to go 
+        // to the same set
+        if (level == e->level){
+            if (e->setid == set){
+                lineInSet = e->lineid;
+            }
+        }
+
+        loadstoreflag = ( 1 & *(anyEvict) );
+        *(anyEvict) = GetDirtyStatus(set,lineInSet,e->addr);
+        e->addr = Replace(e->addr,set,lineInSet,loadstoreflag);
+        toEvict = false;
+
+        if (level == e->level){
+            *(anyEvict) = false;
+            if(  *(anyEvict)  && ( (level+1) == levelCount )  ) {
+                toEvict=true;
+                toEvictAddresses->push_back(e->addr);
+            }
+            return INVALID_CACHE_LEVEL;
+        } else {
+            return level + 1;
+        }
     }
+
+    if(LoadStoreLogging){
+        if(loadstoreflag){
+            stats->Stats[memid][level].loadCount++;
+        }else{
+            stats->Stats[memid][level].storeCount++;
+        }            
     }
-
-    loadstoreflag = ( 1 & *(anyEvict) );
-     *(anyEvict) = GetDirtyStatus(set,lineInSet,e->addr);
-     e->addr = Replace(e->addr,set,lineInSet,loadstoreflag);
-     toEvict = false;
-
-     if (level == e->level){
-     *(anyEvict) = false;
-     if(  *(anyEvict)  && ( (level+1) == levelCount )  ) {
-     toEvict=true;
-     toEvictAddresses->push_back(e->addr);
-     }
-     return INVALID_CACHE_LEVEL;
-     } else {
-     return level + 1;
-     }
-     }
-
-     if(LoadStoreLogging){
-     if(loadstoreflag){
-     stats->Stats[memid][level].loadCount++;
-     }else{
-     stats->Stats[memid][level].storeCount++;
-     }            
-     }
 
     // hit
     if (Search(store, &set, &lineInSet)){
-    stats->Stats[memid][level].hitCount++;
+        stats->Stats[memid][level].hitCount++;
 
-    e->level = level;
-    e->addr = store;
-    e->setid = set;
-    e->lineid = lineInSet;
+        e->level = level;
+        e->addr = store;
+        e->setid = set;
+        e->lineid = lineInSet;
 
-    toEvict = false;
-    if (level == FirstExclusive){
-    MarkUsed(set, lineInSet,loadstoreflag);
-    return INVALID_CACHE_LEVEL;
+        toEvict = false;
+        if (level == FirstExclusive){
+            MarkUsed(set, lineInSet,loadstoreflag);
+            return INVALID_CACHE_LEVEL;
+        }
+        MarkUsed(set, lineInSet,GetDirtyStatus(set,lineInSet,store));
+        *(anyEvict) = ( 1 & loadstoreflag);
+        return FirstExclusive;
     }
-    MarkUsed(set, lineInSet,GetDirtyStatus(set,lineInSet,store));
-     *(anyEvict) = ( 1 & loadstoreflag);
-     return FirstExclusive;
-     }
 
     // miss
     stats->Stats[memid][level].missCount++;
     toEvict = false;
     if (level == LastExclusive){
-    e->level = LastExclusive + 1;
-    e->addr = store;
+        e->level = LastExclusive + 1;
+        e->addr = store;
 
-     *(anyEvict) = ( 1 & loadstoreflag);
-     return FirstExclusive;
-     }
-     *(anyEvict) = false; */
+        *(anyEvict) = ( 1 & loadstoreflag);
+        return FirstExclusive;
+    }
+    *(anyEvict) = false; */
     return level + 1;
 }
 
 uint32_t NonInclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid, 
-        uint64_t addr, uint64_t loadstoreflag, bool* anyEvict, void* info){
+  uint64_t addr, uint64_t loadstoreflag, bool* anyEvict, void* info){
 
     uint32_t set = 0;
     uint32_t lineInSet = 0;
@@ -1398,7 +1386,7 @@ uint32_t NonInclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
     // a lower cache level (because the evicted address was not already here)?
     if (!noNeedToReplace) {
         uint64_t evictedStore = Replace(prevEvictedStore, prevEvictedSet, 
-                LineToReplace(prevEvictedSet), loadstoreflag);
+          LineToReplace(prevEvictedSet), loadstoreflag);
         evicInfo->level = level;
         evicInfo->addr = evictedStore;
     } else {
@@ -1417,7 +1405,8 @@ uint32_t NonInclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
 }
 
 void CacheLevel::EvictDirty(CacheStats* stats, CacheLevel** levels, 
-        uint32_t memid, void* info) {
+  uint32_t memid, void* info) {
+
     // Should be only called by InclusiveCache.
     uint64_t victim;
 
@@ -1442,21 +1431,21 @@ void CacheLevel::EvictDirty(CacheStats* stats, CacheLevel** levels,
     /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
         correct 
         while(toEvictAddresses->size()){ 
-    // To handle cases where an address from Ln is missing in Ln+1 
-    // (e.g  missing in L2, found in L1). 
-    victim=toEvictAddresses->back();
-    toEvictAddresses->pop_back();
-    next=level+1;
-    loadstoreflag=0;
-    if(next<levelCount) {
-    next=levels[next]->EvictProcess(stats, memid, victim, loadstoreflag,
-    (void*)info);   
-    }
-    if(next<levelCount){
-    inform << "\t Cannot retire victim " << victim << " to level " 
-    << (level+1) << " since  it has already been evicted " <<ENDL;
-    }
-    }
+            // To handle cases where an address from Ln is missing in Ln+1 
+            // (e.g  missing in L2, found in L1). 
+            victim=toEvictAddresses->back();
+            toEvictAddresses->pop_back();
+            next=level+1;
+            loadstoreflag=0;
+            if(next<levelCount) {
+                next=levels[next]->EvictProcess(stats, memid, victim, loadstoreflag,
+                (void*)info);   
+            }
+            if(next<levelCount){
+                inform << "\t Cannot retire victim " << victim << " to level " 
+                << (level+1) << " since  it has already been evicted " <<ENDL;
+            }
+        }
 
     toEvict=false; */
     return;
@@ -1466,19 +1455,15 @@ bool CacheLevel::GetEvictStatus(){
     return toEvict;
 }
 
-MainMemory::MainMemory(){}
-
 MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize){
     numOfSets = setSize;
     numOfLinesInSet = numOfLines;
     sizeOfLine = lineSize;
-    /*uint32_t**/ writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
-    /*uint32_t**/ readIns = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
+    writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
+    readIns = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
     for(int i=0;i<numOfSets;i++){
         writeOuts[i] = new uint32_t[numOfLinesInSet];
         readIns[i] = new uint32_t[numOfLinesInSet];
-        //memset(writeOuts[i],0,sizeof(uint32_t)*numOfLinesInSet);
-        //memset(readIns[i],0,sizeof(uint32_t)*numOfLinesInSet);
         for(int j=0;j<numOfLinesInSet;j++){
             writeOuts[i][j] = 0;
             readIns[i][j] = 0;
@@ -1487,17 +1472,17 @@ MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize)
 }
 
 MainMemory::MainMemory(MainMemory& mem){
-    this->numOfSets = mem.numOfSets;
-    this->numOfLinesInSet = mem.numOfLinesInSet;
-    this->sizeOfLine = mem.sizeOfLine;
-    this->writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
-    this->readIns = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
+    numOfSets = mem.numOfSets;
+    numOfLinesInSet = mem.numOfLinesInSet;
+    sizeOfLine = mem.sizeOfLine;
+    writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
+    readIns = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
     for(int i=0;i<numOfSets;i++){
-        this->writeOuts[i] = new uint32_t[numOfLinesInSet];
-        this->readIns[i] = new uint32_t[numOfLinesInSet];
+        writeOuts[i] = new uint32_t[numOfLinesInSet];
+        readIns[i] = new uint32_t[numOfLinesInSet];
         for(int j=0;j<numOfLinesInSet;j++){
-            this->writeOuts[i][j] = 0;
-            this->readIns[i][j] = 0;
+            writeOuts[i][j] = 0;
+            readIns[i][j] = 0;
         }
     }
 }
