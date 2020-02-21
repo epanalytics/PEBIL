@@ -1196,8 +1196,30 @@ Loop* FlowGraph::getInnermostLoopForBlock(uint32_t idx){
     return loop;
 }
 
+Loop* FlowGraph::getInnermostArtificialLoopForBlock(uint32_t idx){
+    Loop* loop = NULL;
+    for (uint32_t i = 0; i < artificialLoops.size(); i++){
+        if (artificialLoops[i]->isBlockIn(idx)){
+            if (loop){
+                if (artificialLoops[i]->getNumberOfBlocks() < 
+                  loop->getNumberOfBlocks()){
+                    loop = artificialLoops[i];
+                }
+            } else {
+                loop = artificialLoops[i];
+            }
+        }
+    }
+    return loop;
+}
+
 Loop* FlowGraph::getOuterMostLoopForLoop(uint32_t idx){
-    Loop* input = loops[idx];
+    Loop* input = NULL;
+    if (idx < loops.size())
+        input = loops[idx];
+    else
+        input = artificialLoops[idx - loops.size()];
+
     while (input->getIndex() != getOuterLoop(input->getIndex())->getIndex()){
         input = getOuterLoop(input->getIndex());
     }
@@ -1206,23 +1228,42 @@ Loop* FlowGraph::getOuterMostLoopForLoop(uint32_t idx){
 
 // Gets any outer loop of loop idx
 Loop* FlowGraph::getOuterLoop(uint32_t idx){
-    Loop* input = loops[idx];
-    for (uint32_t i = 0; i < loops.size(); i++){
-        if (input->isInnerLoopOf(loops[i])){
-            return loops[i];
+    Loop* input = NULL;
+    if (idx < loops.size()) {
+        input = loops[idx];
+        for (uint32_t i = 0; i < loops.size(); i++){
+            if (input->isInnerLoopOf(loops[i])){
+                return loops[i];
+            }
         }
+    } else {
+        input = artificialLoops[idx - loops.size()];
+        for (uint32_t i = 0; i < artificialLoops.size(); i++){
+            if (input->isInnerLoopOf(artificialLoops[i])){
+                return artificialLoops[i];
+            }
+        }
+
     }
     return input;
 }
 
 Loop* FlowGraph::getParentLoop(uint32_t idx){
-    Loop* input = loops[idx];
-    for (uint32_t i = 0; i < loops.size(); i++){
-        if (input->isInnerLoopOf(loops[i])){
-            if (getLoopDepth(loops[idx]->getHead()->getIndex()) == getLoopDepth(loops[i]->getHead()->getIndex()) + 1){
-                return loops[i];
+    Loop* input = NULL;
+    if (idx < loops.size()) {
+        input = loops[idx];
+        for (uint32_t i = 0; i < loops.size(); i++){
+            if (input->isInnerLoopOf(loops[i])){
+                if (getLoopDepth(loops[idx]->getHead()->getIndex()) == 
+                  getLoopDepth(loops[i]->getHead()->getIndex()) + 1){
+                    return loops[i];
+                }
             }
         }
+    } else {
+        // artificial loop depth never reset! Have to fix that before 
+        // using this function
+        assert(false);
     }
     return input;
 }
@@ -1684,30 +1725,37 @@ uint32_t FlowGraph::buildLoops(){
         uint32_t i = 0;
         Vector<uint32_t> subsetIndices;
         while (!loopList.empty()){
-            Loop* currentLoop = loopList.shift();
+            Loop* naturalLoop = loopList.shift();
+            // All natural loops go into "loops"
+            loops.append(naturalLoop);
+
+            // Merge loops with same header for artificial loops
+            // TODO: Reset the depth!
+            Loop* currentLoop = new Loop(*naturalLoop);
             PRINT_DEBUG("Try adding loop with head %#llx and %d nodes\n", 
               currentLoop->getHead()->getBaseAddress(), 
               currentLoop->getNumberOfBlocks());
-            // Check for loops with the same header
             bool okayToInsert = true;
-            for (uint32_t i = 0; (i < loops.size()) && (okayToInsert); i++) {
-                if (loops[i]->getHead() != currentLoop->getHead())
+            for (uint32_t i = 0; (i < artificialLoops.size()) && (okayToInsert);
+              i++) {
+                if (artificialLoops[i]->getHead() != currentLoop->getHead())
                     continue;
 
-                if (loops[i]->isIdenticalLoop(currentLoop) || 
+                if (artificialLoops[i]->isIdenticalLoop(currentLoop) || 
                   currentLoop->isInnerLoopOf(loops[i])) {
                     PRINT_DEBUG("Found identical or bigger loop with head " 
                       "%#llx and %d nodes\n", 
-                      loops[i]->getHead()->getBaseAddress(), 
-                      loops[i]->getNumberOfBlocks());
+                      artificialLoops[i]->getHead()->getBaseAddress(), 
+                      artificialLoops[i]->getNumberOfBlocks());
                     okayToInsert = false;
                     continue;
                 }
 
-                if (loops[i]->isInnerLoopOf(currentLoop)) {
+                if (artificialLoops[i]->isInnerLoopOf(currentLoop)) {
                     PRINT_DEBUG("Found subset with head %#llx and %d nodes at "
-                      "index %d\n", loops[i]->getHead()->getBaseAddress(), 
-                      loops[i]->getNumberOfBlocks(), i);
+                      "index %d\n", artificialLoops[i]->getHead()->
+                      getBaseAddress(), artificialLoops[i]->getNumberOfBlocks(),
+                      i);
                     subsetIndices.append(i);
                 }
             }
@@ -1725,19 +1773,22 @@ uint32_t FlowGraph::buildLoops(){
                 PRINT_DEBUG("Removing subset %d\n", subsetIndices[i]);
                 Loop* loopToDelete = loops.remove(subsetIndices[i]);
                 delete loopToDelete;
-                excluded++;
             }
 
             if (okayToInsert) {
-                loops.append(currentLoop);
+                artificialLoops.append(currentLoop);
             } else {
                 delete currentLoop;
-                excluded++;
             }
         }
         qsort(loops.array(),loops.size(),sizeof(Loop*),compareLoopEntry);
         for (i=0; i < loops.size(); i++){
             loops[i]->setIndex(i);
+        }
+        qsort(artificialLoops.array(), artificialLoops.size(), sizeof(Loop*),
+          compareLoopEntry);
+        for (i=0; i < artificialLoops.size(); i++){
+            artificialLoops[i]->setIndex(i + loops.size());
         }
     }
     ASSERT(loops.size() == numberOfLoops - excluded);
