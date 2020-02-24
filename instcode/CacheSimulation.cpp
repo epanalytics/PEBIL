@@ -85,11 +85,21 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     string oFile;
     const char* fileName;
 
+    // Create the MainMemoryLogging Report
+    ofstream LogFile;
+    string lFile;
+    const char* logName;
+
     // dump cache simulation results
     CacheSimulationFileName(stats, oFile);
     fileName = oFile.c_str();
     inform << "Printing cache simulation results to " << fileName << ENDL;
     TryOpen(MemFile, fileName);
+
+    LogFileName(stats, lFile);
+    logName = lFile.c_str();
+    inform << "Printing Memory Logging results to " << logName << ENDL;
+    TryOpen(LogFile, logName);
 
     uint64_t sampledCount = 0;
     uint64_t totalMemop = 0;
@@ -130,46 +140,9 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
         }
     }
 
-    // Print the application and address stream information
-    MemFile << "# appname       = " << stats->Application << ENDL
-      << "# extension     = " << stats->Extension << ENDL
-      << "# rank          = " << dec << GetTaskId() << ENDL
-      << "# ntasks        = " << dec << GetNTasks() << ENDL
-      << "# buffer        = " << BUFFER_CAPACITY(stats) << ENDL
-      << "# total         = " << dec << totalMemop << ENDL
-      << "# processed     = " << dec << sampledCount << " (" 
-      << ((double)sampledCount / (double)totalMemop * 100.0) 
-      << "% of total)" << ENDL
-      << "# samplemax     = " << Sampler->GetAccessLimit() << ENDL
-      << "# sampleon      = " << Sampler->GetSampleOn() << ENDL
-      << "# sampleoff     = " << Sampler->GetSampleOff() << ENDL
-      << "# numcache      = " << numCaches << ENDL
-      << "# perinsn       = " << (stats->PerInstruction? "yes" : "no") 
-      << ENDL 
-      << "# lpi           = " << (stats->LoopInclusion? "yes" : "no")  
-      << ENDL
-      << "# countimage    = " << dec << AllData->CountImages() << ENDL
-      << "# countthread   = " << dec << AllData->CountThreads() << ENDL
-      << "# masterthread  = " << hex << AllData->GetThreadSequence(
-      pthread_self()) << ENDL
-      << ENDL;
-    
-    // Print information for each image
-    MemFile << "# IMG" << TAB << "ImageHash" << TAB << "ImageSequence"
-      << TAB << "ImageType" << TAB << "Name" << ENDL;
+    PrintApplicationHeader(MemFile, AllData, Sampler, totalMemop, sampledCount);
+    PrintApplicationHeader(LogFile, AllData, Sampler, totalMemop, sampledCount);
         
-    for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
-      iit != AllData->allimages.end(); iit++){
-        AddressStreamStats* s = (AddressStreamStats*)AllData->GetData(
-          (*iit), pthread_self());
-        MemFile << "IMG" << TAB << hex << (*iit) 
-          << TAB << dec << AllData->GetImageSequence((*iit))
-          << TAB << (s->Master ? "Executable" : "SharedLib") 
-          // FIXME master is not necessarily the executable
-          << TAB << s->Application << ENDL;
-    }
-    MemFile << ENDL;
-
     // Print statisics for each cache structure 
     for (uint32_t sys = indexInStats; sys < indexInStats + numCaches; sys++) {
         for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
@@ -194,8 +167,8 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 }
 
                 if (first){
-                    MemFile << "# sysid" << dec << c->SysId << " in image "
-                      << hex << (*iit) << ENDL;
+                    PrintSysidInfo(MemFile, c, iit);
+                    PrintSysidInfo(LogFile, c, iit);
                     first = false;
                 }
 
@@ -295,7 +268,6 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 CacheStats* c = new CacheStats(s->LevelCount, s->SysId,
                   st->BlockCount, s->hybridCache);
 
-                //c->mainMemoryStats = s->mainMemoryStats;
                 MainMemory* refMem = s->mainMemoryStats[0];
                 c->mainMemoryStats = new MainMemory*[st->BlockCount];
                 for (int i=0;i<st->BlockCount;i++){
@@ -427,6 +399,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                         }
                     }
                     if (LoadStoreLogging) {
+                        MemFile << TAB << dec << c->SysId;
                         MemFile << TAB << "M"
                           << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
                           << TAB << dec << 0
@@ -460,6 +433,58 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     MemFile.close();
 }
 
+void CacheSimulationTool::PrintApplicationHeader(ofstream& file, 
+  DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
+  uint64_t totalMemop, uint64_t sampledCount){
+
+    AddressStreamStats* stats = AllData->GetData(pthread_self());
+    uint32_t numCaches = handlers.size();
+    // Print the application and address stream information
+    file << "# appname       = " << stats->Application << ENDL
+      << "# extension     = " << stats->Extension << ENDL
+      << "# rank          = " << dec << GetTaskId() << ENDL
+      << "# ntasks        = " << dec << GetNTasks() << ENDL
+      << "# buffer        = " << BUFFER_CAPACITY(stats) << ENDL
+      << "# total         = " << dec << totalMemop << ENDL
+      << "# processed     = " << dec << sampledCount << " (" 
+      << ((double)sampledCount / (double)totalMemop * 100.0) 
+      << "% of total)" << ENDL
+      << "# samplemax     = " << Sampler->GetAccessLimit() << ENDL
+      << "# sampleon      = " << Sampler->GetSampleOn() << ENDL
+      << "# sampleoff     = " << Sampler->GetSampleOff() << ENDL
+      << "# numcache      = " << numCaches << ENDL
+      << "# perinsn       = " << (stats->PerInstruction? "yes" : "no") 
+      << ENDL 
+      << "# lpi           = " << (stats->LoopInclusion? "yes" : "no")  
+      << ENDL
+      << "# countimage    = " << dec << AllData->CountImages() << ENDL
+      << "# countthread   = " << dec << AllData->CountThreads() << ENDL
+      << "# masterthread  = " << hex << AllData->GetThreadSequence(
+      pthread_self()) << ENDL
+      << ENDL;
+
+    // Print information for each image
+    file << "# IMG" << TAB << "ImageHash" << TAB << "ImageSequence"
+      << TAB << "ImageType" << TAB << "Name" << ENDL;
+
+    for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
+      iit != AllData->allimages.end(); iit++){
+        AddressStreamStats* s = (AddressStreamStats*)AllData->GetData(
+          (*iit), pthread_self());
+        file << "IMG" << TAB << hex << (*iit) 
+          << TAB << dec << AllData->GetImageSequence((*iit))
+          << TAB << (s->Master ? "Executable" : "SharedLib") 
+          // FIXME master is not necessarily the executable
+          << TAB << s->Application << ENDL;
+    }
+    file << ENDL;
+}
+
+void PrintSysidInfo(ofstream& file, CacheStats* c, set<image_key_t>::iterator iit){
+    file << "# sysid" << dec << c->SysId << " in image "
+      << hex << (*iit) << ENDL;
+}
+
 void CacheSimulationTool::CacheSimulationFileName(AddressStreamStats* stats, 
   string& oFile){
     oFile.clear();
@@ -475,6 +500,17 @@ void CacheSimulationTool::CacheSimulationFileName(AddressStreamStats* stats,
     AppendTasksString(oFile);
     oFile.append(".");
     oFile.append("cachesim");
+}
+
+void CacheSimulationTool::LogFileName(AddressStreamStats* stats, string& oFile){
+    oFile.clear();
+    oFile.append(stats->Application);
+    oFile.append(".r");
+    AppendRankString(oFile);
+    oFile.append(".t");
+    AppendTasksString(oFile);
+    oFile.append(".");
+    oFile.append("memlog");
 }
 
 string CacheSimulationTool::GetCacheDescriptionFile(StringParser* parser){

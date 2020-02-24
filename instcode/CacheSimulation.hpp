@@ -23,12 +23,14 @@
 
 #include <AddressStreamBase.hpp>
 #include <string>
+#include <fstream>
 
 #define DEFAULT_CACHE_FILE "instcode/CacheDescriptions.txt"
 
 #define INVALID_CACHE_LEVEL (0xffffffff)
 
 class CacheStructureHandler;
+class CacheStats;
 
 enum CacheLevelType {
     CacheLevelType_Undefined,
@@ -97,6 +99,7 @@ class CacheSimulationTool : public AddressStreamTool {
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
       SamplingMethod* Sampler);
     void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
+    void LogFileName(AddressStreamStats* stats, std::string& oFile);
 
     std::string GetCacheDescriptionFile(StringParser* parser);
     const char* HandleEnvVariables(uint32_t index, StringParser* parser, 
@@ -108,6 +111,10 @@ class CacheSimulationTool : public AddressStreamTool {
     uint32_t MinimumHighAssociativity = 256;
     uint32_t LoadStoreLogging = 0;
     uint32_t DirtyCacheHandling = 0;
+    void PrintApplicationHeader(std::ofstream& file, 
+      DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
+      uint64_t totalMemop, uint64_t sampledCount);
+    void PrintSysidInfo(std::ofstream& file, CacheStats* c, std::set<image_key_t>::iterator iit);
 };
 
 
