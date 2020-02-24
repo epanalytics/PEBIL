@@ -38,6 +38,7 @@ protected:
     uint32_t depth;
 public:
     Loop(BasicBlock* h, BasicBlock* t, FlowGraph* cfg, BitSet<BasicBlock*>* newBlocks);
+    Loop(const Loop &l);
     ~Loop();
 
     uint32_t getDepth() { return depth; }

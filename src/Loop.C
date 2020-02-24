@@ -98,6 +98,21 @@ Loop::Loop(BasicBlock* h, BasicBlock* t, FlowGraph* cfg, BitSet<BasicBlock*>* ne
     depth = 0;
 }
 
+Loop::Loop(const Loop &l) {
+    index = Invalid_UInteger_ID;
+    head = l.head;
+    tail = l.tail;
+    flowGraph = l.flowGraph;
+    blocks = flowGraph->newBitSet();
+    blocks->clear();
+    for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
+        if (l.blocks->contains(i)){
+            blocks->insert(i);
+        }
+    }
+    depth = 0;
+}
+
 void Loop::print(){
     PRINT_INFOR("Loop %d of function %s: Head %d (base %#llx), tail %d among %d blocks", 
                 getIndex(), flowGraph->getFunction()->getName(), head->getIndex(),
