@@ -97,6 +97,7 @@ public:
     Loop* getOuterMostLoopForLoop(uint32_t idx);
     Loop* getParentLoop(uint32_t idx);
     Loop* getOuterLoop(uint32_t idx);
+    bool isArtificialLoop(Loop* l);
 
     void addBlock(Block* block);    
     

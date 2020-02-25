@@ -1296,6 +1296,10 @@ uint32_t FlowGraph::getLoopDepth(uint32_t idx){
     return getLoopDepth(loop);
 }
 
+bool FlowGraph::isArtificialLoop(Loop* l) { 
+  return (l->getIndex() >= loops.size());
+}
+
 void FlowGraph::computeLiveness(){
     DEBUG_LIVE_REGS(double t1 = timer();)
 

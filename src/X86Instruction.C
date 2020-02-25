@@ -1550,6 +1550,10 @@ uint32_t OperandX86::getBytePosition(){
     return GET(position);
 }
 
+bool OperandX86::isImmediate() {
+    return ((GET(type) == UD_OP_IMM) || (GET(type) == UD_OP_JIMM));
+}
+
 bool OperandX86::isIndexRegXMM(){
     return IS_XMM_REG(GET(index));
 }
