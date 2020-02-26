@@ -233,9 +233,15 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 } // if hybrid cache                               
                  
                 MemFile << ENDL;
+                if(LoadStoreLogging){
+                    LogFile << ENDL;
+                }
             } // for each data manager
         } // for each image
         MemFile << ENDL;
+        if(LoadStoreLogging){
+            LogFile << ENDL;
+        }
     } // for each cache structure
 
     // Create array to keep track of hybrid caches
@@ -375,10 +381,24 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                   << TAB << dec << AllData->GetThreadSequence(st->threadid)
                   << ENDL;
 
+                if(LoadStoreLogging){
+                    //TODO grouping by blocks first
+                    LogFile << "BLK" << TAB << dec << bbid
+                      << TAB << hex << st->Hashes[bbid]
+                      << TAB << dec << AllData->GetImageSequence((*iit))
+                      << TAB << dec << AllData->GetThreadSequence(st->threadid)
+                      << ENDL;
+                }
+
                 for (uint32_t sys = 0; sys < numCaches; sys++){
                     CacheStats* c = aggstats[sys];
                     //TODO put sys Id info here 
                     //May want to loop afterwards by sysid and then block???
+
+                    if(LoadStoreLogging){
+                        LogFile << "SysId" << TAB << c->SysId;
+                    }
+
                     if (AllData->CountThreads() == 1){
                         assert(root->GetAccessCount(bbid) == 
                           c->GetHits(bbid, 0) + c->GetMisses(bbid, 0));
@@ -410,6 +430,32 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                           << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
                           << ENDL; 
                         //put nested loops for readIns and writeOuts TODO
+                        uint32_t** readIns = c->mainMemoryStats[bbid]->readIns;
+                        uint32_t** writeOuts = c->mainMemoryStats[bbid]->writeOuts;
+                        uint32_t numOfSets = c->mainMemoryStats[bbid]->numOfSets;
+                        uint32_t numOfLines = c->mainMemoryStats[bbid]->numOfLinesInSet;
+                        LogFile << TAB << "SetCount:" << TAB << dec << numOfSets
+                          << TAB << "LineCount:" << TAB << dec << numOfLines << ENDL;
+                        LogFile << "BLK" << TAB << "SYSID" << TAB << "SET"
+                          << TAB << "LINE" << TAB << "READS" << TAB << "WRITES" << ENDL;
+
+                        for(int i=0;i<numOfSets;i++){
+                            //LogFile << "# Set:" << TAB << dec << i;
+                            for(int j=0;j<numOfLines;j++){
+                                /*LogFile << TAB << "Line:" << TAB << dec << j
+                                  << TAB << "Reads:" << TAB << dec << readIns[i][j]
+                                  << TAB << "Writes:" << TAB << dec << writeOuts[i][j]
+                                  << ENDL;*/
+                                if(readIns[i][j] > 0 || writeOuts[i][j] > 0){
+                                    LogFile << bbid << TAB << dec << c->SysId
+                                      << TAB << dec << i
+                                      << TAB << dec << j
+                                      << TAB << dec << readIns[i][j]
+                                      << TAB << dec << writeOuts[i][j]
+                                      << ENDL;
+                                }
+                            }
+                        }
                     }
 
                     if(HybridCacheStatus[sys]){
@@ -421,7 +467,15 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                             << TAB << dec << c->GetHybridStores(bbid)
                             << ENDL;
                     } // if a hybrid cache
+                    
+                    if(LoadStoreLogging){
+                        LogFile << ENDL;
+                    }
                 } // for each cache structure
+
+                if(LoadStoreLogging){
+                    LogFile << ENDL;
+                }//TODO might take out
             } // for each block
 
             // Delete aggregated stats
