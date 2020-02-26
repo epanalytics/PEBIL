@@ -129,6 +129,7 @@ void BasicBlockCounter::instrument()
 
     INIT_CTR_ELEMENT(uint64_t, Counters);
     INIT_CTR_ELEMENT(CounterTypes, Types);
+    INIT_CTR_ELEMENT(uint32_t, BlockIds);
     INIT_CTR_ELEMENT(uint64_t, Addresses);
     INIT_CTR_ELEMENT(uint64_t, Hashes);
     INIT_CTR_ELEMENT(uint32_t, Lines);
@@ -246,6 +247,9 @@ void BasicBlockCounter::instrument()
             ASSERT(ins);
         }
 
+        initializeReservedData(getInstDataAddress() + (uint64_t)ctrs.BlockIds +
+          sizeof(uint32_t)*i, sizeof(uint32_t), &i);
+
         if (li){
             uint32_t line = li->GET(lr_line);
             initializeReservedData(getInstDataAddress() + (uint64_t)ctrs.Lines + sizeof(uint32_t)*i, sizeof(uint32_t), &line);
@@ -281,8 +285,9 @@ void BasicBlockCounter::instrument()
 
         // Initialize counter data for non-leader instruction counters
         if (isPerInstruction()){
-            // only keep a bb counter for one instruction in the block (the leader). all other instructions' counters hold the ID of the active counter
-            // in their block
+            // only keep a bb counter for one instruction in the block 
+            // (the leader). all other instructions' counters hold the ID of 
+            // the active counter in their block
             if (bb->getLeader()->getBaseAddress() != ins->getBaseAddress()){
                 tmpct = CounterType_instruction;
                 initializeReservedData(getInstDataAddress() + (uint64_t)ctrs.Types + i*sizeof(CounterTypes), sizeof(CounterTypes), &tmpct);        
@@ -329,6 +334,10 @@ void BasicBlockCounter::instrument()
         if (lineInfoFinder){
             li = lineInfoFinder->lookupLineInfo(head);
         }
+        
+        uint32_t loopId = loop->getIndex();
+        initializeReservedData(getInstDataAddress() + (uint64_t)ctrs.BlockIds +
+          sizeof(uint32_t)*i, sizeof(uint32_t), &loopId);
 
         if (li){
             uint32_t line = li->GET(lr_line);
