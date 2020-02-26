@@ -377,6 +377,8 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
                 for (uint32_t sys = 0; sys < numCaches; sys++){
                     CacheStats* c = aggstats[sys];
+                    //TODO put sys Id info here 
+                    //May want to loop afterwards by sysid and then block???
                     if (AllData->CountThreads() == 1){
                         assert(root->GetAccessCount(bbid) == 
                           c->GetHits(bbid, 0) + c->GetMisses(bbid, 0));
@@ -407,6 +409,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                           << TAB << dec << c->mainMemoryStats[bbid]->GetLoads()
                           << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
                           << ENDL; 
+                        //put nested loops for readIns and writeOuts TODO
                     }
 
                     if(HybridCacheStatus[sys]){
