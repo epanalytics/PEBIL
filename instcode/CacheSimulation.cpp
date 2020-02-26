@@ -85,21 +85,24 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     string oFile;
     const char* fileName;
 
-    // Create the MainMemoryLogging Report
-    ofstream LogFile;
-    string lFile;
-    const char* logName;
-
     // dump cache simulation results
     CacheSimulationFileName(stats, oFile);
     fileName = oFile.c_str();
     inform << "Printing cache simulation results to " << fileName << ENDL;
     TryOpen(MemFile, fileName);
 
-    LogFileName(stats, lFile);
-    logName = lFile.c_str();
-    inform << "Printing Memory Logging results to " << logName << ENDL;
-    TryOpen(LogFile, logName);
+    // Create the MainMemoryLogging Report
+    ofstream LogFile;
+    string lFile;
+    const char* logName;
+
+    if(LoadStoreLogging){
+        // dump MainMemoryLogging results
+        LogFileName(stats, lFile);
+        logName = lFile.c_str();
+        inform << "Printing Memory Logging results to " << logName << ENDL;
+        TryOpen(LogFile, logName);
+    }
 
     uint64_t sampledCount = 0;
     uint64_t totalMemop = 0;
@@ -141,7 +144,9 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     }
 
     PrintApplicationHeader(MemFile, AllData, Sampler, totalMemop, sampledCount);
-    PrintApplicationHeader(LogFile, AllData, Sampler, totalMemop, sampledCount);
+    if(LoadStoreLogging){
+        PrintApplicationHeader(LogFile, AllData, Sampler, totalMemop, sampledCount);
+    }
         
     // Print statisics for each cache structure 
     for (uint32_t sys = indexInStats; sys < indexInStats + numCaches; sys++) {
@@ -168,12 +173,16 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
                 if (first){
                     PrintSysidInfo(MemFile, c, iit);
-                    PrintSysidInfo(LogFile, c, iit);
+                    if(LoadStoreLogging){
+                        PrintSysidInfo(LogFile, c, iit);
+                    }
                     first = false;
                 }
 
-                MemFile << "#" << TAB << dec << AllData->GetThreadSequence(
-                  thread) << " ";
+                PrintThreadidInfo(MemFile, thread, AllData);
+                if(LoadStoreLogging){
+                    PrintThreadidInfo(LogFile, thread, AllData);
+                }
 
                 // Print stats for each level in the cache structure
                 for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
@@ -185,7 +194,8 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 }
 
                 if(LoadStoreLogging){
-                    MemFile<<"\n#Load store stats ";
+                    MemFile<<"\n# Load store stats ";
+                    LogFile<<"Load store stats ";
                     for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
                         uint64_t l = c->GetLoads(lvl);
                         uint64_t s = c->GetStores(lvl);
@@ -194,6 +204,8 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                         if(t!=0)
                           ratio= (double) l/t;
                         MemFile << " l" << dec << lvl << "[" << l << "/" 
+                          << t << "(" << (ratio)<<")] ";
+                        LogFile << " l" << dec << lvl << "[" << l << "/" 
                           << t << "(" << (ratio)<<")] ";
                     }                                   
                 }
@@ -235,18 +247,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
         HybridCacheStatus[sys] = CheckHybridStructure->hybridCache;
     }
 
-    // Finally, going to print per-block cache simulation data. 
-    // First, the header
-    MemFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
-      << TAB << "ImageSequence" << TAB << "ThreadId " << ENDL;        
-    if(LoadStoreLogging) {
-        MemFile << "# " << TAB << "SysId" << TAB << "Level" << TAB 
-          << "HitCount" << TAB << "MissCount" << TAB << "LoadCount" << TAB 
-          << "StoreCount" << ENDL;
-    } else {
-        MemFile<< "# " << TAB << "SysId" << TAB << "Level" << TAB << 
-          "HitCount" << TAB << "MissCount" << ENDL;   
-    }
+    PrintPerBlockCacheSimData(MemFile, AllData);
 
     for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
       iit != AllData->allimages.end(); iit++) {
@@ -429,8 +430,9 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
         } // for each data manager
     } // for each image
 
-    // Close the file    
+    // Close the files   
     MemFile.close();
+    LogFile.close();
 }
 
 void CacheSimulationTool::PrintApplicationHeader(ofstream& file, 
@@ -480,10 +482,35 @@ void CacheSimulationTool::PrintApplicationHeader(ofstream& file,
     file << ENDL;
 }
 
-void PrintSysidInfo(ofstream& file, CacheStats* c, set<image_key_t>::iterator iit){
+void CacheSimulationTool::PrintSysidInfo(ofstream& file, 
+  CacheStats* c, set<image_key_t>::iterator iit){
     file << "# sysid" << dec << c->SysId << " in image "
       << hex << (*iit) << ENDL;
 }
+
+void CacheSimulationTool::PrintThreadidInfo(ofstream& file, thread_key_t thread, 
+  DataManager<AddressStreamStats*>* AllData){
+
+    file << "# Threadid: " << dec << AllData->GetThreadSequence(
+      thread) << TAB;
+}
+
+void CacheSimulationTool::PrintPerBlockCacheSimData(ofstream& MemFile, 
+  DataManager<AddressStreamStats*>* AllData){
+
+    // Finally, going to print per-block cache simulation data. 
+    // First, the header
+    MemFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
+      << TAB << "ImageSequence" << TAB << "ThreadId " << ENDL;        
+    if(LoadStoreLogging) {
+        MemFile << "# " << TAB << "SysId" << TAB << "Level" << TAB 
+          << "HitCount" << TAB << "MissCount" << TAB << "LoadCount" << TAB 
+          << "StoreCount" << ENDL;
+    } else {
+        MemFile<< "# " << TAB << "SysId" << TAB << "Level" << TAB << 
+          "HitCount" << TAB << "MissCount" << ENDL;   
+    }
+};
 
 void CacheSimulationTool::CacheSimulationFileName(AddressStreamStats* stats, 
   string& oFile){

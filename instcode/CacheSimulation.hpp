@@ -115,6 +115,10 @@ class CacheSimulationTool : public AddressStreamTool {
       DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
       uint64_t totalMemop, uint64_t sampledCount);
     void PrintSysidInfo(std::ofstream& file, CacheStats* c, std::set<image_key_t>::iterator iit);
+    void PrintThreadidInfo(std::ofstream& file, thread_key_t thread, 
+      DataManager<AddressStreamStats*>* AllData);
+    void PrintPerBlockCacheSimData(std::ofstream& file,
+      DataManager<AddressStreamStats*>* AllData);
 };
 
 
