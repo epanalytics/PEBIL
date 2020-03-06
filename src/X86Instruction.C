@@ -365,10 +365,16 @@ void RegisterSet::print(const char * const name){
 }
 
 uint32_t X86Instruction::getDefUseDist(){
-    if (container->isFunction() && !((Function*)container)->doneDefUse()){
+    if(!defUseCalculated) {
+      if (container->isFunction() && !((Function*)container)->doneDefUse()){
         ((Function*)container)->computeDefUse();
+      }
     }
+    defUseCalculated=1;
     return defUseDist;
+}
+uint32_t X86Instruction::getDefUseCalculated() {
+  return defUseCalculated;
 }
 void X86Instruction::setDefUseDist(uint32_t dudist){ 
     defUseDist = dudist;

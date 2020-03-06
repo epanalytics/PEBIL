@@ -1213,6 +1213,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     uint32_t membytcnt = 0;
     uint32_t fltopcnt = 0;
     uint32_t insncnt = 0;
+#pragma omp parallel for schedule(dynamic,1) reduction(+:memopcnt) reduction(+:membytcnt) reduction(+:fltopcnt) reduction(+:insncnt) 
     for (uint32_t i = 0; i < allBlocks->size(); i++){
         Base* b = (*allBlocks)[i];
         ASSERT(b->getType() == PebilClassType_BasicBlock);
@@ -1263,13 +1264,24 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
         fprintf(staticFD, "# +vec <#elem>x<elemSize>:<#fp>:<#int> ...\n");
     }
 
-    uint32_t noInst = 0;
-    uint32_t fileNameSize = 1;
-    uint32_t trapCount = 0;
-    uint32_t jumpCount = 0;
-
-    
+    // calculate def use distances outside of the main loop
+#pragma omp parallel for schedule(dynamic,1) //schedule(guided) //schedule(dynamic,1)
+    for(uint32_t i=0; i< getNumberOfExposedInstructions(); i++) {
+      X86Instruction* x = getExposedInstruction(i);
+      x->getDefUseDist();
+    }
+    // a map to keep track of the strings for different basic blocks
+    std::map<uint32_t,std::string> mapStaticAnalysis;
+#pragma omp parallel for schedule(dynamic,1) 
     for (uint32_t i = 0; i < numberOfInstPoints; i++){
+        uint32_t noInst = 0;
+        uint32_t fileNameSize = 1;
+        uint32_t trapCount = 0;
+        uint32_t jumpCount = 0;
+        float memopavg = 0.0;
+        std::stringstream thisStream;
+        char thisBuffer[8192];
+
         Base* b = (*allBlocks)[i];
         ASSERT(b->getType() == PebilClassType_BasicBlock);
         BasicBlock* bb = (BasicBlock*)b;
@@ -1294,7 +1306,8 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             fileName = INFO_UNKNOWN;
             lineNo = 0;
         }
-        fprintf(staticFD, "%d\t%lld\t%d\t%d\t%d\t%s:%d\t%s\t# %#llx\t%#llx\n", 
+
+       uint32_t bufferPointer=sprintf(thisBuffer, "%d\t%lld\t%d\t%d\t%d\t%s:%d\t%s\t# %#llx\t%#llx\n", 
           (*allBlockIds)[i], bb->getHashCode().getValue(), 
           bb->getNumberOfMemoryOps(), bb->getNumberOfFloatOps(), 
           bb->getNumberOfInstructions(), fileName, lineNo, 
@@ -1314,9 +1327,9 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                     loopLoc = 2;
                 }
             }
-            fprintf(staticFD, "\t+lpi\t%d\t%d\t%d\t%d # %#llx\n", loopCount, 
+            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+lpi\t%d\t%d\t%d\t%d # %#llx\n", loopCount, 
               loopId, loopDepth, loopLoc, bb->getHashCode().getValue());
-            fprintf(staticFD, "\t+cnt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
+            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+cnt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
               "\t%d\t%d\t%d\t%d # %#llx\n", bb->getNumberOfBranches(), 
               bb->getNumberOfIntegerOps(), bb->getNumberOfLogicOps(), 
               bb->getNumberOfShiftRotOps(), bb->getNumberOfSyscalls(), 
@@ -1334,7 +1347,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                 memopavg = ((float)bb->getNumberOfMemoryBytes()) / 
                   ((float)bb->getNumberOfMemoryOps());
             }
-            fprintf(staticFD, "\t+mem\t%d\t%d\t%.5f # %#llx\n", 
+            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+mem\t%d\t%d\t%.5f # %#llx\n", 
               bb->getNumberOfMemoryOps(), bb->getNumberOfMemoryBytes(), 
               memopavg, bb->getHashCode().getValue());
 
@@ -1345,14 +1358,14 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                 parentHead = f->getFlowGraph()->getParentLoop(
                   loop->getIndex())->getHead()->getHashCode().getValue();
             }
-            fprintf(staticFD, "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, 
-              parentHead, bb->getHashCode().getValue());
 
+            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, 
+              parentHead, bb->getHashCode().getValue());
             uint32_t currINT = 0;
             uint32_t currFP = 0;
             uint32_t currDist = 1;
 
-            fprintf(staticFD, "\t+dud");
+            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+dud");
 
             std::pebil_map_type<uint32_t, uint32_t> idist;
             std::pebil_map_type<uint32_t, uint32_t> fdist;
@@ -1386,14 +1399,14 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             for (std::vector<uint32_t>::iterator it = dlist.begin(); it != 
               dlist.end(); it++){
                 uint32_t d = (*it);
-                fprintf(staticFD, "\t%d:%d:%d:%d", d, idist[d], fdist[d], 
+                bufferPointer += sprintf(thisBuffer+bufferPointer, "\t%d:%d:%d:%d", d, idist[d], fdist[d], 
                   mdist[d]);
             }
+            bufferPointer += sprintf(thisBuffer+bufferPointer, " # %#llx\n", bb->getHashCode().getValue());
 
-            fprintf(staticFD, " # %#llx\n", bb->getHashCode().getValue());
-
-            fprintf(staticFD, "\t+dxi\t%d\t%d # %#llx\n", bb->getDefXIter(), 
+            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+dxi\t%d\t%d # %#llx\n", bb->getDefXIter(), 
               bb->endsWithCall(), bb->getHashCode().getValue());
+
 
             uint64_t callTgtAddr = 0;
             char* callTgtName = INFO_UNKNOWN;
@@ -1426,10 +1439,10 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                 } 
             }
 
-            fprintf(staticFD, "\t+ipa\t%#llx\t%s # %#llx\n", callTgtAddr, 
+            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+ipa\t%#llx\t%s # %#llx\n", callTgtAddr, 
               callTgtName, bb->getHashCode().getValue());
 
-            fprintf(staticFD, "\t+bin\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
+            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+bin\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
               "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
               "\t%d\t%d # %#llx\n", bb->getNumberOfBinUnknown(), 
               bb->getNumberOfBinInvalid(), bb->getNumberOfBinCond(), 
@@ -1446,8 +1459,6 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
               bb->getNumberOfBinSystem(), bb->getNumberOfBinCache(),
               bb->getNumberOfBinMem(), bb->getNumberOfBinOther(), 
               bb->getHashCode().getValue());
-
-
 
             // matrix to store counts elemsInVec X bytesInElem
             uint32_t fpvecs[65][16];
@@ -1496,13 +1507,13 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                     }
                 }
             }
-            fprintf(staticFD, "\t+vec");
+            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+vec");
             for(uint32_t nElem = 0; nElem < 65; ++nElem) {
                 for(uint32_t elemSize = 0; elemSize < 16; ++elemSize) {
                     uint32_t fpcnt = fpvecs[nElem][elemSize];
                     uint32_t intcnt = intvecs[nElem][elemSize];
                     if(fpcnt > 0 || intcnt > 0) {
-                        fprintf(staticFD, "\t%dx%d:%d:%d", nElem, (elemSize+1)
+                        bufferPointer += sprintf(thisBuffer+bufferPointer, "\t%dx%d:%d:%d", nElem, (elemSize+1)
                           * 8, fpcnt, intcnt);
                     }
                 }
@@ -1511,16 +1522,24 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
 	              uint32_t fpcnt = unknownFP[elemSize];
 	              uint32_t intcnt = unknownInt[elemSize];
 	              if(fpcnt > 0 || intcnt > 0) {
-		                fprintf(staticFD, "\t???x%d:%d:%d", (elemSize+1)*8, fpcnt, 
+                    bufferPointer += sprintf(thisBuffer+bufferPointer, "\t???x%d:%d:%d", (elemSize+1)*8, fpcnt, 
                       intcnt);
 	              }     
             }
             if(unkFP > 0 || unkInt > 0) {
-	              fprintf(staticFD, "\t???x8:%d:%d", unkFP, unkInt);
+                bufferPointer += sprintf(thisBuffer+bufferPointer, "\t???x8:%d:%d", unkFP, unkInt);
             }
-            fprintf(staticFD, " # %#llx\n", bb->getHashCode().getValue());
+            bufferPointer += sprintf(thisBuffer+bufferPointer, " # %#llx\n", bb->getHashCode().getValue());
         }
+#pragma omp critical
+        mapStaticAnalysis[(*allBlockIds)[i]]=std::string(thisBuffer);
+
     }
+   
+    for(uint32_t ii=0; ii < numberOfInstPoints; ii++) {
+      fprintf(staticFD, "%s", (mapStaticAnalysis.at((*allBlockIds)[ii]).c_str()));
+    }
+    
     fclose(staticFD);
 
     ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase order must be observed"); 
@@ -1555,6 +1574,8 @@ void InstrumentationTool::printCallTreeInfo(const char* extension, Vector<Base*>
   uint32_t membytcnt = 0;
   uint32_t fltopcnt = 0;
   uint32_t insncnt = 0;
+
+#pragma omp parallel for schedule(dynamic,1) reduction(+:memopcnt) reduction(+:membytcnt) reduction(+:fltopcnt) reduction(+:insncnt) 
   for (uint32_t i = 0; i < allBlocks->size(); i++){
     Base* b = (*allBlocks)[i];
     ASSERT(b->getType() == PebilClassType_BasicBlock);
@@ -1592,6 +1613,12 @@ void InstrumentationTool::printCallTreeInfo(const char* extension, Vector<Base*>
       std::set<std::string> temp;
       callTreeInfo[thisFuncName]=temp;
     }
+  }
+#pragma omp parallel for ordered schedule(dynamic,1) 
+  for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+    Function* f = getExposedFunction(i);
+    std::string thisFuncName=f->getName();
+
     
     // get all the instructions for this function
     uint32_t ninstructions = f->getNumberOfInstructions();
@@ -1611,11 +1638,13 @@ void InstrumentationTool::printCallTreeInfo(const char* extension, Vector<Base*>
 	  if (functionSymbol && functionSymbol->getSymbolName()){
 	    callTgtName = functionSymbol->getSymbolName();
 	  }
+    {
 	  std::set<std::string> temp=
 	    (std::set<std::string>)callTreeInfo.at(thisFuncName);
 	  temp.insert(callTgtName);
+#pragma omp critical(callTreeInfo)
 	  callTreeInfo[thisFuncName]=temp;
-	  //fprintf(staticFD, "%s %s \n", f->getName(), callTgtName);
+    }
 	}	
       }
       

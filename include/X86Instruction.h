@@ -512,6 +512,7 @@ private:
     RegisterSet* liveIns;
     RegisterSet* liveOuts;
     uint32_t defUseDist;
+    uint32_t defUseCalculated;
 
     uint32_t* flags_usedef;
 
@@ -613,6 +614,7 @@ public:
 
 
     uint32_t getDefUseDist();
+    uint32_t getDefUseCalculated();
     void setDefUseDist(uint32_t dudist);
 
     void print();
