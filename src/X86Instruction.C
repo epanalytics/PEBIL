@@ -781,6 +781,17 @@ RegisterSet* X86Instruction::getRegistersDefined(){
     
     return retval;
 }
+    
+RegisterSet* X86Instruction::getRegistersImplicitlyUsed() {
+    RegisterSet * retval = new RegisterSet();
+    // implicit uses
+    for(uint32_t i = 0; i < X86_ALU_REGS; ++i){
+        if(implicitlyUsesReg(i)){
+            retval->addRegister(i);
+        }
+    }
+    return retval;
+}
 
 RegisterSet* X86Instruction::getRegistersUsed(){
     RegisterSet * retval = new RegisterSet();
@@ -1551,7 +1562,8 @@ uint32_t OperandX86::getBytePosition(){
 }
 
 bool OperandX86::isImmediate() {
-    return ((GET(type) == UD_OP_IMM) || (GET(type) == UD_OP_JIMM));
+    return ((GET(type) == UD_OP_IMM) || (GET(type) == UD_OP_JIMM) || 
+      (GET(type) == UD_OP_CONST));
 }
 
 bool OperandX86::isIndexRegXMM(){
@@ -1564,6 +1576,12 @@ bool OperandX86::isIndexRegYMM(){
 
 bool OperandX86::isIndexRegZMM(){
     return IS_ZMM_REG(GET(index));
+}
+
+bool OperandX86::isMemory() {
+    // Don't know what the PTR is, so just wait til we have an example
+    assert((GET(type) != UD_OP_PTR));
+    return ((GET(type) == UD_OP_MEM));
 }
 
 bool OperandX86::isRelative(){
