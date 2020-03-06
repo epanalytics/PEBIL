@@ -1990,25 +1990,16 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
     CacheStats* stats = (CacheStats*)stats_in;
     uint8_t initLoadStoreFlag = loadstoreflag;
 
-    //EvictionInfo* evicInfoArray = new EvictionInfo[levelCount];//Delete before exiting func
-    //bzero(evicInfoArray, levelCount*sizeof(EvictionInfo));
     bool anyEvict = false;
 
     EvictionInfo evictInfo;
     evictInfo.level = INVALID_CACHE_LEVEL;
-    //evictInfo.loadstoreflag = initLoadStoreFlag;
     uint32_t resLevel = 0;
 
     while (next < levelCount){
         resLevel = next;
         next = levels[next]->Process(stats, memseq, victim, loadstoreflag,
           &anyEvict,(void*)(&evictInfo));
-        /*if(next != 0) {
-            loadstoreflag = 1; 
-        }*/
-        /*if(anyEvict){
-            evicInfoArray[resLevel] = evictInfo;
-        }*/
         // If next level is checked, then it should be a miss from current 
         // level, which implies next operation is a load to a next level!!
     }
@@ -2017,7 +2008,6 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
         uint32_t evicSet = evictInfo.setid;
         uint32_t evicLine = evictInfo.lineid;
         // write to stats mainMemory
-        //memseq
         if(initLoadStoreFlag){
             stats->mainMemoryStats[memseq]->readIns[evicSet][evicLine]++;
         } else {
