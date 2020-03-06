@@ -208,6 +208,9 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                         LogFile << " l" << dec << lvl << "[" << l << "/" 
                           << t << "(" << (ratio)<<")] ";
                     }                                   
+                    LogFile << ENDL << "#" << TAB;
+                    LogFile << "SetCount: " << dec << c->mainMemoryStats[0]->numOfSets
+                      << TAB << "LineCount: " << dec << c->mainMemoryStats[0]->numOfLinesInSet;
                 }
 
                 if(c->hybridCache) {
@@ -292,6 +295,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     } else {
                         bbid = st->BlockIds[memid];
                     }
+
                     for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++) {
 
                         c->Hit(bbid, lvl, s->GetHits(memid, lvl));
@@ -302,10 +306,10 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                             c->Store(bbid, lvl, s->GetStores(memid, lvl));
                         }
                     } // for each cache level
+
                     if(LoadStoreLogging){
                         for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
                             for(int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
-                                //TODO make these lines shorter?
                                 c->mainMemoryStats[bbid]->readIns[i][j] += s->mainMemoryStats[memid]->readIns[i][j];
                                 c->mainMemoryStats[bbid]->writeOuts[i][j] += s->mainMemoryStats[memid]->writeOuts[i][j];
                             }
@@ -341,6 +345,13 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
             CacheStats* root = aggstats[0];
             uint32_t MaxCapacity = root->Capacity;
+
+            if(LoadStoreLogging) {
+                LogFile << "BLK" << TAB << "BLKID" 
+                  << TAB << "ImageSequence" << TAB << "ThreadSequence" << ENDL;
+                LogFile << "BLK" << TAB << "SYSID" << TAB << "SET"
+                  << TAB << "LINE" << TAB << "READS" << TAB << "WRITES" << ENDL << ENDL;
+            }
 
             // Print the data for each block 
             for (uint32_t bbid = 0; bbid < MaxCapacity; bbid++) {
@@ -382,7 +393,6 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                   << ENDL;
 
                 if(LoadStoreLogging){
-                    //TODO grouping by blocks first
                     LogFile << "BLK" << TAB << dec << bbid
                       << TAB << hex << st->Hashes[bbid]
                       << TAB << dec << AllData->GetImageSequence((*iit))
@@ -392,12 +402,6 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
                 for (uint32_t sys = 0; sys < numCaches; sys++){
                     CacheStats* c = aggstats[sys];
-                    //TODO put sys Id info here 
-                    //May want to loop afterwards by sysid and then block???
-
-                    if(LoadStoreLogging){
-                        LogFile << "SysId" << TAB << c->SysId;
-                    }
 
                     if (AllData->CountThreads() == 1){
                         assert(root->GetAccessCount(bbid) == 
@@ -429,23 +433,14 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                           << TAB << dec << c->mainMemoryStats[bbid]->GetLoads()
                           << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
                           << ENDL; 
-                        //put nested loops for readIns and writeOuts TODO
+
                         uint32_t** readIns = c->mainMemoryStats[bbid]->readIns;
                         uint32_t** writeOuts = c->mainMemoryStats[bbid]->writeOuts;
                         uint32_t numOfSets = c->mainMemoryStats[bbid]->numOfSets;
                         uint32_t numOfLines = c->mainMemoryStats[bbid]->numOfLinesInSet;
-                        LogFile << TAB << "SetCount:" << TAB << dec << numOfSets
-                          << TAB << "LineCount:" << TAB << dec << numOfLines << ENDL;
-                        LogFile << "BLK" << TAB << "SYSID" << TAB << "SET"
-                          << TAB << "LINE" << TAB << "READS" << TAB << "WRITES" << ENDL;
 
                         for(int i=0;i<numOfSets;i++){
-                            //LogFile << "# Set:" << TAB << dec << i;
                             for(int j=0;j<numOfLines;j++){
-                                /*LogFile << TAB << "Line:" << TAB << dec << j
-                                  << TAB << "Reads:" << TAB << dec << readIns[i][j]
-                                  << TAB << "Writes:" << TAB << dec << writeOuts[i][j]
-                                  << ENDL;*/
                                 if(readIns[i][j] > 0 || writeOuts[i][j] > 0){
                                     LogFile << bbid << TAB << dec << c->SysId
                                       << TAB << dec << i
@@ -460,22 +455,14 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
                     if(HybridCacheStatus[sys]){
                         MemFile << TAB << dec << c->SysId
-                            << TAB << dec << (c->LevelCount)
-                            << TAB << dec << c->GetHybridHits(bbid)
-                            << TAB << dec << c->GetHybridMisses(bbid)
-                            << TAB << dec << c->GetHybridLoads(bbid)
-                            << TAB << dec << c->GetHybridStores(bbid)
-                            << ENDL;
+                          << TAB << dec << (c->LevelCount)
+                          << TAB << dec << c->GetHybridHits(bbid)
+                          << TAB << dec << c->GetHybridMisses(bbid)
+                          << TAB << dec << c->GetHybridLoads(bbid)
+                          << TAB << dec << c->GetHybridStores(bbid)
+                          << ENDL;
                     } // if a hybrid cache
-                    
-                    if(LoadStoreLogging){
-                        LogFile << ENDL;
-                    }
                 } // for each cache structure
-
-                if(LoadStoreLogging){
-                    LogFile << ENDL;
-                }//TODO might take out
             } // for each block
 
             // Delete aggregated stats
