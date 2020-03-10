@@ -923,9 +923,11 @@ static unsigned int resolve_operand_size( const struct ud * u, unsigned int s )
            u->mnemonic != UD_Inop) {
             //fprintf(stderr, "Unknown operand size of instruction %s\n", ud_lookup_mnemonic(u->mnemonic));
         }
-        PEBIL_DEBUG("\t\tresolve_operand_size: u->avx_vex[0] = %d", u->avx_vex[0]);
+        PEBIL_DEBUG("\t\tresolve_operand_size: u->avx_vex[0] = %d", 
+          u->avx_vex[0]);
         if(u->avx_vex[0]) {
-            PEBIL_DEBUG("\t\tresolve_operand_size: u->pfx_size = %d", u->pfx_size);
+            PEBIL_DEBUG("\t\tresolve_operand_size: u->pfx_size = %d", 
+              u->pfx_size);
             if(u->pfx_size) return 256;
             else return 128;
         }
@@ -942,9 +944,14 @@ static unsigned int resolve_operand_size( const struct ud * u, unsigned int s )
     case SZ_RDQ:
         return ( u->dis_mode == 64 ) ? 64 : 32;
     case SZ_X:
-        //PEBIL_DEBUG("\t\tresolve_operand_size: s = SZ_X");
-        PEBIL_DEBUG("\t\tresolve_operand_size: u->avx_vex[0] = %u, prefix = %u,  VEXLIG = %u, VEX_L = %u, return = %u", u->avx_vex[0], u->itab_entry->prefix, P_VEXLIG(u->itab_entry->prefix), VEX_L(u->avx_vex[0]), VEX_L(u->avx_vex[0]) && (!P_VEXLIG(u->itab_entry->prefix)));
-        return VEX_L(u->avx_vex[0]) && (!P_VEXLIG(u->itab_entry->prefix)) ? SZ_Y : SZ_X;
+        PEBIL_DEBUG("\t\tresolve_operand_size: s = SZ_X");
+        PEBIL_DEBUG("\t\tresolve_operand_size: u->avx_vex[0] = %u, prefix = %u,"
+          "VEXLIG = %u, VEX_L = %u, return = %u", u->avx_vex[0], 
+          u->itab_entry->prefix, P_VEXLIG(u->itab_entry->prefix), 
+          VEX_L(u->avx_vex[0]), VEX_L(u->avx_vex[0]) && 
+          (!P_VEXLIG(u->itab_entry->prefix)));
+        return VEX_L(u->avx_vex[0]) && (!P_VEXLIG(u->itab_entry->prefix)) ? 
+          SZ_Y : SZ_X;
     case SZ_XZ:
         if(IS_EVEX(u->evex)) {
            // if(EVEX_B(u->evex) == 1)
@@ -1581,7 +1588,8 @@ decode_modrm_reg(struct ud* u,
 
   unsigned char reg;
 
-  PEBIL_DEBUG("\tdecode_modrm_reg: reg_size = %d, reg_type = %u, modrm_byte = %u", reg_size, reg_type, modrm_byte);
+  PEBIL_DEBUG("\tdecode_modrm_reg: reg_size = %d, reg_type = %u, modrm_byte = "
+    "%#x", reg_size, reg_type, modrm_byte);
   reg = (REX_R(u->pfx_rex) << 3) | MODRM_REG(modrm_byte);
 
   if(P_MVEX(u->pfx_insn)) {
