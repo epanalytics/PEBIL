@@ -1459,16 +1459,20 @@ decode_modrm_rm(struct ud* u,
             op->scale = SIB_SCALE(inp_curr(u));
             op->index = UD_R_RAX + (SIB_I(inp_curr(u)) | (REX_X(u->pfx_rex) << 3));
             op->base  = UD_R_RAX + (SIB_B(inp_curr(u)) | (REX_B(u->pfx_rex) << 3));
+            PEBIL_DEBUG("\tdecode_modrm_rm: decode SIB: scale = %d, index = %d,"
+              " base = %d", op->scale, op->index, op->base);
 
             /* special conditions for base reference */
             if (op->index == UD_R_RSP) {
-                PEBIL_DEBUG("\t\tSpecial condition for base reference");
+                PEBIL_DEBUG("\t\tSpecial condition for base reference (RSP)");
                 PEBIL_DEBUG("\t\tdecode_modrm_rm: error: %d", u->error);
                 op->index = UD_NONE;
                 op->scale = UD_NONE;
             }
 
             if (op->base == UD_R_RBP || op->base == UD_R_R13) {
+                PEBIL_DEBUG("\t\tSpecial condition for base reference (RBP, "
+                 "R13)");
                 if (mod == 0) 
                     op->base = UD_NONE;
                 if (mod == 1)
