@@ -1005,19 +1005,34 @@ void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb,
         memopIdInBlock++;
         return;
     } 
+
   
     if(memop->isLoad() && ifInstrumentingLoads()) {
-        collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
-          memopIdInBlock, normalOrSWPF, LOAD);
-        memopIdInBlock++;
-        memopSeq++;
+        if (memop->isVectorInstruction()) {
+            collectVectorEntry(bb, memop, threadReg, stats, blockSeq, memopSeq, 
+              memopIdInBlock, normalOrSWPF);
+            memopIdInBlock++;
+            memopSeq++;
+        } else {
+            collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
+              memopIdInBlock, normalOrSWPF, LOAD);
+            memopIdInBlock++;
+            memopSeq++;
+        }
     }
 
     if(memop->isStore() && ifInstrumentingStores()) {
-        collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
-          memopIdInBlock, normalOrSWPF, STORE);
-        memopIdInBlock++;
-        memopSeq++;
+        if (memop->isVectorInstruction()) {
+            collectVectorEntry(bb, memop, threadReg, stats, blockSeq, memopSeq, 
+              memopIdInBlock, normalOrSWPF);
+            memopIdInBlock++;
+            memopSeq++;
+        } else {
+            collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
+              memopIdInBlock, normalOrSWPF, STORE);
+            memopIdInBlock++;
+            memopSeq++;
+        }
     } 
 
     return;

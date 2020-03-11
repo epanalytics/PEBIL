@@ -1165,20 +1165,6 @@ InstrumentationPoint* InstrumentationTool::insertBlockCounter(uint64_t counterOf
     return p;
 }
 
-static bool isVectorInstruction(X86Instruction* ins) {
-    X86InstructionType typ = ins->getInstructionType();
-    switch(typ) {
-        case X86InstructionType_simdFloat:
-        case X86InstructionType_simdInt:
-        case X86InstructionType_simdMove:
-        case X86InstructionType_aes:
-            break;
-        default:
-            return false;
-    }
-    return true;
-}
-
 void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
   allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* 
   allBlockLineInfos, uint32_t bufferSize){
@@ -1463,7 +1449,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             for(uint32_t k = 0; k < bb->getNumberOfInstructions(); ++k){
                 X86Instruction* ins = bb->getInstruction(k);
 
-                if(!isVectorInstruction(ins)) {
+                if(!ins->isVectorInstruction()) {
                     continue;
                 }
 
@@ -1849,34 +1835,36 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
       }
       fprintf(staticFD, "\t+ipa\t%#llx\t%s # %#llx\n", callTgtAddr, callTgtName, hashValue);
       
-      if(isVectorInstruction(ins)) {
-	//                ins->print(); // ALLYSONC
-	VectorInfo vecinf = ins->getVectorInfo();
-	
-	uint32_t bytesInElem = vecinf.elementSize;
-	uint32_t nElements = vecinf.nElements;
-	
-	int fpcnt, intcnt;
-	fpcnt = intcnt = 0;
-	
-	if(ins->isFloatPOperation()) {
-	  fpcnt = 1;
-	} else {
-	  intcnt = 1;
-	}
-	// Vector info known
-	if(bytesInElem != 0 && vecinf.kval.confidence == Definitely) {
-	  fprintf(staticFD, "\t+vec\t%dx%d:%d:%d # %#llx\n", nElements, bytesInElem << 3, fpcnt, intcnt, hashValue);
-	  // Instruction known
-	} else if (bytesInElem != 0) {
-	  fprintf(staticFD, "\t+vec\t???x%d:%d:%d # %#llx\n", bytesInElem << 3, fpcnt, intcnt, hashValue);
-	} else {
-	  //ins->print();
-	  fprintf(staticFD, "\t+vec\t???x8:%d:%d # %llx\n", fpcnt, intcnt, hashValue);
-	}
+      if(ins->isVectorInstruction()) {
+          VectorInfo vecinf = ins->getVectorInfo();
+	        
+	        uint32_t bytesInElem = vecinf.elementSize;
+	        uint32_t nElements = vecinf.nElements;
+	        
+	        int fpcnt, intcnt;
+	        fpcnt = intcnt = 0;
+	        
+	        if(ins->isFloatPOperation()) {
+	            fpcnt = 1;
+	        } else {
+	            intcnt = 1;
+	        }
+	        // Vector info known
+	        if(bytesInElem != 0 && vecinf.kval.confidence == Definitely) {
+	            fprintf(staticFD, "\t+vec\t%dx%d:%d:%d # %#llx\n", nElements, 
+                bytesInElem << 3, fpcnt, intcnt, hashValue);
+	          // Instruction known
+	        } else if (bytesInElem != 0) {
+	            fprintf(staticFD, "\t+vec\t???x%d:%d:%d # %#llx\n", 
+                bytesInElem << 3, fpcnt, intcnt, hashValue);
+	        } else {
+	            //ins->print();
+	            fprintf(staticFD, "\t+vec\t???x8:%d:%d # %llx\n", fpcnt, intcnt, 
+                hashValue);
+	        }
 	
       } else {
-	fprintf(staticFD, "\t+vec # %#llx\n", hashValue);
+	        fprintf(staticFD, "\t+vec # %#llx\n", hashValue);
       }
     }
     

@@ -514,6 +514,20 @@ bool X86Instruction::isScatterGatherOp(){
      return false;
 }
 
+bool X86Instruction::isVectorInstruction(){
+    X86InstructionType typ = getInstructionType();
+    switch(typ) {
+        case X86InstructionType_simdFloat:
+        case X86InstructionType_simdInt:
+        case X86InstructionType_simdMove:
+        case X86InstructionType_aes:
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
 bool X86Instruction::isVectorMaskOp(){
     switch(GET(mnemonic)){
         case UD_Ijknzd:
