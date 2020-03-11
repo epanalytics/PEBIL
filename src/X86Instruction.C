@@ -724,12 +724,12 @@ inline bool X86Instruction::defsFlag(uint32_t flg) {
     return (GET(flags_def) & (1 << flg));
 }
 
-inline bool X86Instruction::implicitlyUsesReg(uint32_t alu){
-    return (GET(impreg_use) & (1 << alu));
+inline bool X86Instruction::implicitlyUsesReg(uint64_t alu){
+    return (GET(impreg_use) & (((uint64_t)1) << alu));
 }
 
-inline bool X86Instruction::implicitlyDefinesReg(uint32_t alu){
-    return (GET(impreg_def) & (1 << alu));
+inline bool X86Instruction::implicitlyDefinesReg(uint64_t alu){
+    return (GET(impreg_def) & (((uint64_t)1) << alu));
 }
 
 // Get flag registers
@@ -1053,7 +1053,9 @@ bool OperandX86::isSameOperand(OperandX86* other){
 
 OperandX86* X86Instruction::getDestOperand(){
     // compares and branches dont define anything
-    if (isConditionCompare() || isBranch() || isCall() || CHECK_IMPLICIT_STORE){
+    // Stack pushes have implicite destination 
+    if (isConditionCompare() || isBranch() || isCall() || CHECK_IMPLICIT_STORE 
+      || isStackPush()){
         return NULL;
     }
     return operands[DEST_OPERAND];
@@ -1474,12 +1476,20 @@ bool X86Instruction::isAdditionOp(){
     if (hasAdd != std::string::npos) {
         return true;
     } 
+    hasAdd = mnemonicStr.find("inc");
+    if (hasAdd != std::string::npos) {
+        return true;
+    } 
     return false;
 }
 
 bool X86Instruction::isSubtractionOp(){
     std::string mnemonicStr = ud_mnemonics_str[GET(mnemonic)];
     size_t hasSub = mnemonicStr.find("sub");
+    if (hasSub != std::string::npos) {
+        return true;
+    } 
+    hasSub = mnemonicStr.find("dec");
     if (hasSub != std::string::npos) {
         return true;
     } 
@@ -2639,25 +2649,25 @@ void X86Instruction::setFlags()
     __reg_define(flags_usedef, UD_Iiretw, __bit_shift(X86_FLAG_NT), __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_AF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF) | __bit_shift(X86_FLAG_TF) | __bit_shift(X86_FLAG_IF) | __bit_shift(X86_FLAG_DF));
     __reg_define(flags_usedef, UD_Iiretd, __bit_shift(X86_FLAG_NT), __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_AF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF) | __bit_shift(X86_FLAG_TF) | __bit_shift(X86_FLAG_IF) | __bit_shift(X86_FLAG_DF));
     __reg_define(flags_usedef, UD_Iiretq, __bit_shift(X86_FLAG_NT), __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_AF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF) | __bit_shift(X86_FLAG_TF) | __bit_shift(X86_FLAG_IF) | __bit_shift(X86_FLAG_DF));
-    __reg_define(flags_usedef, UD_Ijo, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijno, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijb, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijae, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ije, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijne, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijbe, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ija, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijs, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijns, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijp, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijnp, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijl, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijge, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijle, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijg, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijcxz, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijecxz, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
-    __reg_define(flags_usedef, UD_Ijrcxz, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
+    __reg_define(flags_usedef, UD_Ijo, __bit_shift(X86_FLAG_OF), 0);
+    __reg_define(flags_usedef, UD_Ijno, __bit_shift(X86_FLAG_OF),  0);
+    __reg_define(flags_usedef, UD_Ijb, __bit_shift(X86_FLAG_CF), 0);
+    __reg_define(flags_usedef, UD_Ijae, __bit_shift(X86_FLAG_CF), 0);
+    __reg_define(flags_usedef, UD_Ije, __bit_shift(X86_FLAG_ZF), 0);
+    __reg_define(flags_usedef, UD_Ijne, __bit_shift(X86_FLAG_ZF), 0);
+    __reg_define(flags_usedef, UD_Ijbe, __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_CF), 0);
+    __reg_define(flags_usedef, UD_Ija, __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_CF), 0);
+    __reg_define(flags_usedef, UD_Ijs, __bit_shift(X86_FLAG_SF), 0);
+    __reg_define(flags_usedef, UD_Ijns, __bit_shift(X86_FLAG_SF), 0);
+    __reg_define(flags_usedef, UD_Ijp, __bit_shift(X86_FLAG_PF), 0);
+    __reg_define(flags_usedef, UD_Ijnp, __bit_shift(X86_FLAG_PF), 0);
+    __reg_define(flags_usedef, UD_Ijl, __bit_shift(X86_FLAG_SF), 0);
+    __reg_define(flags_usedef, UD_Ijge, __bit_shift(X86_FLAG_SF), 0);
+    __reg_define(flags_usedef, UD_Ijle, __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF), 0);
+    __reg_define(flags_usedef, UD_Ijg, __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF), 0);
+    //__reg_define(flags_usedef, UD_Ijcxz, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
+    //__reg_define(flags_usedef, UD_Ijecxz, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
+    //__reg_define(flags_usedef, UD_Ijrcxz, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
     __reg_define(flags_usedef, UD_Ilahf, 0, __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_AF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF));
     __reg_define(flags_usedef, UD_Ilar, 0, __bit_shift(X86_FLAG_ZF));
     __reg_define(flags_usedef, UD_Iloop, __bit_shift(X86_FLAG_DF), 0);

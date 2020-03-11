@@ -585,8 +585,8 @@ public:
 
     bool usesFlag(uint32_t flg);
     bool defsFlag(uint32_t flg);
-    bool implicitlyUsesReg(uint32_t alu);
-    bool implicitlyDefinesReg(uint32_t alu);
+    bool implicitlyUsesReg(uint64_t alu);
+    bool implicitlyDefinesReg(uint64_t alu);
 
     struct VectorInfo getVectorInfo();
     struct RuntimeValue getRegisterValue(enum ud_type reg);
