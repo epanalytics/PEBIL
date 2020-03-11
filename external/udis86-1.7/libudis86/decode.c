@@ -260,12 +260,10 @@ uint32_t get_membytes_accessed(struct ud* u)
 
     uint8_t bytesAccessed;
     if(elementSize == 0) { // 32-bit
-        // Original code by Josh, but I don't understand how VL = 128 would 
-        // ever have a 64-byte element when VL = 512 doesn't
+        // Original table for Xeon Phi instructions -- deprecated
         //bytesAccessed = (int[]){64, 4, 16, 32, 16, 16, 32, 32}[conversion];
         bytesAccessed = (int[]){16, 4, 32, 4, 64, 4}[conversion];
     } else if(elementSize == 1) { // 64-bit
-        // Don't quite get this either but ignoring for now
         bytesAccessed = (int[]){64, 8, 32}[conversion];
     } else {
         assert(0);
