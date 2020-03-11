@@ -264,7 +264,9 @@ uint32_t get_membytes_accessed(struct ud* u)
         //bytesAccessed = (int[]){64, 4, 16, 32, 16, 16, 32, 32}[conversion];
         bytesAccessed = (int[]){16, 4, 32, 4, 64, 4}[conversion];
     } else if(elementSize == 1) { // 64-bit
-        bytesAccessed = (int[]){64, 8, 32}[conversion];
+        // Original table for Xeon Phi instructions -- deprecated
+        //bytesAccessed = (int[]){16, 8, 32}[conversion];
+        bytesAccessed = (int[]){16, 8, 32, 8, 64, 8}[conversion];
     } else {
         assert(0);
     }
