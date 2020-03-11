@@ -571,22 +571,22 @@ MAL MISSING PRE SSE?
 
   <instruction mnemonic="call">
     <opcode mode="def64" cast="1"> aso oso rexw rexr rexx rexb ; FF /2 ; Ev ; ;
-      u:ax u:bx u:cx u:dx u:sp u:bp u:si u:di u:8 u:9 u:10      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
+      u:ax u:cx u:dx u:si u:di u:8 u:9 u:10 u:11      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
       d:ax d:cx d:dx d:si d:di                d:8 d:9 d:10 d:11 d:mm0 d:mm1 d:mm2 d:mm3 d:mm4 d:mm5 d:mm6 d:mm7 d:st0
     </opcode>
 
     <opcode cast="1"> aso oso rexw rexr rexx rexb ; FF /3 ; Ep ; ;
-      u:ax u:bx u:cx u:dx u:sp u:bp u:si u:di u:8 u:9 u:10      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
+      u:ax u:cx u:dx u:si u:di u:8 u:9 u:10 u:11      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
       d:ax d:cx d:dx d:si d:di                d:8 d:9 d:10 d:11 d:mm0 d:mm1 d:mm2 d:mm3 d:mm4 d:mm5 d:mm6 d:mm7 d:st0
     </opcode>
 
     <opcode mode="def64"> oso ; e8 ; Jz ; ;
-      u:ax u:bx u:cx u:dx u:sp u:bp u:si u:di u:8 u:9 u:10      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
+      u:ax u:cx u:dx u:si u:di u:8 u:9 u:10 u:11      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
       d:ax d:cx d:dx d:si d:di                d:8 d:9 d:10 d:11 d:mm0 d:mm1 d:mm2 d:mm3 d:mm4 d:mm5 d:mm6 d:mm7 d:st0
     </opcode>
 
     <opcode mode="inv64"> oso ; 9a ; Ap ; ;
-      u:ax u:bx u:cx u:dx u:sp u:bp u:si u:di u:8 u:9 u:10      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
+      u:ax u:cx u:dx u:si u:di u:8 u:9 u:10 u:11      u:mm0 u:mm1 u:mm2 u:mm3 u:mm4 u:mm5 u:mm6 u:mm7
       d:ax d:cx d:dx d:si d:di                d:8 d:9 d:10 d:11 d:mm0 d:mm1 d:mm2 d:mm3 d:mm4 d:mm5 d:mm6 d:mm7 d:st0
     </opcode>
   </instruction>
@@ -1924,95 +1924,95 @@ MAL MISSING PRE SSE?
   </instruction>
 
   <instruction mnemonic="jo">
-    <opcode> ; 70 ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 80 ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 70 ; Jb ; u:of ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 80 ; Jz ; u:of ; </opcode>
   </instruction>
 
   <instruction mnemonic="jno">
-    <opcode> ; 71 ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 81 ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 71 ; Jb ; u:of ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 81 ; Jz ; u:of ; </opcode>
   </instruction>
 
   <instruction mnemonic="jb">
-    <opcode> ; 72 ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 82 ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 72 ; Jb ; u:cf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 82 ; Jz ; u:cf ; </opcode>
   </instruction>
 
   <instruction mnemonic="jae">
-    <opcode> ; 73 ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 83 ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 73 ; Jb ; u:cf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 83 ; Jz ; u:cf ; </opcode>
   </instruction>
 
   <instruction mnemonic="je">
-    <opcode> ; 74 ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 84 ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 74 ; Jb ; u:zf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 84 ; Jz ; u:zf ; </opcode>
   </instruction>
 
   <instruction mnemonic="jne">
-    <opcode> ; 75 ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 85 ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 75 ; Jb ; u:zf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 85 ; Jz ; u:zf ; </opcode>
   </instruction>
 
   <instruction mnemonic="jbe">
-    <opcode> ; 76 ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 86 ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 76 ; Jb ; u:zf u:cf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 86 ; Jz ; u:zf u:cf ; </opcode>
   </instruction>
 
   <instruction mnemonic="ja">
-    <opcode> ; 77 ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 87 ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 77 ; Jb ; u:zf u:cf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 87 ; Jz ; u:zf u:cf ; </opcode>
   </instruction>
 
   <instruction mnemonic="js">
-    <opcode> ; 78 ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 88 ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 78 ; Jb ; u:sf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 88 ; Jz ; u:sf ; </opcode>
   </instruction>
 
   <instruction mnemonic="jns">
-    <opcode> ; 79 ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 89 ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 79 ; Jb ; u:sf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 89 ; Jz ; u:sf ; </opcode>
   </instruction>
 
   <instruction mnemonic="jp">
-    <opcode> ; 7a ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 8a ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 7a ; Jb ; u:pf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 8a ; Jz ; u:pf ; </opcode>
   </instruction>
 
   <instruction mnemonic="jnp">
-    <opcode> ; 7b ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 8b ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 7b ; Jb ; u:pf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 8b ; Jz ; u:pf ; </opcode>
   </instruction>
 
   <instruction mnemonic="jl">
-    <opcode> ; 7c ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 8c ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 7c ; Jb ; u:sf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 8c ; Jz ; u:sf ; </opcode>
   </instruction>
 
   <instruction mnemonic="jge">
-    <opcode> ; 7d ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 8d ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 7d ; Jb ; u:sf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 8d ; Jz ; u:sf ; </opcode>
   </instruction>
 
   <instruction mnemonic="jle">
-    <opcode> ; 7e ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 8e ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 7e ; Jb ; u:sf u:zf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 8e ; Jz ; u:sf u:zf ; </opcode>
   </instruction>
 
   <instruction mnemonic="jg">
-    <opcode> ; 7f ; Jb ; u:of u:sf u:zf u:pf u:cf ; </opcode>
-    <opcode mode="def64 depM" cast="1"> oso ; 0f 8f ; Jz ; u:of u:sf u:zf u:pf u:cf ; </opcode>
+    <opcode> ; 7f ; Jb ; u:sf u:zf ; </opcode>
+    <opcode mode="def64 depM" cast="1"> oso ; 0f 8f ; Jz ; u:sf u:zf ; </opcode>
   </instruction>
 
   <instruction mnemonic="jcxz">
-    <opcode> aso ; e3 /A16 ; Jb ; u:of u:sf u:zf u:pf u:cf ; u:cx </opcode>
+    <opcode> aso ; e3 /A16 ; Jb ; ; u:cx </opcode>
   </instruction>
 
   <instruction mnemonic="jecxz">
-    <opcode> aso ; e3 /A32 ; Jb ; u:of u:sf u:zf u:pf u:cf ; u:cx </opcode>
+    <opcode> aso ; e3 /A32 ; Jb ; ; u:cx </opcode>
   </instruction>
 
   <instruction mnemonic="jrcxz">
-    <opcode> aso ; e3 /A64 ; Jb ; u:of u:sf u:zf u:pf u:cf ; u:cx </opcode>
+    <opcode> aso ; e3 /A64 ; Jb ; ; u:cx </opcode>
   </instruction>
 
   <instruction mnemonic="jmp">
