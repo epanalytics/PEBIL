@@ -347,7 +347,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
             uint32_t MaxCapacity = root->Capacity;
 
             if(LoadStoreLogging) {
-                LogFile << "BLK" << TAB << "BLKID" 
+                LogFile << "BLK" << TAB << "BLKID" << TAB << "BLK HASH"
                   << TAB << "ImageSequence" << TAB << "ThreadSequence" << ENDL;
                 LogFile << "BLK" << TAB << "SYSID" << TAB << "SET"
                   << TAB << "LINE" << TAB << "READS" << TAB << "WRITES" << ENDL << ENDL;
@@ -442,7 +442,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                         for(int i=0;i<numOfSets;i++){
                             for(int j=0;j<numOfLines;j++){
                                 if(readIns[i][j] > 0 || writeOuts[i][j] > 0){
-                                    LogFile << bbid << TAB << dec << c->SysId
+                                    LogFile << TAB << bbid << TAB << dec << c->SysId
                                       << TAB << dec << i
                                       << TAB << dec << j
                                       << TAB << dec << readIns[i][j]
