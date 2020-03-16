@@ -1247,6 +1247,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
           "<floats> <floatsv> <floatss> <floatd> <floatdv> <floatds> <move> "
           "<stack> <string> <system> <cache> <mem> <other>\n");
         fprintf(staticFD, "# +vec <#elem>x<elemSize>:<#fp>:<#int> ...\n");
+        fprintf(staticFD, "# +mvc <#elem>x<elemSize>:<#fp>:<#int>:<#load>:<#store> ...\n");
     }
 
     uint32_t noInst = 0;
@@ -1438,14 +1439,24 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             // matrix to store counts elemsInVec X bytesInElem
             uint32_t fpvecs[65][16];
             uint32_t intvecs[65][16];
+            uint32_t ldvecs[65][16];
+            uint32_t stvecs[65][16];
             uint32_t unknownFP[16];
             uint32_t unknownInt[16];
+            uint32_t unknownLd[16];
+            uint32_t unknownSt[16];
             uint32_t unkFP = 0;
             uint32_t unkInt = 0;
+            uint32_t unkLd = 0;
+            uint32_t unkSt = 0;
             bzero(fpvecs, sizeof(fpvecs));
             bzero(intvecs, sizeof(intvecs));
+            bzero(ldvecs, sizeof(ldvecs));
+            bzero(stvecs, sizeof(stvecs));
             bzero(unknownFP, sizeof(unknownFP));
             bzero(unknownInt, sizeof(unknownInt));
+            bzero(unknownLd, sizeof(unknownLd));
+            bzero(unknownSt, sizeof(unknownSt));
             for(uint32_t k = 0; k < bb->getNumberOfInstructions(); ++k){
                 X86Instruction* ins = bb->getInstruction(k);
 
@@ -1462,23 +1473,41 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                 if(bytesInElem != 0 && vecinf.kval.confidence == Definitely) {
                     if(ins->isFloatPOperation()) {
                         ++fpvecs[nElements][bytesInElem-1];
-                    } else {
+                    } else if (ins->isIntegerOperation()) {
                         ++intvecs[nElements][bytesInElem-1];
+                    }
+                    if (ins->isLoad() && !ins->isScatterGatherOp()) {
+                        ++ldvecs[nElements][bytesInElem-1];
+                    }
+                    if (ins->isStore() && !ins->isScatterGatherOp()) {
+                        ++stvecs[nElements][bytesInElem-1];
                     }
 
                 // Known type, unknown width
                 } else if(bytesInElem != 0) {
                     if(ins->isFloatPOperation()) {
                         ++unknownFP[bytesInElem-1];
-                    } else {
+                    } else if (ins->isIntegerOperation()) {
                         ++unknownInt[bytesInElem-1];
+                    } 
+                    if (ins->isLoad() && !ins->isScatterGatherOp()) {
+                        ++unknownLd[bytesInElem-1];
+                    }
+                    if (ins->isStore() && !ins->isScatterGatherOp()) {
+                        ++unknownSt[bytesInElem-1];
                     }
                 // unknown
                 } else {
                     if(ins->isFloatPOperation()) {
                         ++unkFP;
-                    } else {
+                    } else if (ins->isIntegerOperation()) {
                         ++unkInt;
+                    }
+                    if (ins->isLoad() && !ins->isScatterGatherOp()) {
+                        ++unkLd;
+                    }
+                    if (ins->isStore() && !ins->isScatterGatherOp()) {
+                        ++unkSt;
                     }
                 }
             }
@@ -1503,6 +1532,35 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             }
             if(unkFP > 0 || unkInt > 0) {
 	              fprintf(staticFD, "\t???x8:%d:%d", unkFP, unkInt);
+            }
+            fprintf(staticFD, " # %#llx\n", bb->getHashCode().getValue());
+
+            fprintf(staticFD, "\t+mvc");
+            for(uint32_t nElem = 0; nElem < 65; ++nElem) {
+                for(uint32_t elemSize = 0; elemSize < 16; ++elemSize) {
+                    uint32_t fpcnt = fpvecs[nElem][elemSize];
+                    uint32_t intcnt = intvecs[nElem][elemSize];
+                    uint32_t ldcnt = ldvecs[nElem][elemSize];
+                    uint32_t stcnt = stvecs[nElem][elemSize];
+                    if(fpcnt > 0 || intcnt > 0 || ldcnt > 0 || stcnt > 0) {
+                        fprintf(staticFD, "\t%dx%d:%d:%d:%d:%d", nElem, 
+                          (elemSize+1) * 8, fpcnt, intcnt, ldcnt, stcnt);
+                    }
+                }
+            }
+            for(uint32_t elemSize = 0; elemSize < 16; ++elemSize) {
+	              uint32_t fpcnt = unknownFP[elemSize];
+	              uint32_t intcnt = unknownInt[elemSize];
+	              uint32_t ldcnt = unknownLd[elemSize];
+	              uint32_t stcnt = unknownSt[elemSize];
+	              if(fpcnt > 0 || intcnt > 0 || ldcnt > 0 || stcnt > 0) {
+		                fprintf(staticFD, "\t???x%d:%d:%d:%d:%d", (elemSize+1)*8, 
+                      fpcnt, intcnt, ldcnt, stcnt);
+	              }     
+            }
+            if(unkFP > 0 || unkInt > 0 || unkLd > 0 || unkSt > 0) {
+	              fprintf(staticFD, "\t???x8:%d:%d:%d:%d", unkFP, unkInt, unkLd,
+                  unkSt);
             }
             fprintf(staticFD, " # %#llx\n", bb->getHashCode().getValue());
         }
@@ -1710,6 +1768,7 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
     fprintf(staticFD, "# +dxi <count_def_use_cross> <count_call>\n");
     fprintf(staticFD, "# +ipa <call_target_addr> <call_target_name>\n");
     fprintf(staticFD, "# +vec <#elem>x<elemSize>:<#fp>:<#int> ...\n");
+    fprintf(staticFD, "# +mvc <#elem>x<elemSize>:<#fp>:<#int>:<#load>:<#store> ...\n");
   }
   
   uint32_t noInst = 0;
@@ -1841,30 +1900,46 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
 	        uint32_t bytesInElem = vecinf.elementSize;
 	        uint32_t nElements = vecinf.nElements;
 	        
-	        int fpcnt, intcnt;
+	        int fpcnt, intcnt, ldcnt, stcnt;
 	        fpcnt = intcnt = 0;
+	        ldcnt = stcnt = 0;
 	        
 	        if(ins->isFloatPOperation()) {
 	            fpcnt = 1;
-	        } else {
+	        } else if (ins->isIntegerOperation()) {
 	            intcnt = 1;
 	        }
+
+          if (ins->isLoad() && !ins->isScatterGatherOp()) {
+              ldcnt = 1;
+          }
+          if (ins->isStore() && !ins->isScatterGatherOp()) {
+              stcnt = 1;
+          }
 	        // Vector info known
 	        if(bytesInElem != 0 && vecinf.kval.confidence == Definitely) {
-	            fprintf(staticFD, "\t+vec\t%dx%d:%d:%d # %#llx\n", nElements, 
-                bytesInElem << 3, fpcnt, intcnt, hashValue);
+	            fprintf(staticFD, "\t+vec\t%dx%d:%d:%d # %#llx\n", 
+                nElements, bytesInElem << 3, fpcnt, intcnt, hashValue);
+	            fprintf(staticFD, "\t+mvc\t%dx%d:%d:%d:%d:%d # %#llx\n", 
+                nElements, bytesInElem << 3, fpcnt, intcnt, ldcnt, stcnt, 
+                hashValue);
 	          // Instruction known
 	        } else if (bytesInElem != 0) {
 	            fprintf(staticFD, "\t+vec\t???x%d:%d:%d # %#llx\n", 
                 bytesInElem << 3, fpcnt, intcnt, hashValue);
+	            fprintf(staticFD, "\t+mvc\t???x%d:%d:%d:%d:%d # %#llx\n", 
+                bytesInElem << 3, fpcnt, intcnt, ldcnt, stcnt, hashValue);
 	        } else {
 	            //ins->print();
-	            fprintf(staticFD, "\t+vec\t???x8:%d:%d # %llx\n", fpcnt, intcnt, 
-                hashValue);
+	            fprintf(staticFD, "\t+vec\t???x8:%d:%d # %llx\n", fpcnt, 
+                intcnt, hashValue);
+	            fprintf(staticFD, "\t+mvc\t???x8:%d:%d:%d:%d # %llx\n", fpcnt, 
+                intcnt, ldcnt, stcnt, hashValue);
 	        }
 	
       } else {
 	        fprintf(staticFD, "\t+vec # %#llx\n", hashValue);
+	        fprintf(staticFD, "\t+mvc # %#llx\n", hashValue);
       }
     }
     
