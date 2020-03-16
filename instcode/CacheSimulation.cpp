@@ -348,7 +348,8 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
             if(LoadStoreLogging) {
                 LogFile << "BLK" << TAB << "BLKID" << TAB << "BLK HASH"
-                  << TAB << "ImageSequence" << TAB << "ThreadSequence" << ENDL;
+                  << TAB << "ImageSequence" << TAB << "ThreadSequence" 
+                  TAB << "SYSID1:MISSES" << TAB << "SYSID2:MISSES ..." << ENDL;
                 LogFile << "BLK" << TAB << "SYSID" << TAB << "SET"
                   << TAB << "LINE" << TAB << "READS" << TAB << "WRITES" << ENDL << ENDL;
             }
@@ -396,8 +397,23 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     LogFile << "BLK" << TAB << dec << bbid
                       << TAB << hex << st->Hashes[bbid]
                       << TAB << dec << AllData->GetImageSequence((*iit))
-                      << TAB << dec << AllData->GetThreadSequence(st->threadid)
-                      << ENDL;
+                      << TAB << dec << AllData->GetThreadSequence(st->threadid);
+                    for (uint32_t sys = 0; sys < numCaches; sys++){
+                        CacheStats* c = aggstats[sys];
+                        //NOTE threading issue here in future perhapps
+                        uint32_t lastLevel = c->LevelCount - 1;
+                        LogFile << TAB << dec << c->SysId << ":" 
+                          << c->GetMisses(bbid, lastLevel);
+                    }
+                    LogFile << ENDL;
+
+                    for (uint32_t sys = 0; sys < numCaches; sys++){
+                        CacheStats* c = aggstats[sys];
+                        //NOTE threading issue here in future perhapps
+                        uint32_t lastLevel = c->LevelCount - 1;
+                        LogFile << "# " << dec << c->SysId << ":" 
+                          << c->GetMisses(bbid, lastLevel) << ENDL;
+                    }
                 }
 
                 for (uint32_t sys = 0; sys < numCaches; sys++){
@@ -506,7 +522,8 @@ void CacheSimulationTool::PrintApplicationHeader(ofstream& file,
       << "# countimage    = " << dec << AllData->CountImages() << ENDL
       << "# countthread   = " << dec << AllData->CountThreads() << ENDL
       << "# masterthread  = " << hex << AllData->GetThreadSequence(
-      pthread_self()) << ENDL
+      pthread_self()) << ENDL 
+      << "# LoadStoreLogging = " << dec << LoadStoreLogging << ENDL
       << ENDL;
 
     // Print information for each image

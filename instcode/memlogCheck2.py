@@ -29,37 +29,43 @@ def scanForStart(listt):
         i = i + 1
     return i
 
+def tokenizeLine(line):
+    tokens = line.split("\t")
+    tokens.remove("")
+    return tokens
+
 #def handleCachesimSysid(cachesim, pos):
 
 #def handleMemlogSysid():
 
 def findMemoryLine(listt,pos):
     line = listt[pos]
-    i = 0
-    currChar = line[i]
-    while True:
-        if currChar == "M":
-            return pos
-        if currChar == "\t"
-            pos = pos + 1
-            line = listt[po]
-            i = 0
-            currChar = line[i]
-            continue
-        i = i + 1
-        currChar = line[i]
 
 def handleCachesimBLK(listt, pos, blkid):
-    pos = pos + 1
     retList = []
-    while True:
+    while True: #loop through sysids
+        pos = pos + 1
         line = listt[pos]
-        token = line[0:3]
-        if token == "BLK":
+        tokens = tokenizeLine(line)
+        if tokens[0] == "BLK":
             return (retList, pos)
-        
+        if tokens[1] != "M":
+            continue
+        retList.append((tokens[0],tokens[4],tokens[5]))
+    print "Failed to return properl in handleCachesimBLK"
+    exit()
 
-#def handleMemlogBLK():
+def handleMemlogBLK(listt, pos, blkid):
+    retList = []
+    line = listt[pos+1]
+    tokens = tokenizeLine(line)
+    curSysid = tokens[1]
+    readCount = 0
+    writeCount = 0
+    while True:
+        pos = post + 1
+        line = listt[pos]
+        #TODO continue working here
 
 def extractBLKnumber(filee, pos):
     line = filee[pos]
@@ -79,27 +85,37 @@ f2list = list(f2)
 f1pos = scanForStart(f1list)
 f2pos = scanForStart(f2list)
 f2pos = f2pos + 3
-while True:
+while True: #loop over blks
+    if f1pos == len(f1list):
+        if f2pos == len(f2list):#we are all done
+            break
+        else:
+            print "reached end of file 1 before of file 2"
+            exit()
+    elif f2pos == len(f2list):
+        print "reached end of file 2 before end of file 1"
+        exit()
     blk1 = extractBLKnumber(f1list, f1pos)
     blk2 = extractBLKnumber(f2list, f2pos)
-    if blk1 != blk2:
+    if blk1 != blk2: #make sure we are parsing the same blk
         print "Error parsing input files"
         exit()
-    (list1, f1pos) = handleCachesimBLK(f1list, f1pos, blk1)
+    (list1, f1pos) = handleCachesimBLK(f1list, f1pos, blk1) 
+    #f1pos gets updated to where it will be next
     (list2, f2pos) = handleMemlogBLK(f2list, f2pos, blk1)
-    if len(list1) != len(list2):
+    #f2pos gets updated to where it will be next
+    if len(list1) != len(list2): #make sure they have the same number of sysids
         print "Mismatch in number of sysid's"
         exit()
     for i in range(len(list1)):
         (sysid1, read1, write1) = list1[i]
         (sysid2, read2, write2) = list2[i]
-        if sysid1 != sysid2:
+        if sysid1 != sysid2: #make sure sysids are in the same order
             print "Mismatched sysids"
             exit()
-        if (read1 != read2) or (write1 != write2):
+        if (read1 != read2) or (write1 != write2): #if not a match in read or writes print info
             print "Sysid: " + sysid1
             print "Cachsim reads: " + read1 + " writes: " + write1
             print "Memlog reads: " + read2 + " writes: " + write2
-            exit()
-    break
+            exit() #then exit out early
 print "All Blk by sysid by read/writes/total operations line up between cachsim file and mem log file"
