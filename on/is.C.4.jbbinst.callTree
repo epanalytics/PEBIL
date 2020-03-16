@@ -1,0 +1,57 @@
+# appname   = is.C.4
+# appsize   = 40544
+# extension = jbbinst
+# phase     = 0
+# type      = BasicBlockCounter
+# cantidate = 237
+# sha1sum   = be13a77a44c54127b713ad7101ad25f2f07af95f
+# perinsn   = no
+# blocks    = 237
+# memops    = 281
+# memopbyte = 1678 ( 5.97153 bytes/op)
+# fpops     = 48
+# insns     = 1027
+digraph "is.C.4" { 
+"_start" -> "__libc_start_main"
+"c_print_results" -> "printf"
+"c_print_results" -> "puts"
+"create_seq" -> "randlc"
+"find_my_seed" -> "randlc"
+"full_verify" -> "MPI_Irecv"
+"full_verify" -> "MPI_Send"
+"full_verify" -> "MPI_Wait"
+"full_verify" -> "printf"
+"main" -> "MPI_Comm_rank"
+"main" -> "MPI_Comm_size"
+"main" -> "MPI_Finalize"
+"main" -> "MPI_Gather"
+"main" -> "MPI_Init"
+"main" -> "MPI_Reduce"
+"main" -> "c_print_results"
+"main" -> "create_seq"
+"main" -> "exit"
+"main" -> "find_my_seed"
+"main" -> "full_verify"
+"main" -> "printf"
+"main" -> "putchar"
+"main" -> "puts"
+"main" -> "rank"
+"main" -> "rtclock"
+"main" -> "timer_clear"
+"main" -> "timer_read"
+"main" -> "timer_start"
+"main" -> "timer_stop"
+"pinto" -> "exit"
+"pinto" -> "fprintf"
+"pinto" -> "getpid"
+"pinto" -> "sched_setaffinity"
+"rank" -> "MPI_Allreduce"
+"rank" -> "MPI_Alltoall"
+"rank" -> "MPI_Alltoallv"
+"rank" -> "printf"
+"rtclock" -> "gettimeofday"
+"rtclock" -> "printf"
+"timer_start" -> "MPI_Wtime"
+"timer_stop" -> "MPI_Wtime"
+} 
+ 
