@@ -230,6 +230,10 @@ struct VectorInfo X86Instruction::getVectorInfo()
         vectorInfo.kval.confidence = Definitely;
     }
 
+    // Scalar vector operations are just 1 element
+    if (isBinFloats() or isBinInts())
+        vectorInfo.nElements = 1;
+
     return vectorInfo;
 }
 
@@ -3795,7 +3799,7 @@ void X86InstructionClassifier::generateTable(){
     mkclass(       vmovdqa32,   simdMove,      intv,    0,    VRSZ,    0,    32)
     mkclass(       vmovdqa64,   simdMove,      intv,    0,    VRSZ,    0,    64)
     mkclass(         vmovdqu,   simdMove,      intv,    0,    VRSZ,    0,    0)
-    mkclass(       vmovdqu8,    simdMove,      intv,    0,    VRSZ,    0,    8)
+    mkclass(        vmovdqu8,   simdMove,      intv,    0,    VRSZ,    0,    8)
     mkclass(       vmovdqu16,   simdMove,      intv,    0,    VRSZ,    0,    16)
     mkclass(       vmovdqu32,   simdMove,      intv,    0,    VRSZ,    0,    32)
     mkclass(       vmovdqu64,   simdMove,      intv,    0,    VRSZ,    0,    64)
