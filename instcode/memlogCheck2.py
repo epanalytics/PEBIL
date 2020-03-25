@@ -65,7 +65,11 @@ def handleMemlogBLK(listt, pos, blkid):
     while True:
         pos = post + 1
         line = listt[pos]
-        #TODO continue working here
+        tokens = tokenizeLine(line)
+        if tokens[1] != "M":
+            continue
+        elif tokens[1] == "M":
+            retList.append((tokens[0],tokens[4],tokens[5]))
 
 def extractBLKnumber(filee, pos):
     line = filee[pos]
