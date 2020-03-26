@@ -349,10 +349,10 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
             uint32_t MaxCapacity = root->Capacity;
 
             if(LoadStoreLogging) {
-                LogFile << "BLK" << TAB << "BLKID" << TAB << "BLK HASH"
+                LogFile << "#" << TAB << "BLK" << TAB << "BLKID" << TAB << "BLK HASH"
                   << TAB << "ImageSequence" << TAB << "ThreadSequence" 
                   TAB << "SYSID1:MISSES" << TAB << "SYSID2:MISSES ..." << ENDL;
-                LogFile << "BLK" << TAB << "SYSID" << TAB << "SET"
+                LogFile << "#" << TAB << "BLK" << TAB << "SYSID" << TAB << "SET"
                   << TAB << "LINE" << TAB << "READS" << TAB << "WRITES" << ENDL << ENDL;
             }
 
