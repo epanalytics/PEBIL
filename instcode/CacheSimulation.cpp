@@ -341,6 +341,8 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                         }
                     } // for each memop                                    
                 } // if a hybrid cache         
+            //delete s here
+            //delete s;
             } // for each cache structure
 
             CacheStats* root = aggstats[0];
