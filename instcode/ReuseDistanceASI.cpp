@@ -151,7 +151,7 @@ void ReuseDistanceHandler::Print(ofstream& f) {
     internalHandler->Print(f, true);
 }
 
-uint32_t ReuseDistanceHandler::Process(void* stats, BufferEntry* access) {
+uint32_t ReuseDistanceHandler::Process(void* stats, BufferEntry* access, uint64_t* Mapping) {
     ReuseStreamStats* s = (ReuseStreamStats*)stats;
     ReuseEntry entry = ReuseEntry();
     entry.id = s->GetHash(access->memseq);

@@ -59,7 +59,16 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
         stats->Stats[indexInStats + i] = new CacheStats(currHandler->levelCount,
           currHandler->sysId, stats->AllocCount, currHandler->hybridCache);
         CacheStats* cacheStats = (CacheStats*)stats->Stats[indexInStats + i];
-        cacheStats->InitMainMemoryStats(currHandler);
+        //TODO loop through stats->BlockIds and get number of blocks and pass into InitMainMemoryStats
+        /* 
+        std::set<uint64_t> mySet = new std::set<uint64_t>();
+        for(int i=0;i<stats->AllocCount;i++){
+            mySet.add(stats->BlockIds[i]);
+        }
+        int numOfBlocks =  mySet.size();
+        assert(numOfBlocks == stats->BlockCount);
+        */
+        cacheStats->InitMainMemoryStats(currHandler, stats->BlockCount);
     }
 }
 
@@ -281,7 +290,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 MainMemory* refMem = s->mainMemoryStats[0];
                 c->mainMemoryStats = new MainMemory*[st->BlockCount];
                 for (int i=0;i<st->BlockCount;i++){
-                    c->mainMemoryStats[i] = new MainMemory(*refMem);
+                    c->mainMemoryStats[i] = s->mainMemoryStats[i];
                 }
 
                 aggstats[sys] = c;
@@ -308,14 +317,45 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     } // for each cache level
 
                     if(LoadStoreLogging){
-                        for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
-                            for(int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
-                                c->mainMemoryStats[bbid]->readIns[i][j] += s->mainMemoryStats[memid]->readIns[i][j];
-                                c->mainMemoryStats[bbid]->writeOuts[i][j] += s->mainMemoryStats[memid]->writeOuts[i][j];
+                        /*if( c->mainMemoryStats[0]->numOfLinesInSet > 1) {
+                            for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
+                                for(int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
+                                    NestedHash* CreadInsMap = c->mainMemoryStats[bbid]->readInsMap; 
+                                    NestedHash* CwriteOutsMap = c->mainMemoryStats[bbid]->writeOutsMap;
+                                    NestedHash* SreadInsMap = s->mainMemoryStats[memid]->readInsMap; 
+                                    NestedHash* SwriteOutsMap = s->mainMemoryStats[memid]->writeOutsMap;
+                                    
+                                    //c->mainMemoryStats[bbid]->readInsMap[i] += s->mainMemoryStats[memid]->readInsMap[i];
+                                    //c->mainMemoryStats[bbid]->writeOutsMap[i] += s->mainMemoryStats[memid]->writeOutsMap[i];
+                                    uint32_t toAddRead = SreadInsMap->get(i,j);
+                                    uint32_t toAddWrite = SwriteOutsMap->get(i,j);
+                                    if (toAddRead > 0){
+                                        CreadInsMap->put(i,j,toAddRead);
+                                    }
+                                    if (toAddWrite > 0){
+                                        CwriteOutsMap->put(i,j,toAddWrite);
+                                    }
+                                }
                             }
-                        }
+                        } else {
+                            for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
+                                EasyHash* CdirInsMap = c->mainMemoryStats[bbid]->dirInsMap;
+                                EasyHash* CdirOutsMap = c->mainMemoryStats[bbid]->dirOutsMap;
+                                EasyHash* SdirInsMap = s->mainMemoryStats[bbid]->dirInsMap;
+                                EasyHash* SdirOutsMap = s->mainMemoryStats[bbid]->dirOutsMap;
+
+                                uint32_t toAddRead = SdirInsMap->get(i);
+                                uint32_t toAddWrite = SdirOutsMap->get(i);
+                                if (toAddRead > 0) {
+                                    CdirInsMap->add(i, toAddRead);
+                                }
+                                if (toAddWrite > 0) {
+                                    CdirOutsMap->add(i, toAddWrite);
+                                }
+                            }
+                        }*/
                     }
-                } // for each memop
+                } // for each memop 635465
 
                 if(!c->Verify()) {
                     warn << "Failed check on aggregated cache stats" 
@@ -452,20 +492,63 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                           << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
                           << ENDL; 
 
-                        uint32_t** readIns = c->mainMemoryStats[bbid]->readIns;
-                        uint32_t** writeOuts = c->mainMemoryStats[bbid]->writeOuts;
                         uint32_t numOfSets = c->mainMemoryStats[bbid]->numOfSets;
                         uint32_t numOfLines = c->mainMemoryStats[bbid]->numOfLinesInSet;
+                        NestedHash* readInsMap;
+                        NestedHash* writeOutsMap;
+                        EasyHash* dirInsMap;
+                        EasyHash* dirOutsMap;
+                        if (numOfLines > 1) {
+                            readInsMap = c->mainMemoryStats[bbid]->readInsMap;
+                            writeOutsMap = c->mainMemoryStats[bbid]->writeOutsMap;
+                        } else {
+                            dirInsMap = c->mainMemoryStats[bbid]->dirInsMap;
+                            dirOutsMap = c->mainMemoryStats[bbid]->dirOutsMap;
+                        }
 
-                        for(int i=0;i<numOfSets;i++){
-                            for(int j=0;j<numOfLines;j++){
-                                if(readIns[i][j] > 0 || writeOuts[i][j] > 0){
+                        if (numOfLines > 1) {
+                            for(int i=0;i<numOfSets;i++){
+                                for(int j=0;j<numOfLines;j++){
+                                    bool read = readInsMap->contains(i,j);
+                                    bool write = writeOutsMap->contains(i,j);
+                                    if( read || write) {
+                                        LogFile << TAB << bbid << TAB << dec << c->SysId
+                                          << TAB << dec << i
+                                          << TAB << dec << j;
+                                        if (read){
+                                            LogFile << TAB << dec << readInsMap->get(i,j);
+                                        } else {
+                                            LogFile << TAB << "0";
+                                        }
+                                        if (write){
+                                            LogFile << TAB << dec << writeOutsMap->get(i,j);
+                                        } else {
+                                            LogFile << TAB << "0";
+                                        } 
+                                        LogFile << ENDL;
+                                    }
+                                }
+                            }
+                        }
+                        else {
+                            for(int i=0;i<numOfSets;i++){
+                                bool read = dirInsMap->contains(i);   
+                                bool write = dirOutsMap->contains(i);
+                                if( read || write) {
                                     LogFile << TAB << bbid << TAB << dec << c->SysId
                                       << TAB << dec << i
-                                      << TAB << dec << j
-                                      << TAB << dec << readIns[i][j]
-                                      << TAB << dec << writeOuts[i][j]
-                                      << ENDL;
+                                      << TAB << "0";
+                                    if (read) {
+                                        LogFile << TAB << dec << dirInsMap->get(i);
+                                    } else {
+                                        LogFile << TAB << "0";
+                                    }
+                                    if (write) {
+                                        LogFile << TAB << dec << dirOutsMap->get(i);
+                                    } else {
+                                        LogFile << TAB << "0";
+                                    }
+                                    LogFile << ENDL;
                                 }
                             }
                         }
@@ -696,6 +779,7 @@ CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity,
     Capacity = capacity;
     hybridCache=hybridcache;
     mainMemoryStats = new MainMemory*[Capacity];
+    //TODO this has to be changed Capcity-> num of basic blocks
 
     Stats = new LevelStats*[Capacity];
     if(hybridCache){   
@@ -726,12 +810,16 @@ CacheStats::~CacheStats(){
     }
 }
 
-void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler){
+void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler, uint32_t BlockCount ){
     uint32_t lastLevel = handler->levelCount-1;
     uint32_t numOfSets = handler->levels[lastLevel]->GetSetCount();
     uint32_t numOfLinesInSet = handler->levels[lastLevel]->GetAssociativity();
     uint32_t sizeOfLine = handler->levels[lastLevel]->GetLineSize();
-    for(int i=0;i<Capacity;i++){
+    /*for(int i=0;i<Capacity;i++){
+        mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
+        assert(mainMemoryStats[i]->GetLoads()==0);
+    }*/
+    for(int i=0;i<BlockCount;i++){
         mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
         assert(mainMemoryStats[i]->GetLoads()==0);
     }
@@ -1585,7 +1673,7 @@ MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize)
     numOfSets = setSize;
     numOfLinesInSet = numOfLines;
     sizeOfLine = lineSize;
-    writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
+    /*writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
     readIns = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
     for(int i=0;i<numOfSets;i++){
         writeOuts[i] = new uint32_t[numOfLinesInSet];
@@ -1594,6 +1682,13 @@ MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize)
             writeOuts[i][j] = 0;
             readIns[i][j] = 0;
         }
+    }*/
+    if (numOfLines > 1){
+        readInsMap = new NestedHash();
+        writeOutsMap = new NestedHash();
+    } else {
+        dirOutsMap = new EasyHash();
+        dirInsMap = new EasyHash();
     }
 }
 
@@ -1601,7 +1696,7 @@ MainMemory::MainMemory(MainMemory& mem){
     numOfSets = mem.numOfSets;
     numOfLinesInSet = mem.numOfLinesInSet;
     sizeOfLine = mem.sizeOfLine;
-    writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
+    /*writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
     readIns = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
     for(int i=0;i<numOfSets;i++){
         writeOuts[i] = new uint32_t[numOfLinesInSet];
@@ -1610,24 +1705,41 @@ MainMemory::MainMemory(MainMemory& mem){
             writeOuts[i][j] = 0;
             readIns[i][j] = 0;
         }
+    }*/
+    if (numOfLinesInSet > 1) {
+        readInsMap = new NestedHash();
+        writeOutsMap = new NestedHash();
+    } else {
+        dirInsMap = new EasyHash();
+        dirOutsMap = new EasyHash();
     }
 }
 
 MainMemory::~MainMemory(){
-    for(int i=0;i<numOfSets;i++){
+    /*for(int i=0;i<numOfSets;i++){
         delete[] writeOuts[i];
         delete[] readIns[i];
     }
     delete[] writeOuts;
-    delete[] readIns;
+    delete[] readIns;*/
+    delete readInsMap;
+    delete writeOutsMap;
+    delete dirInsMap;
+    delete dirOutsMap;
 }
 
 uint32_t MainMemory::GetLoads(){
     uint32_t sum = 0;
 
-    for(int i=0;i<numOfSets;i++){
-        for(int j=0;j<numOfLinesInSet;j++){
-            sum += readIns[i][j];
+    if (numOfLinesInSet > 1) {
+        for(int i=0;i<numOfSets;i++){
+            for(int j=0;j<numOfLinesInSet;j++){
+                sum += readInsMap->get(i,j);
+            }
+        }
+    } else {
+        for(int i=0;i<numOfSets;i++){
+            sum += dirInsMap->get(i);
         }
     }
 
@@ -1637,9 +1749,15 @@ uint32_t MainMemory::GetLoads(){
 uint32_t MainMemory::GetStores(){
     uint32_t sum = 0;
 
-    for(int i=0;i<numOfSets;i++){
-        for(int j=0;j<numOfLinesInSet;j++){
-            sum += writeOuts[i][j];
+    if (numOfLinesInSet > 1) {
+        for(int i=0;i<numOfSets;i++){
+            for(int j=0;j<numOfLinesInSet;j++){
+                sum += writeOutsMap->get(i,j);
+            }
+        }
+    } else {
+        for (int i=0;i<numOfSets;i++){
+            sum += dirOutsMap->get(i);
         }
     }
 
@@ -2002,7 +2120,7 @@ CacheStructureHandler::~CacheStructureHandler(){
 }
 
 uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
-  uint64_t memseq, uint8_t loadstoreflag) {
+  uint64_t memseq, uint8_t loadstoreflag, uint64_t* Mapping) {
     uint32_t next = 0,tmpNext = 0;
     uint64_t victim = address;
 
@@ -2027,10 +2145,19 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
         uint32_t evicSet = evictInfo.setid;
         uint32_t evicLine = evictInfo.lineid;
         // write to stats mainMemory
-        if(initLoadStoreFlag){
-            stats->mainMemoryStats[memseq]->readIns[evicSet][evicLine]++;
+        uint32_t sizeOfLine = stats->mainMemoryStats[Mapping[memseq]]->numOfLinesInSet;
+        if (sizeOfLine > 1){
+            if(initLoadStoreFlag){ // TODO check this logic
+                stats->mainMemoryStats[Mapping[memseq]]->readInsMap->put(evicSet, evicLine, 1);
+            } else {
+                stats->mainMemoryStats[Mapping[memseq]]->writeOutsMap->put(evicSet, evicLine, 1);
+            }
         } else {
-            stats->mainMemoryStats[memseq]->writeOuts[evicSet][evicLine]++;
+            if(initLoadStoreFlag) { // TODO check this logic
+                stats->mainMemoryStats[Mapping[memseq]]->dirInsMap->add(evicSet, 1);
+            } else {
+                stats->mainMemoryStats[Mapping[memseq]]->dirOutsMap->add(evicSet, 1);
+            }
         }
     }
 
@@ -2073,12 +2200,12 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
     return resLevel;
 }
 
-uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access){
+uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access, uint64_t* Mapping){
     if(access->type == MEM_ENTRY) {
         debug(inform << "Processing MEM_ENTRY with address " << hex << 
           (access->address) << "(" << dec << access->memseq << ")" << ENDL);
         return processAddress(stats_in, access->address, access->memseq, 
-          access->loadstoreflag);
+          access->loadstoreflag, Mapping);
     } else if(access->type == VECTOR_ENTRY) {
         debug(inform << "Processing VECTOR_ENTRY " << ENDL;); 
         // FIXME
@@ -2097,7 +2224,7 @@ uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access){
                   (access->vectorAddress).indexVector[i] * 
                   (access->vectorAddress).scale;
                 lastReturn = processAddress(stats_in, currAddr, access->memseq, 
-                  access->loadstoreflag);
+                  access->loadstoreflag, Mapping);
             }
             mask = (mask >> 1);
         }

@@ -98,7 +98,7 @@ class MemoryStreamHandler {
     virtual ~MemoryStreamHandler();
 
     virtual void Print(std::ofstream& f) = 0;
-    virtual uint32_t Process(void* stats, BufferEntry* access) = 0;
+    virtual uint32_t Process(void* stats, BufferEntry* access, uint64_t* Mapping) = 0;
     // Number of addresses that appeared but aren't processed
     virtual void SkipAddresses(uint32_t numToSkip) {};
     virtual bool Verify() = 0;
@@ -128,6 +128,30 @@ class Randomizer {
     virtual ~Randomizer() {}    
 
     virtual uint32_t RandomInt(uint32_t max);
+};
+
+class EasyHash {
+  private:
+    pebil_map_type<uint32_t, uint32_t>* internal_map;
+
+  public:
+    EasyHash();
+    ~EasyHash();
+    bool contains(uint32_t);
+    void add(uint32_t, uint32_t);
+    uint32_t get(uint32_t);
+};
+
+class NestedHash {
+  private:
+    pebil_map_type<uint32_t, EasyHash*>* internal_hash;
+
+  public:
+    NestedHash();
+    ~NestedHash();
+    bool contains(uint32_t, uint32_t);
+    void put(uint32_t, uint32_t, uint32_t);
+    uint32_t get(uint32_t, uint32_t);
 };
 
 #endif /* _AddressStreamBase_hpp_ */

@@ -79,8 +79,13 @@ public:
     MainMemory(MainMemory& mem);
     ~MainMemory();
 
-    uint32_t** writeOuts; //2d array indexed by set and lineInSet
-    uint32_t** readIns; //2d array indexed by set and lineInSet
+    //uint32_t** writeOuts; //2d array indexed by set and lineInSet
+    //uint32_t** readIns; //2d array indexed by set and lineInSet
+    NestedHash* writeOutsMap = nullptr; //keyed by set and line
+    NestedHash* readInsMap = nullptr; //keyed by set and line
+
+    EasyHash* dirOutsMap = nullptr; //if using a direct map last level cache,
+    EasyHash* dirInsMap = nullptr; //should hopefully cut down even more memory usage
 
     uint32_t GetLoads(); //loops through all of readIns and gets a total sum
     uint32_t GetStores(); //loops through all of writeOuts and gets a total sum
@@ -128,13 +133,13 @@ public:
     uint32_t SysId;
     LevelStats** Stats; // indexed by [memid][level]
     LevelStats* HybridMemStats; // indexed by [memid]
-    MainMemory** mainMemoryStats; // indexed by [memid]
+    MainMemory** mainMemoryStats; // indexed by [Mapping[memseq]]
     uint32_t Capacity;
     uint32_t hybridCache;
     CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
       hybridCache);
     ~CacheStats();
-    void InitMainMemoryStats(CacheStructureHandler* handler);
+    void InitMainMemoryStats(CacheStructureHandler* handler, uint32_t BlockCount);
 
     bool HasMemId(uint32_t memid);
     void ExtendCapacity(uint32_t newSize);
@@ -394,7 +399,8 @@ protected:
       uint64_t misses;
       uint64_t AddressRangesCount;
       std::vector<uint64_t>* toEvictAddresses;
-      uint32_t processAddress(void* stats, uint64_t address, uint64_t memseq, uint8_t loadstoreflag);
+      uint32_t processAddress(void* stats, uint64_t address, uint64_t memseq, 
+        uint8_t loadstoreflag, uint64_t* Mapping);
 
 public:      
     // note that this doesn't contain any stats gathering code. that is done at the
@@ -407,7 +413,7 @@ public:
 	  uint32_t LoadStoreLogging, uint32_t DirtyCacheHandling);
 
     void Print(std::ofstream& f);
-    uint32_t Process(void* stats, BufferEntry* access);
+    uint32_t Process(void* stats, BufferEntry* access, uint64_t* Mapping);
     bool Verify();
 
     uint64_t GetHits(){return hits;}

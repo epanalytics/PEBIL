@@ -74,7 +74,7 @@ public:
     ~VectorLengthHandler();
 
     void Print(std::ofstream& f);
-    uint32_t Process(void* stats, BufferEntry* access);
+    uint32_t Process(void* stats, BufferEntry* access, uint64_t* Mapping);
     bool Verify() { return true; }
 };
 
