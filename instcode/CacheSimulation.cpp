@@ -382,7 +382,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     } // for each memop                                    
                 } // if a hybrid cache         
             //delete s here
-            //delete s;
+            delete s;
             } // for each cache structure
 
             CacheStats* root = aggstats[0];
@@ -801,12 +801,12 @@ CacheStats::~CacheStats(){
             if (Stats[i]){
                 delete[] Stats[i];
             }
-            if (mainMemoryStats[i]){
+            /*if (mainMemoryStats[i]){
                 delete mainMemoryStats[i];
-            }
+            }*/
         }
         delete[] Stats;
-        delete[] mainMemoryStats;
+        //delete[] mainMemoryStats;
     }
 }
 
@@ -1275,6 +1275,7 @@ uint64_t CacheLevel::Replace( uint64_t store,
     // touched yet, we can reset the dirty flag if it is indeed dirty!
     contents[setid][lineid] = store;
     if(loadStoreLogging){
+        //TODO figure out if we use this
         if(loadstoreflag)
             ResetDirty(setid,lineid,store);
         else
