@@ -1255,7 +1255,7 @@ uint64_t CacheLevel::Replace( uint64_t store,
 
     if(GetDirtyStatus(setid,lineid,prev)){
         toEvict=true;
-        toEvictAddresses->push_back(prev);
+        //toEvictAddresses->push_back(prev);
     }
     // Since the new address 'store' has been loaded just now and is not
     // touched yet, we can reset the dirty flag if it is indeed dirty!
