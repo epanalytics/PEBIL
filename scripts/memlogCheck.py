@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys
 
 def printUsage():
@@ -87,7 +89,7 @@ f1 = open(sys.argv[1], 'r')
 f2 = open(sys.argv[2], 'r')
 f1list = list(f1)
 f2list = list(f2)
-f1pos = scanForStart(f1list)
+f1pos = scanForStart(f1list) #this may no longer work after small format change
 f2pos = scanForStart(f2list)
 f2pos = f2pos + 3
 cachesimdict = {}
