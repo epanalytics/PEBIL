@@ -57,17 +57,8 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
         CacheStructureHandler* currHandler = (CacheStructureHandler*)(
           handlers[i]);
         stats->Stats[indexInStats + i] = new CacheStats(currHandler->levelCount,
-          currHandler->sysId, stats->AllocCount, currHandler->hybridCache);
+          currHandler->sysId, stats->AllocCount, currHandler->hybridCache, stats->BlockCount);
         CacheStats* cacheStats = (CacheStats*)stats->Stats[indexInStats + i];
-        //TODO loop through stats->BlockIds and get number of blocks and pass into InitMainMemoryStats
-        /* 
-        std::set<uint64_t> mySet = new std::set<uint64_t>();
-        for(int i=0;i<stats->AllocCount;i++){
-            mySet.add(stats->BlockIds[i]);
-        }
-        int numOfBlocks =  mySet.size();
-        assert(numOfBlocks == stats->BlockCount);
-        */
         cacheStats->InitMainMemoryStats(currHandler, stats->BlockCount);
     }
 }
@@ -285,7 +276,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 s->Verify();
 
                 CacheStats* c = new CacheStats(s->LevelCount, s->SysId,
-                  st->BlockCount, s->hybridCache);
+                  st->BlockCount, s->hybridCache, st->BlockCount);
 
                 //MainMemory* refMem = s->mainMemoryStats[0];
                 c->mainMemoryStats = new MainMemory*[st->BlockCount];
@@ -759,13 +750,14 @@ uint32_t CacheSimulationTool::ReadCacheDescription(istream& stream,
 }
 
 CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, 
-  uint32_t hybridcache){
+  uint32_t hybridcache, uint32_t blockCount){
     LevelCount = lvl;
     SysId = sysid;
     Capacity = capacity;
+    BlockCount = blockCount;
     hybridCache=hybridcache;
-    mainMemoryStats = new MainMemory*[Capacity];
-    //TODO this has to be changed Capcity-> num of basic blocks
+    mainMemoryStats = new MainMemory*[blockCount];
+    //may want to do per instruction again since bloat was fixed
 
     Stats = new LevelStats*[Capacity];
     if(hybridCache){   
@@ -1261,7 +1253,6 @@ uint64_t CacheLevel::Replace( uint64_t store,
     // touched yet, we can reset the dirty flag if it is indeed dirty!
     contents[setid][lineid] = store;
     if(loadStoreLogging){
-        //TODO figure out if we use this
         if(loadstoreflag)
             ResetDirty(setid,lineid,store);
         else
@@ -2137,26 +2128,25 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
         uint32_t evicLine = evictInfo.lineid;
         // write to stats mainMemory
         uint32_t sizeOfLine = stats->mainMemoryStats[Mapping[memseq]]->numOfLinesInSet;
+        uint32_t* tempP;
         if (sizeOfLine > 1){
-            if(initLoadStoreFlag){ // TODO check this logic
-                uint32_t* tempP;
-                uint32_t tempA[2] = {1,0}; //TODO this logic goes with the above TODO
+            if(initLoadStoreFlag){ 
+                uint32_t tempA[2] = {1,0};
                 tempP = (uint32_t*) tempA;
-                stats->mainMemoryStats[Mapping[memseq]]->readWritesMap->put(evicSet, evicLine, tempP);
+                stats->mainMemoryStats[Mapping[memseq]]
+                  ->readWritesMap->put(evicSet, evicLine, tempP);
             } else {
-                uint32_t* tempP;
-                uint32_t tempA[2] = {0,1}; // TODO Can i move these outside the top level 
-                tempP = (uint32_t*) tempA; // if/else for less space?
-                stats->mainMemoryStats[Mapping[memseq]]->readWritesMap->put(evicSet, evicLine, tempP);
+                uint32_t tempA[2] = {0,1}; 
+                tempP = (uint32_t*) tempA;
+                stats->mainMemoryStats[Mapping[memseq]]
+                  ->readWritesMap->put(evicSet, evicLine, tempP);
             }
         } else {
-            if(initLoadStoreFlag) { // TODO check this logic
-                uint32_t* tempP;
+            if(initLoadStoreFlag) {
                 uint32_t tempA[2] = {1,0};
                 tempP = (uint32_t*)tempA;
                 stats->mainMemoryStats[Mapping[memseq]]->inOutsMap->add(evicSet, tempP);
             } else {
-                uint32_t* tempP;
                 uint32_t tempA[2] = {0,1};
                 tempP = (uint32_t*)tempA;
                 stats->mainMemoryStats[Mapping[memseq]]->inOutsMap->add(evicSet, tempP);
