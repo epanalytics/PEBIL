@@ -690,7 +690,7 @@ string CacheSimulationTool::GetCacheDescriptionFile(StringParser* parser){
         const char* freeenv = getenv(METASIM_ENV);
         if (freeenv == NULL){
             ErrorExit("default cache descriptions file requires that " 
-                    METASIM_ENV " be set", MetasimError_Env);
+              METASIM_ENV " be set", MetasimError_Env);
         }
 
         str.append(freeenv);
@@ -702,7 +702,7 @@ string CacheSimulationTool::GetCacheDescriptionFile(StringParser* parser){
 }
 
 const char* CacheSimulationTool::HandleEnvVariables(uint32_t index, 
-        StringParser* parser, string& cachedf){
+  StringParser* parser, string& cachedf){
     indexInStats = index;
 
     // Can tinker with this at runtime using the environment variable
@@ -758,8 +758,7 @@ uint32_t CacheSimulationTool::ReadCacheDescription(istream& stream,
         handlers.push_back(c);
     }
     uint32_t CountCacheStructures = handlers.size();
-    assert(CountCacheStructures > 0 && "No cache structures found for "
-            "simulation");
+    assert(CountCacheStructures > 0 && "No cache structures found for simulation");
     return handlers.size();
 }
 
