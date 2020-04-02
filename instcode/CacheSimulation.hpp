@@ -81,9 +81,11 @@ public:
 
     //uint32_t** writeOuts; //2d array indexed by set and lineInSet
     //uint32_t** readIns; //2d array indexed by set and lineInSet
-    NestedHash* readWritesMap = nullptr; //keyed by set and line [0] is reads [1] is writes
+    NestedHash* writeOutsMap = nullptr; //keyed by set and line
+    NestedHash* readInsMap = nullptr; //keyed by set and line
 
-    EasyHash* inOutsMap = nullptr; //if using a direct map last level cache,
+    EasyHash* dirOutsMap = nullptr; //if using a direct map last level cache,
+    EasyHash* dirInsMap = nullptr; //should hopefully cut down even more memory usage
 
     uint32_t GetLoads(); //loops through all of readIns and gets a total sum
     uint32_t GetStores(); //loops through all of writeOuts and gets a total sum

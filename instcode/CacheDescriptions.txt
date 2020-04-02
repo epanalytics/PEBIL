@@ -1,6 +1,6 @@
 #set 5: new caches added Oct 25th 2019
-300 4 32KB  8 64  trulru  1024KB  16  64  trulru  1408KB  11  64  trulru  16384KB  1 64  dir # 16MB L4 
-#200 4 32KB  8 64  trulru  1024KB  16  64  trulru  1408KB  11  64  trulru  16384KB  1 4096  dir # 16MB L4 
+#300 4 32KB  8 64  trulru  1024KB  16  64  trulru  1408KB  11  64  trulru  16384KB  1 64  dir # 16MB L4 
+200 4 32KB  8 64  trulru  1024KB  16  64  trulru  1408KB  11  64  trulru  16384KB  1 4096  dir # 16MB L4 
 #301 4 32KB  8 64  trulru  1024KB  16  64  trulru  1408KB  11  64  trulru  32768KB  1 64  dir # 32MB L4 
 #302 4 32KB  8 64  trulru  1024KB  16  64  trulru  1408KB  11  64  trulru  65536KB  1 64  dir # 64MB L4
 ### 4K pages

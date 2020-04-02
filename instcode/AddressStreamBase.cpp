@@ -244,14 +244,13 @@ uint32_t Randomizer::RandomInt(uint32_t max){
 }
 
 EasyHash::EasyHash(){
-    internal_map = new pebil_map_type<uint32_t, uint32_t*>();
+    internal_map = new pebil_map_type<uint32_t, uint32_t>();
 }
 
 EasyHash::~EasyHash(){
-    pebil_map_type<uint32_t, uint32_t*>::iterator it = internal_map->begin();
-    pebil_map_type<uint32_t, uint32_t*>::iterator end = internal_map->end();
+    pebil_map_type<uint32_t, uint32_t>::iterator it = internal_map->begin();
+    pebil_map_type<uint32_t, uint32_t>::iterator end = internal_map->end();
     while (it!=end){
-        delete it->second;
         internal_map->erase(it);
         it++;
     }
@@ -267,26 +266,20 @@ bool EasyHash::contains(uint32_t key){
     }
 }
 
-void EasyHash::add(uint32_t key, uint32_t* toAdd){
+void EasyHash::add(uint32_t key, uint32_t toAdd){
     if (this->contains(key)){
-        uint32_t* curVal = internal_map->find(key)->second;
-        curVal[0] = curVal[0] + toAdd[0];
-        curVal[1] = curVal[1] + toAdd[1];
+        uint32_t curVal = internal_map->find(key)->second;
+        curVal = curVal + toAdd;
         (*internal_map)[key] = curVal;
     } else {
-        uint32_t* newToAdd = new uint32_t[2];
-        newToAdd[0] = toAdd[0];
-        newToAdd[1] = toAdd[1];
-        std::pair<uint32_t,uint32_t*> kvp (key, newToAdd);
+        std::pair<uint32_t,uint32_t> kvp (key, toAdd);
         internal_map->insert(kvp);
     }
 }
 
-uint32_t* EasyHash::get(uint32_t key, uint32_t* output){
+uint32_t EasyHash::get(uint32_t key){
     if (!this->contains(key)){
-        output[0] = 0;
-        output[1] = 0;
-        return output;
+        return 0;
     }
     return internal_map->find(key)->second;
 }
@@ -316,7 +309,7 @@ bool NestedHash::contains(uint32_t set, uint32_t line){
     }
 }
 
-void NestedHash::put(uint32_t set, uint32_t line, uint32_t* value){
+void NestedHash::put(uint32_t set, uint32_t line, uint32_t value){
     if ( internal_hash->find(set) == internal_hash->end() ){ //no dictionary for this set yet
         EasyHash* newEasy = new EasyHash();
         newEasy->add(line, value);
@@ -328,13 +321,11 @@ void NestedHash::put(uint32_t set, uint32_t line, uint32_t* value){
     }
 }
 
-uint32_t* NestedHash::get(uint32_t set, uint32_t line, uint32_t* output) {
+uint32_t NestedHash::get(uint32_t set, uint32_t line) {
     if(!this->contains(set, line)){
-        output[0] = 0;
-        output[1] = 0;
-        return output;
+        return 0;
     }
     EasyHash* oldHash = internal_hash->find(set)->second;
-    return oldHash->get(line, output);
+    return oldHash->get(line);
 }
 

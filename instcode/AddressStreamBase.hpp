@@ -132,14 +132,14 @@ class Randomizer {
 
 class EasyHash {
   private:
-    pebil_map_type<uint32_t, uint32_t*>* internal_map;
+    pebil_map_type<uint32_t, uint32_t>* internal_map;
 
   public:
     EasyHash();
     ~EasyHash();
     bool contains(uint32_t);
-    void add(uint32_t, uint32_t*);
-    uint32_t* get(uint32_t, uint32_t*);
+    void add(uint32_t, uint32_t);
+    uint32_t get(uint32_t);
 };
 
 class NestedHash {
@@ -150,8 +150,8 @@ class NestedHash {
     NestedHash();
     ~NestedHash();
     bool contains(uint32_t, uint32_t);
-    void put(uint32_t, uint32_t, uint32_t*);
-    uint32_t* get(uint32_t, uint32_t, uint32_t*);
+    void put(uint32_t, uint32_t, uint32_t);
+    uint32_t get(uint32_t, uint32_t);
 };
 
 #endif /* _AddressStreamBase_hpp_ */
