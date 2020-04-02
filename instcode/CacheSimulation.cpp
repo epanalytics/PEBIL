@@ -59,15 +59,6 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
         stats->Stats[indexInStats + i] = new CacheStats(currHandler->levelCount,
           currHandler->sysId, stats->AllocCount, currHandler->hybridCache);
         CacheStats* cacheStats = (CacheStats*)stats->Stats[indexInStats + i];
-        //TODO loop through stats->BlockIds and get number of blocks and pass into InitMainMemoryStats
-        /* 
-        std::set<uint64_t> mySet = new std::set<uint64_t>();
-        for(int i=0;i<stats->AllocCount;i++){
-            mySet.add(stats->BlockIds[i]);
-        }
-        int numOfBlocks =  mySet.size();
-        assert(numOfBlocks == stats->BlockCount);
-        */
         cacheStats->InitMainMemoryStats(currHandler, stats->BlockCount);
     }
 }
@@ -1269,13 +1260,12 @@ uint64_t CacheLevel::Replace( uint64_t store,
 
     if(GetDirtyStatus(setid,lineid,prev)){
         toEvict=true;
-        toEvictAddresses->push_back(prev);
+        //toEvictAddresses->push_back(prev);
     }
     // Since the new address 'store' has been loaded just now and is not
     // touched yet, we can reset the dirty flag if it is indeed dirty!
     contents[setid][lineid] = store;
     if(loadStoreLogging){
-        //TODO figure out if we use this
         if(loadstoreflag)
             ResetDirty(setid,lineid,store);
         else
@@ -2148,13 +2138,13 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
         // write to stats mainMemory
         uint32_t sizeOfLine = stats->mainMemoryStats[Mapping[memseq]]->numOfLinesInSet;
         if (sizeOfLine > 1){
-            if(initLoadStoreFlag){ // TODO check this logic
+            if(initLoadStoreFlag){ 
                 stats->mainMemoryStats[Mapping[memseq]]->readInsMap->put(evicSet, evicLine, 1);
             } else {
                 stats->mainMemoryStats[Mapping[memseq]]->writeOutsMap->put(evicSet, evicLine, 1);
             }
         } else {
-            if(initLoadStoreFlag) { // TODO check this logic
+            if(initLoadStoreFlag) {
                 stats->mainMemoryStats[Mapping[memseq]]->dirInsMap->add(evicSet, 1);
             } else {
                 stats->mainMemoryStats[Mapping[memseq]]->dirOutsMap->add(evicSet, 1);
