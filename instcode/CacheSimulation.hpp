@@ -133,10 +133,9 @@ public:
     LevelStats* HybridMemStats; // indexed by [memid]
     MainMemory** mainMemoryStats; // indexed by [Mapping[memseq]]
     uint32_t Capacity;
-    uint32_t BlockCount;
     uint32_t hybridCache;
     CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
-      hybridCache, uint32_t blockCount);
+      hybridCache);
     ~CacheStats();
     void InitMainMemoryStats(CacheStructureHandler* handler, uint32_t BlockCount);
 
