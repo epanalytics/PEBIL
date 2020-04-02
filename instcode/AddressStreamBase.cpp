@@ -243,6 +243,7 @@ uint32_t Randomizer::RandomInt(uint32_t max){
     return rand() % max;
 }
 
+
 EasyHash::EasyHash(){
     internal_map = new pebil_map_type<uint32_t, uint32_t>();
 }
