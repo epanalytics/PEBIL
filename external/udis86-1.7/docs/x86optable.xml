@@ -2385,7 +2385,7 @@ MAL MISSING PRE SSE?
   </instruction>
 
   <instruction mnemonic="movsq">
-    <opcode imp_addr="1"> oso rexw ; a5 /O64 ; ; u:df ; u:si u:di d:si d:di </opcode>
+    <opcode imp_addr="1"> oso rexw ; a5 /O64 ; ; u:df ; u:si d:si d:di </opcode>
   </instruction>
 
   <instruction mnemonic="movsldup">
@@ -4115,24 +4115,24 @@ MAL MISSING PRE SSE?
   </instruction>
 
   <instruction mnemonic="kmovb">
-    <opcode> rexr rexx rexb rexw ; vex sse66 0f 90 /L=0 /W=0 ; KR KRM ; ; </opcode>
-    <opcode> rexr rexx rexb rexw ; vex sse66 0f 91 /L=0 /W=0 ; Eb KR ; ; </opcode>
-    <opcode> rexr rexx rexb rexw ; vex sse66 0f 92 /L=0 /W=0 ; KR Ed ; ; </opcode>
-    <opcode> rexr rexx rexb rexw ; vex sse66 0f 93 /L=0 /W=0 ; Gd KRM ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex sse66 0f 90 /L=0 /W=0 ; KRb KRMb ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex sse66 0f 91 /L=0 /W=0 ; Eb KRb ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex sse66 0f 92 /L=0 /W=0 ; KRb Ed ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex sse66 0f 93 /L=0 /W=0 ; Gd KRMb ; ; </opcode>
   </instruction>
 
   <instruction mnemonic="kmovd">
-    <opcode> rexr rexx rexb rexw ; vex sse66 0f 90 /L=0 /W=1 ; KR KRM ; ; </opcode>
-    <opcode> rexr rexx rexb rexw ; vex sse66 0f 91 /L=0 /W=1 ; Ed KR ; ; </opcode>
-    <opcode> rexr rexx rexb rexw ; vex sse66 0f 92 /L=0 /W=1 ; KR Ed ; ; </opcode>
-    <opcode> rexr rexx rexb rexw ; vex sse66 0f 93 /L=0 /W=1 ; Gd KRM ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex sse66 0f 90 /L=0 /W=1 ; KRd KRMd ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex sse66 0f 91 /L=0 /W=1 ; Ed KRd ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex ssef2 0f 92 /L=0 /W=0 ; KRd Ed ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex ssef2 0f 93 /L=0 /W=0 ; Gd KRMd ; ; </opcode>
   </instruction>
 
   <instruction mnemonic="kmovq">
-    <opcode> rexr rexx rexb rexw ; vex 0f 90 /L=0 /W=1 ; KR KRM ; ; </opcode>
-    <opcode> rexr rexx rexb rexw ; vex 0f 91 /L=0 /W=1 ; Eq KR ; ; </opcode>
-    <opcode> rexr rexx rexb rexw ; vex 0f 92 /L=0 /W=1 ; KR Eq ; ; </opcode>
-    <opcode> rexr rexx rexb rexw ; vex 0f 93 /L=0 /W=1 ; Gq KRM ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex 0f 90 /L=0 /W=1 ; KRq KRMq ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex 0f 91 /L=0 /W=1 ; Eq KRq ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex ssef2 0f 92 /L=0 /W=1 ; KRq Eq ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex ssef2 0f 93 /L=0 /W=1 ; Gq KRMq ; ; </opcode>
   </instruction>
 
   <instruction mnemonic="kmovw">
@@ -5056,20 +5056,27 @@ MAL MISSING PRE SSE?
   </instruction>
 
   <instruction mnemonic="vgatherdpd">
-    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 92 /W=1 ; ZR ZVM; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex sse66 0f /3byte=38 92 /W=1 ; V ZVMx X ; d:rf ; </opcode> 
+    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 92 /W=1 /LL=0 ; ZRx ZVMx ; d:rf ; </opcode>
+    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 92 /W=1 /LL=1 ; ZRy ZVMx ; d:rf ; </opcode>
+    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 92 /W=1 /LL=2 ; ZRz ZVMy ; d:rf ; </opcode>
   </instruction>
 
   <instruction mnemonic="vgatherdps">
-    <opcode> aso rexr rexx rexb ; avxC4 sse66 0f /3byte=38 92 /W=0 ; V ZVM X; ; </opcode> 
-    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 92 /W=0 ; ZR ZVM ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; vex sse66 0f /3byte=38 92 /W=0 ; V ZVM X ; d:rf ; </opcode> 
+    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 92 /W=0 ; ZR ZVM ; d:rf ; </opcode>
   </instruction>
 
   <instruction mnemonic="vgatherqps">
-    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 93 /W=0 ; ZR ZVM ; ; </opcode>
+    <opcode> rexr rexx rexb rexw; vex sse66 0f /3byte=38 93 /W=0 ; Vx ZVM Xx ; d:rf ; </opcode> 
+    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 93 /W=0 /LL=0 ; ZRx ZVMx ; d:rf ; </opcode>
+    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 93 /W=0 /LL=1 ; ZRx ZVMy ; d:rf ; </opcode>
+    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 93 /W=0 /LL=2 ; ZRy ZVMz ; d:rf ; </opcode>
   </instruction>
 
   <instruction mnemonic="vgatherqpd">
-    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 93 /W=1 ; ZR ZVM ; ; </opcode>
+    <opcode> rexr rexx rexb rexw; vex sse66 0f /3byte=38 93 /W=1 ; V ZVM X ; d:rf ; </opcode> 
+    <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 93 /W=1 ; ZR ZVM ; d:rf ; </opcode>
   </instruction>
 
   <instruction mnemonic="vgatherpf0dpd">
