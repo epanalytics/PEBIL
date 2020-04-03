@@ -281,7 +281,8 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 MainMemory* refMem = s->mainMemoryStats[0];
                 c->mainMemoryStats = new MainMemory*[st->BlockCount];
                 for (int i=0;i<st->BlockCount;i++){
-                    c->mainMemoryStats[i] = s->mainMemoryStats[i];
+                    //c->mainMemoryStats[i] = s->mainMemoryStats[i];
+                    c->mainMemoryStats[i] = new MainMemory(*refMem);
                 }
 
                 aggstats[sys] = c;
@@ -308,7 +309,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     } // for each cache level
 
                     if(LoadStoreLogging){
-                        /*if( c->mainMemoryStats[0]->numOfLinesInSet > 1) {
+                        if( c->mainMemoryStats[0]->numOfLinesInSet > 1) {
                             for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
                                 for(int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
                                     NestedHash* CreadInsMap = c->mainMemoryStats[bbid]->readInsMap; 
@@ -332,8 +333,8 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                             for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
                                 EasyHash* CdirInsMap = c->mainMemoryStats[bbid]->dirInsMap;
                                 EasyHash* CdirOutsMap = c->mainMemoryStats[bbid]->dirOutsMap;
-                                EasyHash* SdirInsMap = s->mainMemoryStats[bbid]->dirInsMap;
-                                EasyHash* SdirOutsMap = s->mainMemoryStats[bbid]->dirOutsMap;
+                                EasyHash* SdirInsMap = s->mainMemoryStats[memid]->dirInsMap;
+                                EasyHash* SdirOutsMap = s->mainMemoryStats[memid]->dirOutsMap;
 
                                 uint32_t toAddRead = SdirInsMap->get(i);
                                 uint32_t toAddWrite = SdirOutsMap->get(i);
@@ -344,7 +345,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                                     CdirOutsMap->add(i, toAddWrite);
                                 }
                             }
-                        }*/
+                        }
                     }
                 } // for each memop 635465
 
@@ -805,14 +806,14 @@ void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler, uint32_t Bl
     uint32_t numOfSets = handler->levels[lastLevel]->GetSetCount();
     uint32_t numOfLinesInSet = handler->levels[lastLevel]->GetAssociativity();
     uint32_t sizeOfLine = handler->levels[lastLevel]->GetLineSize();
-    /*for(int i=0;i<Capacity;i++){
-        mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
-        assert(mainMemoryStats[i]->GetLoads()==0);
-    }*/
-    for(int i=0;i<BlockCount;i++){
+    for(int i=0;i<Capacity;i++){
         mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
         assert(mainMemoryStats[i]->GetLoads()==0);
     }
+    /*for(int i=0;i<BlockCount;i++){
+        mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
+        assert(mainMemoryStats[i]->GetLoads()==0);
+    }*/
 }
 
 float CacheStats::GetHitRate(LevelStats* stats){
@@ -2138,15 +2139,15 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
         uint32_t sizeOfLine = stats->mainMemoryStats[Mapping[memseq]]->numOfLinesInSet;
         if (sizeOfLine > 1){
             if(initLoadStoreFlag){ 
-                stats->mainMemoryStats[Mapping[memseq]]->readInsMap->put(evicSet, evicLine, 1);
+                stats->mainMemoryStats[memseq]->readInsMap->put(evicSet, evicLine, 1);
             } else {
-                stats->mainMemoryStats[Mapping[memseq]]->writeOutsMap->put(evicSet, evicLine, 1);
+                stats->mainMemoryStats[memseq]->writeOutsMap->put(evicSet, evicLine, 1);
             }
         } else {
             if(initLoadStoreFlag) {
-                stats->mainMemoryStats[Mapping[memseq]]->dirInsMap->add(evicSet, 1);
+                stats->mainMemoryStats[memseq]->dirInsMap->add(evicSet, 1);
             } else {
-                stats->mainMemoryStats[Mapping[memseq]]->dirOutsMap->add(evicSet, 1);
+                stats->mainMemoryStats[memseq]->dirOutsMap->add(evicSet, 1);
             }
         }
     }
