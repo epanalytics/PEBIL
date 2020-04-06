@@ -799,7 +799,7 @@ CacheStats::~CacheStats(){
     }
 }
 
-void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler, uint32_t BlockCount ){
+void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler){
     uint32_t lastLevel = handler->levelCount-1;
     uint32_t numOfSets = handler->levels[lastLevel]->GetSetCount();
     uint32_t numOfLinesInSet = handler->levels[lastLevel]->GetAssociativity();
@@ -808,10 +808,6 @@ void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler, uint32_t Bl
         mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
         assert(mainMemoryStats[i]->GetLoads()==0);
     }
-    /*for(int i=0;i<BlockCount;i++){
-        mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
-        assert(mainMemoryStats[i]->GetLoads()==0);
-    }*/
 }
 
 float CacheStats::GetHitRate(LevelStats* stats){
@@ -1662,16 +1658,6 @@ MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize)
     numOfSets = setSize;
     numOfLinesInSet = numOfLines;
     sizeOfLine = lineSize;
-    /*writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
-    readIns = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
-    for(int i=0;i<numOfSets;i++){
-        writeOuts[i] = new uint32_t[numOfLinesInSet];
-        readIns[i] = new uint32_t[numOfLinesInSet];
-        for(int j=0;j<numOfLinesInSet;j++){
-            writeOuts[i][j] = 0;
-            readIns[i][j] = 0;
-        }
-    }*/
     if (numOfLines > 1){
         readInsMap = new NestedHash();
         writeOutsMap = new NestedHash();
@@ -1685,16 +1671,6 @@ MainMemory::MainMemory(MainMemory& mem){
     numOfSets = mem.numOfSets;
     numOfLinesInSet = mem.numOfLinesInSet;
     sizeOfLine = mem.sizeOfLine;
-    /*writeOuts = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
-    readIns = new uint32_t*[numOfSets]; //2d array indexed by set and lineInSet
-    for(int i=0;i<numOfSets;i++){
-        writeOuts[i] = new uint32_t[numOfLinesInSet];
-        readIns[i] = new uint32_t[numOfLinesInSet];
-        for(int j=0;j<numOfLinesInSet;j++){
-            writeOuts[i][j] = 0;
-            readIns[i][j] = 0;
-        }
-    }*/
     if (numOfLinesInSet > 1) {
         readInsMap = new NestedHash();
         writeOutsMap = new NestedHash();
@@ -1705,12 +1681,6 @@ MainMemory::MainMemory(MainMemory& mem){
 }
 
 MainMemory::~MainMemory(){
-    /*for(int i=0;i<numOfSets;i++){
-        delete[] writeOuts[i];
-        delete[] readIns[i];
-    }
-    delete[] writeOuts;
-    delete[] readIns;*/
     delete readInsMap;
     delete writeOutsMap;
     delete dirInsMap;

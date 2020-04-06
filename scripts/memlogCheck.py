@@ -1,5 +1,8 @@
 import sys
-
+# this file loops through the passed in .cachesim file and looks for the lines that start
+# with M and get the counds for loads and stores. It then loops through the passed in .memlog
+# file and adds up the loads and stores and compares that to the values obtained from the 
+# .cachesim file and points out any inconsistencies as well as a quick pass/fail
 def printUsage():
     s = 'USAGE: memlogCheck.py myFile.cachesim myFile.memlog'
     print s

@@ -138,7 +138,7 @@ public:
     CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
       hybridCache);
     ~CacheStats();
-    void InitMainMemoryStats(CacheStructureHandler* handler, uint32_t BlockCount);
+    void InitMainMemoryStats(CacheStructureHandler* handler);
 
     bool HasMemId(uint32_t memid);
     void ExtendCapacity(uint32_t newSize);
