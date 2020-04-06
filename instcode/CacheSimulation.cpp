@@ -345,7 +345,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                             }
                         }
                     }
-                } // for each memop 635465
+                } // for each memop
 
                 if(!c->Verify()) {
                     warn << "Failed check on aggregated cache stats" 
@@ -769,7 +769,6 @@ CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity,
     Capacity = capacity;
     hybridCache=hybridcache;
     mainMemoryStats = new MainMemory*[Capacity];
-    //TODO this has to be changed Capcity-> num of basic blocks
 
     Stats = new LevelStats*[Capacity];
     if(hybridCache){   
@@ -2127,6 +2126,7 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
         resLevel = next;
         next = levels[next]->Process(stats, memseq, victim, loadstoreflag,
           &anyEvict,(void*)(&evictInfo));
+        //if(next != 0) loadstoreflag = 1; //commented out for better reporting for what we want
         // If next level is checked, then it should be a miss from current 
         // level, which implies next operation is a load to a next level!!
     }
