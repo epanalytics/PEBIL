@@ -514,6 +514,20 @@ bool X86Instruction::isScatterGatherOp(){
      return false;
 }
 
+bool X86Instruction::isVectorInstruction(){
+    X86InstructionType typ = getInstructionType();
+    switch(typ) {
+        case X86InstructionType_simdFloat:
+        case X86InstructionType_simdInt:
+        case X86InstructionType_simdMove:
+        case X86InstructionType_aes:
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
 bool X86Instruction::isVectorMaskOp(){
     switch(GET(mnemonic)){
         case UD_Ijknzd:
@@ -1448,6 +1462,8 @@ bool X86Instruction::isMoveOperation(){
 
 bool X86Instruction::isIntegerOperation(){
     if (getInstructionType() == X86InstructionType_int){
+        return true;
+    } else if (getInstructionType() == X86InstructionType_simdInt) {
         return true;
     }
     return false;
@@ -3213,8 +3229,8 @@ void X86InstructionClassifier::generateTable(){
     mkclass(           movsw,   string,  string, dsi,   16,    0,          16)
     mkclass(           movsx,     move,    move,   0, VRSZ,    0,          0)
     mkclass(          movsxd,     move,    move,   0, VRSZ,    0,          0)
-    mkclass(          movupd, simdMove,    move,   0, VRSZ,    0,          64)
-    mkclass(          movups, simdMove,    move,   0, VRSZ,    0,          32)
+    mkclass(          movupd, simdMove,  floatv,   0, VRSZ,    0,          64)
+    mkclass(          movups, simdMove,  floatv,   0, VRSZ,    0,          32)
     mkclass(           movzx,     move,    move,   0, VRSZ,    0,          0)
     mkclass(         mpsadbw,     simdInt,    0,   0,    0,    0,          0) // TODO
     mkclass(             mul,      int,     int,   0, VRSZ,    0,          0)

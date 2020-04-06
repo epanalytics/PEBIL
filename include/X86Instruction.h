@@ -665,6 +665,7 @@ public:
     bool isLogicOp();
     bool isConditionalMove();
     bool isScatterGatherOp();
+    bool isVectorInstruction();
     bool isVectorMaskOp();
     bool isHelperMove();
     bool isAdditionOp();

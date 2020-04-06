@@ -149,8 +149,8 @@ enum ud_type
 struct ud_operand 
 {
   enum ud_type		type;
-  uint16_t		size;
-  uint8_t               position; /* PEBIL */
+  uint16_t		size;         // Size of operand (e.g. 128)      
+  uint8_t     position;     // byte position: modrm, imm, offset (start w/ 1)
   union {
 	int8_t		sbyte;
 	uint8_t		ubyte;
@@ -165,11 +165,11 @@ struct ud_operand
 		uint16_t seg;
 		uint32_t off;
 	} ptr;
-  } lval;
-  enum ud_type		base;
-  enum ud_type		index;
-  uint8_t		offset; // offset size in bits
-  uint8_t		scale;	
+  } lval;                 // offset value, imm value, etc
+  enum ud_type		base;   // Register
+  enum ud_type		index;  // index register, if there is one
+  uint8_t		offset;       // offset size in bits
+  uint8_t		scale;	      // scale, if there is one
 };
 
 /* -----------------------------------------------------------------------------
