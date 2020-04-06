@@ -38,8 +38,8 @@ extern "C" {
     } thread_passthrough_args;
 
     void* thread_started(void* args);
-    int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-        void *(*start_routine) (void*), void *arg);
+    //int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+        //void *(*start_routine) (void*), void *arg);
     int pthread_join(pthread_t thread, void **value_ptr);
 
     // Debugging signal handlers

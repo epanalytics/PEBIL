@@ -98,7 +98,7 @@ class MemoryStreamHandler {
     virtual ~MemoryStreamHandler();
 
     virtual void Print(std::ofstream& f) = 0;
-    virtual uint32_t Process(void* stats, BufferEntry* access, uint64_t* Mapping) = 0;
+    virtual uint32_t Process(void* stats, BufferEntry* access) = 0;
     // Number of addresses that appeared but aren't processed
     virtual void SkipAddresses(uint32_t numToSkip) {};
     virtual bool Verify() = 0;
@@ -132,26 +132,32 @@ class Randomizer {
 
 class EasyHash {
   private:
-    pebil_map_type<uint32_t, uint32_t>* internal_map;
+    pebil_map_type<uint32_t, uint32_t>* internal_map; //key to running count
 
   public:
     EasyHash();
     ~EasyHash();
-    bool contains(uint32_t);
-    void add(uint32_t, uint32_t);
-    uint32_t get(uint32_t);
+    bool contains(uint32_t key); //checks if key is currently in map
+    void add(uint32_t key, uint32_t valueToAdd);//takes the key, and adds to the running count
+                                           //if no key is present, creates and sets the running
+                                           //count to the passed in valueToAdd
+    uint32_t get(uint32_t key); //returns running count returns 0 if key is not found
 };
 
 class NestedHash {
   private:
-    pebil_map_type<uint32_t, EasyHash*>* internal_hash;
+    pebil_map_type<uint32_t, EasyHash*>* internal_hash; //set to EasyHash that has line and
+                                                        //running count
 
   public:
     NestedHash();
     ~NestedHash();
-    bool contains(uint32_t, uint32_t);
-    void put(uint32_t, uint32_t, uint32_t);
-    uint32_t get(uint32_t, uint32_t);
+    bool contains(uint32_t set, uint32_t line); //checks if the set and line combo is in the map
+    //vvv Takes the set and line combination and adds to the running count,
+    //if no key is found, creates the key and sets valueToAdd as the starting running count
+    void put(uint32_t set, uint32_t line, uint32_t valueToAdd);
+    uint32_t get(uint32_t set, uint32_t line);//returns running count for set and line
+                                              //returns 0 if key is not found
 };
 
 #endif /* _AddressStreamBase_hpp_ */

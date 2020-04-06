@@ -79,8 +79,7 @@ public:
     MainMemory(MainMemory& mem);
     ~MainMemory();
 
-    //uint32_t** writeOuts; //2d array indexed by set and lineInSet
-    //uint32_t** readIns; //2d array indexed by set and lineInSet
+    //Below HashMaps are used to keep count of loads and store to and from main memory
     NestedHash* writeOutsMap = nullptr; //keyed by set and line
     NestedHash* readInsMap = nullptr; //keyed by set and line
 
@@ -133,7 +132,7 @@ public:
     uint32_t SysId;
     LevelStats** Stats; // indexed by [memid][level]
     LevelStats* HybridMemStats; // indexed by [memid]
-    MainMemory** mainMemoryStats; // indexed by [Mapping[memseq]]
+    MainMemory** mainMemoryStats; // indexed by [memid]
     uint32_t Capacity;
     uint32_t hybridCache;
     CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
@@ -400,7 +399,7 @@ protected:
       uint64_t AddressRangesCount;
       std::vector<uint64_t>* toEvictAddresses;
       uint32_t processAddress(void* stats, uint64_t address, uint64_t memseq, 
-        uint8_t loadstoreflag, uint64_t* Mapping);
+        uint8_t loadstoreflag);
 
 public:      
     // note that this doesn't contain any stats gathering code. that is done at the
@@ -413,7 +412,7 @@ public:
 	  uint32_t LoadStoreLogging, uint32_t DirtyCacheHandling);
 
     void Print(std::ofstream& f);
-    uint32_t Process(void* stats, BufferEntry* access, uint64_t* Mapping);
+    uint32_t Process(void* stats, BufferEntry* access);
     bool Verify();
 
     uint64_t GetHits(){return hits;}

@@ -351,7 +351,7 @@ void VectorLengthHandler::Print(ofstream& f){
     f << "VectorLengthHandler" << ENDL;
 }
 
-uint32_t VectorLengthHandler::Process(void* stats, BufferEntry* access, uint64_t* Mapping){
+uint32_t VectorLengthHandler::Process(void* stats, BufferEntry* access){
 
     if(access->type == MEM_ENTRY) {
         return 0;

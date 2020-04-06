@@ -72,7 +72,7 @@ public:
     ~AddressRangeHandler();
 
     void Print(std::ofstream& f);
-    uint32_t Process(void* stats, BufferEntry* access, uint64_t* mapping);
+    uint32_t Process(void* stats, BufferEntry* access);
     bool Verify() { return true; }
 };
 

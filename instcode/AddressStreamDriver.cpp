@@ -348,7 +348,7 @@ void AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                 continue;
             }
 
-            handler->Process((void*)ss, reference, stats->BlockIds);
+            handler->Process((void*)ss, reference);
             //TODO pass in blockID mapping here
       //      numProcessed++;
         }

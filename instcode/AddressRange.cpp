@@ -301,7 +301,7 @@ void AddressRangeHandler::Print(ofstream& f){
     f << "AddressRangeHandler" << ENDL;
 }
 
-uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access, uint64_t* mapping){
+uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
 
     if(access->type == MEM_ENTRY) {
         uint32_t memid = (uint32_t)access->memseq;

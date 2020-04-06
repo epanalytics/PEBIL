@@ -80,7 +80,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     AddressStreamStats* stats = AllData->GetData(pthread_self());
     uint32_t numCaches = handlers.size();
 
-    // Create the Cache Simulation Report
+    // Create the Cache Simulation Report (.cachesim)
     ofstream MemFile;
     string oFile;
     const char* fileName;
@@ -91,7 +91,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     inform << "Printing cache simulation results to " << fileName << ENDL;
     TryOpen(MemFile, fileName);
 
-    // Create the MainMemoryLogging Report
+    // Create the MainMemoryLogging Report (.memlog)
     ofstream LogFile;
     string lFile;
     const char* logName;
@@ -317,8 +317,6 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                                     NestedHash* SreadInsMap = s->mainMemoryStats[memid]->readInsMap; 
                                     NestedHash* SwriteOutsMap = s->mainMemoryStats[memid]->writeOutsMap;
                                     
-                                    //c->mainMemoryStats[bbid]->readInsMap[i] += s->mainMemoryStats[memid]->readInsMap[i];
-                                    //c->mainMemoryStats[bbid]->writeOutsMap[i] += s->mainMemoryStats[memid]->writeOutsMap[i];
                                     uint32_t toAddRead = SreadInsMap->get(i,j);
                                     uint32_t toAddWrite = SwriteOutsMap->get(i,j);
                                     if (toAddRead > 0){
@@ -441,6 +439,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     }
                     LogFile << ENDL;
 
+                    //Repeating information in a comment for Pefpal readability
                     for (uint32_t sys = 0; sys < numCaches; sys++){
                         CacheStats* c = aggstats[sys];
                         //NOTE threading issue here in future perhapps
@@ -2111,7 +2110,7 @@ CacheStructureHandler::~CacheStructureHandler(){
 }
 
 uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
-  uint64_t memseq, uint8_t loadstoreflag, uint64_t* Mapping) {
+  uint64_t memseq, uint8_t loadstoreflag) {
     uint32_t next = 0,tmpNext = 0;
     uint64_t victim = address;
 
@@ -2136,7 +2135,7 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
         uint32_t evicSet = evictInfo.setid;
         uint32_t evicLine = evictInfo.lineid;
         // write to stats mainMemory
-        uint32_t sizeOfLine = stats->mainMemoryStats[Mapping[memseq]]->numOfLinesInSet;
+        uint32_t sizeOfLine = stats->mainMemoryStats[memseq]->numOfLinesInSet;
         if (sizeOfLine > 1){
             if(initLoadStoreFlag){ 
                 stats->mainMemoryStats[memseq]->readInsMap->put(evicSet, evicLine, 1);
@@ -2191,12 +2190,12 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
     return resLevel;
 }
 
-uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access, uint64_t* Mapping){
+uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access){
     if(access->type == MEM_ENTRY) {
         debug(inform << "Processing MEM_ENTRY with address " << hex << 
           (access->address) << "(" << dec << access->memseq << ")" << ENDL);
         return processAddress(stats_in, access->address, access->memseq, 
-          access->loadstoreflag, Mapping);
+          access->loadstoreflag);
     } else if(access->type == VECTOR_ENTRY) {
         debug(inform << "Processing VECTOR_ENTRY " << ENDL;); 
         // FIXME
@@ -2215,7 +2214,7 @@ uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access, uin
                   (access->vectorAddress).indexVector[i] * 
                   (access->vectorAddress).scale;
                 lastReturn = processAddress(stats_in, currAddr, access->memseq, 
-                  access->loadstoreflag, Mapping);
+                  access->loadstoreflag);
             }
             mask = (mask >> 1);
         }
