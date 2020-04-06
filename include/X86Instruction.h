@@ -496,6 +496,7 @@ public:
     uint32_t getIndexRegister();
 
     void touchedRegisters(BitSet<uint32_t>* regs);
+    bool isImmediate();
     bool isIndexRegXMM();
     bool isIndexRegYMM();
     bool isIndexRegZMM();
