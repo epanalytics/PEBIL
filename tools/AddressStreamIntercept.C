@@ -1005,7 +1005,6 @@ void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb,
         memopIdInBlock++;
         return;
     } 
-
   
     if(memop->isLoad() && ifInstrumentingLoads()) {
         collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
