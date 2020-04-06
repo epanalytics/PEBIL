@@ -27,6 +27,7 @@
 #include <sstream>
 #include <cstring>
 #include <cassert>
+#include <utility>
 
 using namespace std;
 
@@ -241,3 +242,91 @@ uint32_t Randomizer::RandomInt(uint32_t max){
     assert(max > 0 && "Cannot mod by 0");
     return rand() % max;
 }
+
+
+EasyHash::EasyHash(){
+    internal_map = new pebil_map_type<uint32_t, uint32_t>();
+}
+
+EasyHash::~EasyHash(){
+    pebil_map_type<uint32_t, uint32_t>::iterator it = internal_map->begin();
+    pebil_map_type<uint32_t, uint32_t>::iterator end = internal_map->end();
+    while (it!=end){
+        internal_map->erase(it);
+        it++;
+    }
+    internal_map->clear();
+    delete internal_map;
+}
+
+bool EasyHash::contains(uint32_t key){
+    if ( internal_map->find(key) == internal_map->end() ){ //is not in map
+        return false;
+    } else {
+        return true;
+    }
+}
+
+void EasyHash::add(uint32_t key, uint32_t toAdd){
+    if (this->contains(key)){
+        uint32_t curVal = internal_map->find(key)->second;
+        curVal = curVal + toAdd;
+        (*internal_map)[key] = curVal;
+    } else {
+        std::pair<uint32_t,uint32_t> kvp (key, toAdd);
+        internal_map->insert(kvp);
+    }
+}
+
+uint32_t EasyHash::get(uint32_t key){
+    if (!this->contains(key)){
+        return 0;
+    }
+    return internal_map->find(key)->second;
+}
+
+NestedHash::NestedHash(){
+    internal_hash = new pebil_map_type<uint32_t, EasyHash*>();
+}
+
+NestedHash::~NestedHash(){
+    pebil_map_type<uint32_t, EasyHash*>::iterator it = internal_hash->begin();
+    pebil_map_type<uint32_t, EasyHash*>::iterator end = internal_hash->end();
+    while (it!=end){
+        delete it->second;
+        internal_hash->erase(it);
+        it++;
+    }
+    internal_hash->clear();
+    delete internal_hash;
+}
+
+bool NestedHash::contains(uint32_t set, uint32_t line){
+    if( internal_hash->find(set) == internal_hash->end() ){
+        return false;
+    } else {
+        EasyHash* oldHash = internal_hash->find(set)->second;
+        return oldHash->contains(line);
+    }
+}
+
+void NestedHash::put(uint32_t set, uint32_t line, uint32_t value){
+    if ( internal_hash->find(set) == internal_hash->end() ){ //no dictionary for this set yet
+        EasyHash* newEasy = new EasyHash();
+        newEasy->add(line, value);
+        std::pair<uint32_t, EasyHash*> kvp (set, newEasy);
+        internal_hash->insert(kvp);
+    } else { // there is a dictionary present
+        EasyHash* oldEasy = internal_hash->find(set)->second;
+        oldEasy->add(line, value);
+    }
+}
+
+uint32_t NestedHash::get(uint32_t set, uint32_t line) {
+    if(!this->contains(set, line)){
+        return 0;
+    }
+    EasyHash* oldHash = internal_hash->find(set)->second;
+    return oldHash->get(line);
+}
+

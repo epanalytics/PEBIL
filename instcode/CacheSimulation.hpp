@@ -23,10 +23,14 @@
 
 #include <AddressStreamBase.hpp>
 #include <string>
+#include <fstream>
 
 #define DEFAULT_CACHE_FILE "instcode/CacheDescriptions.txt"
 
 #define INVALID_CACHE_LEVEL (0xffffffff)
+
+class CacheStructureHandler;
+class CacheStats;
 
 enum CacheLevelType {
     CacheLevelType_Undefined,
@@ -69,6 +73,27 @@ struct LevelStats {
     uint64_t storeCount;
 };
 
+class MainMemory {
+public:
+    MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize); 
+    MainMemory(MainMemory& mem);
+    ~MainMemory();
+
+    //Below HashMaps are used to keep count of loads and store to and from main memory
+    NestedHash* writeOutsMap = nullptr; //keyed by set and line
+    NestedHash* readInsMap = nullptr; //keyed by set and line
+
+    EasyHash* dirOutsMap = nullptr; //if using a direct map last level cache,
+    EasyHash* dirInsMap = nullptr; //should hopefully cut down even more memory usage
+
+    uint32_t GetLoads(); //loops through all of readIns and gets a total sum
+    uint32_t GetStores(); //loops through all of writeOuts and gets a total sum
+
+    uint32_t numOfSets; //based on Last Level Cache
+    uint32_t numOfLinesInSet;
+    uint32_t sizeOfLine;
+};
+
 class CacheSimulationTool : public AddressStreamTool {
   public:
     CacheSimulationTool() : AddressStreamTool() {}
@@ -78,6 +103,7 @@ class CacheSimulationTool : public AddressStreamTool {
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
       SamplingMethod* Sampler);
     void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
+    void LogFileName(AddressStreamStats* stats, std::string& oFile);
 
     std::string GetCacheDescriptionFile(StringParser* parser);
     const char* HandleEnvVariables(uint32_t index, StringParser* parser, 
@@ -89,6 +115,14 @@ class CacheSimulationTool : public AddressStreamTool {
     uint32_t MinimumHighAssociativity = 256;
     uint32_t LoadStoreLogging = 0;
     uint32_t DirtyCacheHandling = 0;
+    void PrintApplicationHeader(std::ofstream& file, 
+      DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
+      uint64_t totalMemop, uint64_t sampledCount);
+    void PrintSysidInfo(std::ofstream& file, CacheStats* c, std::set<image_key_t>::iterator iit);
+    void PrintThreadidInfo(std::ofstream& file, thread_key_t thread, 
+      DataManager<AddressStreamStats*>* AllData);
+    void PrintPerBlockCacheSimData(std::ofstream& file,
+      DataManager<AddressStreamStats*>* AllData);
 };
 
 
@@ -98,11 +132,13 @@ public:
     uint32_t SysId;
     LevelStats** Stats; // indexed by [memid][level]
     LevelStats* HybridMemStats; // indexed by [memid]
+    MainMemory** mainMemoryStats; // indexed by [memid]
     uint32_t Capacity;
     uint32_t hybridCache;
     CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
       hybridCache);
     ~CacheStats();
+    void InitMainMemoryStats(CacheStructureHandler* handler);
 
     bool HasMemId(uint32_t memid);
     void ExtendCapacity(uint32_t newSize);
@@ -362,7 +398,8 @@ protected:
       uint64_t misses;
       uint64_t AddressRangesCount;
       std::vector<uint64_t>* toEvictAddresses;
-      uint32_t processAddress(void* stats, uint64_t address, uint64_t memseq, uint8_t loadstoreflag);
+      uint32_t processAddress(void* stats, uint64_t address, uint64_t memseq, 
+        uint8_t loadstoreflag);
 
 public:      
     // note that this doesn't contain any stats gathering code. that is done at the
