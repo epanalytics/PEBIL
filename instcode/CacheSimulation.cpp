@@ -59,7 +59,7 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
         stats->Stats[indexInStats + i] = new CacheStats(currHandler->levelCount,
           currHandler->sysId, stats->AllocCount, currHandler->hybridCache);
         CacheStats* cacheStats = (CacheStats*)stats->Stats[indexInStats + i];
-        cacheStats->InitMainMemoryStats(currHandler, stats->BlockCount);
+        cacheStats->InitMainMemoryStats(currHandler);
     }
 }
 
