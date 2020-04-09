@@ -59,7 +59,7 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
         stats->Stats[indexInStats + i] = new CacheStats(currHandler->levelCount,
           currHandler->sysId, stats->AllocCount, currHandler->hybridCache);
         CacheStats* cacheStats = (CacheStats*)stats->Stats[indexInStats + i];
-        cacheStats->InitMainMemoryStats(currHandler, stats->BlockCount);
+        cacheStats->InitMainMemoryStats(currHandler);
     }
 }
 
@@ -1427,8 +1427,8 @@ uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr,
     evicInfo->addr = evictedStore;
     evicInfo->setid = set;
     evicInfo->lineid = line2rep;
-    *anyEvict = true;
-    toEvict = true;
+    //*anyEvict = true; // TODO On a cold miss, we technically aren't evicting, 
+    //toEvict = true; 
 
     return level + 1;
 }
