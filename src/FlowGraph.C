@@ -1736,19 +1736,23 @@ uint32_t FlowGraph::buildLoops(){
             // Merge loops with same header for artificial loops
             // TODO: Reset the depth!
             Loop* currentLoop = new Loop(*naturalLoop);
-            PRINT_DEBUG("Try adding loop with head %#llx and %d nodes\n", 
+            PRINT_DEBUG_LOOP("Try adding loop with head %#llx and %d nodes\n", 
               currentLoop->getHead()->getBaseAddress(), 
               currentLoop->getNumberOfBlocks());
             bool okayToInsert = true;
             for (uint32_t i = 0; (i < artificialLoops.size()) && (okayToInsert);
               i++) {
-                if (artificialLoops[i]->getHead() != currentLoop->getHead())
+                PRINT_DEBUG_LOOP("\t Test against %#llx", artificialLoops[i]->
+                  getHead()->getBaseAddress());
+                if (artificialLoops[i]->getHead() != currentLoop->getHead()) {
+                    PRINT_DEBUG_LOOP("\t\t Not the same head");
                     continue;
+                }
 
                 if (artificialLoops[i]->isIdenticalLoop(currentLoop) || 
                   currentLoop->isInnerLoopOf(loops[i])) {
-                    PRINT_DEBUG("Found identical or bigger loop with head " 
-                      "%#llx and %d nodes\n", 
+                    PRINT_DEBUG_LOOP("Found identical or bigger loop with head" 
+                      " %#llx and %d nodes\n", 
                       artificialLoops[i]->getHead()->getBaseAddress(), 
                       artificialLoops[i]->getNumberOfBlocks());
                     okayToInsert = false;
@@ -1756,8 +1760,8 @@ uint32_t FlowGraph::buildLoops(){
                 }
 
                 if (artificialLoops[i]->isInnerLoopOf(currentLoop)) {
-                    PRINT_DEBUG("Found subset with head %#llx and %d nodes at "
-                      "index %d\n", artificialLoops[i]->getHead()->
+                    PRINT_DEBUG_LOOP("Found subset with head %#llx and %d nodes"
+                      " at index %d\n", artificialLoops[i]->getHead()->
                       getBaseAddress(), artificialLoops[i]->getNumberOfBlocks(),
                       i);
                     subsetIndices.append(i);
@@ -1774,7 +1778,7 @@ uint32_t FlowGraph::buildLoops(){
             // wrong
             assert(subsetIndices.size() <= 1);
             for (uint32_t i = 0; i < subsetIndices.size(); i++) {
-                PRINT_DEBUG("Removing subset %d\n", subsetIndices[i]);
+                PRINT_DEBUG_LOOP("Removing subset %d\n", subsetIndices[i]);
                 Loop* loopToDelete = loops.remove(subsetIndices[i]);
                 delete loopToDelete;
             }
