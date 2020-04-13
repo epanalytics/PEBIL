@@ -630,6 +630,8 @@ CPUFREQ_FLAGS
 PAPI_PATH
 PEBIL_PAPI_BUILD
 PEBIL_MIC_LIBS_BUILD
+PEBIL_EPA_TOOLS_PATH
+PEBIL_EPA_TOOLS_AVAILABLE
 THROTTLER_FLAGS
 MPI_CXXFLAGS
 MPI_FLAGS
@@ -679,6 +681,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -707,6 +710,7 @@ enable_mpicxxbind
 enable_adamant
 enable_mpiinit_check
 with_throttler_headers
+with_epa_tools
 enable_mic_libs
 enable_papi
 '
@@ -768,6 +772,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
@@ -1020,6 +1025,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1157,7 +1171,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1310,6 +1324,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -1356,6 +1371,7 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-throttler-headers=<path>
                           specify path to throttler headers
+  --with-epa-tools=<path> specify path to epa tools
 
 Some influential environment variables:
   CC          C compiler command
@@ -6229,6 +6245,25 @@ fi
 else
   throttler_headers=no
 fi
+
+
+
+
+# Check whether --with-epa_tools was given.
+if test "${with_epa_tools+set}" = set; then :
+  withval=$with_epa_tools; epa_tools=$withval
+else
+  epa_tools=no
+fi
+
+if test x"$epa_tools" = x"no"; then
+    PEBIL_EPA_TOOLS_AVAILABLE="no"
+    PEBIL_EPA_TOOLS_PATH=""
+else
+    PEBIL_EPA_TOOLS_AVAILABLE="yes"
+    PEBIL_EPA_TOOLS_PATH="$epa_tools"
+fi
+
 
 
 
