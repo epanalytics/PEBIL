@@ -25,33 +25,6 @@
 #include <FlowGraph.h>
 #include <Function.h>
 
-uint32_t Loop::getNumberOfInstructions(){
-    BasicBlock** allBlocks = new BasicBlock*[getNumberOfBlocks()];
-    getAllBlocks(allBlocks);
-    
-    uint32_t icount = 0;
-    for (uint32_t i = 0; i < getNumberOfBlocks(); i++){
-        icount += allBlocks[i]->getNumberOfInstructions();
-    }
-    delete[] allBlocks;
-    return icount;
-}
-
-bool Loop::containsCall(){
-    BasicBlock** allBlocks = new BasicBlock*[getNumberOfBlocks()];
-    getAllBlocks(allBlocks);
-    for (uint32_t i = 0; i < getNumberOfBlocks(); i++){
-        for (uint32_t j = 0; j < allBlocks[i]->getNumberOfInstructions(); j++){
-            if (allBlocks[i]->getInstruction(j)->isCall()){
-                delete[] allBlocks;
-                return true;
-            }
-        }
-    }
-    delete[] allBlocks;
-    return false;
-}
-
 int compareLoopEntry(const void* arg1, const void* arg2){
     Loop* lp1 = *((Loop**)arg1);
     Loop* lp2 = *((Loop**)arg2);
@@ -76,11 +49,6 @@ int compareLoopEntry(const void* arg1, const void* arg2){
     }
 
     return 0;
-}
-
-
-Loop::~Loop(){
-    delete blocks;
 }
 
 Loop::Loop(BasicBlock* h, BasicBlock* t, FlowGraph* cfg, BitSet<BasicBlock*>* newBlocks) { 
@@ -113,22 +81,115 @@ Loop::Loop(const Loop &l) {
     depth = 0;
 }
 
+Loop::~Loop(){
+    delete blocks;
+}
+
+bool Loop::containsCall(){
+    BasicBlock** allBlocks = new BasicBlock*[getNumberOfBlocks()];
+    getAllBlocks(allBlocks);
+    for (uint32_t i = 0; i < getNumberOfBlocks(); i++){
+        for (uint32_t j = 0; j < allBlocks[i]->getNumberOfInstructions(); j++){
+            if (allBlocks[i]->getInstruction(j)->isCall()){
+                delete[] allBlocks;
+                return true;
+            }
+        }
+    }
+    delete[] allBlocks;
+    return false;
+}
+
+uint32_t Loop::getAllBlocks(BasicBlock** arr){
+    ASSERT(arr != NULL);
+    uint32_t arrIdx = 0;
+    for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
+    if(blocks->contains(i)){
+        arr[arrIdx++] = flowGraph->getBasicBlock(i);
+    }
+    }
+    return blocks->size();
+}
+
+uint32_t Loop::getAllInstructions(X86Instruction** allinsts, uint32_t nexti) {
+    uint32_t instructionCount = 0;
+    for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
+        if(blocks->contains(i)) {
+            instructionCount += flowGraph->getBasicBlock(i)->getAllInstructions(allinsts, instructionCount + nexti);
+        }
+    }
+    ASSERT(instructionCount == getNumberOfInstructions());
+    return instructionCount;
+}
+
+uint32_t Loop::getNumberOfInstructions(){
+    BasicBlock** allBlocks = new BasicBlock*[getNumberOfBlocks()];
+    getAllBlocks(allBlocks);
+    
+    uint32_t icount = 0;
+    for (uint32_t i = 0; i < getNumberOfBlocks(); i++){
+        icount += allBlocks[i]->getNumberOfInstructions();
+    }
+    delete[] allBlocks;
+    return icount;
+}
+
+bool Loop::hasSharedHeader(Loop* loop){
+    return getHead()->getBaseAddress() == loop->getHead()->getBaseAddress();
+}
+
+bool Loop::isIdenticalLoop(Loop* loop){
+    if (getNumberOfBlocks() != loop->getNumberOfBlocks()){
+        return false;
+    }
+    if (getFlowGraph()->getFunction()->getBaseAddress() != loop->getFlowGraph()->getFunction()->getBaseAddress()){
+        return false;
+    }
+    for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
+        if (isBlockIn(i) != loop->isBlockIn(i)){
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Loop::isInnerLoopOf(Loop* loop){
+    if (getNumberOfBlocks() > loop->getNumberOfBlocks()){
+        return false;
+    }
+    for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
+        if (isBlockIn(i) && !loop->isBlockIn(i)){
+            return false;
+        }
+    }
+    return true;
+}
+
+// Merge "loopToBeMerged" into this loop
+void Loop::mergeLoopInto(Loop* loopToBeMerged) {
+    *(this->blocks) |= *(loopToBeMerged->blocks);
+}
+
 void Loop::print(){
-    PRINT_INFOR("Loop %d of function %s: Head %d (base %#llx), tail %d among %d blocks", 
-                getIndex(), flowGraph->getFunction()->getName(), head->getIndex(),
-                head->getBaseAddress(), tail->getIndex(), flowGraph->getNumberOfBasicBlocks());
+    PRINT_INFOR("Loop %d of function %s: Head %d (base %#llx), tail %d among "
+      "%d blocks", getIndex(), flowGraph->getFunction()->getName(), 
+      head->getIndex(), head->getBaseAddress(), tail->getIndex(), 
+      flowGraph->getNumberOfBasicBlocks());
     for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
         if (blocks->contains(i)){
             BasicBlock* bb = flowGraph->getBasicBlock(i);
-            PRINT_INFOR("\tMember Block %d: [%#llx,%#llx)", i, bb->getBaseAddress(), bb->getBaseAddress() + bb->getNumberOfBytes());
+            PRINT_INFOR("\tMember Block %d: [%#llx,%#llx)", i, 
+              bb->getBaseAddress(), bb->getBaseAddress() + 
+              bb->getNumberOfBytes());
         }
     }
 }
 
 void Loop::printLiveness(){
-    PRINT_INFOR("Loop %d of function %s: Head %d (base %#llx), tail %d among %d blocks", 
-                getIndex(), flowGraph->getFunction()->getName(), head->getIndex(),
-                head->getBaseAddress(), tail->getIndex(), flowGraph->getNumberOfBasicBlocks());
+    PRINT_INFOR("Loop %d of function %s: Head %d (base %#llx), tail %d among "
+      "%d blocks", getIndex(), flowGraph->getFunction()->getName(), 
+      head->getIndex(), head->getBaseAddress(), tail->getIndex(), 
+      flowGraph->getNumberOfBasicBlocks());
 
     BitSet<uint32_t>* deadRegs = new BitSet<uint32_t>(X86_64BIT_GPRS);
     BitSet<uint32_t>* unusedRegs = new BitSet<uint32_t>(X86_64BIT_GPRS);
@@ -175,55 +236,3 @@ void Loop::printLiveness(){
 
 }
 
-uint32_t Loop::getAllBlocks(BasicBlock** arr){
-    ASSERT(arr != NULL);
-    uint32_t arrIdx = 0;
-    for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
-    if(blocks->contains(i)){
-        arr[arrIdx++] = flowGraph->getBasicBlock(i);
-    }
-    }
-    return blocks->size();
-}
-
-bool Loop::hasSharedHeader(Loop* loop){
-    return getHead()->getBaseAddress() == loop->getHead()->getBaseAddress();
-}
-
-bool Loop::isInnerLoopOf(Loop* loop){
-    if (getNumberOfBlocks() > loop->getNumberOfBlocks()){
-        return false;
-    }
-    for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
-        if (isBlockIn(i) && !loop->isBlockIn(i)){
-            return false;
-        }
-    }
-    return true;
-}
-
-bool Loop::isIdenticalLoop(Loop* loop){
-    if (getNumberOfBlocks() != loop->getNumberOfBlocks()){
-        return false;
-    }
-    if (getFlowGraph()->getFunction()->getBaseAddress() != loop->getFlowGraph()->getFunction()->getBaseAddress()){
-        return false;
-    }
-    for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
-        if (isBlockIn(i) != loop->isBlockIn(i)){
-            return false;
-        }
-    }
-    return true;
-}
-
-uint32_t Loop::getAllInstructions(X86Instruction** allinsts, uint32_t nexti) {
-    uint32_t instructionCount = 0;
-    for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
-        if(blocks->contains(i)) {
-            instructionCount += flowGraph->getBasicBlock(i)->getAllInstructions(allinsts, instructionCount + nexti);
-        }
-    }
-    ASSERT(instructionCount == getNumberOfInstructions());
-    return instructionCount;
-}

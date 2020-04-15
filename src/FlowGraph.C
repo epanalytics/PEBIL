@@ -1728,6 +1728,7 @@ uint32_t FlowGraph::buildLoops(){
     if (numberOfLoops){
         uint32_t i = 0;
         Vector<uint32_t> subsetIndices;
+        Vector<uint32_t> matchingHeaderIndices;
         while (!loopList.empty()){
             Loop* naturalLoop = loopList.shift();
             // All natural loops go into "loops"
@@ -1750,7 +1751,7 @@ uint32_t FlowGraph::buildLoops(){
                 }
 
                 if (artificialLoops[i]->isIdenticalLoop(currentLoop) || 
-                  currentLoop->isInnerLoopOf(loops[i])) {
+                  currentLoop->isInnerLoopOf(artificialLoops[i])) {
                     PRINT_DEBUG_LOOP("Found identical or bigger loop with head" 
                       " %#llx and %d nodes\n", 
                       artificialLoops[i]->getHead()->getBaseAddress(), 
@@ -1765,23 +1766,39 @@ uint32_t FlowGraph::buildLoops(){
                       getBaseAddress(), artificialLoops[i]->getNumberOfBlocks(),
                       i);
                     subsetIndices.append(i);
+                    continue;
                 }
+
+                // If we get to this point, then we have two loops with the 
+                // same head, but they are not inner loops. They need to be 
+                // mergied
+                matchingHeaderIndices.append(i);
+                okayToInsert = false;
             }
 
-            // If our current loop was a subset of another loop in the array 
-            // then its subsets should not have ever been inserted or they 
-            // should have been deleted!
-           assert(!(subsetIndices.size()) || okayToInsert);
+            // If we have a matching header, we can't have a subset too
+            assert(!(subsetIndices.size() && matchingHeaderIndices.size()));
 
-            // TODO: Implement merging of loops -- unsure if this is even 
-            // possible -- and if it doesn, the loop removal is going to be 
-            // wrong
             assert(subsetIndices.size() <= 1);
             for (uint32_t i = 0; i < subsetIndices.size(); i++) {
                 PRINT_DEBUG_LOOP("Removing subset %d\n", subsetIndices[i]);
-                Loop* loopToDelete = loops.remove(subsetIndices[i]);
+                Loop* loopToDelete = artificialLoops.remove(subsetIndices[i]);
                 delete loopToDelete;
             }
+            subsetIndices.clear();
+
+            assert(matchingHeaderIndices.size() <= 1);
+            for (uint32_t i = 0; i < matchingHeaderIndices.size(); i++) {
+                PRINT_DEBUG_LOOP("Adding loop to loop %d\n", 
+                  matchingHeaderIndices[i]);
+                Loop* loopToBeMergedInto = artificialLoops[
+                  matchingHeaderIndices[i]];
+                assert(loopToBeMergedInto->getFlowGraph() == currentLoop->
+                  getFlowGraph());
+                assert(loopToBeMergedInto->getHead() == currentLoop->getHead());
+                loopToBeMergedInto->mergeLoopInto(currentLoop);
+            }
+            matchingHeaderIndices.clear();
 
             if (okayToInsert) {
                 artificialLoops.append(currentLoop);
