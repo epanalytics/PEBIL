@@ -56,8 +56,9 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
     for (uint32_t i = 0; i < handlers.size(); i++) {
         CacheStructureHandler* currHandler = (CacheStructureHandler*)(
           handlers[i]);
-        stats->Stats[indexInStats + i] = new CacheStats(currHandler->levelCount,
-          currHandler->sysId, stats->AllocCount, currHandler->hybridCache);
+        stats->Stats[indexInStats + i] = new CacheStats(currHandler->
+          GetNumberOfCacheLevels(), currHandler->GetSysId(), stats->AllocCount, 
+          currHandler->hybridCache);
         CacheStats* cacheStats = (CacheStats*)stats->Stats[indexInStats + i];
         cacheStats->InitMainMemoryStats(currHandler);
     }
@@ -96,7 +97,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     string lFile;
     const char* logName;
 
-    if(LoadStoreLogging){
+    if(IsLoadStoreLogging()){
         // dump MainMemoryLogging results
         LogFileName(stats, lFile);
         logName = lFile.c_str();
@@ -144,7 +145,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     }
 
     PrintApplicationHeader(MemFile, AllData, Sampler, totalMemop, sampledCount);
-    if(LoadStoreLogging){
+    if(IsLoadStoreLogging()){
         PrintApplicationHeader(LogFile, AllData, Sampler, totalMemop, sampledCount);
     }
         
@@ -173,14 +174,14 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
                 if (first){
                     PrintSysidInfo(MemFile, c, iit);
-                    if(LoadStoreLogging){
+                    if(IsLoadStoreLogging()){
                         PrintSysidInfo(LogFile, c, iit);
                     }
                     first = false;
                 }
 
                 PrintThreadidInfo(MemFile, thread, AllData);
-                if(LoadStoreLogging){
+                if(IsLoadStoreLogging()){
                     PrintThreadidInfo(LogFile, thread, AllData);
                 }
 
@@ -193,7 +194,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                       << "(" << CacheStats::GetHitRate(h, m) << ")] ";
                 }
 
-                if(LoadStoreLogging){
+                if(IsLoadStoreLogging()){
                     MemFile<<"\n# Load store stats ";
                     LogFile<<"Load store stats ";
                     for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
@@ -224,7 +225,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     MemFile <<"#Hybrid cache stats\tHits " << "[" << h << 
                       "/" << t_hm << "(" << (ratio_hm)<< ")]";
 
-                    if(LoadStoreLogging){
+                    if(IsLoadStoreLogging()){
                         uint64_t l=c->GetHybridLoads();
                         uint64_t s=c->GetHybridStores();
                         uint64_t t_ls= l+s; 
@@ -236,13 +237,13 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 } // if hybrid cache                               
                  
                 MemFile << ENDL;
-                if(LoadStoreLogging){
+                if(IsLoadStoreLogging()){
                     LogFile << ENDL;
                 }
             } // for each data manager
         } // for each image
         MemFile << ENDL;
-        if(LoadStoreLogging){
+        if(IsLoadStoreLogging()){
             LogFile << ENDL;
         }
     } // for each cache structure
@@ -302,13 +303,13 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                         c->Hit(bbid, lvl, s->GetHits(memid, lvl));
                         c->Miss(bbid, lvl, s->GetMisses(memid, lvl));
 
-                        if(LoadStoreLogging){
+                        if(IsLoadStoreLogging()){
                             c->Load(bbid, lvl, s->GetLoads(memid, lvl));
                             c->Store(bbid, lvl, s->GetStores(memid, lvl));
                         }
                     } // for each cache level
 
-                    if(LoadStoreLogging){
+                    if(IsLoadStoreLogging()){
                         if( c->mainMemoryStats[0]->numOfLinesInSet > 1) {
                             for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
                                 for(int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
@@ -365,7 +366,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                         c->HybridHit(bbid,s->GetHybridHits(memid)) ;
                         c->HybridMiss(bbid,s->GetHybridMisses(memid));  
 
-                        if(LoadStoreLogging){
+                        if(IsLoadStoreLogging()){
                             c->HybridLoad(bbid,s->GetHybridLoads(memid)); 
                             c->HybridStore(bbid,s->GetHybridStores(memid));
                         }
@@ -378,7 +379,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
             CacheStats* root = aggstats[0];
             uint32_t MaxCapacity = root->Capacity;
 
-            if(LoadStoreLogging) {
+            if(IsLoadStoreLogging()) {
                 LogFile << "#" << TAB << "BLK" << TAB << "BLKID" << TAB << "BLK HASH"
                   << TAB << "ImageSequence" << TAB << "ThreadSequence" 
                   TAB << "SYSID1:MISSES" << TAB << "SYSID2:MISSES ..." << ENDL;
@@ -425,7 +426,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                   << TAB << dec << AllData->GetThreadSequence(st->threadid)
                   << ENDL;
 
-                if(LoadStoreLogging){
+                if(IsLoadStoreLogging()){
                     LogFile << "BLK" << TAB << dec << bbid
                       << TAB << hex << st->Hashes[bbid]
                       << TAB << dec << AllData->GetImageSequence((*iit))
@@ -458,7 +459,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     }
 
                     for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
-                        if(LoadStoreLogging){
+                        if(IsLoadStoreLogging()){
                             MemFile << TAB << dec << c->SysId;
                             MemFile << TAB << dec << (lvl+1);
                             MemFile << TAB << dec << c->GetHits(bbid, lvl)
@@ -474,7 +475,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                               << ENDL;
                         }
                     }
-                    if (LoadStoreLogging) {
+                    if (IsLoadStoreLogging()) {
                         MemFile << TAB << dec << c->SysId;
                         MemFile << TAB << "M"
                           << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
@@ -599,7 +600,7 @@ void CacheSimulationTool::PrintApplicationHeader(ofstream& file,
       << "# countthread   = " << dec << AllData->CountThreads() << ENDL
       << "# masterthread  = " << hex << AllData->GetThreadSequence(
       pthread_self()) << ENDL 
-      << "# LoadStoreLogging = " << dec << LoadStoreLogging << ENDL
+      << "# LoadStoreLogging = " << dec << IsLoadStoreLogging() << ENDL
       << ENDL;
 
     // Print information for each image
@@ -639,7 +640,7 @@ void CacheSimulationTool::PrintPerBlockCacheSimData(ofstream& MemFile,
     // First, the header
     MemFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
       << TAB << "ImageSequence" << TAB << "ThreadId " << ENDL;        
-    if(LoadStoreLogging) {
+    if(IsLoadStoreLogging()) {
         MemFile << "# " << TAB << "SysId" << TAB << "Level" << TAB 
           << "HitCount" << TAB << "MissCount" << TAB << "LoadCount" << TAB 
           << "StoreCount" << ENDL;
@@ -714,22 +715,30 @@ const char* CacheSimulationTool::HandleEnvVariables(uint32_t index,
         MinimumHighAssociativity = SaveHashMin;
     }
 
-    if(!(parser->ReadEnvUint32("METASIM_LOAD_LOG",&LoadStoreLogging))){
-        LoadStoreLogging = 0;
+    uint32_t loadLogValue = 0;
+
+    if(!(parser->ReadEnvUint32("METASIM_LOAD_LOG",&loadLogValue))){
+        loadLogValue = 0;
     }
     if(!(parser->ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
         DirtyCacheHandling = 0;
     }
 
+    if (loadLogValue == 0){
+        loadStoreLogging = false;
+    } else {
+        loadStoreLogging = true;
+    }
+
     if(DirtyCacheHandling){
-        if(!LoadStoreLogging){
+        if(!IsLoadStoreLogging()){
             ErrorExit(" DirtyCacheHandling is enabled without LoadStoreLogging "
               ,MetasimError_FileOp);
         }
     }
 
-    inform << " LoadStoreLogging " << LoadStoreLogging << " DirtyCacheHandling "
-      << DirtyCacheHandling << ENDL;
+    inform << " LoadStoreLogging " << IsLoadStoreLogging() 
+      << " DirtyCacheHandling " << DirtyCacheHandling << ENDL;
 
     // read caches to simulate
     cachedf = GetCacheDescriptionFile(parser);
@@ -750,7 +759,9 @@ uint32_t CacheSimulationTool::ReadCacheDescription(istream& stream,
             continue;
         }
         CacheStructureHandler* c = new CacheStructureHandler();
-        if (!c->Init(line, MinimumHighAssociativity, LoadStoreLogging, DirtyCacheHandling)){
+        c->SetParser(parser);
+        if (!c->Init(line, MinimumHighAssociativity, IsLoadStoreLogging(), 
+          DirtyCacheHandling)){
             ErrorExit("cannot parse cache description line: " << line, 
               MetasimError_StringParse);
         }
@@ -800,10 +811,11 @@ CacheStats::~CacheStats(){
 }
 
 void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler){
-    uint32_t lastLevel = handler->levelCount-1;
-    uint32_t numOfSets = handler->levels[lastLevel]->GetSetCount();
-    uint32_t numOfLinesInSet = handler->levels[lastLevel]->GetAssociativity();
-    uint32_t sizeOfLine = handler->levels[lastLevel]->GetLineSize();
+    uint32_t lastLevel = handler->GetNumberOfCacheLevels() - 1;
+    CacheLevel* lastCacheLevel = handler->GetCacheLevel(lastLevel);
+    uint32_t numOfSets = lastCacheLevel->GetSetCount();
+    uint32_t numOfLinesInSet = lastCacheLevel->GetAssociativity();
+    uint32_t sizeOfLine = lastCacheLevel->GetLineSize();
     for(int i=0;i<Capacity;i++){
         mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
         assert(mainMemoryStats[i]->GetLoads()==0);
@@ -1724,70 +1736,72 @@ uint32_t MainMemory::GetStores(){
 }
 
 CacheStructureHandler::CacheStructureHandler(){
+    sysId = 0;
+    levelCount = 0;
 }
 
-void CacheStructureHandler::ExtractAddresses(){
-    stringstream tokenizer(description);
-    int whichTok=0;
-    string token;
-    vector<uint64_t> Start;
-    vector<uint64_t> End;
-    int NumLevelsToken=1;
-    int HybridAddressCount=0;
-
-    for ( ; tokenizer >> token; whichTok++){
-        if (token.compare(0, 1, "#") == 0){
-            break;
-        }
-        uint64_t Dummy;
-        if(whichTok >= (levelCount * 4+ (NumLevelsToken+1))){
-            istringstream stream(token);
-            stream >> Dummy;
-            if(Dummy < 0x1){
-                ErrorExit("\n\t The boundary address of Cache structure: "
-                  << sysId << " token " << token << " is " << Dummy <<
-                  " is not positive!! \n", MetasimError_StringParse);
-            } else {
-                if(HybridAddressCount%2==0){
-                    Start.push_back(Dummy);
-                } else {
-                    End.push_back(Dummy);
-                }                   
-                HybridAddressCount+=1;  
-            }
-        }
-    }
-    
-    if((HybridAddressCount % 2 != 0) || (HybridAddressCount == 0)) {
-        warn<<"\n\t NEED TO FEED THIS TO DEBUG/WARNING STREAMS ASAP.";
-    }
-    
-    AddressRangesCount=Start.size() ;// Should be equal to End.size()
-    RamAddressStart=(uint64_t*)malloc(AddressRangesCount*sizeof(uint64_t));
-    RamAddressEnd=(uint64_t*)malloc(AddressRangesCount*sizeof(uint64_t));
-
-    for(int AddCopy=0; AddCopy < AddressRangesCount ; AddCopy++){
-        if(Start[AddCopy]<=End[AddCopy]){
-            RamAddressStart[AddCopy]=Start[AddCopy];
-            RamAddressEnd[AddCopy]=End[AddCopy];
-        } else {
-            ErrorExit("\n\t Address range with start: " << Start[AddCopy] <<
-              " end: " << End[AddCopy] << " is illegal, starting address is "
-              "smaller than ending address ", MetasimError_StringParse);
-        }
-    }
-
-}
+//void CacheStructureHandler::ExtractAddresses(){
+//    stringstream tokenizer(description);
+//    int whichTok=0;
+//    string token;
+//    vector<uint64_t> Start;
+//    vector<uint64_t> End;
+//    int NumLevelsToken=1;
+//    int HybridAddressCount=0;
+//
+//    for ( ; tokenizer >> token; whichTok++){
+//        if (token.compare(0, 1, "#") == 0){
+//            break;
+//        }
+//        uint64_t Dummy;
+//        if(whichTok >= (levelCount * 4+ (NumLevelsToken+1))){
+//            istringstream stream(token);
+//            stream >> Dummy;
+//            if(Dummy < 0x1){
+//                ErrorExit("\n\t The boundary address of Cache structure: "
+//                  << sysId << " token " << token << " is " << Dummy <<
+//                  " is not positive!! \n", MetasimError_StringParse);
+//            } else {
+//                if(HybridAddressCount%2==0){
+//                    Start.push_back(Dummy);
+//                } else {
+//                    End.push_back(Dummy);
+//                }                   
+//                HybridAddressCount+=1;  
+//            }
+//        }
+//    }
+//    
+//    if((HybridAddressCount % 2 != 0) || (HybridAddressCount == 0)) {
+//        warn<<"\n\t NEED TO FEED THIS TO DEBUG/WARNING STREAMS ASAP.";
+//    }
+//    
+//    AddressRangesCount=Start.size() ;// Should be equal to End.size()
+//    RamAddressStart=(uint64_t*)malloc(AddressRangesCount*sizeof(uint64_t));
+//    RamAddressEnd=(uint64_t*)malloc(AddressRangesCount*sizeof(uint64_t));
+//
+//    for(int AddCopy=0; AddCopy < AddressRangesCount ; AddCopy++){
+//        if(Start[AddCopy]<=End[AddCopy]){
+//            RamAddressStart[AddCopy]=Start[AddCopy];
+//            RamAddressEnd[AddCopy]=End[AddCopy];
+//        } else {
+//            ErrorExit("\n\t Address range with start: " << Start[AddCopy] <<
+//              " end: " << End[AddCopy] << " is illegal, starting address is "
+//              "smaller than ending address ", MetasimError_StringParse);
+//        }
+//    }
+//
+//}
 
 CacheStructureHandler::CacheStructureHandler(CacheStructureHandler& h) {
     sysId = h.sysId;
     levelCount = h.levelCount;
-    description.assign(h.description);
+    //description.assign(h.description);
     hybridCache=h.hybridCache;
     hits=0;
     misses=0;
 
-    this->LoadStoreLogging = h.LoadStoreLogging;
+    this->loadStoreLogging = h.IsLoadStoreLogging();
     this->DirtyCacheHandling = h.DirtyCacheHandling;
 
 #define LVLF(__i, __feature) (h.levels[__i])->Get ## __feature
@@ -1838,27 +1852,27 @@ CacheStructureHandler::CacheStructureHandler(CacheStructureHandler& h) {
     }
 }
 
-bool CacheStructureHandler::CheckRange(CacheStats* stats, uint64_t addr, 
-  uint64_t loadstoreflag, uint32_t memid){
-    bool AddressNotFound= true; 
-    for(int CurrRange=0; (CurrRange < AddressRangesCount) && AddressNotFound; 
-      CurrRange++){
-        if((addr > RamAddressStart[CurrRange]) && (addr <= 
-          RamAddressEnd[CurrRange])) {
-            AddressNotFound = false;
-            stats->HybridMemStats[memid].hitCount++; 
-            if(loadstoreflag)
-                stats->HybridMemStats[memid].loadCount++;
-            else
-                stats->HybridMemStats[memid].storeCount++;
-        }
-    }
-
-    if(AddressNotFound){
-        stats->HybridMemStats[memid].missCount++;     
-    }
-    return true; // CAUTION: No known use of returning 'bool'!! 
-}
+//bool CacheStructureHandler::CheckRange(CacheStats* stats, uint64_t addr, 
+//  uint64_t loadstoreflag, uint32_t memid){
+//    bool AddressNotFound= true; 
+//    for(int CurrRange=0; (CurrRange < AddressRangesCount) && AddressNotFound; 
+//      CurrRange++){
+//        if((addr > RamAddressStart[CurrRange]) && (addr <= 
+//          RamAddressEnd[CurrRange])) {
+//            AddressNotFound = false;
+//            stats->HybridMemStats[memid].hitCount++; 
+//            if(loadstoreflag)
+//                stats->HybridMemStats[memid].loadCount++;
+//            else
+//                stats->HybridMemStats[memid].storeCount++;
+//        }
+//    }
+//
+//    if(AddressNotFound){
+//        stats->HybridMemStats[memid].missCount++;     
+//    }
+//    return true; // CAUTION: No known use of returning 'bool'!! 
+//}
 
 void CacheStructureHandler::Print(ofstream& f){
     f << "CacheStructureHandler: "
@@ -1911,10 +1925,118 @@ bool CacheStructureHandler::Verify(){
     return passes;
 }
 
-bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity, 
-	  uint32_t LoadStoreLogging, uint32_t DirtyCacheHandling){
-    description = desc;
-    this->LoadStoreLogging = LoadStoreLogging;
+CacheLevel* CacheStructureHandler::ParseCacheLevelTokens(stringstream& 
+  tokenizer, uint32_t levelId, uint32_t* firstExclusiveLevel) {
+    string token;
+    uint32_t cacheValues[3];
+    ReplacementPolicy repl;
+
+
+    for (uint32_t i = 0; i < 3; i++) {
+        if(!(tokenizer >> token)) 
+            return NULL;
+        if (parser->IsEmptyComment(token))
+            return NULL;
+        if (!(parser->ParsePositiveInt32(token, &cacheValues[i])))
+            return NULL;
+    }
+
+    // the last token for a cache (replacement policy)
+    if(!(tokenizer >> token)) 
+        return NULL;
+    if (parser->IsEmptyComment(token))
+        return NULL;
+
+
+    // parse replacement policy
+    if (token.compare(0, 3, "lru") == 0){
+        repl = ReplacementPolicy_nmru;
+    } else if (token.compare(0, 4, "rand") == 0){
+        repl = ReplacementPolicy_random;
+    } else if (token.compare(0, 6, "trulru") == 0){
+        repl = ReplacementPolicy_trulru;
+    } else if (token.compare(0, 3, "dir") == 0){
+        repl = ReplacementPolicy_direct;
+    } else {
+        return NULL;
+    }
+    
+    bool nonInclusive = false;
+
+    // look for victim cache
+    if (token.size() > 3) {
+        if (token.compare(token.size() - 3, token.size(), "_vc") == 0){
+            if (*firstExclusiveLevel == INVALID_CACHE_LEVEL){
+                *firstExclusiveLevel = levelId;
+            }
+        } else if (token.compare(token.size() - 4, token.size(), 
+          "_sky") == 0){
+              nonInclusive = true;
+        } else {
+            if (*firstExclusiveLevel != INVALID_CACHE_LEVEL){
+                warn << "nonsensible structure found in sysid " << sysId 
+                  << "; using a victim cache for level " << levelId 
+                  << ENDL << flush;
+            }
+        }
+    }
+
+    // create cache
+    uint32_t sizeInBytes = cacheValues[0];
+    uint32_t assoc = cacheValues[1];
+    uint32_t lineSize = cacheValues[2];
+
+    if (sizeInBytes < lineSize){
+        return NULL;
+    }
+
+    if (assoc >= MinimumHighAssociativity){
+        if (*firstExclusiveLevel != INVALID_CACHE_LEVEL){
+            HighlyAssociativeExclusiveCacheLevel* l = new 
+              HighlyAssociativeExclusiveCacheLevel();
+            l->Init(levelId, sizeInBytes, assoc, lineSize, repl, 
+              IsLoadStoreLogging(), DirtyCacheHandling, *firstExclusiveLevel, 
+              levelCount - 1);
+            return l;
+        } else if (nonInclusive) {
+            NonInclusiveCacheLevel* l = new NonInclusiveCacheLevel();
+            l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
+              IsLoadStoreLogging(), DirtyCacheHandling);
+            return l;
+        } else {
+            HighlyAssociativeInclusiveCacheLevel* l = new 
+              HighlyAssociativeInclusiveCacheLevel();
+            l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
+              IsLoadStoreLogging(), DirtyCacheHandling);
+            return l;
+        }
+    } else {
+        if (*firstExclusiveLevel != INVALID_CACHE_LEVEL){
+            ExclusiveCacheLevel* l = new ExclusiveCacheLevel();
+            l->Init(levelId, sizeInBytes, assoc, lineSize, repl, 
+              IsLoadStoreLogging(), DirtyCacheHandling, *firstExclusiveLevel, 
+              levelCount - 1);
+            return l;
+        } else if (nonInclusive) {
+            NonInclusiveCacheLevel* l = new NonInclusiveCacheLevel();
+            l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
+              IsLoadStoreLogging(), DirtyCacheHandling);
+            return l;
+        } else {
+            InclusiveCacheLevel* l = new InclusiveCacheLevel();
+            l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
+              IsLoadStoreLogging(), DirtyCacheHandling);
+            return l;
+        }
+    }
+
+    return NULL;
+}
+
+bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
+	  bool doLoadStore, uint32_t DirtyCacheHandling){
+    string description = desc;
+    this->loadStoreLogging = doLoadStore;
     this->DirtyCacheHandling = DirtyCacheHandling;
 
     stringstream tokenizer(description);
@@ -1922,141 +2044,51 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
     uint32_t cacheValues[3];
     ReplacementPolicy repl;
 
-    sysId = 0;
-    levelCount = 0;
-    hybridCache=-1;
+    hybridCache = 0;
 
-    uint32_t whichTok = 0;
-    uint32_t firstExcl = INVALID_CACHE_LEVEL;
 
-    // FIXME - make part of class
-    StringParser parser;
+    // Parse the cache description line
+    // First token is the sysid
+    if(!(tokenizer >> token)) 
+        return false;
+    if (parser->IsEmptyComment(token))
+        return false;
+    if (!(parser->ParseInt32(token, (int32_t*)(&sysId), 0))){
+        return false;
+    }
 
-    for ( ; (tokenizer >> token) && (whichTok < levelCount * 4+ 2); whichTok++){
+    // Second token is the number of cache levels
+    if(!(tokenizer >> token)) 
+        return false;
+    if (parser->IsEmptyComment(token))
+        return false;
+    if (!(parser->ParsePositiveInt32(token, &levelCount))){
+        return false;
+    }
+    levels = new CacheLevel*[levelCount];
 
-        // comment reached on line
-        if (token.compare(0, 1, "#") == 0){
-            break;
-        }
-
-        // 2 special tokens appear first
-        if (whichTok == 0){
-            if( token.size() > 6){
-                if( token.compare(token.size()-6,6,"hybrid")==0) {
-                    token.resize(token.size()-6);
-                    hybridCache=1;
-                }else{
-                    hybridCache=0;
-                }
-            }else{
-                hybridCache=0;
-            }
-
-            if (!(parser.ParseInt32(token, (int32_t*)(&sysId), 0))){
+    uint32_t levelId = 0;
+    uint32_t firstExclusiveLevel = INVALID_CACHE_LEVEL;
+    for (levelId = 0; levelId < levelCount; levelId++) {
+        CacheLevel* newLevel = ParseCacheLevelTokens(tokenizer, levelId, 
+          &firstExclusiveLevel);
+        if (newLevel == NULL)
+            return false;
+        levels[levelId] = newLevel;
+        // Get rid of any following "notes"
+        tokenizer >> std::ws; // skip whitespace
+        char nextChar = tokenizer.peek();
+        while (!(isdigit(nextChar)) && nextChar != EOF) {
+            if (!(tokenizer >> token))
                 return false;
-            }
-            continue;
-        }
-        if (whichTok == 1){
-            if (!(parser.ParsePositiveInt32(token, &levelCount))){
+            if (parser->IsEmptyComment(token))
                 return false;
-            }
-            levels = new CacheLevel*[levelCount];
-            continue;
-        }
-
-        int32_t idx = (whichTok - 2) % 4;
-
-        // the first 3 numbers for a cache value
-        if (idx < 3){
-            if (!(parser.ParsePositiveInt32(token, &cacheValues[idx]))){
-                return false;
-            }
-            // the last token for a cache (replacement policy)
-        } else {
-
-            // parse replacement policy
-            if (token.compare(0, 3, "lru") == 0){
-                repl = ReplacementPolicy_nmru;
-            } else if (token.compare(0, 4, "rand") == 0){
-                repl = ReplacementPolicy_random;
-            } else if (token.compare(0, 6, "trulru") == 0){
-                repl = ReplacementPolicy_trulru;
-            } else if (token.compare(0, 3, "dir") == 0){
-                repl = ReplacementPolicy_direct;
-            } else {
-                return false;
-            }
-            
-            int32_t levelId = (whichTok - 2) / 4;
-            bool nonInclusive = false;
-
-            // look for victim cache
-            if (token.size() > 3) {
-                if (token.compare(token.size() - 3, token.size(), "_vc") == 0){
-                    if (firstExcl == INVALID_CACHE_LEVEL){
-                        firstExcl = levelId;
-                    }
-                } else if (token.compare(token.size() - 4, token.size(), 
-                  "_sky") == 0){
-                      nonInclusive = true;
-                } else {
-                    if (firstExcl != INVALID_CACHE_LEVEL){
-                        warn << "nonsensible structure found in sysid " << sysId << "; using a victim cache for level " << levelId << ENDL << flush;
-                    }
-                }
-            }
-
-            // create cache
-            uint32_t sizeInBytes = cacheValues[0];
-            uint32_t assoc = cacheValues[1];
-            uint32_t lineSize = cacheValues[2];
-
-            if (sizeInBytes < lineSize){
-                return false;
-            }
-
-            if (assoc >= MinimumHighAssociativity){
-                if (firstExcl != INVALID_CACHE_LEVEL){
-                    HighlyAssociativeExclusiveCacheLevel* l = new 
-                      HighlyAssociativeExclusiveCacheLevel();
-                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl, 
-					  LoadStoreLogging, DirtyCacheHandling, firstExcl, levelCount - 1);
-                    levels[levelId] = (CacheLevel*)l;
-                } else if (nonInclusive) {
-                    NonInclusiveCacheLevel* l = new NonInclusiveCacheLevel();
-                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl, 
-					  LoadStoreLogging, DirtyCacheHandling);
-                    levels[levelId] = l;
-                } else {
-                    HighlyAssociativeInclusiveCacheLevel* l = new 
-                      HighlyAssociativeInclusiveCacheLevel();
-                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
-					  LoadStoreLogging, DirtyCacheHandling);
-                    levels[levelId] = (CacheLevel*)l;
-                }
-            } else {
-                if (firstExcl != INVALID_CACHE_LEVEL){
-                    ExclusiveCacheLevel* l = new ExclusiveCacheLevel();
-                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl, 
-                      LoadStoreLogging, DirtyCacheHandling, firstExcl, levelCount - 1);
-                    levels[levelId] = l;
-                } else if (nonInclusive) {
-                    NonInclusiveCacheLevel* l = new NonInclusiveCacheLevel();
-                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
-					  LoadStoreLogging, DirtyCacheHandling);
-                    levels[levelId] = l;
-                } else {
-                    InclusiveCacheLevel* l = new InclusiveCacheLevel();
-                    l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
-					  LoadStoreLogging, DirtyCacheHandling);
-                    levels[levelId] = l;
-                }
-            }
+            tokenizer >> std::ws;
+            nextChar = tokenizer.peek();
         }
     }
 
-    if (whichTok != levelCount * 4 + 2){
+    if (levelId != levelCount) {
         return false;
     }
 

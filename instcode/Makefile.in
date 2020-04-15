@@ -60,6 +60,7 @@ ASL_OBJS = $(LIBDIR)/AddressStreamBase.O $(LIBDIR)/AddressRange.O $(LIBDIR)/Cach
 ifeq ($(EPA_TOOLS_AVAILABLE),yes)
   ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/PrefetchSimulation.o
   EXTRA_FLAGS += -DHAS_EPA_TOOLS
+  EXTRA_INC += -I$(EPA_TOOLS_PATH)/instcode
 endif
 
 ifeq ($(ADAMANT_LIBS_BUILD),yes)

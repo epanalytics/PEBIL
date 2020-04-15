@@ -106,6 +106,7 @@ class CacheSimulationTool : public AddressStreamTool {
     void LogFileName(AddressStreamStats* stats, std::string& oFile);
 
     std::string GetCacheDescriptionFile(StringParser* parser);
+    bool IsLoadStoreLogging() { return loadStoreLogging; }
     const char* HandleEnvVariables(uint32_t index, StringParser* parser, 
       std::string& cachedf);
     uint32_t ReadCacheDescription(std::istream& stream, StringParser* parser,
@@ -113,7 +114,7 @@ class CacheSimulationTool : public AddressStreamTool {
 
   protected:
     uint32_t MinimumHighAssociativity = 256;
-    uint32_t LoadStoreLogging = 0;
+    bool loadStoreLogging = false;
     uint32_t DirtyCacheHandling = 0;
     void PrintApplicationHeader(std::ofstream& file, 
       DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
@@ -229,16 +230,13 @@ protected:
     history** historyUsed = nullptr;
     bool toEvict;
 
-	uint32_t loadStoreLogging;
+	bool loadStoreLogging;
 	uint32_t dirtyCacheHandling;
 
 public:
     std::vector<uint64_t>* toEvictAddresses = nullptr;
     CacheLevel();
     virtual ~CacheLevel();
-
-    bool IsExclusive() { return (type == CacheLevelType_ExclusiveLowassoc || 
-      type == CacheLevelType_ExclusiveHighassoc); }
 
     uint32_t GetLevelCount() { return levelCount;}
     uint32_t SetLevelCount(uint32_t inpLevelCount) { return levelCount = 
@@ -250,13 +248,15 @@ public:
     virtual uint32_t GetAssociativity() { return associativity; }
     virtual uint32_t GetSetCount() { return countsets; }
     virtual uint32_t GetLineSize() { return linesize; }
-	virtual uint32_t GetLoadStoreLog() { return loadStoreLogging; }
-	virtual uint32_t GetDirtyCacheHandle() { return dirtyCacheHandling; }
+    virtual bool GetLoadStoreLog() { return IsLoadStoreLogging(); }
+    virtual uint32_t GetDirtyCacheHandle() { return dirtyCacheHandling; }
     uint64_t CountColdMisses();
+    virtual bool IsLoadStoreLogging() { return loadStoreLogging; }
 
     void Print(std::ofstream& f, uint32_t sysid);
 
     // re-implemented by Exclusive/InclusiveCacheLevel
+    virtual bool IsExclusive() { return false; }
     virtual uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, 
       uint64_t loadstoreflag, bool* anyEvict, void* info);
     virtual uint32_t EvictProcess(CacheStats* stats, uint32_t memid, uint64_t 
@@ -301,6 +301,7 @@ public:
         CacheLevel::Init(CacheLevel_Init_Arguments);
         type = CacheLevelType_InclusiveLowassoc;
     }
+    bool IsExclusive() { return false; }
     virtual const char* TypeString() { return "inclusive"; }
 };
 
@@ -317,6 +318,7 @@ public:
         FirstExclusive = firstExcl;
         LastExclusive = lastExcl;
     }
+    bool IsExclusive() { return true; }
     virtual const char* TypeString() { return "exclusive"; }
 };
 
@@ -326,12 +328,13 @@ public:
     uint32_t LastExclusive;
 
     NonInclusiveCacheLevel() {}
-    uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t
-      loadstoreflag,bool* anyEvict,void* info);
     virtual void Init(CacheLevel_Init_Interface){
         CacheLevel::Init(CacheLevel_Init_Arguments);
         type = CacheLevelType_NonInclusiveLowassoc;
     }
+    bool IsExclusive() { return false; }
+    uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t
+      loadstoreflag,bool* anyEvict,void* info);
     virtual const char* TypeString() { return "exclusive"; }
 };
 
@@ -377,49 +380,65 @@ public:
 
 class CacheStructureHandler : public MemoryStreamHandler {
 public:
+    uint32_t hybridCache;   // Deprecated
+  protected: 
+
     uint32_t sysId;
     uint32_t levelCount;
-    uint32_t hybridCache;
-
-    uint64_t* RamAddressStart;
-    uint64_t* RamAddressEnd;    
+    //uint64_t* RamAddressStart;
+    //uint64_t* RamAddressEnd;    
 
     CacheLevel** levels;
-    std::string description;
+    //std::string description;
 
-protected: 
-      uint32_t MinimumHighAssociativity = 256;
-      uint32_t LoadStoreLogging = 0;
-      uint32_t DirtyCacheHandling = 0;
+    uint32_t MinimumHighAssociativity = 256;
+    bool loadStoreLogging = false;  // Record loads/stores with cache activity
+    uint32_t DirtyCacheHandling = 0;
 
-      bool isInitialized = false;
+    bool isInitialized = false;
 
-      uint64_t hits;
-      uint64_t misses;
-      uint64_t AddressRangesCount;
-      std::vector<uint64_t>* toEvictAddresses;
-      uint32_t processAddress(void* stats, uint64_t address, uint64_t memseq, 
-        uint8_t loadstoreflag);
+    uint64_t hits;
+    uint64_t misses;
+    uint64_t AddressRangesCount;
+    StringParser* parser;
+    std::vector<uint64_t>* toEvictAddresses;
+    uint32_t processAddress(void* stats, uint64_t address, uint64_t memseq, 
+      uint8_t loadstoreflag);
 
-public:      
-    // note that this doesn't contain any stats gathering code. that is done at the
-    // thread level and is therefore done in ThreadData
+  public:      
+    // note that this doesn't contain any stats gathering code. that is done at
+    // the thread level and is therefore done in ThreadData
 
     CacheStructureHandler();
     CacheStructureHandler(CacheStructureHandler& h);
     ~CacheStructureHandler();
-    bool Init(std::string desc, uint32_t MinimumHighAssociativity, 
-	  uint32_t LoadStoreLogging, uint32_t DirtyCacheHandling);
+    bool Init(std::string desc, uint32_t MinimumHighAssociativity, bool 
+      doLoadStore, uint32_t DirtyCacheHandling);
 
+    CacheLevel* GetCacheLevel(uint32_t lvl) { return levels[lvl]; } //0-indexed
+    uint32_t GetNumberOfCacheLevels() { return levelCount; }
+    uint32_t GetSysId() { return sysId; }
+
+    bool IsInitialized() { return isInitialized; }
+    bool IsLoadStoreLogging() { return loadStoreLogging; }
+
+    CacheLevel* ParseCacheLevelTokens(std::stringstream& tokenizer, 
+      uint32_t levelId, uint32_t* firstExcl);
     void Print(std::ofstream& f);
     uint32_t Process(void* stats, BufferEntry* access);
+    void SetParser(StringParser* p) { parser = p; }
     bool Verify();
 
     uint64_t GetHits(){return hits;}
     uint64_t GetMisses(){ return misses;} 
 
-    bool CheckRange(CacheStats* stats,uint64_t addr,uint64_t loadstoreflag,uint32_t memid); //, uint32_t* set, uint32_t* lineInSet);    
-    void ExtractAddresses();
+    //bool CheckRange(CacheStats* stats,uint64_t addr,uint64_t loadstoreflag,uint32_t memid); //, uint32_t* set, uint32_t* lineInSet);    
+    //void ExtractAddresses();
+
+    /* For testing only */
+    void SetCacheLevel(uint32_t lvl, CacheLevel* c) { levels[lvl] = c; }
+    void SetLoadStoreLogging(bool b) { loadStoreLogging = b; }
+    void SetNumberOfCacheLevels(uint32_t n) { levelCount = n; }
 };
 
 
