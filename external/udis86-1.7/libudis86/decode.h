@@ -40,7 +40,7 @@
 #define F_29 SHFT_1(29)
 #define F_30 SHFT_1(30)
 #define F_31 SHFT_1(31)
-#define F_ALU (F_CF | F_PF | F_AF | F_ZF | F_SF | F_OF)
+#define F_ALU (F_CF | F_PF | F_AF | F_ZF | F_SF | F_OF)  // 0x8d5
 
 /* implied register definitions */
 #define R_none ( 0 )
@@ -161,9 +161,8 @@
 #define SIB_S(b)        ( ( b ) >> 6 )
 #define SIB_I(b)        ( ( ( b ) >> 3 ) & 7 )
 #define SIB_B(b)        ( ( b ) & 7 )
-#define SIB_SCALE(b)    ((1 << SIB_S(b)) & ~1)
+#define SIB_SCALE(b)    ((1 << SIB_S(b)))
 
-#define SIB_SCALE(b)    ((1 << SIB_S(b)) & ~1)
 /* modrm bits */
 #define MODRM_REG(b)    ( ( ( b ) >> 3 ) & 7 )
 #define MODRM_NNN(b)    ( ( ( b ) >> 3 ) & 7 )
@@ -188,14 +187,14 @@
 // MVEX byte 0
 #define P_MVEX(n)        ( n == 0x62 )
 
-// MVEX byte 1
+// MVEX byte 1  // REX is 1's complement
 #define MVEX_R(b)        ( ( ~( b ) >> 7 ) & 1 )
 #define MVEX_X(b)        ( ( ~( b ) >> 6 ) & 1 )
 #define MVEX_B(b)        ( ( ~( b ) >> 5 ) & 1 )
 #define MVEX_RP(b)       ( ( ~( b ) >> 4 ) & 1 )
 #define MVEX_M4(b)       ( ( ( b ) >> 0 ) & 15 )
 
-// MVEX byte 2
+// MVEX byte 2  // vvvv is 1's complement
 #define MVEX_W(b)        ( ( ( b ) >> 7 ) & 1 )
 #define MVEX_VVVV(b)     ( ( ( ~b ) >> 3 ) & 15 )
 #define MVEX_PP(b)       ( ( ( b ) >> 0 ) & 3 )
@@ -213,6 +212,7 @@
  * |7..0|7 6 5 4  32 10|7 6543 2 10|7 6 5 4 3  210|
  * | 62 |R X B R' 00 mm|W vvvv 1 pp|z L'L b v' aaa|
  */
+// REX and vvvv is 1's complement
 #define EVEX_R(evex)    ( ( (~evex[0]) >> 7 ) & 1 )
 #define EVEX_X(evex)    ( ( (~evex[0]) >> 6 ) & 1 )
 #define EVEX_B(evex)    ( ( (~evex[0]) >> 5 ) & 1 )
@@ -271,10 +271,12 @@ enum ud_operand_code {
 
     OP_V,      OP_W,      OP_Q,       OP_P, 
 
-    OP_R,      OP_C,  OP_D,       OP_VR,  OP_PR,
+    OP_R,      OP_C,      OP_D,       OP_VR,  
+    OP_PR,
     OP_X,
-    OP_ZR,     OP_ZM, OP_ZRM, OP_ZRMER, OP_ZV, OP_ZVM,
-    OP_KR, OP_KRM, OP_KV
+    OP_ZR,     OP_ZM,     OP_ZRM,     OP_ZRMER, 
+    OP_ZV,     OP_ZVM,
+    OP_KR,     OP_KRM,    OP_KV
 };
 
 
@@ -355,7 +357,8 @@ enum ud_operand_size {
 #define O_Mt      { OP_M,        SZ_T     }
 #define O_S       { OP_S,        SZ_NA    }
 #define O_Mq      { OP_M,        SZ_Q     }
-#define O_X       { OP_X,        SZ_X     }
+#define O_X       { OP_X,        SZ_NA     }
+#define O_Xx      { OP_X,        SZ_X     }
 #define O_x       { OP_x,        SZ_NA    }
 #define O_W       { OP_W,        SZ_NA    }
 #define O_Wd      { OP_W,        SZ_D     }
@@ -435,15 +438,27 @@ enum ud_operand_size {
 #define O_Ib      { OP_I,        SZ_B     }
 #define O_BHr15b  { OP_BHr15b,   SZ_NA    }
 
-#define O_ZR      { OP_ZR,       SZ_XZ    }
+#define O_ZR      { OP_ZR,       SZ_NA    }
+#define O_ZRx     { OP_ZR,       SZ_X     }
+#define O_ZRy     { OP_ZR,       SZ_Y     }
+#define O_ZRz     { OP_ZR,       SZ_XZ    }
 #define O_ZM      { OP_ZM,       SZ_XZ    }
 #define O_ZRM     { OP_ZRM,      SZ_XZ    }
 #define O_ZRMER   { OP_ZRMER,    SZ_XZ    }
 #define O_ZV      { OP_ZV,       SZ_XZ    }
-#define O_ZVM     { OP_ZVM,      SZ_XZ    }
+#define O_ZVM     { OP_ZVM,      SZ_NA    }
+#define O_ZVMx    { OP_ZVM,      SZ_X     }
+#define O_ZVMy    { OP_ZVM,      SZ_Y     }
+#define O_ZVMz    { OP_ZVM,      SZ_XZ     }
 
 #define O_KR      { OP_KR,       SZ_W     }
+#define O_KRb     { OP_KR,       SZ_B     }
+#define O_KRd     { OP_KR,       SZ_D     }
+#define O_KRq     { OP_KR,       SZ_Q     }
 #define O_KRM     { OP_KRM,      SZ_W     }
+#define O_KRMb    { OP_KRM,      SZ_B     }
+#define O_KRMd    { OP_KRM,      SZ_D     }
+#define O_KRMq    { OP_KRM,      SZ_Q     }
 #define O_KV      { OP_KV,       SZ_W     }
 
 /* A single operand of an entry in the instruction table. 
