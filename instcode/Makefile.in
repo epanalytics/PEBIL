@@ -51,9 +51,7 @@ endif
 
 COMMON_OBJS = $(LIBDIR)/InstrumentationCommon.o
 COMMON_OBJS_MIC = $(MICLIBDIR)/InstrumentationCommon.o
-SHARED_COMMON_LIB = $(LIBDIR)/libpebilruntime.so
 SHARED_COMMON_OBJS = $(LIBDIR)/InstrumentationCommon.O $(LIBDIR)/ThreadedCommon.O $(LIBDIR)/DynamicInstrumentation.O
-SHARED_COMMON_LIBS = -L$(LIBDIR) -lpebilruntime
 
 ASL_OBJS = $(LIBDIR)/AddressStreamBase.O $(LIBDIR)/AddressRange.O $(LIBDIR)/CacheSimulation.O $(LIBDIR)/ReuseDistanceASI.O $(LIBDIR)/ScatterGatherLength.O $(LIBDIR)/SpatialLocality.O $(LIBDIR)/AddressStreamDriver.O
 
@@ -86,8 +84,8 @@ $(MICLIBDIR)/%.O: %.cpp
 $(LIBDIR)/libpebilruntime.so : $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 
-$(LIBDIR)/libcounter.so : $(LIBDIR)/CounterFunctions.O $(SHARED_COMMON_LIB)
-	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(SHARED_COMMON_LIBS) $(EXTRA_LIBS) $(CXXFLAGS)
+$(LIBDIR)/libcounter.so : $(LIBDIR)/CounterFunctions.O $(SHARED_COMMON_OBJS)
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 $(LIBDIR)/libcounter.a : $(LIBDIR)/CounterFunctions.o $(COMMON_OBJS)
 	$(AR) $@ $(LIBDIR)/CounterFunctions.o $(COMMON_OBJS)
 $(MICLIBDIR)/libcounter.so : $(MICLIBDIR)/CounterFunctions.O
@@ -95,11 +93,11 @@ $(MICLIBDIR)/libcounter.so : $(MICLIBDIR)/CounterFunctions.O
 $(MICLIBDIR)/libcounter.a : $(MICLIBDIR)/CounterFunctions.o $(COMMON_OBJS_MIC)
 	$(AR) $@ $(MICLIBDIR)/CounterFunctions.o $(COMMON_OBJS_MIC)
 
-$(LIBDIR)/libaddressstream.so : $(LIBDIR)/AddressStreamLibrary.O $(ASL_OBJS) $(SHARED_COMMON_LIB)
-	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(SHARED_COMMON_LIBS) $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
+$(LIBDIR)/libaddressstream.so : $(LIBDIR)/AddressStreamLibrary.O $(ASL_OBJS) $(SHARED_COMMON_OBJS)
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
 
-$(LIBDIR)/liblooptimer.so : $(LIBDIR)/LoopTimer.O $(SHARED_COMMON_LIB)
-	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(SHARED_COMMON_LIBS) $(EXTRA_LIBS) $(CXXFLAGS)
+$(LIBDIR)/liblooptimer.so : $(LIBDIR)/LoopTimer.O $(SHARED_COMMON_OBJS)
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 $(MICLIBDIR)/liblooptimer.so : $(MICLIBDIR)/LoopTimer.O
 	$(MPICXX_MIC) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS) $(MICFLAGS)
 
@@ -108,13 +106,13 @@ $(LIBDIR)/libfrequencyconfig.so : $(LIBDIR)/FrequencyConfig.O
 $(MICLIBDIR)/libfrequencyconfig.so : $(MICLIBDIR)/FrequencyConfig.O
 	$(MPICXX_MIC) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS) $(MICFLAGS)
 
-$(LIBDIR)/libpapiinst.so : $(LIBDIR)/PAPIInst.O $(SHARED_COMMON_LIB)
-	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(SHARED_COMMON_LIBS) $(EXTRA_LIBS) $(CXXFLAGS)
+$(LIBDIR)/libpapiinst.so : $(LIBDIR)/PAPIInst.O $(SHARED_COMMON_OBJS)
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 $(MICLIBDIR)/libpapiinst.so : $(MICLIBDIR)/PAPIInst.O
 	$(MPICXX_MIC) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS) $(MICFLAGS)
 
-$(LIBDIR)/libtimer.so : $(LIBDIR)/TimerFunctions.O $(SHARED_COMMON_LIB)
-	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(SHARED_COMMON_LIBS) $(EXTRA_LIBS) $(CXXFLAGS)
+$(LIBDIR)/libtimer.so : $(LIBDIR)/TimerFunctions.O $(SHARED_COMMON_OBJS)
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 $(LIBDIR)/libtimer.a : $(LIBDIR)/TimerFunctions.o $(COMMON_OBJS) 
 	$(AR) $@ $(LIBDIR)/TimerFunctions.o $(COMMON_OBJS)
 $(MICLIBDIR)/libtimer.so : $(MICLIBDIR)/TimerFunctions.O
@@ -122,8 +120,8 @@ $(MICLIBDIR)/libtimer.so : $(MICLIBDIR)/TimerFunctions.O
 $(MICLIBDIR)/libtimer.a : $(MICLIBDIR)/TimerFunctions.o $(COMMON_OBJS_MIC) 
 	$(AR) $@ $(MICLIBDIR)/TimerFunctions.o $(COMMON_OBJS_MIC)
 
-$(LIBDIR)/libpapifunc.so : $(LIBDIR)/PAPIFunc.O $(SHARED_COMMON_LIB)
-	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(SHARED_COMMON_LIBS) $(EXTRA_LIBS) $(CXXFLAGS)
+$(LIBDIR)/libpapifunc.so : $(LIBDIR)/PAPIFunc.O $(SHARED_COMMON_OBJS)
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 $(MICLIBDIR)/libpapifunc.so : $(MICLIBDIR)/PAPIFunc.O
 	$(MPICXX_MIC) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS) $(MICFLAGS)
 
