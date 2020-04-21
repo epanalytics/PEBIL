@@ -64,15 +64,29 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
     }
 }
 
+void CacheSimulationTool::CacheSimulationFileName(AddressStreamStats* stats, 
+  string& oFile){
+    oFile.clear();
+    const char* prefix = getenv(ENV_OUTPUT_PREFIX);
+    if(prefix != NULL) {
+        oFile.append(prefix);
+        oFile.append("/");
+    }
+    oFile.append(stats->Application);
+    oFile.append(".r");
+    AppendRankString(oFile);
+    oFile.append(".t");
+    AppendTasksString(oFile);
+    oFile.append(".");
+    oFile.append("cachesim");
+}
+
 uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* 
   parser){
-    string cachedf;
-    const char* cs = HandleEnvVariables(index, parser, cachedf);
-
-    ifstream CacheFile(cs);
-    uint32_t retSize = ReadCacheDescription(CacheFile, parser, cachedf);
-
-    return retSize;
+    indexInStats = index;
+    HandleEnvVariables(parser);
+    ifstream CacheFile(GetCacheDescriptionFileName());
+    return ReadCacheDescription(CacheFile, parser);
 }
 
 
@@ -572,6 +586,110 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     LogFile.close();
 }
 
+void CacheSimulationTool::GetAndSetCacheDescriptionFile(StringParser* parser){
+    char* e = parser->GetEnv("METASIM_CACHE_DESCRIPTIONS");
+    string knobvalue;
+
+    if (e != NULL){
+        knobvalue = (string)e;
+    }
+
+    if (e == NULL || knobvalue.compare(0, 1, "$") == 0){
+        string str;
+        const char* freeenv = getenv(METASIM_ENV);
+        if (freeenv == NULL){
+            ErrorExit("default cache descriptions file requires that " 
+              METASIM_ENV " be set", MetasimError_Env);
+        }
+
+        str.append(freeenv);
+        str.append("/" DEFAULT_CACHE_FILE);
+
+        CacheDescriptionFile = str;
+        return;
+    }
+    CacheDescriptionFile = knobvalue;
+}
+
+void CacheSimulationTool::HandleEnvVariables(StringParser* parser){
+
+    // Can tinker with this at runtime using the environment variable
+    // METASIM_LIMIT_HIGH_ASSOC if desired.
+    uint32_t SaveHashMin = MinimumHighAssociativity;
+    bool flag = (parser->ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
+      &MinimumHighAssociativity));
+    if (!flag){
+        MinimumHighAssociativity = SaveHashMin;
+    }
+
+    uint32_t loadLogValue = 0;
+
+    if(!(parser->ReadEnvUint32("METASIM_LOAD_LOG",&loadLogValue))){
+        loadLogValue = 0;
+    }
+    if(!(parser->ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
+        DirtyCacheHandling = 0;
+    }
+
+    if (loadLogValue == 0){
+        loadStoreLogging = false;
+    } else {
+        loadStoreLogging = true;
+    }
+
+    if(DirtyCacheHandling){
+        if(!IsLoadStoreLogging()){
+            ErrorExit(" DirtyCacheHandling is enabled without LoadStoreLogging "
+              ,MetasimError_FileOp);
+        }
+    }
+
+    inform << " LoadStoreLogging " << IsLoadStoreLogging() 
+      << " DirtyCacheHandling " << DirtyCacheHandling << ENDL;
+
+    // Get and Set the Cache Description File Name
+    GetAndSetCacheDescriptionFile(parser);
+}
+
+void CacheSimulationTool::LogFileName(AddressStreamStats* stats, string& oFile){
+    oFile.clear();
+    oFile.append(stats->Application);
+    oFile.append(".r");
+    AppendRankString(oFile);
+    oFile.append(".t");
+    AppendTasksString(oFile);
+    oFile.append(".");
+    oFile.append("memlog");
+}
+
+uint32_t CacheSimulationTool::ReadCacheDescription(istream& cacheStream, 
+  StringParser* parser){
+
+    bool streamResult = cacheStream.fail();
+    if (streamResult){
+        ErrorExit("cannot open cache descriptions file: " << 
+          GetCacheDescriptionFileName(), MetasimError_FileOp);
+    }
+
+    string line;
+    while (getline(cacheStream, line)){
+        if (parser->IsEmptyComment(line)){
+            continue;
+        }
+        CacheStructureHandler* c = new CacheStructureHandler();
+        c->SetParser(parser);
+        if (!c->Init(line, MinimumHighAssociativity, IsLoadStoreLogging(), 
+          DirtyCacheHandling)){
+            ErrorExit("cannot parse cache description line: " << line, 
+              MetasimError_StringParse);
+        }
+        assert(!(c->hybridCache) && "Hybrid cache deprecated");
+        handlers.push_back(c);
+    }
+    assert(handlers.size() > 0 && "No cache structures found for simulation");
+    return handlers.size();
+}
+
 void CacheSimulationTool::PrintApplicationHeader(ofstream& file, 
   DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
   uint64_t totalMemop, uint64_t sampledCount){
@@ -620,19 +738,6 @@ void CacheSimulationTool::PrintApplicationHeader(ofstream& file,
     file << ENDL;
 }
 
-void CacheSimulationTool::PrintSysidInfo(ofstream& file, 
-  CacheStats* c, set<image_key_t>::iterator iit){
-    file << "# sysid" << dec << c->SysId << " in image "
-      << hex << (*iit) << ENDL;
-}
-
-void CacheSimulationTool::PrintThreadidInfo(ofstream& file, thread_key_t thread, 
-  DataManager<AddressStreamStats*>* AllData){
-
-    file << "# Threadid: " << dec << AllData->GetThreadSequence(
-      thread) << TAB;
-}
-
 void CacheSimulationTool::PrintPerBlockCacheSimData(ofstream& MemFile, 
   DataManager<AddressStreamStats*>* AllData){
 
@@ -650,127 +755,17 @@ void CacheSimulationTool::PrintPerBlockCacheSimData(ofstream& MemFile,
     }
 };
 
-void CacheSimulationTool::CacheSimulationFileName(AddressStreamStats* stats, 
-  string& oFile){
-    oFile.clear();
-    const char* prefix = getenv(ENV_OUTPUT_PREFIX);
-    if(prefix != NULL) {
-        oFile.append(prefix);
-        oFile.append("/");
-    }
-    oFile.append(stats->Application);
-    oFile.append(".r");
-    AppendRankString(oFile);
-    oFile.append(".t");
-    AppendTasksString(oFile);
-    oFile.append(".");
-    oFile.append("cachesim");
+void CacheSimulationTool::PrintSysidInfo(ofstream& file, 
+  CacheStats* c, set<image_key_t>::iterator iit){
+    file << "# sysid" << dec << c->SysId << " in image "
+      << hex << (*iit) << ENDL;
 }
 
-void CacheSimulationTool::LogFileName(AddressStreamStats* stats, string& oFile){
-    oFile.clear();
-    oFile.append(stats->Application);
-    oFile.append(".r");
-    AppendRankString(oFile);
-    oFile.append(".t");
-    AppendTasksString(oFile);
-    oFile.append(".");
-    oFile.append("memlog");
-}
+void CacheSimulationTool::PrintThreadidInfo(ofstream& file, thread_key_t thread, 
+  DataManager<AddressStreamStats*>* AllData){
 
-string CacheSimulationTool::GetCacheDescriptionFile(StringParser* parser){
-    char* e = parser->GetEnv("METASIM_CACHE_DESCRIPTIONS");
-    string knobvalue;
-
-    if (e != NULL){
-        knobvalue = (string)e;
-    }
-
-    if (e == NULL || knobvalue.compare(0, 1, "$") == 0){
-        string str;
-        const char* freeenv = getenv(METASIM_ENV);
-        if (freeenv == NULL){
-            ErrorExit("default cache descriptions file requires that " 
-              METASIM_ENV " be set", MetasimError_Env);
-        }
-
-        str.append(freeenv);
-        str.append("/" DEFAULT_CACHE_FILE);
-
-        return str;
-    }
-    return knobvalue;
-}
-
-const char* CacheSimulationTool::HandleEnvVariables(uint32_t index, 
-  StringParser* parser, string& cachedf){
-    indexInStats = index;
-
-    // Can tinker with this at runtime using the environment variable
-    // METASIM_LIMIT_HIGH_ASSOC if desired.
-    uint32_t SaveHashMin = MinimumHighAssociativity;
-    bool flag = (parser->ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
-      &MinimumHighAssociativity));
-    if (!flag){
-        MinimumHighAssociativity = SaveHashMin;
-    }
-
-    uint32_t loadLogValue = 0;
-
-    if(!(parser->ReadEnvUint32("METASIM_LOAD_LOG",&loadLogValue))){
-        loadLogValue = 0;
-    }
-    if(!(parser->ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
-        DirtyCacheHandling = 0;
-    }
-
-    if (loadLogValue == 0){
-        loadStoreLogging = false;
-    } else {
-        loadStoreLogging = true;
-    }
-
-    if(DirtyCacheHandling){
-        if(!IsLoadStoreLogging()){
-            ErrorExit(" DirtyCacheHandling is enabled without LoadStoreLogging "
-              ,MetasimError_FileOp);
-        }
-    }
-
-    inform << " LoadStoreLogging " << IsLoadStoreLogging() 
-      << " DirtyCacheHandling " << DirtyCacheHandling << ENDL;
-
-    // read caches to simulate
-    cachedf = GetCacheDescriptionFile(parser);
-    return cachedf.c_str();
-}
-
-uint32_t CacheSimulationTool::ReadCacheDescription(istream& stream, 
-  StringParser* parser, string& cachedf){
-    bool streamResult = stream.fail();
-    if (streamResult){
-        ErrorExit("cannot open cache descriptions file: " << cachedf, 
-          MetasimError_FileOp);
-    }
-
-    string line;
-    while (getline(stream, line)){
-        if (parser->IsEmptyComment(line)){
-            continue;
-        }
-        CacheStructureHandler* c = new CacheStructureHandler();
-        c->SetParser(parser);
-        if (!c->Init(line, MinimumHighAssociativity, IsLoadStoreLogging(), 
-          DirtyCacheHandling)){
-            ErrorExit("cannot parse cache description line: " << line, 
-              MetasimError_StringParse);
-        }
-        assert(!(c->hybridCache) && "Hybrid cache deprecated");
-        handlers.push_back(c);
-    }
-    uint32_t CountCacheStructures = handlers.size();
-    assert(CountCacheStructures > 0 && "No cache structures found for simulation");
-    return handlers.size();
+    file << "# Threadid: " << dec << AllData->GetThreadSequence(
+      thread) << TAB;
 }
 
 CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, 
@@ -1404,11 +1399,13 @@ bool CacheLevel::GetDirtyStatus(uint32_t setid, uint32_t lineid, uint64_t
 }
 
 uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr, 
-        uint64_t loadstoreflag, bool* anyEvict, void* info) {
+  uint64_t loadstoreflag, bool* anyEvict, EvictionInfo* info) {
 
     uint32_t set = 0, lineInSet = 0;
-    uint64_t store = GetStorage(addr);
+    uint64_t store = GetStorage(addr); // First address in cache line
 
+    assert(store != 0); // If stored address is 0, then we can't tell if
+                        // it was a cold miss (initially it's 0)
     debug(assert(stats));
     debug(assert(stats->Stats));
     debug(assert(stats->Stats[memid]));
@@ -1433,12 +1430,16 @@ uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr,
     EvictionInfo* evicInfo = (EvictionInfo*)info; 
     stats->Stats[memid][level].missCount++;
     uint32_t line2rep = LineToReplace(set);
-    uint64_t evictedStore = Replace(store, set, line2rep,
+    uint64_t evictedAddr = Replace(store, set, line2rep,
       loadstoreflag);
     evicInfo->level = level;
-    evicInfo->addr = evictedStore;
+    evicInfo->addr = evictedAddr;
     evicInfo->setid = set;
     evicInfo->lineid = line2rep;
+    if (evictedAddr)  // cold miss if addr is 0
+        evicInfo->coldMiss = false;
+    else
+        evicInfo->coldMiss = true;
     //*anyEvict = true; // TODO On a cold miss, we technically aren't evicting, 
     //toEvict = true; 
 
@@ -1466,7 +1467,7 @@ uint32_t CacheLevel::EvictProcess(CacheStats* stats, uint32_t memid,
 }
 
 uint32_t ExclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid, 
-  uint64_t addr, uint64_t loadstoreflag, bool* anyEvict, void* info){
+  uint64_t addr, uint64_t loadstoreflag, bool* anyEvict, EvictionInfo* info){
 
     uint32_t set = 0;
     uint32_t lineInSet = 0;
@@ -1547,7 +1548,7 @@ uint32_t ExclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
 }
 
 uint32_t NonInclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid, 
-  uint64_t addr, uint64_t loadstoreflag, bool* anyEvict, void* info){
+  uint64_t addr, uint64_t loadstoreflag, bool* anyEvict, EvictionInfo* info){
 
     uint32_t set = 0;
     uint32_t lineInSet = 0;
@@ -2047,6 +2048,7 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
     hybridCache = 0;
 
 
+
     // Parse the cache description line
     // First token is the sysid
     if(!(tokenizer >> token)) 
@@ -2081,8 +2083,13 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
         while (!(isdigit(nextChar)) && nextChar != EOF) {
             if (!(tokenizer >> token))
                 return false;
-            if (parser->IsEmptyComment(token))
-                return false;
+            // if not last level and a comment, then bad token
+            if (parser->IsEmptyComment(token)) {
+                if (levelId == levelCount - 1)
+                    break;
+                else
+                    return false;
+            }
             tokenizer >> std::ws;
             nextChar = tokenizer.peek();
         }
@@ -2127,7 +2134,7 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
     while (next < levelCount){
         resLevel = next;
         next = levels[next]->Process(stats, memseq, victim, loadstoreflag,
-          &anyEvict,(void*)(&evictInfo));
+          &anyEvict,&evictInfo);
         //if(next != 0) loadstoreflag = 1; //commented out for better reporting for what we want
         // If next level is checked, then it should be a miss from current 
         // level, which implies next operation is a load to a next level!!

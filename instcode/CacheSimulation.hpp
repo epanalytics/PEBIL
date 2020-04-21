@@ -64,6 +64,7 @@ struct EvictionInfo {
     uint32_t level;
     uint32_t setid;
     uint32_t lineid;
+    bool coldMiss;
 };
 
 struct LevelStats {
@@ -99,30 +100,32 @@ class CacheSimulationTool : public AddressStreamTool {
     CacheSimulationTool() : AddressStreamTool() {}
     virtual void AddNewHandlers(AddressStreamStats* stats);
     virtual void AddNewStreamStats(AddressStreamStats* stats);
+    void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
     virtual uint32_t CreateHandlers(uint32_t index, StringParser* parser);
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
       SamplingMethod* Sampler);
-    void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
-    void LogFileName(AddressStreamStats* stats, std::string& oFile);
-
-    std::string GetCacheDescriptionFile(StringParser* parser);
+    std::string GetCacheDescriptionFileName() { return CacheDescriptionFile; }
+    void GetAndSetCacheDescriptionFile(StringParser* parser);
+    virtual void HandleEnvVariables(StringParser* parser);
     bool IsLoadStoreLogging() { return loadStoreLogging; }
-    const char* HandleEnvVariables(uint32_t index, StringParser* parser, 
-      std::string& cachedf);
-    uint32_t ReadCacheDescription(std::istream& stream, StringParser* parser,
-      std::string& cachedf);
+    void LogFileName(AddressStreamStats* stats, std::string& oFile);
+    virtual uint32_t ReadCacheDescription(std::istream& cacheStream, 
+      StringParser* parser);
+
+    void SetCacheDescriptionFileName(std::string f) {CacheDescriptionFile = f;}
 
   protected:
+    std::string CacheDescriptionFile;
     uint32_t MinimumHighAssociativity = 256;
     bool loadStoreLogging = false;
     uint32_t DirtyCacheHandling = 0;
     void PrintApplicationHeader(std::ofstream& file, 
       DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
       uint64_t totalMemop, uint64_t sampledCount);
+    void PrintPerBlockCacheSimData(std::ofstream& file,
+      DataManager<AddressStreamStats*>* AllData);
     void PrintSysidInfo(std::ofstream& file, CacheStats* c, std::set<image_key_t>::iterator iit);
     void PrintThreadidInfo(std::ofstream& file, thread_key_t thread, 
-      DataManager<AddressStreamStats*>* AllData);
-    void PrintPerBlockCacheSimData(std::ofstream& file,
       DataManager<AddressStreamStats*>* AllData);
 };
 
@@ -258,7 +261,7 @@ public:
     // re-implemented by Exclusive/InclusiveCacheLevel
     virtual bool IsExclusive() { return false; }
     virtual uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, 
-      uint64_t loadstoreflag, bool* anyEvict, void* info);
+      uint64_t loadstoreflag, bool* anyEvict, EvictionInfo* info);
     virtual uint32_t EvictProcess(CacheStats* stats, uint32_t memid, uint64_t 
       addr, uint64_t loadstoreflag, void* info);    
 
@@ -311,7 +314,8 @@ public:
     uint32_t LastExclusive;
 
     ExclusiveCacheLevel() {}
-    uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr,uint64_t loadstoreflag,bool* anyEvict,void* info);
+    uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t
+      loadstoreflag, bool* anyEvict, EvictionInfo* info);
     virtual void Init (CacheLevel_Init_Interface, uint32_t firstExcl, uint32_t lastExcl){
         CacheLevel::Init(CacheLevel_Init_Arguments);
         type = CacheLevelType_ExclusiveLowassoc;
@@ -334,7 +338,7 @@ public:
     }
     bool IsExclusive() { return false; }
     uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t
-      loadstoreflag,bool* anyEvict,void* info);
+      loadstoreflag, bool* anyEvict, EvictionInfo* info);
     virtual const char* TypeString() { return "exclusive"; }
 };
 
@@ -412,7 +416,7 @@ public:
     CacheStructureHandler();
     CacheStructureHandler(CacheStructureHandler& h);
     ~CacheStructureHandler();
-    bool Init(std::string desc, uint32_t MinimumHighAssociativity, bool 
+    virtual bool Init(std::string desc, uint32_t MinimumHighAssociativity, bool 
       doLoadStore, uint32_t DirtyCacheHandling);
 
     CacheLevel* GetCacheLevel(uint32_t lvl) { return levels[lvl]; } //0-indexed
