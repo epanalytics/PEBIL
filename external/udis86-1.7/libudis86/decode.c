@@ -1406,7 +1406,7 @@ decode_modrm_rm(struct ud* u,
   op->position = modrm->position;
 
   unsigned char mod, rm;
-  PEBIL_DEBUG("\tdecode_modrm_rm: size = %d, type = %u, modrm_byte = %u", size, type, modrm_byte);
+  PEBIL_DEBUG("\tdecode_modrm_rm: size = %d, type = %u, modrm_byte = %x", size, type, modrm_byte);
 
 
   /* get mod, r/m and reg fields */

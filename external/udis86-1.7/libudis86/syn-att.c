@@ -65,7 +65,7 @@ gen_operand(struct ud* u, struct ud_operand* op)
 		if (op->index) {
 			if (op->base)
 				mkasm(u, ",");
-			else mkasm(u, "(");
+			else mkasm(u, "(,");
 			mkasm(u, "%%%s", ud_reg_tab[op->index - UD_R_AL]);
 		}
 		if (op->scale)
