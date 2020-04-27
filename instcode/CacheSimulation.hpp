@@ -35,10 +35,8 @@ class CacheStats;
 enum CacheLevelType {
     CacheLevelType_Undefined,
     CacheLevelType_InclusiveLowassoc,
-    CacheLevelType_ExclusiveLowassoc,
     CacheLevelType_NonInclusiveLowassoc,
     CacheLevelType_InclusiveHighassoc,
-    CacheLevelType_ExclusiveHighassoc,
     CacheLevelType_Total
 };
 
@@ -135,10 +133,8 @@ public:
     uint32_t LevelCount;
     uint32_t SysId;
     LevelStats** Stats; // indexed by [memid][level]
-    LevelStats* HybridMemStats; // indexed by [memid]
     MainMemory** mainMemoryStats; // indexed by [memid]
     uint32_t Capacity;
-    uint32_t hybridCache;
     CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
       hybridCache);
     ~CacheStats();
@@ -149,51 +145,35 @@ public:
     void NewMem(uint32_t memid);
 
     void Hit(uint32_t memid, uint32_t lvl);
-    void HybridHit(uint32_t memid);
 
     void Miss(uint32_t memid, uint32_t lvl);
-    void HybridMiss(uint32_t memid);
 
     void Hit(uint32_t memid, uint32_t lvl, uint32_t cnt);
-    void HybridHit(uint32_t memid, uint32_t cnt);
 
     void Miss(uint32_t memid, uint32_t lvl, uint32_t cnt);
-    void HybridMiss(uint32_t memid,uint32_t cnt);
 
     void Load(uint32_t memid,uint32_t lvl);
     void Load(uint32_t memid, uint32_t lvl, uint32_t cnt);
-    void HybridLoad(uint32_t memid);
-    void HybridLoad(uint32_t memid,uint32_t cnt); //  void HybridLoads(uint32_t memid, uint32_t cnt);
    
     void Store(uint32_t memid,uint32_t lvl);
     void Store(uint32_t memid, uint32_t lvl, uint32_t cnt);
-    void HybridStore(uint32_t memid);
-    void HybridStore(uint32_t memid,uint32_t cnt);//    void HybridStores(uint32_t memid, uint32_t cnt);
  
     uint64_t GetLoads(uint32_t memid, uint32_t lvl);
     uint64_t GetLoads(uint32_t lvl);
-    uint64_t GetHybridLoads(uint32_t memid);
-    uint64_t GetHybridLoads();
     
     uint64_t GetStores(uint32_t memid, uint32_t lvl);
     uint64_t GetStores(uint32_t lvl);    
-    uint64_t GetHybridStores(uint32_t memid);
-    uint64_t GetHybridStores();    
 
     static float GetHitRate(LevelStats* stats);
     static float GetHitRate(uint64_t hits, uint64_t misses);
 
     uint64_t GetHits(uint32_t memid, uint32_t lvl);
-    uint64_t GetHybridHits(uint32_t memid);
 
     uint64_t GetHits(uint32_t lvl);
-    uint64_t GetHybridHits();
     
     uint64_t GetMisses(uint32_t memid, uint32_t lvl);
-    uint64_t GetHybridMisses(uint32_t memid);
 
     uint64_t GetMisses(uint32_t lvl);
-    uint64_t GetHybridMisses();
 
     LevelStats* GetLevelStats(uint32_t memid, uint32_t lvl);
     uint64_t GetAccessCount(uint32_t memid);
@@ -308,24 +288,6 @@ public:
     virtual const char* TypeString() { return "inclusive"; }
 };
 
-class ExclusiveCacheLevel : public virtual CacheLevel {
-public:
-    uint32_t FirstExclusive;
-    uint32_t LastExclusive;
-
-    ExclusiveCacheLevel() {}
-    uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t
-      loadstoreflag, bool* anyEvict, EvictionInfo* info);
-    virtual void Init (CacheLevel_Init_Interface, uint32_t firstExcl, uint32_t lastExcl){
-        CacheLevel::Init(CacheLevel_Init_Arguments);
-        type = CacheLevelType_ExclusiveLowassoc;
-        FirstExclusive = firstExcl;
-        LastExclusive = lastExcl;
-    }
-    bool IsExclusive() { return true; }
-    virtual const char* TypeString() { return "exclusive"; }
-};
-
 class NonInclusiveCacheLevel : public virtual CacheLevel {
 public:
     uint32_t FirstExclusive;
@@ -371,26 +333,11 @@ public:
     const char* TypeString() { return "inclusive_H"; }
 };
 
-class HighlyAssociativeExclusiveCacheLevel : public ExclusiveCacheLevel, public HighlyAssociativeCacheLevel {
-public:
-    HighlyAssociativeExclusiveCacheLevel() {}
-    virtual void Init (CacheLevel_Init_Interface, uint32_t firstExcl, uint32_t lastExcl){
-        ExclusiveCacheLevel::Init(CacheLevel_Init_Arguments, firstExcl, lastExcl);
-        HighlyAssociativeCacheLevel::Init(CacheLevel_Init_Arguments);
-        type = CacheLevelType_ExclusiveHighassoc;
-    }
-    const char* TypeString() { return "exclusive_H"; }
-};
-
 class CacheStructureHandler : public MemoryStreamHandler {
-public:
-    uint32_t hybridCache;   // Deprecated
   protected: 
 
     uint32_t sysId;
     uint32_t levelCount;
-    //uint64_t* RamAddressStart;
-    //uint64_t* RamAddressEnd;    
 
     CacheLevel** levels;
     //std::string description;
@@ -403,7 +350,7 @@ public:
 
     uint64_t hits;
     uint64_t misses;
-    uint64_t AddressRangesCount;
+    //uint64_t AddressRangesCount;
     StringParser* parser;
     std::vector<uint64_t>* toEvictAddresses;
     uint32_t processAddress(void* stats, uint64_t address, uint64_t memseq, 
