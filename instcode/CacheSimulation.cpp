@@ -59,7 +59,8 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
         stats->Stats[indexInStats + i] = new CacheStats(currHandler->
           GetNumberOfCacheLevels(), currHandler->GetSysId(), stats->AllocCount, 
           false);
-        CacheStats* cacheStats = (CacheStats*)stats->Stats[indexInStats + i];
+        CacheStats* cacheStats = (CacheStats*)stats->Stats[indexInStats 
+          + i];
         cacheStats->InitMainMemoryStats(currHandler);
     }
 }
@@ -111,7 +112,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     string lFile;
     const char* logName;
 
-    if(IsLoadStoreLogging()){
+    if(IsKeepingMemoryLog()){
         // dump MainMemoryLogging results
         LogFileName(stats, lFile);
         logName = lFile.c_str();
@@ -159,7 +160,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     }
 
     PrintApplicationHeader(MemFile, AllData, Sampler, totalMemop, sampledCount);
-    if(IsLoadStoreLogging()){
+    if(IsKeepingMemoryLog()){
         PrintApplicationHeader(LogFile, AllData, Sampler, totalMemop, sampledCount);
     }
         
@@ -188,14 +189,14 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
                 if (first){
                     PrintSysidInfo(MemFile, c, iit);
-                    if(IsLoadStoreLogging()){
+                    if(IsKeepingMemoryLog()){
                         PrintSysidInfo(LogFile, c, iit);
                     }
                     first = false;
                 }
 
                 PrintThreadidInfo(MemFile, thread, AllData);
-                if(IsLoadStoreLogging()){
+                if(IsKeepingMemoryLog()){
                     PrintThreadidInfo(LogFile, thread, AllData);
                 }
 
@@ -208,39 +209,47 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                       << "(" << CacheStats::GetHitRate(h, m) << ")] ";
                 }
 
-                if(IsLoadStoreLogging()){
-                    MemFile<<"\n# Load store stats ";
+                MemFile<<"\n# Load store stats ";
+                if(IsKeepingMemoryLog())
                     LogFile<<"Load store stats ";
-                    for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
-                        uint64_t l = c->GetLoads(lvl);
-                        uint64_t s = c->GetStores(lvl);
-                        uint64_t t = l + s;
-                        double ratio=0.0f;
-                        if(t!=0)
-                          ratio= (double) l/t;
-                        MemFile << " l" << dec << lvl << "[" << l << "/" 
-                          << t << "(" << (ratio)<<")] ";
+                for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
+                    uint64_t l = c->GetLoads(lvl);
+                    uint64_t s = c->GetStores(lvl);
+                    uint64_t t = l + s;
+                    double ratio=0.0f;
+                    if(t!=0)
+                      ratio= (double) l/t;
+                    MemFile << " l" << dec << lvl << "[" << l << "/" 
+                      << t << "(" << (ratio)<<")] ";
+                    if(IsKeepingMemoryLog())
                         LogFile << " l" << dec << lvl << "[" << l << "/" 
                           << t << "(" << (ratio)<<")] ";
-                    }                                   
+                }
+                if(IsKeepingMemoryLog()) {
                     LogFile << ENDL << "#" << TAB;
-                    LogFile << "SetCount: " << dec << c->mainMemoryStats[0]->numOfSets
-                      << TAB << "LineCount: " << dec << c->mainMemoryStats[0]->numOfLinesInSet;
+                    LogFile << "SetCount: " << dec << 
+                      c->mainMemoryStats[0]->numOfSets << TAB << "LineCount: " 
+                      << dec << c->mainMemoryStats[0]->numOfLinesInSet;
                 }
 
                 MemFile << ENDL;
-                if(IsLoadStoreLogging()){
+                if(IsKeepingMemoryLog()){
                     LogFile << ENDL;
                 }
             } // for each data manager
         } // for each image
         MemFile << ENDL;
-        if(IsLoadStoreLogging()){
+        if(IsKeepingMemoryLog()){
             LogFile << ENDL;
         }
     } // for each cache structure
 
-    PrintPerBlockCacheSimData(MemFile, AllData);
+//    PrintPerBlockCacheSimData(MemFile, AllData);
+    MemFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
+      << TAB << "ImageSequence" << TAB << "ThreadId " << ENDL;        
+    MemFile << "# " << TAB << "SysId" << TAB << "Level" << TAB 
+      << "HitCount" << TAB << "MissCount" << TAB << "LoadCount" << TAB 
+      << "StoreCount" << ENDL;
 
     for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
       iit != AllData->allimages.end(); iit++) {
@@ -271,9 +280,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
 
                 aggstats[sys] = c;
 
-                for (uint32_t memid = 0; memid < st->AllocCount; 
-                        memid++){
-
+                for (uint32_t memid = 0; memid < st->AllocCount; memid++){
                     uint32_t bbid;
                     if (st->PerInstruction){
                         bbid = memid;
@@ -282,41 +289,48 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     }
 
                     for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++) {
-
                         c->Hit(bbid, lvl, s->GetHits(memid, lvl));
                         c->Miss(bbid, lvl, s->GetMisses(memid, lvl));
-
-                        if(IsLoadStoreLogging()){
-                            c->Load(bbid, lvl, s->GetLoads(memid, lvl));
-                            c->Store(bbid, lvl, s->GetStores(memid, lvl));
-                        }
+                        c->Load(bbid, lvl, s->GetLoads(memid, lvl));
+                        c->Store(bbid, lvl, s->GetStores(memid, lvl));
                     } // for each cache level
 
-                    if(IsLoadStoreLogging()){
+                    if(IsKeepingMemoryLog()){
                         if( c->mainMemoryStats[0]->numOfLinesInSet > 1) {
-                            for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
-                                for(int j=0;j<c->mainMemoryStats[0]->numOfLinesInSet;j++){
-                                    NestedHash* CreadInsMap = c->mainMemoryStats[bbid]->readInsMap; 
-                                    NestedHash* CwriteOutsMap = c->mainMemoryStats[bbid]->writeOutsMap;
-                                    NestedHash* SreadInsMap = s->mainMemoryStats[memid]->readInsMap; 
-                                    NestedHash* SwriteOutsMap = s->mainMemoryStats[memid]->writeOutsMap;
+                            for(int i = 0; i < c->mainMemoryStats[0]->numOfSets;
+                              i++){
+                                for(int j = 0; j < 
+                                  c->mainMemoryStats[0]->numOfLinesInSet; j++){
+                                    NestedHash* CreadInsMap = 
+                                      c->mainMemoryStats[bbid]->readInsMap; 
+                                    NestedHash* CwriteOutsMap = 
+                                      c->mainMemoryStats[bbid]->writeOutsMap;
+                                    NestedHash* SreadInsMap = 
+                                      s->mainMemoryStats[memid]->readInsMap; 
+                                    NestedHash* SwriteOutsMap = 
+                                      s->mainMemoryStats[memid]->writeOutsMap;
                                     
-                                    uint32_t toAddRead = SreadInsMap->get(i,j);
-                                    uint32_t toAddWrite = SwriteOutsMap->get(i,j);
+                                    uint32_t toAddRead = SreadInsMap->get(i, j);
+                                    uint32_t toAddWrite = SwriteOutsMap->get(i,
+                                      j);
                                     if (toAddRead > 0){
-                                        CreadInsMap->put(i,j,toAddRead);
+                                        CreadInsMap->put(i, j, toAddRead);
                                     }
                                     if (toAddWrite > 0){
-                                        CwriteOutsMap->put(i,j,toAddWrite);
+                                        CwriteOutsMap->put(i, j, toAddWrite);
                                     }
                                 }
                             }
                         } else {
                             for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
-                                EasyHash* CdirInsMap = c->mainMemoryStats[bbid]->dirInsMap;
-                                EasyHash* CdirOutsMap = c->mainMemoryStats[bbid]->dirOutsMap;
-                                EasyHash* SdirInsMap = s->mainMemoryStats[memid]->dirInsMap;
-                                EasyHash* SdirOutsMap = s->mainMemoryStats[memid]->dirOutsMap;
+                                EasyHash* CdirInsMap = 
+                                  c->mainMemoryStats[bbid]->dirInsMap;
+                                EasyHash* CdirOutsMap = 
+                                  c->mainMemoryStats[bbid]->dirOutsMap;
+                                EasyHash* SdirInsMap = 
+                                  s->mainMemoryStats[memid]->dirInsMap;
+                                EasyHash* SdirOutsMap = 
+                                  s->mainMemoryStats[memid]->dirOutsMap;
 
                                 uint32_t toAddRead = SdirInsMap->get(i);
                                 uint32_t toAddWrite = SdirOutsMap->get(i);
@@ -343,7 +357,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
             CacheStats* root = aggstats[0];
             uint32_t MaxCapacity = root->Capacity;
 
-            if(IsLoadStoreLogging()) {
+            if(IsKeepingMemoryLog()) {
                 LogFile << "#" << TAB << "BLK" << TAB << "BLKID" << TAB << "BLK HASH"
                   << TAB << "ImageSequence" << TAB << "ThreadSequence" 
                   TAB << "SYSID1:MISSES" << TAB << "SYSID2:MISSES ..." << ENDL;
@@ -390,7 +404,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                   << TAB << dec << AllData->GetThreadSequence(st->threadid)
                   << ENDL;
 
-                if(IsLoadStoreLogging()){
+                if(IsKeepingMemoryLog()){
                     LogFile << "BLK" << TAB << dec << bbid
                       << TAB << hex << st->Hashes[bbid]
                       << TAB << dec << AllData->GetImageSequence((*iit))
@@ -423,31 +437,23 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     }
 
                     for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
-                        if(IsLoadStoreLogging()){
-                            MemFile << TAB << dec << c->SysId;
-                            MemFile << TAB << dec << (lvl+1);
-                            MemFile << TAB << dec << c->GetHits(bbid, lvl)
-                              << TAB << dec << c->GetMisses(bbid, lvl)
-                              << TAB << dec << c->GetLoads(bbid,lvl)
-                              << TAB << dec << c->GetStores(bbid,lvl)
-                              << ENDL;  
-                        } else {
-                            MemFile << TAB << dec << c->SysId
-                              << TAB << dec << (lvl+1)
-                              << TAB << dec << c->GetHits(bbid, lvl)
-                              << TAB << dec << c->GetMisses(bbid, lvl)
-                              << ENDL;
-                        }
-                    }
-                    if (IsLoadStoreLogging()) {
                         MemFile << TAB << dec << c->SysId;
-                        MemFile << TAB << "M"
-                          << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
-                          << TAB << dec << 0
-                          << TAB << dec << c->mainMemoryStats[bbid]->GetLoads()
-                          << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
-                          << ENDL; 
+                        MemFile << TAB << dec << (lvl+1);
+                        MemFile << TAB << dec << c->GetHits(bbid, lvl)
+                          << TAB << dec << c->GetMisses(bbid, lvl)
+                          << TAB << dec << c->GetLoads(bbid,lvl)
+                          << TAB << dec << c->GetStores(bbid,lvl)
+                          << ENDL;  
+                    }
+                    MemFile << TAB << dec << c->SysId;
+                    MemFile << TAB << "M"
+                      << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
+                      << TAB << dec << 0
+                      << TAB << dec << c->mainMemoryStats[bbid]->GetLoads()
+                      << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
+                      << ENDL; 
 
+                    if (IsKeepingMemoryLog()) {
                         uint32_t numOfSets = c->mainMemoryStats[bbid]->numOfSets;
                         uint32_t numOfLines = c->mainMemoryStats[bbid]->numOfLinesInSet;
                         NestedHash* readInsMap;
@@ -551,10 +557,10 @@ void CacheSimulationTool::GetAndSetCacheDescriptionFile(StringParser* parser){
     CacheDescriptionFile = knobvalue;
 }
 
+// Read variables from the environment
 void CacheSimulationTool::HandleEnvVariables(StringParser* parser){
 
-    // Can tinker with this at runtime using the environment variable
-    // METASIM_LIMIT_HIGH_ASSOC if desired.
+    // When to switch to highly associative cache level
     uint32_t SaveHashMin = MinimumHighAssociativity;
     bool flag = (parser->ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
       &MinimumHighAssociativity));
@@ -562,30 +568,25 @@ void CacheSimulationTool::HandleEnvVariables(StringParser* parser){
         MinimumHighAssociativity = SaveHashMin;
     }
 
-    uint32_t loadLogValue = 0;
-
-    if(!(parser->ReadEnvUint32("METASIM_LOAD_LOG",&loadLogValue))){
-        loadLogValue = 0;
+    // Should the caches keep track of which lines are dirty?
+    uint32_t dirtyStatusCheck = 0;
+    if(!(parser->ReadEnvUint32("METASIM_DIRTY_CACHE", &dirtyStatusCheck))){
+        dirtyStatusCheck = 0;
     }
-    if(!(parser->ReadEnvUint32("METASIM_DIRTY_CACHE",&DirtyCacheHandling))){
-        DirtyCacheHandling = 0;
-    }
+    if (dirtyStatusCheck)
+        TrackDirtyStatus = true;
 
-    if (loadLogValue == 0){
-        loadStoreLogging = false;
-    } else {
-        loadStoreLogging = true;
+    // Should we print a memory log (what parts of memory were read/written - 
+    // Note that if dirty cache is OFF, all stores will be considered as writes)
+    uint32_t memoryLogCheck = 0;
+    if(!(parser->ReadEnvUint32("METASIM_MEMORY_LOG", &memoryLogCheck))){
+        memoryLogCheck = 0;
     }
+    if (memoryLogCheck)
+        KeepMemoryLog = true;
 
-    if(DirtyCacheHandling){
-        if(!IsLoadStoreLogging()){
-            ErrorExit(" DirtyCacheHandling is enabled without LoadStoreLogging "
-              ,MetasimError_FileOp);
-        }
-    }
-
-    inform << " LoadStoreLogging " << IsLoadStoreLogging() 
-      << " DirtyCacheHandling " << DirtyCacheHandling << ENDL;
+    inform << "Memory Log " << KeepMemoryLog << " Dirty Status "
+      << TrackDirtyStatus << ENDL;
 
     // Get and Set the Cache Description File Name
     GetAndSetCacheDescriptionFile(parser);
@@ -616,10 +617,9 @@ uint32_t CacheSimulationTool::ReadCacheDescription(istream& cacheStream,
         if (parser->IsEmptyComment(line)){
             continue;
         }
-        CacheStructureHandler* c = new CacheStructureHandler();
+        CacheStructureHandler* c = new CacheStructureHandler(this);
         c->SetParser(parser);
-        if (!c->Init(line, MinimumHighAssociativity, IsLoadStoreLogging(), 
-          DirtyCacheHandling)){
+        if (!c->Init(line)){
             ErrorExit("cannot parse cache description line: " << line, 
               MetasimError_StringParse);
         }
@@ -657,7 +657,7 @@ void CacheSimulationTool::PrintApplicationHeader(ofstream& file,
       << "# countthread   = " << dec << AllData->CountThreads() << ENDL
       << "# masterthread  = " << hex << AllData->GetThreadSequence(
       pthread_self()) << ENDL 
-      << "# LoadStoreLogging = " << dec << IsLoadStoreLogging() << ENDL
+      << "# LoadStoreLogging = " << dec << true << ENDL
       << ENDL;
 
     // Print information for each image
@@ -679,19 +679,11 @@ void CacheSimulationTool::PrintApplicationHeader(ofstream& file,
 
 void CacheSimulationTool::PrintPerBlockCacheSimData(ofstream& MemFile, 
   DataManager<AddressStreamStats*>* AllData){
-
-    // Finally, going to print per-block cache simulation data. 
-    // First, the header
     MemFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
       << TAB << "ImageSequence" << TAB << "ThreadId " << ENDL;        
-    if(IsLoadStoreLogging()) {
-        MemFile << "# " << TAB << "SysId" << TAB << "Level" << TAB 
-          << "HitCount" << TAB << "MissCount" << TAB << "LoadCount" << TAB 
-          << "StoreCount" << ENDL;
-    } else {
-        MemFile<< "# " << TAB << "SysId" << TAB << "Level" << TAB << 
-          "HitCount" << TAB << "MissCount" << ENDL;   
-    }
+    MemFile << "# " << TAB << "SysId" << TAB << "Level" << TAB 
+      << "HitCount" << TAB << "MissCount" << TAB << "LoadCount" << TAB 
+      << "StoreCount" << ENDL;
 };
 
 void CacheSimulationTool::PrintSysidInfo(ofstream& file, 
@@ -714,7 +706,7 @@ CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity,
     Capacity = capacity;
     mainMemoryStats = new MainMemory*[Capacity];
 
-    Stats = new LevelStats*[Capacity];
+    levelStats = new LevelStats*[Capacity];
 
     for (uint32_t i = 0; i < Capacity; i++){
         NewMem(i);
@@ -723,16 +715,16 @@ CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity,
 }
 
 CacheStats::~CacheStats(){
-    if (Stats){
+    if (levelStats){
         for (uint32_t i = 0; i < Capacity; i++){
-            if (Stats[i]){
-                delete[] Stats[i];
+            if (levelStats[i]){
+                delete[] levelStats[i];
             }
             /*if (mainMemoryStats[i]){
                 delete mainMemoryStats[i];
             }*/
         }
-        delete[] Stats;
+        delete[] levelStats;
         //delete[] mainMemoryStats;
     }
 }
@@ -765,10 +757,10 @@ void CacheStats::ExtendCapacity(uint32_t newSize){
     LevelStats** nn = new LevelStats*[newSize];
 
     memset(nn, 0, sizeof(LevelStats*) * newSize);
-    memcpy(nn, Stats, sizeof(LevelStats*) * Capacity);
+    memcpy(nn, levelStats, sizeof(LevelStats*) * Capacity);
 
-    delete[] Stats;
-    Stats = nn;
+    delete[] levelStats;
+    levelStats = nn;
 }
 
 void CacheStats::NewMem(uint32_t memid){
@@ -776,7 +768,7 @@ void CacheStats::NewMem(uint32_t memid){
 
     LevelStats* mem = new LevelStats[LevelCount];
     memset(mem, 0, sizeof(LevelStats) * LevelCount);
-    Stats[memid] = mem;
+    levelStats[memid] = mem;
 }
 
 void CacheStats::Load(uint32_t memid, uint32_t lvl){
@@ -784,7 +776,7 @@ void CacheStats::Load(uint32_t memid, uint32_t lvl){
 }
 
 void CacheStats::Load(uint32_t memid, uint32_t lvl, uint32_t cnt){
-    Stats[memid][lvl].loadCount += cnt;
+    levelStats[memid][lvl].loadCount += cnt;
 }
 
 void CacheStats::Store(uint32_t memid, uint32_t lvl){
@@ -792,29 +784,29 @@ void CacheStats::Store(uint32_t memid, uint32_t lvl){
 }
 
 void CacheStats::Store(uint32_t memid, uint32_t lvl, uint32_t cnt){
-    Stats[memid][lvl].storeCount += cnt;
+    levelStats[memid][lvl].storeCount += cnt;
 }
 
 uint64_t CacheStats::GetLoads(uint32_t memid, uint32_t lvl){
-    return Stats[memid][lvl].loadCount;
+    return levelStats[memid][lvl].loadCount;
 }
 
 uint64_t CacheStats::GetLoads(uint32_t lvl){
     uint64_t loads = 0;
     for (uint32_t i = 0; i < Capacity; i++){
-        loads += Stats[i][lvl].loadCount;
+        loads += levelStats[i][lvl].loadCount;
     }
     return loads;
 }
 
 uint64_t CacheStats::GetStores(uint32_t memid, uint32_t lvl){
-    return Stats[memid][lvl].storeCount;
+    return levelStats[memid][lvl].storeCount;
 }
 
 uint64_t CacheStats::GetStores(uint32_t lvl){
     uint64_t stores = 0;
     for (uint32_t i = 0; i < Capacity; i++){
-        stores += Stats[i][lvl].storeCount;
+        stores += levelStats[i][lvl].storeCount;
     }
     return stores;
 }
@@ -828,34 +820,34 @@ void CacheStats::Miss(uint32_t memid, uint32_t lvl){
 }
 
 void CacheStats::Miss(uint32_t memid, uint32_t lvl, uint32_t cnt){
-    Stats[memid][lvl].missCount += cnt;
+    levelStats[memid][lvl].missCount += cnt;
 }
 
 void CacheStats::Hit(uint32_t memid, uint32_t lvl, uint32_t cnt){
-    Stats[memid][lvl].hitCount += cnt;
+    levelStats[memid][lvl].hitCount += cnt;
 }
 
 
 uint64_t CacheStats::GetHits(uint32_t memid, uint32_t lvl){
-    return Stats[memid][lvl].hitCount;
+    return levelStats[memid][lvl].hitCount;
 }
 
 uint64_t CacheStats::GetHits(uint32_t lvl){
     uint64_t hits = 0;
     for (uint32_t i = 0; i < Capacity; i++){
-        hits += Stats[i][lvl].hitCount;
+        hits += levelStats[i][lvl].hitCount;
     }
     return hits;
 }
 
 uint64_t CacheStats::GetMisses(uint32_t memid, uint32_t lvl){
-    return Stats[memid][lvl].missCount;
+    return levelStats[memid][lvl].missCount;
 }
 
 uint64_t CacheStats::GetMisses(uint32_t lvl){
     uint64_t hits = 0;
     for (uint32_t i = 0; i < Capacity; i++){
-        hits += Stats[i][lvl].missCount;
+        hits += levelStats[i][lvl].missCount;
     }
     return hits;
 }
@@ -864,14 +856,14 @@ bool CacheStats::HasMemId(uint32_t memid){
     if (memid >= Capacity){
         return false;
     }
-    if (Stats[memid] == NULL){
+    if (levelStats[memid] == NULL){
         return false;
     }
     return true;
 }
 
 LevelStats* CacheStats::GetLevelStats(uint32_t memid, uint32_t lvl){
-    return &(Stats[memid][lvl]);
+    return &(levelStats[memid][lvl]);
 }
 
 uint64_t CacheStats::GetAccessCount(uint32_t memid){
@@ -899,14 +891,49 @@ float CacheStats::GetCumulativeHitRate(uint32_t memid, uint32_t lvl){
     return ((float)hits / (float)GetAccessCount(memid));
 }
 
+// Update levelStats[memid][lvl] with hit (or miss) and load (or store)
+void CacheStats::UpdateLevelStats(uint32_t memid, uint32_t lvl, bool hit, 
+  bool load) {
+    debug(assert(levelStats));
+    debug(assert(levelStats[memid]));
+
+    if(hit)
+        levelStats[memid][lvl].hitCount++;
+    else
+        levelStats[memid][lvl].missCount++;
+
+    if(load)
+        levelStats[memid][lvl].loadCount++;
+    else
+        levelStats[memid][lvl].storeCount++;
+
+}
+
+// Update mainMemoryStats[memid] with load (or store) to/from set/line in 
+// memory
+void CacheStats::UpdateMainMemoryStats(uint32_t memid, uint32_t set, uint32_t
+  line, bool load) { 
+    if (mainMemoryStats[memid]->sizeOfLine > 1) {
+        if(load) 
+            mainMemoryStats[memid]->readInsMap->put(set, line, 1);
+        else
+            mainMemoryStats[memid]->writeOutsMap->put(set, line, 1);
+    } else {
+        if(load)
+            mainMemoryStats[memid]->dirInsMap->add(set, 1);
+        else
+            mainMemoryStats[memid]->dirOutsMap->add(set, 1);
+    }
+}
+
 bool CacheStats::Verify(){
     for(uint32_t memid = 0; memid < Capacity; ++memid){
 
-        uint64_t prevMisses = Stats[memid][0].missCount;
+        uint64_t prevMisses = levelStats[memid][0].missCount;
 
         for(uint32_t level = 1; level < LevelCount; ++level){
-            uint64_t hits = Stats[memid][level].hitCount;
-            uint64_t misses = Stats[memid][level].missCount;
+            uint64_t hits = levelStats[memid][level].hitCount;
+            uint64_t misses = levelStats[memid][level].missCount;
             if(hits + misses != prevMisses){
                 warn << "Inconsistent hits/misses for memid " << memid << 
                   " level " << level << " " << hits << " + " << misses << 
@@ -919,65 +946,293 @@ bool CacheStats::Verify(){
     return true;
 }
 
-CacheLevel::CacheLevel(){
+/* CacheLevel -- Protected Functions */
+// Get the first address in a cache line
+uint64_t CacheLevel::GetCacheAddress(uint64_t addr){
+    return (addr >> NumBitsUsedPerLine);
 }
 
-void CacheLevel::Init(CacheLevel_Init_Interface){
-    level = lvl;
-    size = sizeInBytes;
-    associativity = assoc;
-    linesize = lineSz;
-    replpolicy = pol;
-    loadStoreLogging = loadStore;
-    dirtyCacheHandling = dirtyCache;
-    toEvict=false;
-    toEvictAddresses=new vector<uint64_t>;
+// Are these cache contents (given the set and line) dirty?
+bool CacheLevel::GetDirtyStatus(uint32_t setid, uint32_t lineid) {
+    return DirtyStatus[setid][lineid];
+}
 
-    countsets = size / (linesize * associativity);
+// Get the set for a given cache address
+uint32_t CacheLevel::GetSet(uint64_t cacheAddress){
+    return (cacheAddress % NumSets);
+}
 
-    linesizeBits = 0;
+// Initialize this cache level
+void CacheLevel::Init(CacheLevel_Init_Interface) {
+    Level = lvl;
+    Size = sizeInBytes;
+    Associativity = assoc;
+    LineSize = lineSz;
+    ReplPolicy = pol;
+    TrackDirtyStatus = trackDirty;
+
+    NumSets = Size / (LineSize * Associativity);
+
+    NumBitsUsedPerLine = 0;
     while (lineSz > 0){
-        linesizeBits++;
+        NumBitsUsedPerLine++;
         lineSz = (lineSz >> 1);
     }
-    linesizeBits--;
-    contents = new uint64_t*[countsets];
-    dirtystatus= new bool*[countsets];
-    for (uint32_t i = 0; i < countsets; i++){
-        contents[i] = new uint64_t[associativity];
-        memset(contents[i], 0, sizeof(uint64_t) * associativity);
+    NumBitsUsedPerLine--;
 
-        dirtystatus[i]=new bool[associativity];
-        memset(dirtystatus[i],0, sizeof(bool) * associativity );   
+    // Declare and initialize Contents
+    Contents = new uint64_t*[NumSets];
+    for (uint32_t i = 0; i < NumSets; i++){
+        Contents[i] = new uint64_t[Associativity];
+        memset(Contents[i], 0, sizeof(uint64_t) * Associativity);
+    }
+
+    if (TrackDirtyStatus) {
+        DirtyStatus = new bool*[NumSets];
+        
         // initialized to false i.e. cacheline is not dirty.
+        for (uint32_t i = 0; i < NumSets; i++){
+            DirtyStatus[i] = new bool[Associativity];
+            memset(DirtyStatus[i], 0, sizeof(bool) * Associativity );   
+        }
     }
 
-    recentlyUsed = NULL;
-    historyUsed = NULL;
-    if (replpolicy == ReplacementPolicy_nmru){
-        recentlyUsed = new uint32_t[countsets];
-        memset(recentlyUsed, 0, sizeof(uint32_t) * countsets);
-    }
-    else if (replpolicy == ReplacementPolicy_trulru){
-        recentlyUsed = new uint32_t[countsets];
-        memset(recentlyUsed, 0, sizeof(uint32_t) * countsets);
-        historyUsed = new history*[countsets];
-        for(int s = 0; s < countsets; ++s) {
-            historyUsed[s] = new history[assoc];
-            historyUsed[s][0].prev = assoc-1;
-            historyUsed[s][0].next = 1;
+    if (ReplPolicy == ReplacementPolicy_nmru) {
+        RecentlyUsed = new uint32_t[NumSets];
+        memset(RecentlyUsed, 0, sizeof(uint32_t) * NumSets);
+    } else if (ReplPolicy == ReplacementPolicy_trulru) {
+        RecentlyUsed = new uint32_t[NumSets];
+        memset(RecentlyUsed, 0, sizeof(uint32_t) * NumSets);
+        HistoryUsed = new history*[NumSets];
+        // Initialze so that 0 is LRU and highest line number is MRU
+        for(int s = 0; s < NumSets; ++s) {
+            HistoryUsed[s] = new history[assoc];
+            HistoryUsed[s][0].prev = assoc-1;
+            HistoryUsed[s][0].next = 1;
             for(int a = 1; a < assoc; ++a) {
-                historyUsed[s][a].prev = a-1;
-                historyUsed[s][a].next = (a+1)%assoc;
+                HistoryUsed[s][a].prev = a-1;
+                HistoryUsed[s][a].next = (a+1)%assoc;
             }
+        }
+    } else if (ReplPolicy == ReplacementPolicy_random) {
+        RanPolicyRandomizer = new Randomizer();
+    }
+}
+
+// Get the line to evict from the cache for a given set
+uint32_t CacheLevel::LineToReplace(uint32_t setid){
+    if (ReplPolicy == ReplacementPolicy_nmru){
+        return (RecentlyUsed[setid] + 1) % Associativity;
+    } else if (ReplPolicy == ReplacementPolicy_trulru){
+        return RecentlyUsed[setid];
+    } else if (ReplPolicy == ReplacementPolicy_random){
+        return RanPolicyRandomizer->RandomInt(Associativity);
+    } else if (ReplPolicy == ReplacementPolicy_direct){
+        return 0;
+    } else {
+        assert(0);
+    }
+    return 0;
+}
+
+void CacheLevel::MarkUsed(uint32_t setid, uint32_t lineid) {
+
+    if (ReplPolicy == ReplacementPolicy_nmru){
+        debug(inform << "level " << dec << level 
+          << " USING set " << dec << setid 
+          << " line " << lineid << ENDL << flush);
+        RecentlyUsed[setid] = lineid;
+    }
+    else if(ReplPolicy == ReplacementPolicy_trulru) {
+        debug(inform << "level " << dec << level 
+          << " USING set " << dec << setid 
+          << " line " << lineid << ENDL << flush);
+        // If this line was the LRU, then have LRU point to the next least 
+        // recently used element. For example:
+        // (LRU)  C  B  E  A  D   (MRU)   becomes
+        // (LRU)  B  E  A  D  C   (MRU)   if C is used.
+        // No need to change next and prev pointers since the head and tail are
+        // connected already
+        if(RecentlyUsed[setid] == lineid) {
+            RecentlyUsed[setid] = HistoryUsed[setid][lineid].next;
+        } else {
+            // Say we remove E from the following:
+            // (LRU)  C  B  E  A  D  (MRU)
+            // (prev)               (next)
+            // 1. Remove E by resetting the neighbor pointers
+            //   (this will be leftNeighbor and rightNeighbor)
+            // 2. Move E to end and set it to point to LRU and the old MRU
+            // 3. Have the old MRU point to E
+            // 4. Have the LRU point to E
+            // That should give us:
+            // (LRU)  C  B  A  D  E  (MRU)
+            // (prev)               (next)
+            uint32_t leftNeighbor = HistoryUsed[setid][lineid].prev;
+            uint32_t rightNeighbor = HistoryUsed[setid][lineid].next;
+            uint32_t theLru = RecentlyUsed[setid];
+            uint32_t originalMru = HistoryUsed[setid][theLru].prev;
+
+            HistoryUsed[setid][leftNeighbor].next = rightNeighbor;
+            HistoryUsed[setid][rightNeighbor].prev = leftNeighbor;
+
+            HistoryUsed[setid][lineid].prev = originalMru;
+            HistoryUsed[setid][lineid].next = theLru;
+
+            HistoryUsed[setid][originalMru].next = lineid;
+            HistoryUsed[setid][theLru].prev = lineid;
         }
     }
 }
 
+// Replace the contents at the given set and line id with the given 
+// cache address. Return the address being replaced.
+uint64_t CacheLevel::Replace(uint64_t cacheAddress, uint32_t setid, 
+  uint32_t lineid) {
+
+    uint64_t prev = Contents[setid][lineid];
+    Contents[setid][lineid] = cacheAddress;
+    MarkUsed(setid, lineid);  
+    return prev;
+}
+
+// Reset the dirty bit for the given set and line
+void CacheLevel::ResetDirty(uint32_t setid, uint32_t lineid) {
+    DirtyStatus[setid][lineid] = false;
+}
+
+// Look for the given cache address in the cache
+// Return the set and line id if found
+bool CacheLevel::Search(uint64_t cacheAddress, uint32_t* set, 
+  uint32_t* lineInSet){
+    uint32_t setId = GetSet(cacheAddress);
+    debug(inform << TAB << TAB 
+      << "stored " << hex << cacheAddress
+      << " set " << dec << setId << endl << flush);
+    // FIXME (Shouldn't this be an assertion?
+    if (set){
+        (*set) = setId;
+    }
+
+    uint64_t* thisset = Contents[setId];
+    for (uint32_t i = 0; i < Associativity; i++){
+        if (thisset[i] == cacheAddress){
+            if (lineInSet){
+                (*lineInSet) = i;
+            }
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Set the dirty bit for the given set and line
+void CacheLevel::SetDirty(uint32_t setid, uint32_t lineid) {
+    DirtyStatus[setid][lineid] = true;
+}
+
+/* Cache Level -- public functions */
+CacheLevel::CacheLevel() : Level(INVALID_CACHE_LEVEL), LevelCount(0), Size(0), 
+  Associativity(0), LineSize(0), ReplPolicy(ReplacementPolicy_Undefined), 
+  Type(CacheLevelType_Undefined), NumBitsUsedPerLine(0), NumSets(0),
+  RanPolicyRandomizer(nullptr), TrackDirtyStatus(false), Contents(nullptr), 
+  DirtyStatus(nullptr), HistoryUsed(nullptr), RecentlyUsed(nullptr) {
+}
+
+CacheLevel::~CacheLevel(){
+    if (RanPolicyRandomizer)
+        delete RanPolicyRandomizer;
+
+    if (Contents){
+        for (uint32_t i = 0; i < NumSets; i++){
+            if (Contents[i]){
+                delete[] Contents[i];
+            }
+        }
+        delete[] Contents;
+    }
+
+    if (DirtyStatus){
+        for (uint32_t i = 0; i < NumSets; i++){
+            if (DirtyStatus[i]){
+                delete[] DirtyStatus[i];
+            }
+        }
+        delete[] DirtyStatus;
+    }
+
+    if (HistoryUsed){
+        for(int s = 0; s < NumSets; ++s){
+            delete[] HistoryUsed[s];
+        }
+        delete[] HistoryUsed;
+    }
+
+    if (RecentlyUsed){
+        delete[] RecentlyUsed;
+    }
+}
+
+// Print a description of the Cache Level
+void CacheLevel::Print(ofstream& f, uint32_t sysid){
+    f << TAB << dec << sysid
+      << TAB << dec << Level
+      << TAB << dec << Size
+      << TAB << dec << Associativity
+      << TAB << dec << LineSize
+      << TAB << ReplacementPolicyNames[ReplPolicy]
+      << TAB << TypeString()
+      << ENDL;
+}
+
+// Process the given address
+uint32_t CacheLevel::Process(uint64_t addr, uint64_t loadstoreflag, 
+  EvictionInfo* info) {
+
+    uint32_t set = 0, lineInSet = 0;
+    uint64_t store = GetCacheAddress(addr); // First address in cache line
+
+    assert(store != 0); // If stored address is 0, then we can't tell if
+                        // it was a cold miss (initially it's 0)
+
+    // hit
+    if (Search(store, &set, &lineInSet)){
+        MarkUsed(set, lineInSet);
+        // If it was a store (and we're tracking dirty lines), then set to dirty
+        if (TrackDirtyStatus && !loadstoreflag)
+            SetDirty(set, lineInSet);
+        return INVALID_CACHE_LEVEL;
+    }
+
+    // miss
+    EvictionInfo* evicInfo = (EvictionInfo*)info; 
+    uint32_t line2rep = LineToReplace(set);
+    //evicInfo->dirty = getDirtyStatus
+    uint64_t evictedAddr = Replace(store, set, line2rep);
+    MarkUsed(set, line2rep);
+    // Set/Reset dirty status if we are tracking it
+    if (TrackDirtyStatus) {
+        if (loadstoreflag) // if load, then not dirty anymore
+            ResetDirty(set, line2rep);
+        else // if store, then dirty
+            SetDirty(set, line2rep);
+    }
+    evicInfo->level = Level;
+    evicInfo->addr = evictedAddr;
+    evicInfo->setid = set;
+    evicInfo->lineid = line2rep;
+    if (evictedAddr)  // cold miss if addr is 0
+        evicInfo->coldMiss = false;
+    else
+        evicInfo->coldMiss = true;
+
+    return Level + 1;
+}
+
 void HighlyAssociativeCacheLevel::Init(CacheLevel_Init_Interface){
-    fastcontents = new pebil_map_type<uint64_t, uint32_t>*[countsets];
-    fastcontentsdirty = new pebil_map_type<uint64_t, bool>*[countsets];
-    for (uint32_t i = 0; i < countsets; i++){
+    fastcontents = new pebil_map_type<uint64_t, uint32_t>*[NumSets];
+    fastcontentsdirty = new pebil_map_type<uint64_t, bool>*[NumSets];
+    for (uint32_t i = 0; i < NumSets; i++){
         fastcontents[i] = new pebil_map_type<uint64_t, uint32_t>();
         fastcontents[i]->clear();
 
@@ -990,7 +1245,7 @@ void HighlyAssociativeCacheLevel::Init(CacheLevel_Init_Interface){
 
 HighlyAssociativeCacheLevel::~HighlyAssociativeCacheLevel(){
     if (fastcontents){
-        for (uint32_t i = 0; i < countsets; i++){
+        for (uint32_t i = 0; i < NumSets; i++){
             if (fastcontents[i]){
                 delete fastcontents[i];
             }
@@ -998,7 +1253,7 @@ HighlyAssociativeCacheLevel::~HighlyAssociativeCacheLevel(){
         delete[] fastcontents;
     }
     if (fastcontentsdirty){
-        for (uint32_t i = 0; i < countsets; i++){
+        for (uint32_t i = 0; i < NumSets; i++){
             if (fastcontentsdirty[i]){
                 delete fastcontentsdirty[i];
             }
@@ -1007,129 +1262,35 @@ HighlyAssociativeCacheLevel::~HighlyAssociativeCacheLevel(){
     }    
 }
 
-CacheLevel::~CacheLevel(){
-    if (contents){
-        for (uint32_t i = 0; i < countsets; i++){
-            if (contents[i]){
-                delete[] contents[i];
-            }
-        }
-        delete[] contents;
-    }
-    if (recentlyUsed){
-        delete[] recentlyUsed;
-    }
-    if (historyUsed){
-        for(int s = 0; s < countsets; ++s){
-            delete[] historyUsed[s];
-        }
-        delete[] historyUsed;
-    }
-    if(toEvictAddresses){
-        delete toEvictAddresses;
-    }
-    if (dirtystatus){
-        for (uint32_t i = 0; i < countsets; i++){
-            if (dirtystatus[i]){
-                delete[] dirtystatus[i];
-            }
-        }
-        delete[] dirtystatus;
-    }
-}
 
-uint64_t CacheLevel::CountColdMisses(){
-    return (countsets * associativity);
-}
-
-void CacheLevel::Print(ofstream& f, uint32_t sysid){
-    f << TAB << dec << sysid
-      << TAB << dec << level
-      << TAB << dec << size
-      << TAB << dec << associativity
-      << TAB << dec << linesize
-      << TAB << ReplacementPolicyNames[replpolicy]
-      << TAB << TypeString()
-      << ENDL;
-}
-
-uint64_t CacheLevel::GetStorage(uint64_t addr){
-    return (addr >> linesizeBits);
-}
-
-uint32_t CacheLevel::GetSet(uint64_t store){
-    //if(size == 32768) return store % 64;
-    //else if(size == 262144) return store % 512; // FIXME
-    return (store % countsets);
-}
-
-uint32_t CacheLevel::LineToReplace(uint32_t setid){
-    if (replpolicy == ReplacementPolicy_nmru){
-        return (recentlyUsed[setid] + 1) % associativity;
-    } else if (replpolicy == ReplacementPolicy_trulru){
-        return recentlyUsed[setid];
-    } else if (replpolicy == ReplacementPolicy_random){
-        // FIXME Give a class a randomizer
-        Randomizer r;
-        return r.RandomInt(associativity);
-    } else if (replpolicy == ReplacementPolicy_direct){
-        return 0;
-    } else {
-        assert(0);
-    }
-    return 0;
-}
-
-bool HighlyAssociativeCacheLevel::GetDirtyStatus(
-  uint32_t setid,uint32_t lineid,uint64_t store){
-    {
-        if( fastcontentsdirty[setid]->count(store) > 0 )
-            return (*(fastcontentsdirty[setid]))[store]; //.second; 
-        else
-            return false; // Since it is a miss, it cannot be dirty!
-    }        
-}
+// TODO: Why is this here
+//bool HighlyAssociativeCacheLevel::GetDirtyStatus(
+//  uint32_t setid,uint32_t lineid,uint64_t store){
+//    {
+//        if( fastcontentsdirty[setid]->count(store) > 0 )
+//            return (*(fastcontentsdirty[setid]))[store]; //.second; 
+//        else
+//            return false; // Since it is a miss, it cannot be dirty!
+//    }        
+//}
 
 void HighlyAssociativeCacheLevel::SetDirty(
-  uint32_t setid, uint32_t lineid, uint64_t store){
+  uint32_t setid, uint32_t lineid){
 
     (*(fastcontentsdirty[setid]))[lineid]=true;
 }
 
 void HighlyAssociativeCacheLevel::ResetDirty(
-  uint32_t setid, uint32_t lineid, uint64_t store){
+  uint32_t setid, uint32_t lineid){
 
     (*(fastcontentsdirty[setid]))[lineid]=false;
 }
 
-uint64_t CacheLevel::Replace( uint64_t store, 
-  uint32_t setid, uint32_t lineid, uint64_t loadstoreflag){
-
-    uint64_t prev = contents[setid][lineid];
-
-    if(GetDirtyStatus(setid,lineid,prev)){
-        toEvict=true;
-        //toEvictAddresses->push_back(prev);
-    }
-    // Since the new address 'store' has been loaded just now and is not
-    // touched yet, we can reset the dirty flag if it is indeed dirty!
-    contents[setid][lineid] = store;
-    if(loadStoreLogging){
-        if(loadstoreflag)
-            ResetDirty(setid,lineid,store);
-        else
-            SetDirty(setid,lineid,store);
-    }
-
-    MarkUsed(setid, lineid, loadstoreflag);  
-    return prev;
-}
-
 uint64_t HighlyAssociativeCacheLevel::Replace(
-  uint64_t store, uint32_t setid, uint32_t lineid, uint64_t loadstoreflag){
+  uint64_t store, uint32_t setid, uint32_t lineid){
 
-    uint64_t prev = contents[setid][lineid];
-    contents[setid][lineid] = store;
+    uint64_t prev = Contents[setid][lineid];
+    Contents[setid][lineid] = store;
 
     pebil_map_type<uint64_t, uint32_t>* fastset = fastcontents[setid];
     if (fastset->count(prev) > 0){
@@ -1138,50 +1299,17 @@ uint64_t HighlyAssociativeCacheLevel::Replace(
     }
     (*fastset)[store] = lineid; //(*fastset)[store].first = lineid;
 
-    if(GetDirtyStatus(setid,lineid,store)){
-        toEvict=true;
-        toEvictAddresses->push_back(prev);
-    }
+    //if(GetDirtyStatus(setid, lineid)){
+    //    //toEvictAddresses->push_back(prev);
+    //}
 
-    if(loadStoreLogging){
-        if(loadstoreflag)
-            ResetDirty(setid,lineid,store);
-        else
-            SetDirty(setid,lineid,store);
-    }
+    //    if(loadstoreflag)
+    //        ResetDirty(setid,lineid,store);
+    //    else
+    //        SetDirty(setid,lineid,store);
 
-    MarkUsed(setid, lineid,loadstoreflag);
+    MarkUsed(setid, lineid);
     return prev;
-}
-
-inline void CacheLevel::MarkUsed(
-  uint32_t setid, uint32_t lineid, uint64_t loadstoreflag){
-
-    if(loadStoreLogging){
-        if(!(loadstoreflag))
-            SetDirty(setid,lineid,contents[setid][lineid]);
-    }
-    if (USES_MARKERS(replpolicy)){
-        debug(inform << "level " << dec << level 
-          << " USING set " << dec << setid 
-          << " line " << lineid << ENDL << flush);
-        recentlyUsed[setid] = lineid;
-    }
-    else if(replpolicy == ReplacementPolicy_trulru) {
-        debug(inform << "level " << dec << level 
-          << " USING set " << dec << setid 
-          << " line " << lineid << ENDL << flush);
-        if(recentlyUsed[setid] == lineid)
-            recentlyUsed[setid] = historyUsed[setid][lineid].next;
-        else {
-            historyUsed[setid][historyUsed[setid][lineid].next].prev = historyUsed[setid][lineid].prev;
-            historyUsed[setid][historyUsed[setid][lineid].prev].next = historyUsed[setid][lineid].next;
-            historyUsed[setid][lineid].prev = historyUsed[setid][recentlyUsed[setid]].prev;
-            historyUsed[setid][recentlyUsed[setid]].prev = lineid;
-            historyUsed[setid][lineid].next = recentlyUsed[setid];
-            historyUsed[setid][historyUsed[setid][lineid].prev].next = lineid;
-        }
-    }
 }
 
 bool HighlyAssociativeCacheLevel::Search(
@@ -1191,6 +1319,7 @@ bool HighlyAssociativeCacheLevel::Search(
     debug(inform << TAB << TAB 
       << "stored " << hex << store 
       << " set " << dec << setId << endl << flush);
+    // FIXME (Shouldn't this be an assertion?
     if (set){
         (*set) = setId;
     }
@@ -1206,142 +1335,47 @@ bool HighlyAssociativeCacheLevel::Search(
     return false;
 }
 
-bool CacheLevel::Search(uint64_t store, uint32_t* set, uint32_t* lineInSet){
-    uint32_t setId = GetSet(store);
-    debug(inform << TAB << TAB 
-      << "stored " << hex << store 
-      << " set " << dec << setId << endl << flush);
-    if (set){
-        (*set) = setId;
-    }
-
-    uint64_t* thisset = contents[setId];
-    for (uint32_t i = 0; i < associativity; i++){
-        if (thisset[i] == store){
-            if (lineInSet){
-                (*lineInSet) = i;
-            }
-            return true;
-        }
-    }
-
-    return false;
-}
-
-// TODO: not implemented
-bool CacheLevel::MultipleLines(uint64_t addr, uint32_t width){
-    return false;
-}
-
-void CacheLevel::SetDirty(uint32_t setid, uint32_t lineid,uint64_t store){
-    dirtystatus[setid][lineid]=true;
-}
-
-void CacheLevel::ResetDirty(uint32_t setid, uint32_t lineid, uint64_t store){
-    dirtystatus[setid][lineid]=false;
-}
-
-bool CacheLevel::GetDirtyStatus(uint32_t setid, uint32_t lineid, uint64_t 
-        store){
-    return dirtystatus[setid][lineid];
-}
-
-uint32_t CacheLevel::Process(CacheStats* stats, uint32_t memid, uint64_t addr, 
-  uint64_t loadstoreflag, bool* anyEvict, EvictionInfo* info) {
-
-    uint32_t set = 0, lineInSet = 0;
-    uint64_t store = GetStorage(addr); // First address in cache line
-
-    assert(store != 0); // If stored address is 0, then we can't tell if
-                        // it was a cold miss (initially it's 0)
-    debug(assert(stats));
-    debug(assert(stats->Stats));
-    debug(assert(stats->Stats[memid]));
+//// TODO: not implemented
+//bool CacheLevel::MultipleLines(uint64_t addr, uint32_t width){
+//    return false;
+//}
 
 
-    if(loadStoreLogging){
-        if(loadstoreflag){
-            stats->Stats[memid][level].loadCount++;
-        } else{
-            stats->Stats[memid][level].storeCount++;
-        }         
-    }    
+//uint32_t CacheLevel::EvictProcess(CacheStats* stats, uint32_t memid, 
+//        uint64_t addr, uint64_t loadstoreflag, void* info){
+//
+//    /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
+//        correct 
+//        uint32_t set = 0, lineInSet = 0;
+//        uint64_t store = addr;
+//        debug(assert(stats));
+//        debug(assert(stats->levelStats));
+//        debug(assert(stats->levelStats[memid]));
+//
+//        if (Search(store, &set, &lineInSet)){
+//        stats->levelStats[memid][level].storeCount++;
+//        MarkUsed(set, lineInSet,loadstoreflag);
+//        return INVALID_CACHE_LEVEL;
+//        } */
+//
+//    return level + 1;
+//}
 
-    // hit
-    if (Search(store, &set, &lineInSet)){
-        stats->Stats[memid][level].hitCount++;    
-        MarkUsed(set, lineInSet,loadstoreflag);
-        return INVALID_CACHE_LEVEL;
-    }
-
-    // miss
-    EvictionInfo* evicInfo = (EvictionInfo*)info; 
-    stats->Stats[memid][level].missCount++;
-    uint32_t line2rep = LineToReplace(set);
-    uint64_t evictedAddr = Replace(store, set, line2rep,
-      loadstoreflag);
-    evicInfo->level = level;
-    evicInfo->addr = evictedAddr;
-    evicInfo->setid = set;
-    evicInfo->lineid = line2rep;
-    if (evictedAddr)  // cold miss if addr is 0
-        evicInfo->coldMiss = false;
-    else
-        evicInfo->coldMiss = true;
-    //*anyEvict = true; // TODO On a cold miss, we technically aren't evicting, 
-    //toEvict = true; 
-
-    return level + 1;
-}
-
-uint32_t CacheLevel::EvictProcess(CacheStats* stats, uint32_t memid, 
-        uint64_t addr, uint64_t loadstoreflag, void* info){
-
-    /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-        correct 
-        uint32_t set = 0, lineInSet = 0;
-        uint64_t store = addr;
-        debug(assert(stats));
-        debug(assert(stats->Stats));
-        debug(assert(stats->Stats[memid]));
-
-        if (Search(store, &set, &lineInSet)){
-        stats->Stats[memid][level].storeCount++;
-        MarkUsed(set, lineInSet,loadstoreflag);
-        return INVALID_CACHE_LEVEL;
-        } */
-
-    return level + 1;
-}
-
-uint32_t NonInclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid, 
-  uint64_t addr, uint64_t loadstoreflag, bool* anyEvict, EvictionInfo* info){
+uint32_t NonInclusiveCacheLevel::Process(uint64_t addr, uint64_t loadstoreflag,
+  EvictionInfo* info){
 
     uint32_t set = 0;
     uint32_t lineInSet = 0;
 
-    uint64_t store = GetStorage(addr);
+    uint64_t store = GetCacheAddress(addr);
     uint32_t toReturn = INVALID_CACHE_LEVEL;
     bool wasHit = false;
-
-
-    debug(assert(stats));
-    debug(assert(stats->Stats));
-    debug(assert(stats->Stats[memid]));
-
-    if(loadStoreLogging){
-        if(loadstoreflag){
-            stats->Stats[memid][level].loadCount++;
-        } else{
-            stats->Stats[memid][level].storeCount++;
-        }         
-    }    
 
     // If we are processing this cache, then a lower cache must have
     // evicted an address. Check if that evicted address is in this cache.
     // Note: This might not be true with multiple noninclusve levels
     EvictionInfo* evicInfo = (EvictionInfo*)info; 
-    assert(evicInfo->level == level - 1);
+    assert(evicInfo->level == Level - 1);
     uint64_t prevEvictedStore = evicInfo->addr;
     uint32_t prevEvictedSet = 0;
     uint32_t prevEvictedLine = 0;
@@ -1354,19 +1388,17 @@ uint32_t NonInclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
     wasHit = Search(store, &set, &lineInSet);
 
     if (wasHit) {
-        stats->Stats[memid][level].hitCount++;    
         toReturn = INVALID_CACHE_LEVEL;
     } else { //miss
-        stats->Stats[memid][level].missCount++;
-        toReturn = level + 1;
+        toReturn = Level + 1;
     }
 
     // Do we need to replace an address with an address that was evicted by 
     // a lower cache level (because the evicted address was not already here)?
     if (!noNeedToReplace) {
         uint64_t evictedStore = Replace(prevEvictedStore, prevEvictedSet, 
-          LineToReplace(prevEvictedSet), loadstoreflag);
-        evicInfo->level = level;
+          LineToReplace(prevEvictedSet));
+        evicInfo->level = Level;
         evicInfo->addr = evictedStore;
     } else {
         evicInfo->level = INVALID_CACHE_LEVEL;
@@ -1377,62 +1409,58 @@ uint32_t NonInclusiveCacheLevel::Process(CacheStats* stats, uint32_t memid,
     set = 0;
     lineInSet = 0;
     if (wasHit && Search(store, &set, &lineInSet)) {
-        MarkUsed(set, lineInSet,loadstoreflag);
+        MarkUsed(set, lineInSet);
     }
 
     return toReturn;
 }
 
-void CacheLevel::EvictDirty(CacheStats* stats, CacheLevel** levels, 
-  uint32_t memid, void* info) {
-
-    // Should be only called by InclusiveCache.
-    uint64_t victim;
-
-    /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-        correct 
-        victim=toEvictAddresses->back();    
-    // vector "toEvictAddresses" will be empty by the end of this. Vector 
-    // was designed to handle 
-    toEvictAddresses->pop_back();
-    uint32_t next=level+1;
-    uint64_t loadstoreflag=0;
-     */
-    /* next=levels[next]->EvictProcess(stats,memid,victim,loadstoreflag,
-       (void*)info);   
-       assert( next == INVALID_CACHE_LEVEL); 
-    // If assert fails, implies the memory address which was to be evicted was 
-    // not found which is violation in an inclusive cache.
-    assert(toEvictAddresses->size()==0); // INFO: Should be removed before
-    // merging to dev branch, altho this checks a legal case but is it needed?
-     */
-
-    /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-        correct 
-        while(toEvictAddresses->size()){ 
-            // To handle cases where an address from Ln is missing in Ln+1 
-            // (e.g  missing in L2, found in L1). 
-            victim=toEvictAddresses->back();
-            toEvictAddresses->pop_back();
-            next=level+1;
-            loadstoreflag=0;
-            if(next<levelCount) {
-                next=levels[next]->EvictProcess(stats, memid, victim, loadstoreflag,
-                (void*)info);   
-            }
-            if(next<levelCount){
-                inform << "\t Cannot retire victim " << victim << " to level " 
-                << (level+1) << " since  it has already been evicted " <<ENDL;
-            }
-        }
-
-    toEvict=false; */
-    return;
-}
-
-bool CacheLevel::GetEvictStatus(){
-    return toEvict;
-}
+//void CacheLevel::EvictDirty(CacheStats* stats, CacheLevel** levels, 
+//  uint32_t memid, void* info) {
+//
+//    // Should be only called by InclusiveCache.
+//    uint64_t victim;
+//
+//    /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
+//        correct 
+//        victim=toEvictAddresses->back();    
+//    // vector "toEvictAddresses" will be empty by the end of this. Vector 
+//    // was designed to handle 
+//    toEvictAddresses->pop_back();
+//    uint32_t next=level+1;
+//    uint64_t loadstoreflag=0;
+//     */
+//    /* next=levels[next]->EvictProcess(stats,memid,victim,loadstoreflag,
+//       (void*)info);   
+//       assert( next == INVALID_CACHE_LEVEL); 
+//    // If assert fails, implies the memory address which was to be evicted was 
+//    // not found which is violation in an inclusive cache.
+//    assert(toEvictAddresses->size()==0); // INFO: Should be removed before
+//    // merging to dev branch, altho this checks a legal case but is it needed?
+//     */
+//
+//    /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
+//        correct 
+//        while(toEvictAddresses->size()){ 
+//            // To handle cases where an address from Ln is missing in Ln+1 
+//            // (e.g  missing in L2, found in L1). 
+//            victim=toEvictAddresses->back();
+//            toEvictAddresses->pop_back();
+//            next=level+1;
+//            loadstoreflag=0;
+//            if(next<levelCount) {
+//                next=levels[next]->EvictProcess(stats, memid, victim, loadstoreflag,
+//                (void*)info);   
+//            }
+//            if(next<levelCount){
+//                inform << "\t Cannot retire victim " << victim << " to level " 
+//                << (level+1) << " since  it has already been evicted " <<ENDL;
+//            }
+//        }
+//
+//    toEvict=false; */
+//    return;
+//}
 
 MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize){
     numOfSets = setSize;
@@ -1503,9 +1531,8 @@ uint32_t MainMemory::GetStores(){
     return sum;
 }
 
-CacheStructureHandler::CacheStructureHandler(){
-    sysId = 0;
-    levelCount = 0;
+CacheStructureHandler::CacheStructureHandler(CacheSimulationTool* tool) : 
+  cacheSimTool(tool), sysId(0), levelCount(0) {
 }
 
 //void CacheStructureHandler::ExtractAddresses(){
@@ -1562,19 +1589,19 @@ CacheStructureHandler::CacheStructureHandler(){
 //}
 
 CacheStructureHandler::CacheStructureHandler(CacheStructureHandler& h) {
+    cacheSimTool = h.cacheSimTool;
     sysId = h.sysId;
     levelCount = h.levelCount;
     //description.assign(h.description);
     hits=0;
     misses=0;
 
-    this->loadStoreLogging = h.IsLoadStoreLogging();
-    this->DirtyCacheHandling = h.DirtyCacheHandling;
+//    this->DirtyCacheHandling = h.DirtyCacheHandling;
 
 #define LVLF(__i, __feature) (h.levels[__i])->Get ## __feature
 #define Extract_Level_Args(__i) LVLF(__i, Level()), LVLF(__i, SizeInBytes()), \
   LVLF(__i, Associativity()), LVLF(__i, LineSize()), LVLF(__i, \
-  ReplacementPolicy()), LVLF(__i, LoadStoreLog()), LVLF(__i, DirtyCacheHandle())
+  ReplacementPolicy()), LVLF(__i, IsTrackingDirty())
 
     levels = new CacheLevel*[levelCount];
     for (uint32_t i = 0; i < levelCount; i++){
@@ -1586,7 +1613,6 @@ CacheStructureHandler::CacheStructureHandler(CacheStructureHandler& h) {
         } else if (LVLF(i, Type()) == CacheLevelType_NonInclusiveLowassoc){
             NonInclusiveCacheLevel* l = new NonInclusiveCacheLevel();
             l->Init(Extract_Level_Args(i)); 
-            inform << "\t Found inclusive " << ENDL;
             levels[i] = l;
             l->SetLevelCount(levelCount);
         } else if (LVLF(i, Type()) == CacheLevelType_InclusiveHighassoc){
@@ -1703,29 +1729,29 @@ CacheLevel* CacheStructureHandler::ParseCacheLevelTokens(stringstream&
         return NULL;
     }
 
-    if (assoc >= MinimumHighAssociativity){
+    if (assoc >= GetMinimumHighAssociativity()){
         if (nonInclusive) {
             NonInclusiveCacheLevel* l = new NonInclusiveCacheLevel();
             l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
-              IsLoadStoreLogging(), DirtyCacheHandling);
+              IsTrackingDirtyStatus());
             return l;
         } else {
             HighlyAssociativeInclusiveCacheLevel* l = new 
               HighlyAssociativeInclusiveCacheLevel();
             l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
-              IsLoadStoreLogging(), DirtyCacheHandling);
+              IsTrackingDirtyStatus());
             return l;
         }
     } else {
         if (nonInclusive) {
             NonInclusiveCacheLevel* l = new NonInclusiveCacheLevel();
             l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
-              IsLoadStoreLogging(), DirtyCacheHandling);
+              IsTrackingDirtyStatus());
             return l;
         } else {
             InclusiveCacheLevel* l = new InclusiveCacheLevel();
             l->Init(levelId, sizeInBytes, assoc, lineSize, repl,
-              IsLoadStoreLogging(), DirtyCacheHandling);
+              IsTrackingDirtyStatus());
             return l;
         }
     }
@@ -1733,11 +1759,9 @@ CacheLevel* CacheStructureHandler::ParseCacheLevelTokens(stringstream&
     return NULL;
 }
 
-bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
-	  bool doLoadStore, uint32_t DirtyCacheHandling){
+bool CacheStructureHandler::Init(string desc) {
     string description = desc;
-    this->loadStoreLogging = doLoadStore;
-    this->DirtyCacheHandling = DirtyCacheHandling;
+    //this->DirtyCacheHandling = DirtyCacheHandling;
 
     stringstream tokenizer(description);
     string token;
@@ -1771,6 +1795,7 @@ bool CacheStructureHandler::Init(string desc, uint32_t MinimumHighAssociativity,
           &firstExclusiveLevel);
         if (newLevel == NULL)
             return false;
+        newLevel->SetLevelCount(levelCount);
         levels[levelId] = newLevel;
         // Get rid of any following "notes"
         tokenizer >> std::ws; // skip whitespace
@@ -1818,7 +1843,6 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
     uint64_t victim = address;
 
     CacheStats* stats = (CacheStats*)stats_in;
-    uint8_t initLoadStoreFlag = loadstoreflag;
 
     bool anyEvict = false;
 
@@ -1828,31 +1852,18 @@ uint32_t CacheStructureHandler::processAddress(void* stats_in, uint64_t address,
 
     while (next < levelCount){
         resLevel = next;
-        next = levels[next]->Process(stats, memseq, victim, loadstoreflag,
-          &anyEvict,&evictInfo);
-        //if(next != 0) loadstoreflag = 1; //commented out for better reporting for what we want
-        // If next level is checked, then it should be a miss from current 
-        // level, which implies next operation is a load to a next level!!
+        next = levels[resLevel]->Process(victim, loadstoreflag, &evictInfo);
+        bool hit = false;
+        if (next == INVALID_CACHE_LEVEL)
+            hit = true;
+
+        stats->UpdateLevelStats(memseq, resLevel, hit, loadstoreflag);
     }
 
-    if(next == levelCount){ // Missed on last level
-        uint32_t evicSet = evictInfo.setid;
-        uint32_t evicLine = evictInfo.lineid;
-        // write to stats mainMemory
-        uint32_t sizeOfLine = stats->mainMemoryStats[memseq]->numOfLinesInSet;
-        if (sizeOfLine > 1){
-            if(initLoadStoreFlag){ 
-                stats->mainMemoryStats[memseq]->readInsMap->put(evicSet, evicLine, 1);
-            } else {
-                stats->mainMemoryStats[memseq]->writeOutsMap->put(evicSet, evicLine, 1);
-            }
-        } else {
-            if(initLoadStoreFlag) {
-                stats->mainMemoryStats[memseq]->dirInsMap->add(evicSet, 1);
-            } else {
-                stats->mainMemoryStats[memseq]->dirOutsMap->add(evicSet, 1);
-            }
-        }
+    // If missed on last level, update main memory stats
+    if(next == levelCount && IsKeepingMemoryLog()) {
+        stats->UpdateMainMemoryStats(memseq, evictInfo.setid, evictInfo.lineid,
+          loadstoreflag);
     }
 
 /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
