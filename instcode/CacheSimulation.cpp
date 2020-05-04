@@ -1101,24 +1101,21 @@ void CacheLevel::ResetDirty(uint32_t setid, uint32_t lineid) {
 }
 
 // Look for the given cache address in the cache
-// Return the set and line id if found
+// Return the set (and line id if found) and if it was found
 bool CacheLevel::Search(uint64_t cacheAddress, uint32_t* set, 
   uint32_t* lineInSet){
     uint32_t setId = GetSet(cacheAddress);
-    debug(inform << TAB << TAB 
-      << "stored " << hex << cacheAddress
+    debug(inform << TAB << TAB << "stored " << hex << cacheAddress
       << " set " << dec << setId << endl << flush);
-    // FIXME (Shouldn't this be an assertion?
-    if (set){
-        (*set) = setId;
-    }
+
+    // Set the set
+    (*set) = setId;
 
     uint64_t* thisset = Contents[setId];
     for (uint32_t i = 0; i < Associativity; i++){
+        // If found, set line id
         if (thisset[i] == cacheAddress){
-            if (lineInSet){
-                (*lineInSet) = i;
-            }
+            (*lineInSet) = i;
             return true;
         }
     }
@@ -1185,7 +1182,7 @@ void CacheLevel::Print(ofstream& f, uint32_t sysid){
       << ENDL;
 }
 
-// Process the given address
+// Process the given address: returns invalid on hit and next level on miss
 uint32_t CacheLevel::Process(uint64_t addr, uint64_t loadstoreflag, 
   EvictionInfo* info) {
 
@@ -1196,7 +1193,7 @@ uint32_t CacheLevel::Process(uint64_t addr, uint64_t loadstoreflag,
                         // it was a cold miss (initially it's 0)
 
     // hit
-    if (Search(store, &set, &lineInSet)){
+    if (Search(store, &set, &lineInSet)) {
         MarkUsed(set, lineInSet);
         // If it was a store (and we're tracking dirty lines), then set to dirty
         if (TrackDirtyStatus && !loadstoreflag)

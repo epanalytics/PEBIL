@@ -306,9 +306,6 @@ protected:
 
     // Return the type for the cache level
     virtual const char* TypeString() = 0;
-    
-    // uint64_t GetAddress(uint64_t store);
-    //bool MultipleLines(uint64_t addr, uint32_t width);
 
 public:
     CacheLevel();
@@ -341,17 +338,6 @@ public:
     history** GetHistoryUsed() { return HistoryUsed; }
     uint32_t* GetRecentlyUsed() { return RecentlyUsed; }
 
-
-    //virtual uint32_t EvictProcess(CacheStats* stats, uint32_t memid, uint64_t 
-    //  addr, uint64_t loadstoreflag, void* info);    
-
- //   std::vector<uint64_t>* toEvictAddresses = nullptr;
-//    virtual void EvictDirty(CacheStats* stats, CacheLevel** Levels, uint32_t 
-//      memid, void* info); // void* info is needed since eventually 'Process' 
-      // needs to be called! 
-//    virtual bool IsExclusive() { return false; }
-
-    //std::vector<uint64_t>* passEvictAddresses() { return toEvictAddresses;}
 };
 
 class InclusiveCacheLevel : public virtual CacheLevel {
