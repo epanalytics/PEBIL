@@ -140,6 +140,7 @@ Vector<X86Instruction*>* ElfFileInst::findAllCalls(char* names){
     }
 
     Vector<X86Instruction*>* calls = new Vector<X86Instruction*>();
+#pragma omp parallel for
     for (uint32_t i = 0; i < getNumberOfExposedInstructions(); i++){
         X86Instruction* instruction = getExposedInstruction(i);
         ASSERT(instruction->getContainer()->isFunction());
@@ -151,6 +152,7 @@ Vector<X86Instruction*>* ElfFileInst::findAllCalls(char* names){
             if (functionSymbol){
                 for (uint32_t j = 0; j < fstart.size(); j++){
                     if (!strcmp(functionSymbol->getSymbolName(), fnames + fstart[j])){
+#pragma omp critical(calls)
                         (*calls).append(instruction);
                         break;
                     }
