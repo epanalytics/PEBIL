@@ -977,26 +977,6 @@ uint64_t ElfFileInst::functionRelocateAndTransform(uint32_t offset){
 
         Vector<Vector<Vector<InstrumentationPoint*>*>*>* instPointsPerBlock = new Vector<Vector<Vector<InstrumentationPoint*>*>*>();
 
-        /* AT added the loop to allow for collapse */
-        for (uint32_t i = 0; i < exposedFunctions.size(); i++){
-            (*instPointsPerBlock).append(new Vector<Vector<InstrumentationPoint*>*>());
-        }
-
-#pragma omp parallel for collapse(2)
-        for (uint32_t ii = 0; ii < exposedFunctions.size(); ii++){
-            for (uint32_t jj = 0; jj < exposedBasicBlocks.size(); jj++){
-                if (exposedFunctions[ii]->getBaseAddress() == exposedBasicBlocks[jj]->getFunction()->getBaseAddress()){
-                    (*instPointsPerBlock)[ii]->append(new Vector<InstrumentationPoint*>());
-                }
-            }
-        }
-
-#pragma omp parallel for schedule(dynamic,1)
-        for (uint32_t ii = 0; ii < exposedFunctions.size(); ii++){
-          ASSERT((*instPointsPerBlock)[ii]->size() == exposedFunctions[ii]->getNumberOfBasicBlocks());
-        }
-
-        /*
         for (uint32_t i = 0; i < exposedFunctions.size(); i++){
             (*instPointsPerBlock).append(new Vector<Vector<InstrumentationPoint*>*>());
             for (uint32_t j = 0; j < exposedBasicBlocks.size(); j++){
@@ -1006,10 +986,8 @@ uint64_t ElfFileInst::functionRelocateAndTransform(uint32_t offset){
             }
             ASSERT((*instPointsPerBlock)[i]->size() == exposedFunctions[i]->getNumberOfBasicBlocks());
         }
-        */
 
         bool* needsRelocate = new bool[exposedFunctions.size()];
-#pragma omp parallel for
         for (uint32_t i = 0; i < exposedFunctions.size(); i++){
             if (exposedFunctions[i]->isManipulated()){
                 needsRelocate[i] = true;
