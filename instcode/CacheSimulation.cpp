@@ -1091,7 +1091,7 @@ uint64_t CacheLevel::Replace(uint64_t cacheAddress, uint32_t setid,
 
     uint64_t prev = Contents[setid][lineid];
     Contents[setid][lineid] = cacheAddress;
-    MarkUsed(setid, lineid);  
+    //MarkUsed(setid, lineid);  
     return prev;
 }
 
@@ -1204,7 +1204,12 @@ uint32_t CacheLevel::Process(uint64_t addr, uint64_t loadstoreflag,
     // miss
     EvictionInfo* evicInfo = (EvictionInfo*)info; 
     uint32_t line2rep = LineToReplace(set);
-    //evicInfo->dirty = getDirtyStatus
+    
+    if (TrackDirtyStatus)
+        evicInfo->dirty = GetDirtyStatus(set, line2rep);
+    else
+        evicInfo->dirty = false;
+
     uint64_t evictedAddr = Replace(store, set, line2rep);
     MarkUsed(set, line2rep);
     // Set/Reset dirty status if we are tracking it
@@ -1226,138 +1231,18 @@ uint32_t CacheLevel::Process(uint64_t addr, uint64_t loadstoreflag,
     return Level + 1;
 }
 
-void HighlyAssociativeCacheLevel::Init(CacheLevel_Init_Interface){
-    fastcontents = new pebil_map_type<uint64_t, uint32_t>*[NumSets];
-    fastcontentsdirty = new pebil_map_type<uint64_t, bool>*[NumSets];
-    for (uint32_t i = 0; i < NumSets; i++){
-        fastcontents[i] = new pebil_map_type<uint64_t, uint32_t>();
-        fastcontents[i]->clear();
-
-        fastcontentsdirty[i] = new pebil_map_type<uint64_t, bool>();
-        fastcontentsdirty[i]->clear(); 
-        // initialized to false i.e. cacheline is not dirty.
-    }
-
-}
-
-HighlyAssociativeCacheLevel::~HighlyAssociativeCacheLevel(){
-    if (fastcontents){
-        for (uint32_t i = 0; i < NumSets; i++){
-            if (fastcontents[i]){
-                delete fastcontents[i];
-            }
-        }
-        delete[] fastcontents;
-    }
-    if (fastcontentsdirty){
-        for (uint32_t i = 0; i < NumSets; i++){
-            if (fastcontentsdirty[i]){
-                delete fastcontentsdirty[i];
-            }
-        }
-        delete[] fastcontentsdirty;
-    }    
-}
-
-
-// TODO: Why is this here
-//bool HighlyAssociativeCacheLevel::GetDirtyStatus(
-//  uint32_t setid,uint32_t lineid,uint64_t store){
-//    {
-//        if( fastcontentsdirty[setid]->count(store) > 0 )
-//            return (*(fastcontentsdirty[setid]))[store]; //.second; 
-//        else
-//            return false; // Since it is a miss, it cannot be dirty!
-//    }        
-//}
-
-void HighlyAssociativeCacheLevel::SetDirty(
-  uint32_t setid, uint32_t lineid){
-
-    (*(fastcontentsdirty[setid]))[lineid]=true;
-}
-
-void HighlyAssociativeCacheLevel::ResetDirty(
-  uint32_t setid, uint32_t lineid){
-
-    (*(fastcontentsdirty[setid]))[lineid]=false;
-}
-
-uint64_t HighlyAssociativeCacheLevel::Replace(
-  uint64_t store, uint32_t setid, uint32_t lineid){
-
-    uint64_t prev = Contents[setid][lineid];
-    Contents[setid][lineid] = store;
-
-    pebil_map_type<uint64_t, uint32_t>* fastset = fastcontents[setid];
-    if (fastset->count(prev) > 0){
-        //assert((*fastset)[prev] == lineid);
-        fastset->erase(prev);
-    }
-    (*fastset)[store] = lineid; //(*fastset)[store].first = lineid;
-
-    //if(GetDirtyStatus(setid, lineid)){
-    //    //toEvictAddresses->push_back(prev);
-    //}
-
-    //    if(loadstoreflag)
-    //        ResetDirty(setid,lineid,store);
-    //    else
-    //        SetDirty(setid,lineid,store);
-
-    MarkUsed(setid, lineid);
-    return prev;
-}
-
-bool HighlyAssociativeCacheLevel::Search(
-  uint64_t store, uint32_t* set, uint32_t* lineInSet){
-
-    uint32_t setId = GetSet(store);
-    debug(inform << TAB << TAB 
-      << "stored " << hex << store 
-      << " set " << dec << setId << endl << flush);
-    // FIXME (Shouldn't this be an assertion?
-    if (set){
-        (*set) = setId;
-    }
-
-    pebil_map_type<uint64_t, uint32_t>* fastset = fastcontents[setId];
-    if (fastset->count(store) > 0){
-        if (lineInSet){
-            (*lineInSet) = (*fastset)[store];
-        }
-        return true;
-    }
-
-    return false;
-}
-
-//// TODO: not implemented
-//bool CacheLevel::MultipleLines(uint64_t addr, uint32_t width){
-//    return false;
-//}
-
-
-//uint32_t CacheLevel::EvictProcess(CacheStats* stats, uint32_t memid, 
-//        uint64_t addr, uint64_t loadstoreflag, void* info){
-//
-//    /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-//        correct 
-//        uint32_t set = 0, lineInSet = 0;
-//        uint64_t store = addr;
-//        debug(assert(stats));
-//        debug(assert(stats->levelStats));
-//        debug(assert(stats->levelStats[memid]));
-//
-//        if (Search(store, &set, &lineInSet)){
-//        stats->levelStats[memid][level].storeCount++;
-//        MarkUsed(set, lineInSet,loadstoreflag);
-//        return INVALID_CACHE_LEVEL;
-//        } */
-//
-//    return level + 1;
-//}
-
+// Currently assuming a LL non inclusive cache. The process differs by:
+//   1. When a lower cache misses on a given address, it replaces a (replaced)
+//      address in the cache
+//   2. For a noninclusive cache, we first check to see if the original address 
+//      is in the cache. Update hit/miss data based on if this hits/misses
+//      2.a Do not mark used (since this address is in L2 now)
+//      2.b Mark dirty if hit and store
+//   3. Check the cache for the replaced address (the one evicted from L2). If 
+//      it was in the cache, then we are done. If it was a miss, then add the 
+//      replaced address to the cache level
+//      3.a Mark used
+//      3.b Mark dirty if L2 had marked it dirty
 uint32_t NonInclusiveCacheLevel::Process(uint64_t addr, uint64_t loadstoreflag,
   EvictionInfo* info){
 
@@ -1368,96 +1253,128 @@ uint32_t NonInclusiveCacheLevel::Process(uint64_t addr, uint64_t loadstoreflag,
     uint32_t toReturn = INVALID_CACHE_LEVEL;
     bool wasHit = false;
 
-    // If we are processing this cache, then a lower cache must have
-    // evicted an address. Check if that evicted address is in this cache.
-    // Note: This might not be true with multiple noninclusve levels
-    EvictionInfo* evicInfo = (EvictionInfo*)info; 
-    assert(evicInfo->level == Level - 1);
-    uint64_t prevEvictedStore = evicInfo->addr;
-    uint32_t prevEvictedSet = 0;
-    uint32_t prevEvictedLine = 0;
-    bool noNeedToReplace = Search(prevEvictedStore, &prevEvictedSet, 
-            &prevEvictedLine); 
-
-    // Can't assume that the evicted address will replace the searched
-    // address (since assoc isn't necessarily the same)
-    // hit
+    // Check to see if the processed address is in the cache and set the return
+    // value based on the result (2)
     wasHit = Search(store, &set, &lineInSet);
 
     if (wasHit) {
         toReturn = INVALID_CACHE_LEVEL;
+        if (TrackDirtyStatus && !loadstoreflag) // (2.b)
+            SetDirty(set, lineInSet);
     } else { //miss
         toReturn = Level + 1;
     }
 
-    // Do we need to replace an address with an address that was evicted by 
-    // a lower cache level (because the evicted address was not already here)?
-    if (!noNeedToReplace) {
-        uint64_t evictedStore = Replace(prevEvictedStore, prevEvictedSet, 
-          LineToReplace(prevEvictedSet));
+    // If we are processing this cache, then a lower cache must have
+    // evicted an address. Check if that evicted address is in this cache.
+    // Note: This might not be true with multiple noninclusve levels
+    EvictionInfo* evicInfo = info; 
+    assert(evicInfo->level == Level - 1);
+    uint64_t prevEvictedStore = evicInfo->addr;
+    uint32_t prevEvictedSet = 0;
+    uint32_t prevEvictedLine = 0;
+    bool prevDirty = evicInfo->dirty;  // Save previous dirty status
+    bool noNeedToReplace = Search(prevEvictedStore, &prevEvictedSet, 
+            &prevEvictedLine); 
+
+    set = prevEvictedSet;     // The set and line that is "used"/set dirty
+    lineInSet = prevEvictedLine;
+
+    // If this was a hit, then reset eviction information
+    if (noNeedToReplace) {
+        evicInfo->level = INVALID_CACHE_LEVEL;
+        evicInfo->addr = 0;
+        evicInfo->setid = INVALID_CACHE_LEVEL;
+        evicInfo->lineid = INVALID_CACHE_LEVEL;
+        evicInfo->coldMiss = false;
+        evicInfo->dirty = false;
+    // If it missed, then put it in the cache and set eviction information 
+    // to our new evicted address
+    } else {
+        lineInSet = LineToReplace(set);  // Different line is "used"
+        if (TrackDirtyStatus)
+            evicInfo->dirty = GetDirtyStatus(set, lineInSet);
+
+        uint64_t evictedStore = Replace(prevEvictedStore, set, lineInSet);
+
+        // Reset the dirty status
+        if (TrackDirtyStatus)
+            ResetDirty(set, lineInSet);
+
         evicInfo->level = Level;
         evicInfo->addr = evictedStore;
-    } else {
-        evicInfo->level = INVALID_CACHE_LEVEL;
+        evicInfo->setid = set;
+        evicInfo->lineid = lineInSet;
+        if (evictedStore == 0)
+            evicInfo->coldMiss = true;
+        else
+            evicInfo->coldMiss = false;
     }
 
-    // Lastly, if we had a hit, we need to mark that address as used, unless
-    // that address got replaced
-    set = 0;
-    lineInSet = 0;
-    if (wasHit && Search(store, &set, &lineInSet)) {
-        MarkUsed(set, lineInSet);
-    }
+    // Mark the hit line or the replaced line as used
+    MarkUsed(set, lineInSet);
+
+    // Mark it dirty if the evicted address was dirty
+    if (TrackDirtyStatus && prevDirty)
+        SetDirty(set, lineInSet);
 
     return toReturn;
 }
 
-//void CacheLevel::EvictDirty(CacheStats* stats, CacheLevel** levels, 
-//  uint32_t memid, void* info) {
-//
-//    // Should be only called by InclusiveCache.
-//    uint64_t victim;
-//
-//    /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-//        correct 
-//        victim=toEvictAddresses->back();    
-//    // vector "toEvictAddresses" will be empty by the end of this. Vector 
-//    // was designed to handle 
-//    toEvictAddresses->pop_back();
-//    uint32_t next=level+1;
-//    uint64_t loadstoreflag=0;
-//     */
-//    /* next=levels[next]->EvictProcess(stats,memid,victim,loadstoreflag,
-//       (void*)info);   
-//       assert( next == INVALID_CACHE_LEVEL); 
-//    // If assert fails, implies the memory address which was to be evicted was 
-//    // not found which is violation in an inclusive cache.
-//    assert(toEvictAddresses->size()==0); // INFO: Should be removed before
-//    // merging to dev branch, altho this checks a legal case but is it needed?
-//     */
-//
-//    /*  COMMENTING OUT after commit e3e0962 because we are unsure if it is 
-//        correct 
-//        while(toEvictAddresses->size()){ 
-//            // To handle cases where an address from Ln is missing in Ln+1 
-//            // (e.g  missing in L2, found in L1). 
-//            victim=toEvictAddresses->back();
-//            toEvictAddresses->pop_back();
-//            next=level+1;
-//            loadstoreflag=0;
-//            if(next<levelCount) {
-//                next=levels[next]->EvictProcess(stats, memid, victim, loadstoreflag,
-//                (void*)info);   
-//            }
-//            if(next<levelCount){
-//                inform << "\t Cannot retire victim " << victim << " to level " 
-//                << (level+1) << " since  it has already been evicted " <<ENDL;
-//            }
-//        }
-//
-//    toEvict=false; */
-//    return;
-//}
+uint64_t HighlyAssociativeCacheLevel::Replace(uint64_t cacheAddress, uint32_t 
+  setid, uint32_t lineid){
+
+    uint64_t evictedAddress = CacheLevel::Replace(cacheAddress, setid, lineid);
+
+    std::unordered_map<uint64_t, uint32_t>* fastset = FastContents[setid];
+    if (fastset->count(evictedAddress) > 0){
+        fastset->erase(evictedAddress);
+    }
+    (*fastset)[cacheAddress] = lineid;
+
+    return evictedAddress;
+}
+
+bool HighlyAssociativeCacheLevel::Search(uint64_t cacheAddress, uint32_t* set, 
+  uint32_t* lineInSet){
+
+    uint32_t setId = GetSet(cacheAddress);
+    debug(inform << TAB << TAB << "stored " << hex << cacheAddress
+      << " set " << dec << setId << endl << flush);
+
+    // Set the set
+    (*set) = setId;
+
+    // Search the FastContents for the address and set the line
+    std::unordered_map<uint64_t, uint32_t>* fastset = FastContents[setId];
+    if (fastset->count(cacheAddress) > 0) {
+        if (lineInSet) {
+            (*lineInSet) = (*fastset)[cacheAddress];
+        }
+        return true;
+    }
+
+    return false;
+}
+
+HighlyAssociativeCacheLevel::~HighlyAssociativeCacheLevel() {
+    if (FastContents) {
+        for (uint32_t i = 0; i < NumSets; i++) {
+            if (FastContents[i]) {
+                delete FastContents[i];
+            }
+        }
+        delete[] FastContents;
+    }
+}
+
+void HighlyAssociativeCacheLevel::Init(CacheLevel_Init_Interface) {
+    FastContents = new std::unordered_map<uint64_t, uint32_t>*[NumSets];
+    for (uint32_t i = 0; i < NumSets; i++) {
+        FastContents[i] = new std::unordered_map<uint64_t, uint32_t>();
+        FastContents[i]->clear();
+    }
+}
 
 MainMemory::MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize){
     numOfSets = setSize;
