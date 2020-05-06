@@ -429,12 +429,10 @@ uint32_t X86Instruction::getDefUseDist(){
         ((Function*)container)->computeDefUse();
       }
     }
-    defUseCalculated=1;
+    defUseCalculated = true;
     return defUseDist;
 }
-uint32_t X86Instruction::getDefUseCalculated() {
-  return defUseCalculated;
-}
+
 void X86Instruction::setDefUseDist(uint32_t dudist){ 
     defUseDist = dudist;
 }
