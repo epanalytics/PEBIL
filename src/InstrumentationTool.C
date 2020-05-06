@@ -1344,7 +1344,8 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             }
             bufferPointer += sprintf(thisBuffer + bufferPointer, 
               "\t+lpi\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", loopCount, loopId, 
-              loopDepth, loopLoc, bb->getHashCode().getValue());
+              loopDepth, loopLoc, artificialLoopCount, artificialLoopId,
+              bb->getHashCode().getValue());
             bufferPointer += sprintf(thisBuffer + bufferPointer, "\t+cnt\t%d\t"
               "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", 
               bb->getNumberOfBranches(), 
