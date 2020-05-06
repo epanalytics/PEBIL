@@ -496,9 +496,11 @@ public:
     uint32_t getIndexRegister();
 
     void touchedRegisters(BitSet<uint32_t>* regs);
+    bool isImmediate();
     bool isIndexRegXMM();
     bool isIndexRegYMM();
     bool isIndexRegZMM();
+    bool isMemory();
     bool isRelative();
     uint32_t getType() { return GET(type); }
     int64_t getValue();
@@ -570,8 +572,9 @@ public:
     BitSet<uint32_t>* getFlagsUsed();
     BitSet<uint32_t>* getFlagsDefined();
     RegisterSet * getUnusableRegisters();
-    RegisterSet * getRegistersUsed();
     RegisterSet * getRegistersDefined();
+    RegisterSet * getRegistersImplicitlyUsed();
+    RegisterSet * getRegistersUsed();
 
     bool allFlagsDeadIn();
     bool allFlagsDeadOut();
@@ -586,8 +589,8 @@ public:
 
     bool usesFlag(uint32_t flg);
     bool defsFlag(uint32_t flg);
-    bool implicitlyUsesReg(uint32_t alu);
-    bool implicitlyDefinesReg(uint32_t alu);
+    bool implicitlyUsesReg(uint64_t alu);
+    bool implicitlyDefinesReg(uint64_t alu);
 
     struct VectorInfo getVectorInfo();
     struct RuntimeValue getRegisterValue(enum ud_type reg);

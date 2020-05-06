@@ -35,6 +35,7 @@ typedef struct {
     uint64_t* Addresses;
     uint64_t* Hashes;
     uint32_t* Lines;
+    uint32_t* BlockIds; // Block IDs and Loop IDs (sequence #)
     char** Files;
     char** Functions;
     char* Application;
