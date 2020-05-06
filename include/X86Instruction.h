@@ -500,6 +500,7 @@ public:
     bool isIndexRegXMM();
     bool isIndexRegYMM();
     bool isIndexRegZMM();
+    bool isMemory();
     bool isRelative();
     uint32_t getType() { return GET(type); }
     int64_t getValue();
@@ -570,8 +571,9 @@ public:
     BitSet<uint32_t>* getFlagsUsed();
     BitSet<uint32_t>* getFlagsDefined();
     RegisterSet * getUnusableRegisters();
-    RegisterSet * getRegistersUsed();
     RegisterSet * getRegistersDefined();
+    RegisterSet * getRegistersImplicitlyUsed();
+    RegisterSet * getRegistersUsed();
 
     bool allFlagsDeadIn();
     bool allFlagsDeadOut();
