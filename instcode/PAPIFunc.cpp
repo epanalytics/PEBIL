@@ -425,7 +425,7 @@ extern "C"
     
       counters = AllData->GetData(*key, pthread_self());
     
-      if (PAPI_num_counters() < PAPI_OK) {
+      if (PAPI_num_hwctrs() < PAPI_OK) {
           fprintf(stderr, "PAPI initialization failed");
           return NULL;
       }
@@ -503,9 +503,9 @@ extern "C"
                 ++tit) {
                   FunctionPAPI* icounters = AllData->GetData(*iit, *tit);
                   
-                  fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: "
+                  fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
                     "%lld\tHash: 0x%llx\t", 
-                    *tit, (double)(icounters->functionTimerAccum[funcIndex]) / 
+                    AllData->GetThreadSequence(*tit), (double)(icounters->functionTimerAccum[funcIndex]) / 
                     timerCPUFreq, icounters->functionEntryCounts[funcIndex], 
                     icounters->functionHashes[funcIndex]);
                   // Add * if function was shutoff
