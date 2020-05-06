@@ -840,6 +840,17 @@ RegisterSet* X86Instruction::getRegistersDefined(){
     
     return retval;
 }
+    
+RegisterSet* X86Instruction::getRegistersImplicitlyUsed() {
+    RegisterSet * retval = new RegisterSet();
+    // implicit uses
+    for(uint32_t i = 0; i < X86_ALU_REGS; ++i){
+        if(implicitlyUsesReg(i)){
+            retval->addRegister(i);
+        }
+    }
+    return retval;
+}
 
 RegisterSet* X86Instruction::getRegistersUsed(){
     RegisterSet * retval = new RegisterSet();
@@ -1627,6 +1638,12 @@ bool OperandX86::isIndexRegYMM(){
 
 bool OperandX86::isIndexRegZMM(){
     return IS_ZMM_REG(GET(index));
+}
+
+bool OperandX86::isMemory() {
+    // Don't know what the PTR is, so just wait til we have an example
+    assert((GET(type) != UD_OP_PTR));
+    return ((GET(type) == UD_OP_MEM));
 }
 
 bool OperandX86::isRelative(){
@@ -2676,11 +2693,11 @@ void X86Instruction::setFlags()
     __reg_define(flags_usedef, UD_Icmovle, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
     __reg_define(flags_usedef, UD_Icmovg, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
     __reg_define(flags_usedef, UD_Icmp, 0, __x86_flagset_alustd);
-    __reg_define(flags_usedef, UD_Icmpsb, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
+    //__reg_define(flags_usedef, UD_Icmpsb, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
     //__reg_define(flags_usedef, UD_Icmpsd, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
     //__reg_define(flags_usedef, UD_Icmpss, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
-    __reg_define(flags_usedef, UD_Icmpsw, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
-    __reg_define(flags_usedef, UD_Icmpsq, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
+    //__reg_define(flags_usedef, UD_Icmpsw, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
+    //__reg_define(flags_usedef, UD_Icmpsq, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
     __reg_define(flags_usedef, UD_Icmpxchg, 0, __x86_flagset_alustd);
     __reg_define(flags_usedef, UD_Icmpxchg8b, 0, __bit_shift(X86_FLAG_ZF));
     __reg_define(flags_usedef, UD_Icomisd, 0, __x86_flagset_alustd);

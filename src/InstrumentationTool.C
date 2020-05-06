@@ -1244,7 +1244,8 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
       "<fname> # <hex_unq_id> <vaddr>\n");
 
     if (printDetail){
-        fprintf(staticFD, "# +lpi <loopcnt> <loopid> <ldepth> <lploc>\n");
+        fprintf(staticFD, "# +lpi <loopcnt> <loopid> <ldepth> <lploc> <artcnt> "
+          "<artid>\n");
         fprintf(staticFD, "# +cnt <branch_op> <int_op> <logic_op> "
           "<shiftrotate_op> <trapsyscall_op> <specialreg_op> <other_op> "
           "<load_op> <store_op> <total_mem_op> <sw_prefs> <scatter_gather_op> "
@@ -1284,6 +1285,14 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
         }
         uint32_t loopDepth = bb->getFlowGraph()->getLoopDepth(bb->getIndex());
         uint32_t loopCount = bb->getFlowGraph()->getNumberOfLoops();
+        uint32_t artificialLoopCount = bb->getFlowGraph()->
+          getNumberOfArtificialLoops();
+        uint32_t artificialLoopId = Invalid_UInteger_ID; 
+        Loop* artificialLoop = bb->getFlowGraph()->
+          getInnermostArtificialLoopForBlock(bb->getIndex());
+        if (artificialLoop){
+            artificialLoopId = artificialLoop->getIndex();
+        }
 
         char* fileName;
         uint32_t lineNo;
@@ -1314,8 +1323,9 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                     loopLoc = 2;
                 }
             }
-            fprintf(staticFD, "\t+lpi\t%d\t%d\t%d\t%d # %#llx\n", loopCount, 
-              loopId, loopDepth, loopLoc, bb->getHashCode().getValue());
+            fprintf(staticFD, "\t+lpi\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", 
+              loopCount, loopId, loopDepth, loopLoc, artificialLoopCount, 
+              artificialLoopId, bb->getHashCode().getValue());
             fprintf(staticFD, "\t+cnt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
               "\t%d\t%d\t%d\t%d # %#llx\n", bb->getNumberOfBranches(), 
               bb->getNumberOfIntegerOps(), bb->getNumberOfLogicOps(), 
@@ -1716,7 +1726,8 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
   fprintf(staticFD, "# <sequence> <block_unqid> <memop> <fpop> <insn> <line> <fname> # <hex_unq_id> <vaddr>\n");
   
   if (printDetail){
-    fprintf(staticFD, "# +lpi <loopcnt> <loopid> <ldepth> <lploc>\n");
+    fprintf(staticFD, "# +lpi <loopcnt> <loopid> <ldepth> <lploc> <artcnt> "
+      "<artid>\n");
     fprintf(staticFD, "# +cnt <branch_op> <int_op> <logic_op> <shiftrotate_op> <trapsyscall_op> <specialreg_op> <other_op> <load_op> <store_op> <total_mem_op> <sw_prefs> <scatter_gather_op> <vector_mask_op> <help_op>\n");
     fprintf(staticFD, "# +mem <total_mem_op> <total_mem_bytes> <bytes/op>\n");
     fprintf(staticFD, "# +lpc <loop_head> <parent_loop_head>\n");
@@ -1750,6 +1761,14 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
     }
     uint32_t loopDepth = bb->getFlowGraph()->getLoopDepth(bb->getIndex());
     uint32_t loopCount = bb->getFlowGraph()->getNumberOfLoops();
+    uint32_t artificialLoopCount = bb->getFlowGraph()->
+      getNumberOfArtificialLoops();
+    uint32_t artificialLoopId = Invalid_UInteger_ID; 
+    Loop* artificialLoop = bb->getFlowGraph()->
+      getInnermostArtificialLoopForBlock(bb->getIndex());
+    if (artificialLoop){
+        artificialLoopId = artificialLoop->getIndex();
+    }
     
     char* fileName;
     uint32_t lineNo;
@@ -1779,7 +1798,9 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
 	  }
 	}
       }
-      fprintf(staticFD, "\t+lpi\t%d\t%d\t%d\t%d # %#llx\n", loopCount, loopId, loopDepth, loopLoc, hashValue);
+      fprintf(staticFD, "\t+lpi\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", loopCount, 
+        loopId, loopDepth, loopLoc, artificialLoopCount, artificialLoopId, 
+        hashValue);
       fprintf(staticFD, "\t+cnt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", 
 	      (uint32_t)ins->isBranch(), (uint32_t)ins->isIntegerOperation(), (uint32_t)ins->isLogicOp(), (uint32_t)ins->isSpecialRegOp(),
 	      (uint32_t)ins->isSystemCall(), (uint32_t)ins->isSpecialRegOp(), (uint32_t)ins->isStringOperation(),
