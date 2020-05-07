@@ -514,6 +514,7 @@ private:
     RegisterSet* liveIns;
     RegisterSet* liveOuts;
     uint32_t defUseDist;
+    bool defUseCalculated; // Set when defUseDist has been set
 
     uint32_t* flags_usedef;
 
