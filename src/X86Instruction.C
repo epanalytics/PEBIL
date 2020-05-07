@@ -424,11 +424,15 @@ void RegisterSet::print(const char * const name){
 }
 
 uint32_t X86Instruction::getDefUseDist(){
-    if (container->isFunction() && !((Function*)container)->doneDefUse()){
+    if(!defUseCalculated) {
+      if (container->isFunction() && !((Function*)container)->doneDefUse()){
         ((Function*)container)->computeDefUse();
+      }
     }
+    defUseCalculated = true;
     return defUseDist;
 }
+
 void X86Instruction::setDefUseDist(uint32_t dudist){ 
     defUseDist = dudist;
 }
