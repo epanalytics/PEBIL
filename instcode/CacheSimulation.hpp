@@ -123,7 +123,7 @@ public:
     uint32_t Capacity;
     CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
       hybridCache);
-    ~CacheStats();
+    virtual ~CacheStats();
     void InitMainMemoryStats(CacheStructureHandler* handler);
 
     bool HasMemId(uint32_t memid);
@@ -166,9 +166,10 @@ public:
     float GetHitRate(uint32_t memid, uint32_t lvl);
     float GetCumulativeHitRate(uint32_t memid, uint32_t lvl);
 
-    void UpdateLevelStats(uint32_t memid, uint32_t lvl, bool hit, bool load);
-    void UpdateMainMemoryStats(uint32_t memid, uint32_t set, uint32_t line, 
-      bool load);
+    virtual void UpdateLevelStats(uint32_t memid, uint32_t lvl, bool hit, bool 
+      load);
+    virtual void UpdateMainMemoryStats(uint32_t memid, uint32_t set, uint32_t 
+      line, bool load);
 
     bool Verify();
 };
@@ -176,62 +177,41 @@ public:
 class CacheStructureHandler : public MemoryStreamHandler {
   protected: 
 
-    CacheSimulationTool* cacheSimTool;
+    CacheSimulationTool* CacheSimTool;
 
-    uint32_t sysId;
-    uint32_t levelCount;
+    bool Initialized = false;
+    uint32_t LevelCount;
+    CacheLevel** Levels;
+    StringParser* Parser;
+    uint32_t SysId;
 
-    CacheLevel** levels;
-    //std::string description;
-
-//    uint32_t MinimumHighAssociativity = 256;
-//    uint32_t DirtyCacheHandling = 0;
-
-    bool isInitialized = false;
-
-    uint64_t hits;
-    uint64_t misses;
-    //uint64_t AddressRangesCount;
-    StringParser* parser;
-    std::vector<uint64_t>* toEvictAddresses;
-    uint32_t processAddress(void* stats, uint64_t address, uint64_t memseq, 
-      uint8_t loadstoreflag);
+    CacheLevel* ParseCacheLevelTokens(std::stringstream& tokenizer, 
+      uint32_t levelId, uint32_t* firstExcl);
+    uint32_t ProcessAddress(CacheStats* stats, uint64_t address, uint64_t 
+      memseq, uint8_t loadstoreflag);
 
   public:      
     // note that this doesn't contain any stats gathering code. that is done at
     // the thread level and is therefore done in ThreadData
-
-    CacheStructureHandler(CacheSimulationTool* cacheSimTool);
+    CacheStructureHandler(CacheSimulationTool* tool, StringParser* parser);
     CacheStructureHandler(CacheStructureHandler& h);
-    ~CacheStructureHandler();
+    virtual ~CacheStructureHandler();
+
+    CacheLevel* GetCacheLevel(uint32_t lvl) { return Levels[lvl]; } //0-indexed
+    uint32_t GetMinimumHighAssociativity() { return 
+      CacheSimTool->GetMinimumHighAssociativity(); }
+    uint32_t GetNumberOfCacheLevels() { return LevelCount; }
+    uint32_t GetSysId() { return SysId; }
+
     virtual bool Init(std::string desc);
 
-    CacheLevel* GetCacheLevel(uint32_t lvl) { return levels[lvl]; } //0-indexed
-    uint32_t GetMinimumHighAssociativity() { return 
-      cacheSimTool->GetMinimumHighAssociativity(); }
-    uint32_t GetNumberOfCacheLevels() { return levelCount; }
-    uint32_t GetSysId() { return sysId; }
+    bool IsInitialized() { return Initialized; }
+    bool IsKeepingMemoryLog() { return CacheSimTool->IsKeepingMemoryLog(); }
+    bool IsTrackingDirtyStatus() {return CacheSimTool->IsTrackingDirtyStatus();}
 
-    bool IsInitialized() { return isInitialized; }
-    bool IsKeepingMemoryLog() { return cacheSimTool->IsKeepingMemoryLog(); }
-    bool IsTrackingDirtyStatus() {return cacheSimTool->IsTrackingDirtyStatus();}
-
-    CacheLevel* ParseCacheLevelTokens(std::stringstream& tokenizer, 
-      uint32_t levelId, uint32_t* firstExcl);
     void Print(std::ofstream& f);
     uint32_t Process(void* stats, BufferEntry* access);
-    void SetParser(StringParser* p) { parser = p; }
     bool Verify();
-
-    uint64_t GetHits(){return hits;}
-    uint64_t GetMisses(){ return misses;} 
-
-    //bool CheckRange(CacheStats* stats,uint64_t addr,uint64_t loadstoreflag,uint32_t memid); //, uint32_t* set, uint32_t* lineInSet);    
-    //void ExtractAddresses();
-
-    /* For testing only */
-    void SetCacheLevel(uint32_t lvl, CacheLevel* c) { levels[lvl] = c; }
-    void SetNumberOfCacheLevels(uint32_t n) { levelCount = n; }
 };
 
 #define CacheLevel_Init_Interface uint32_t lvl, uint32_t sizeInBytes, uint32_t assoc, uint32_t lineSz, ReplacementPolicy pol, bool trackDirty
