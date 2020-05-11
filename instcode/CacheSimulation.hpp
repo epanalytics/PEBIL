@@ -108,7 +108,8 @@ class CacheSimulationTool : public AddressStreamTool {
       uint64_t totalMemop, uint64_t sampledCount);
     void PrintPerBlockCacheSimData(std::ofstream& file,
       DataManager<AddressStreamStats*>* AllData);
-    void PrintSysidInfo(std::ofstream& file, CacheStats* c, std::set<image_key_t>::iterator iit);
+    void PrintSysidInfo(std::ofstream& file, CacheStats* c, 
+      std::set<image_key_t>::iterator iit);
     void PrintThreadidInfo(std::ofstream& file, thread_key_t thread, 
       DataManager<AddressStreamStats*>* AllData);
 };
@@ -116,55 +117,52 @@ class CacheSimulationTool : public AddressStreamTool {
 
 class CacheStats : public StreamStats {
 public:
-    uint32_t LevelCount;
-    uint32_t SysId;
-    LevelStats** levelStats; // indexed by [memid][level]
-    MainMemory** mainMemoryStats; // indexed by [memid]
-    uint32_t Capacity;
-    CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
-      hybridCache);
+    CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, bool
+      keepMemoryStats);
     virtual ~CacheStats();
-    void InitMainMemoryStats(CacheStructureHandler* handler);
+
+    uint32_t Capacity;
+    LevelStats** CacheLevelStats; // indexed by [memid][level]
+    bool KeepMemoryStats;
+    uint32_t LevelCount;
+    MainMemory** MainMemoryStats; // indexed by [memid]
+    uint32_t SysId;
+ 
+    void ExtendCapacity(uint32_t newSize);
+
+    uint64_t GetAccessCount(uint32_t memid);
+    uint32_t GetCapacity() { return Capacity; }
+    float GetCumulativeHitRate(uint32_t memid, uint32_t lvl);
+    static float GetHitRate(LevelStats* stats);
+    static float GetHitRate(uint64_t hits, uint64_t misses);
+    float GetHitRate(uint32_t memid, uint32_t lvl);
+    uint64_t GetHits(uint32_t lvl);
+    uint64_t GetHits(uint32_t memid, uint32_t lvl);
+    LevelStats* GetLevelStats(uint32_t memid, uint32_t lvl);
+    uint64_t GetLoads(uint32_t lvl);
+    uint64_t GetLoads(uint32_t memid, uint32_t lvl);
+    uint64_t GetMisses(uint32_t lvl);
+    uint64_t GetMisses(uint32_t memid, uint32_t lvl);
+    uint32_t GetNumberOfLevels() { return LevelCount; }
+    uint64_t GetStores(uint32_t lvl);
+    uint64_t GetStores(uint32_t memid, uint32_t lvl);
+    uint32_t GetSysId() { return SysId; }
 
     bool HasMemId(uint32_t memid);
-    void ExtendCapacity(uint32_t newSize);
-    void NewMem(uint32_t memid);
-
     void Hit(uint32_t memid, uint32_t lvl);
-
-    void Miss(uint32_t memid, uint32_t lvl);
-
     void Hit(uint32_t memid, uint32_t lvl, uint32_t cnt);
 
-    void Miss(uint32_t memid, uint32_t lvl, uint32_t cnt);
+    void InitMainMemoryStats(CacheStructureHandler* handler);
+    bool IsKeepingMemoryStats() { return KeepMemoryStats; }
 
     void Load(uint32_t memid,uint32_t lvl);
     void Load(uint32_t memid, uint32_t lvl, uint32_t cnt);
+
+    void Miss(uint32_t memid, uint32_t lvl);
+    void Miss(uint32_t memid, uint32_t lvl, uint32_t cnt);
    
     void Store(uint32_t memid,uint32_t lvl);
     void Store(uint32_t memid, uint32_t lvl, uint32_t cnt);
- 
-    uint64_t GetLoads(uint32_t memid, uint32_t lvl);
-    uint64_t GetLoads(uint32_t lvl);
-    
-    uint64_t GetStores(uint32_t memid, uint32_t lvl);
-    uint64_t GetStores(uint32_t lvl);    
-
-    static float GetHitRate(LevelStats* stats);
-    static float GetHitRate(uint64_t hits, uint64_t misses);
-
-    uint64_t GetHits(uint32_t memid, uint32_t lvl);
-
-    uint64_t GetHits(uint32_t lvl);
-    
-    uint64_t GetMisses(uint32_t memid, uint32_t lvl);
-
-    uint64_t GetMisses(uint32_t lvl);
-
-    LevelStats* GetLevelStats(uint32_t memid, uint32_t lvl);
-    uint64_t GetAccessCount(uint32_t memid);
-    float GetHitRate(uint32_t memid, uint32_t lvl);
-    float GetCumulativeHitRate(uint32_t memid, uint32_t lvl);
 
     virtual void UpdateLevelStats(uint32_t memid, uint32_t lvl, bool hit, bool 
       load);

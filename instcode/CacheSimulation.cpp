@@ -228,8 +228,8 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 if(IsKeepingMemoryLog()) {
                     LogFile << ENDL << "#" << TAB;
                     LogFile << "SetCount: " << dec << 
-                      c->mainMemoryStats[0]->numOfSets << TAB << "LineCount: " 
-                      << dec << c->mainMemoryStats[0]->numOfLinesInSet;
+                      c->MainMemoryStats[0]->numOfSets << TAB << "LineCount: " 
+                      << dec << c->MainMemoryStats[0]->numOfLinesInSet;
                 }
 
                 MemFile << ENDL;
@@ -271,11 +271,11 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 CacheStats* c = new CacheStats(s->LevelCount, s->SysId,
                   st->BlockCount, false);
 
-                MainMemory* refMem = s->mainMemoryStats[0];
-                c->mainMemoryStats = new MainMemory*[st->BlockCount];
+                MainMemory* refMem = s->MainMemoryStats[0];
+                c->MainMemoryStats = new MainMemory*[st->BlockCount];
                 for (int i=0;i<st->BlockCount;i++){
-                    //c->mainMemoryStats[i] = s->mainMemoryStats[i];
-                    c->mainMemoryStats[i] = new MainMemory(*refMem);
+                    //c->MainMemoryStats[i] = s->MainMemoryStats[i];
+                    c->MainMemoryStats[i] = new MainMemory(*refMem);
                 }
 
                 aggstats[sys] = c;
@@ -296,19 +296,19 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     } // for each cache level
 
                     if(IsKeepingMemoryLog()){
-                        if( c->mainMemoryStats[0]->numOfLinesInSet > 1) {
-                            for(int i = 0; i < c->mainMemoryStats[0]->numOfSets;
+                        if( c->MainMemoryStats[0]->numOfLinesInSet > 1) {
+                            for(int i = 0; i < c->MainMemoryStats[0]->numOfSets;
                               i++){
                                 for(int j = 0; j < 
-                                  c->mainMemoryStats[0]->numOfLinesInSet; j++){
+                                  c->MainMemoryStats[0]->numOfLinesInSet; j++){
                                     NestedHash* CreadInsMap = 
-                                      c->mainMemoryStats[bbid]->readInsMap; 
+                                      c->MainMemoryStats[bbid]->readInsMap; 
                                     NestedHash* CwriteOutsMap = 
-                                      c->mainMemoryStats[bbid]->writeOutsMap;
+                                      c->MainMemoryStats[bbid]->writeOutsMap;
                                     NestedHash* SreadInsMap = 
-                                      s->mainMemoryStats[memid]->readInsMap; 
+                                      s->MainMemoryStats[memid]->readInsMap; 
                                     NestedHash* SwriteOutsMap = 
-                                      s->mainMemoryStats[memid]->writeOutsMap;
+                                      s->MainMemoryStats[memid]->writeOutsMap;
                                     
                                     uint32_t toAddRead = SreadInsMap->get(i, j);
                                     uint32_t toAddWrite = SwriteOutsMap->get(i,
@@ -322,15 +322,15 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                                 }
                             }
                         } else {
-                            for(int i=0;i<c->mainMemoryStats[0]->numOfSets;i++){
+                            for(int i=0;i<c->MainMemoryStats[0]->numOfSets;i++){
                                 EasyHash* CdirInsMap = 
-                                  c->mainMemoryStats[bbid]->dirInsMap;
+                                  c->MainMemoryStats[bbid]->dirInsMap;
                                 EasyHash* CdirOutsMap = 
-                                  c->mainMemoryStats[bbid]->dirOutsMap;
+                                  c->MainMemoryStats[bbid]->dirOutsMap;
                                 EasyHash* SdirInsMap = 
-                                  s->mainMemoryStats[memid]->dirInsMap;
+                                  s->MainMemoryStats[memid]->dirInsMap;
                                 EasyHash* SdirOutsMap = 
-                                  s->mainMemoryStats[memid]->dirOutsMap;
+                                  s->MainMemoryStats[memid]->dirOutsMap;
 
                                 uint32_t toAddRead = SdirInsMap->get(i);
                                 uint32_t toAddWrite = SdirOutsMap->get(i);
@@ -449,23 +449,23 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     MemFile << TAB << "M"
                       << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
                       << TAB << dec << 0
-                      << TAB << dec << c->mainMemoryStats[bbid]->GetLoads()
-                      << TAB << dec << c->mainMemoryStats[bbid]->GetStores()
+                      << TAB << dec << c->MainMemoryStats[bbid]->GetLoads()
+                      << TAB << dec << c->MainMemoryStats[bbid]->GetStores()
                       << ENDL; 
 
                     if (IsKeepingMemoryLog()) {
-                        uint32_t numOfSets = c->mainMemoryStats[bbid]->numOfSets;
-                        uint32_t numOfLines = c->mainMemoryStats[bbid]->numOfLinesInSet;
+                        uint32_t numOfSets = c->MainMemoryStats[bbid]->numOfSets;
+                        uint32_t numOfLines = c->MainMemoryStats[bbid]->numOfLinesInSet;
                         NestedHash* readInsMap;
                         NestedHash* writeOutsMap;
                         EasyHash* dirInsMap;
                         EasyHash* dirOutsMap;
                         if (numOfLines > 1) {
-                            readInsMap = c->mainMemoryStats[bbid]->readInsMap;
-                            writeOutsMap = c->mainMemoryStats[bbid]->writeOutsMap;
+                            readInsMap = c->MainMemoryStats[bbid]->readInsMap;
+                            writeOutsMap = c->MainMemoryStats[bbid]->writeOutsMap;
                         } else {
-                            dirInsMap = c->mainMemoryStats[bbid]->dirInsMap;
-                            dirOutsMap = c->mainMemoryStats[bbid]->dirOutsMap;
+                            dirInsMap = c->MainMemoryStats[bbid]->dirInsMap;
+                            dirOutsMap = c->MainMemoryStats[bbid]->dirOutsMap;
                         }
 
                         if (numOfLines > 1) {
@@ -700,173 +700,45 @@ void CacheSimulationTool::PrintThreadidInfo(ofstream& file, thread_key_t thread,
 }
 
 CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, 
-  uint32_t hybridcache){
-    LevelCount = lvl;
-    SysId = sysid;
-    Capacity = capacity;
-    mainMemoryStats = new MainMemory*[Capacity];
+  bool keepMemoryStats) : Capacity(capacity), KeepMemoryStats(keepMemoryStats),
+  LevelCount(lvl), MainMemoryStats(nullptr), SysId(sysid) {
 
-    levelStats = new LevelStats*[Capacity];
+    CacheLevelStats = new LevelStats*[Capacity];
 
-    for (uint32_t i = 0; i < Capacity; i++){
-        NewMem(i);
+    for (uint32_t memid = 0; memid < Capacity; memid++) {
+        LevelStats* mem = new LevelStats[LevelCount];
+        memset(mem, 0, sizeof(LevelStats) * LevelCount);
+        CacheLevelStats[memid] = mem;
     }
+
     assert(Verify());
 }
 
-CacheStats::~CacheStats(){
-    if (levelStats){
-        for (uint32_t i = 0; i < Capacity; i++){
-            if (levelStats[i]){
-                delete[] levelStats[i];
+CacheStats::~CacheStats() {
+    if (CacheLevelStats) {
+        for (uint32_t i = 0; i < Capacity; i++) {
+            if (CacheLevelStats[i]){
+                delete[] CacheLevelStats[i];
             }
-            /*if (mainMemoryStats[i]){
-                delete mainMemoryStats[i];
-            }*/
         }
-        delete[] levelStats;
-        //delete[] mainMemoryStats;
+        delete[] CacheLevelStats;
+    }
+
+    if (MainMemoryStats) {
+        for (uint32_t i = 0; i < Capacity; i++) {
+            if (MainMemoryStats[i]){
+                delete MainMemoryStats[i];
+            }
+        }
+        delete[] MainMemoryStats;
     }
 }
 
-void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler){
-    uint32_t lastLevel = handler->GetNumberOfCacheLevels() - 1;
-    CacheLevel* lastCacheLevel = handler->GetCacheLevel(lastLevel);
-    uint32_t numOfSets = lastCacheLevel->GetSetCount();
-    uint32_t numOfLinesInSet = lastCacheLevel->GetAssociativity();
-    uint32_t sizeOfLine = lastCacheLevel->GetLineSize();
-    for(int i=0;i<Capacity;i++){
-        mainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
-        assert(mainMemoryStats[i]->GetLoads()==0);
-    }
-}
-
-float CacheStats::GetHitRate(LevelStats* stats){
-    return GetHitRate(stats->hitCount, stats->missCount);
-}
-
-float CacheStats::GetHitRate(uint64_t hits, uint64_t misses){
-    if (hits + misses == 0){
-        return 0.0;
-    }
-    return ((float)hits) / ((float)hits + (float)misses);
-}
-
-void CacheStats::ExtendCapacity(uint32_t newSize){
+void CacheStats::ExtendCapacity(uint32_t newSize) {
     assert(0 && "Should not be updating the size of this dynamically");
-    LevelStats** nn = new LevelStats*[newSize];
-
-    memset(nn, 0, sizeof(LevelStats*) * newSize);
-    memcpy(nn, levelStats, sizeof(LevelStats*) * Capacity);
-
-    delete[] levelStats;
-    levelStats = nn;
 }
 
-void CacheStats::NewMem(uint32_t memid){
-    assert(memid < Capacity);
-
-    LevelStats* mem = new LevelStats[LevelCount];
-    memset(mem, 0, sizeof(LevelStats) * LevelCount);
-    levelStats[memid] = mem;
-}
-
-void CacheStats::Load(uint32_t memid, uint32_t lvl){
-    Load(memid, lvl, 1);
-}
-
-void CacheStats::Load(uint32_t memid, uint32_t lvl, uint32_t cnt){
-    levelStats[memid][lvl].loadCount += cnt;
-}
-
-void CacheStats::Store(uint32_t memid, uint32_t lvl){
-    Store(memid, lvl, 1);
-}
-
-void CacheStats::Store(uint32_t memid, uint32_t lvl, uint32_t cnt){
-    levelStats[memid][lvl].storeCount += cnt;
-}
-
-uint64_t CacheStats::GetLoads(uint32_t memid, uint32_t lvl){
-    return levelStats[memid][lvl].loadCount;
-}
-
-uint64_t CacheStats::GetLoads(uint32_t lvl){
-    uint64_t loads = 0;
-    for (uint32_t i = 0; i < Capacity; i++){
-        loads += levelStats[i][lvl].loadCount;
-    }
-    return loads;
-}
-
-uint64_t CacheStats::GetStores(uint32_t memid, uint32_t lvl){
-    return levelStats[memid][lvl].storeCount;
-}
-
-uint64_t CacheStats::GetStores(uint32_t lvl){
-    uint64_t stores = 0;
-    for (uint32_t i = 0; i < Capacity; i++){
-        stores += levelStats[i][lvl].storeCount;
-    }
-    return stores;
-}
-
-void CacheStats::Hit(uint32_t memid, uint32_t lvl){
-    Hit(memid, lvl, 1);
-}
-
-void CacheStats::Miss(uint32_t memid, uint32_t lvl){
-    Miss(memid, lvl, 1);
-}
-
-void CacheStats::Miss(uint32_t memid, uint32_t lvl, uint32_t cnt){
-    levelStats[memid][lvl].missCount += cnt;
-}
-
-void CacheStats::Hit(uint32_t memid, uint32_t lvl, uint32_t cnt){
-    levelStats[memid][lvl].hitCount += cnt;
-}
-
-
-uint64_t CacheStats::GetHits(uint32_t memid, uint32_t lvl){
-    return levelStats[memid][lvl].hitCount;
-}
-
-uint64_t CacheStats::GetHits(uint32_t lvl){
-    uint64_t hits = 0;
-    for (uint32_t i = 0; i < Capacity; i++){
-        hits += levelStats[i][lvl].hitCount;
-    }
-    return hits;
-}
-
-uint64_t CacheStats::GetMisses(uint32_t memid, uint32_t lvl){
-    return levelStats[memid][lvl].missCount;
-}
-
-uint64_t CacheStats::GetMisses(uint32_t lvl){
-    uint64_t hits = 0;
-    for (uint32_t i = 0; i < Capacity; i++){
-        hits += levelStats[i][lvl].missCount;
-    }
-    return hits;
-}
-
-bool CacheStats::HasMemId(uint32_t memid){
-    if (memid >= Capacity){
-        return false;
-    }
-    if (levelStats[memid] == NULL){
-        return false;
-    }
-    return true;
-}
-
-LevelStats* CacheStats::GetLevelStats(uint32_t memid, uint32_t lvl){
-    return &(levelStats[memid][lvl]);
-}
-
-uint64_t CacheStats::GetAccessCount(uint32_t memid){
+uint64_t CacheStats::GetAccessCount(uint32_t memid) {
     LevelStats* l1 = GetLevelStats(memid, 0);
     if (l1){
         return (l1->hitCount + l1->missCount);
@@ -874,67 +746,190 @@ uint64_t CacheStats::GetAccessCount(uint32_t memid){
     return 0;
 }
 
-float CacheStats::GetHitRate(uint32_t memid, uint32_t lvl){
-    return GetHitRate(GetLevelStats(memid, lvl));
-}
-
-float CacheStats::GetCumulativeHitRate(uint32_t memid, uint32_t lvl){
+float CacheStats::GetCumulativeHitRate(uint32_t memid, uint32_t lvl) {
     uint64_t tcount = GetAccessCount(memid);
     if (tcount == 0){
         return 0.0;
     }
 
     uint64_t hits = 0;
-    for (uint32_t i = 0; i < lvl; i++){
+    for (uint32_t i = 0; i < lvl; i++) {
         hits += GetLevelStats(memid, i)->hitCount;
     }
-    return ((float)hits / (float)GetAccessCount(memid));
+    return GetHitRate(hits, tcount - hits);
 }
 
-// Update levelStats[memid][lvl] with hit (or miss) and load (or store)
+float CacheStats::GetHitRate(LevelStats* stats) {
+    return GetHitRate(stats->hitCount, stats->missCount);
+}
+
+float CacheStats::GetHitRate(uint64_t hits, uint64_t misses) {
+    if (hits + misses == 0){
+        return 0.0;
+    }
+    return ((float)hits) / ((float)hits + (float)misses);
+}
+
+float CacheStats::GetHitRate(uint32_t memid, uint32_t lvl) {
+    return GetHitRate(GetLevelStats(memid, lvl));
+}
+
+uint64_t CacheStats::GetHits(uint32_t lvl) {
+    uint64_t hits = 0;
+    for (uint32_t i = 0; i < Capacity; i++){
+        hits += CacheLevelStats[i][lvl].hitCount;
+    }
+    return hits;
+}
+
+uint64_t CacheStats::GetHits(uint32_t memid, uint32_t lvl) {
+    return CacheLevelStats[memid][lvl].hitCount;
+}
+
+LevelStats* CacheStats::GetLevelStats(uint32_t memid, uint32_t lvl) {
+    return &(CacheLevelStats[memid][lvl]);
+}
+
+uint64_t CacheStats::GetLoads(uint32_t lvl) {
+    uint64_t loads = 0;
+    for (uint32_t i = 0; i < Capacity; i++) {
+        loads += CacheLevelStats[i][lvl].loadCount;
+    }
+    return loads;
+}
+
+uint64_t CacheStats::GetLoads(uint32_t memid, uint32_t lvl) {
+    return CacheLevelStats[memid][lvl].loadCount;
+}
+
+uint64_t CacheStats::GetMisses(uint32_t lvl) {
+    uint64_t hits = 0;
+    for (uint32_t i = 0; i < Capacity; i++) {
+        hits += CacheLevelStats[i][lvl].missCount;
+    }
+    return hits;
+}
+
+uint64_t CacheStats::GetMisses(uint32_t memid, uint32_t lvl) {
+    return CacheLevelStats[memid][lvl].missCount;
+}
+
+uint64_t CacheStats::GetStores(uint32_t lvl) {
+    uint64_t stores = 0;
+    for (uint32_t i = 0; i < Capacity; i++) {
+        stores += CacheLevelStats[i][lvl].storeCount;
+    }
+    return stores;
+}
+
+uint64_t CacheStats::GetStores(uint32_t memid, uint32_t lvl) {
+    return CacheLevelStats[memid][lvl].storeCount;
+}
+
+bool CacheStats::HasMemId(uint32_t memid) {
+    if (memid >= Capacity) {
+        return false;
+    }
+    if (CacheLevelStats[memid] == NULL) {
+        return false;
+    }
+    return true;
+}
+
+void CacheStats::Hit(uint32_t memid, uint32_t lvl) {
+    Hit(memid, lvl, 1);
+}
+
+void CacheStats::Hit(uint32_t memid, uint32_t lvl, uint32_t cnt) {
+    CacheLevelStats[memid][lvl].hitCount += cnt;
+}
+
+void CacheStats::InitMainMemoryStats(CacheStructureHandler* handler) {
+    if (!IsKeepingMemoryStats())
+        return;
+
+    // Should only be called once!
+    if (MainMemoryStats)
+        return;
+
+    MainMemoryStats = new MainMemory*[Capacity];
+    uint32_t lastLevel = handler->GetNumberOfCacheLevels() - 1;
+    CacheLevel* lastCacheLevel = handler->GetCacheLevel(lastLevel);
+    uint32_t numOfSets = lastCacheLevel->GetSetCount();
+    uint32_t numOfLinesInSet = lastCacheLevel->GetAssociativity();
+    uint32_t sizeOfLine = lastCacheLevel->GetLineSize();
+    for(int i=0;i<Capacity;i++){
+        MainMemoryStats[i] = new MainMemory(numOfSets, numOfLinesInSet, sizeOfLine);
+        assert(MainMemoryStats[i]->GetLoads()==0);
+    }
+}
+
+void CacheStats::Load(uint32_t memid, uint32_t lvl) {
+    Load(memid, lvl, 1);
+}
+
+void CacheStats::Load(uint32_t memid, uint32_t lvl, uint32_t cnt) {
+    CacheLevelStats[memid][lvl].loadCount += cnt;
+}
+
+void CacheStats::Miss(uint32_t memid, uint32_t lvl) {
+    Miss(memid, lvl, 1);
+}
+
+void CacheStats::Miss(uint32_t memid, uint32_t lvl, uint32_t cnt) {
+    CacheLevelStats[memid][lvl].missCount += cnt;
+}
+
+void CacheStats::Store(uint32_t memid, uint32_t lvl) {
+    Store(memid, lvl, 1);
+}
+
+void CacheStats::Store(uint32_t memid, uint32_t lvl, uint32_t cnt) {
+    CacheLevelStats[memid][lvl].storeCount += cnt;
+}
+
+// Update CacheLevelStats with hit (or miss) and load (or store)
 void CacheStats::UpdateLevelStats(uint32_t memid, uint32_t lvl, bool hit, 
   bool load) {
-    debug(assert(levelStats));
-    debug(assert(levelStats[memid]));
+    debug(assert(CacheLevelStats));
+    debug(assert(CacheLevelStats[memid]));
 
     if(hit)
-        levelStats[memid][lvl].hitCount++;
+        Hit(memid, lvl);
     else
-        levelStats[memid][lvl].missCount++;
+        Miss(memid, lvl);
 
     if(load)
-        levelStats[memid][lvl].loadCount++;
+        Load(memid, lvl);
     else
-        levelStats[memid][lvl].storeCount++;
+        Store(memid, lvl);
 
 }
 
-// Update mainMemoryStats[memid] with load (or store) to/from set/line in 
+// Update MainMemoryStats[memid] with load (or store) to/from set/line in 
 // memory
 void CacheStats::UpdateMainMemoryStats(uint32_t memid, uint32_t set, uint32_t
   line, bool load) { 
-    if (mainMemoryStats[memid]->sizeOfLine > 1) {
+    if (MainMemoryStats[memid]->sizeOfLine > 1) {
         if(load) 
-            mainMemoryStats[memid]->readInsMap->put(set, line, 1);
+            MainMemoryStats[memid]->readInsMap->put(set, line, 1);
         else
-            mainMemoryStats[memid]->writeOutsMap->put(set, line, 1);
+            MainMemoryStats[memid]->writeOutsMap->put(set, line, 1);
     } else {
         if(load)
-            mainMemoryStats[memid]->dirInsMap->add(set, 1);
+            MainMemoryStats[memid]->dirInsMap->add(set, 1);
         else
-            mainMemoryStats[memid]->dirOutsMap->add(set, 1);
+            MainMemoryStats[memid]->dirOutsMap->add(set, 1);
     }
 }
 
-bool CacheStats::Verify(){
-    for(uint32_t memid = 0; memid < Capacity; ++memid){
-
-        uint64_t prevMisses = levelStats[memid][0].missCount;
-
-        for(uint32_t level = 1; level < LevelCount; ++level){
-            uint64_t hits = levelStats[memid][level].hitCount;
-            uint64_t misses = levelStats[memid][level].missCount;
-            if(hits + misses != prevMisses){
+bool CacheStats::Verify() {
+    for(uint32_t memid = 0; memid < Capacity; ++memid) {
+        uint64_t prevMisses = CacheLevelStats[memid][0].missCount;
+        for(uint32_t level = 1; level < LevelCount; ++level) {
+            uint64_t hits = CacheLevelStats[memid][level].hitCount;
+            uint64_t misses = CacheLevelStats[memid][level].missCount;
+            if(hits + misses != prevMisses) {
                 warn << "Inconsistent hits/misses for memid " << memid << 
                   " level " << level << " " << hits << " + " << misses << 
                   " != " << prevMisses << ENDL;
