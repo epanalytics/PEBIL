@@ -1336,6 +1336,12 @@ uint32_t OperandX86::getIndexRegister(){
     return 0;
 }
 
+bool OperandX86::hasIndexRegister() {
+    if (GET(index) != UD_NONE)
+        return true;
+    return false;
+}
+
 void OperandX86::touchedRegisters(BitSet<uint32_t>* regs){
     if (GET(base) && IS_ALU_REG(GET(base))){
         regs->insert(getBaseRegister());
