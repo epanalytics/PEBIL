@@ -424,11 +424,15 @@ void RegisterSet::print(const char * const name){
 }
 
 uint32_t X86Instruction::getDefUseDist(){
-    if (container->isFunction() && !((Function*)container)->doneDefUse()){
+    if(!defUseCalculated) {
+      if (container->isFunction() && !((Function*)container)->doneDefUse()){
         ((Function*)container)->computeDefUse();
+      }
     }
+    defUseCalculated = true;
     return defUseDist;
 }
+
 void X86Instruction::setDefUseDist(uint32_t dudist){ 
     defUseDist = dudist;
 }
@@ -2699,11 +2703,11 @@ void X86Instruction::setFlags()
     __reg_define(flags_usedef, UD_Icmovle, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
     __reg_define(flags_usedef, UD_Icmovg, __bit_shift(X86_FLAG_OF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_CF), 0);
     __reg_define(flags_usedef, UD_Icmp, 0, __x86_flagset_alustd);
-    __reg_define(flags_usedef, UD_Icmpsb, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
+    //__reg_define(flags_usedef, UD_Icmpsb, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
     //__reg_define(flags_usedef, UD_Icmpsd, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
     //__reg_define(flags_usedef, UD_Icmpss, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
-    __reg_define(flags_usedef, UD_Icmpsw, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
-    __reg_define(flags_usedef, UD_Icmpsq, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
+    //__reg_define(flags_usedef, UD_Icmpsw, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
+    //__reg_define(flags_usedef, UD_Icmpsq, __bit_shift(X86_FLAG_DF), __x86_flagset_alustd);
     __reg_define(flags_usedef, UD_Icmpxchg, 0, __x86_flagset_alustd);
     __reg_define(flags_usedef, UD_Icmpxchg8b, 0, __bit_shift(X86_FLAG_ZF));
     __reg_define(flags_usedef, UD_Icomisd, 0, __x86_flagset_alustd);

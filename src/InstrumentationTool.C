@@ -1200,6 +1200,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
 
     TextSection* text = getDotTextSection();
 
+    // Print header
     fprintf(staticFD, "# appname   = %s\n", getApplicationName());
     fprintf(staticFD, "# appsize   = %d\n", getApplicationSize());
     fprintf(staticFD, "# extension = %s\n", getExtension());
@@ -1208,11 +1209,16 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     fprintf(staticFD, "# cantidate = %d\n", getNumberOfExposedBasicBlocks());
     fprintf(staticFD, "# sha1sum   = %s\n", getElfFile()->getSHA1Sum());
     fprintf(staticFD, "# perinsn   = no\n");
+    fprintf(staticFD, "# blocks    = %d\n", allBlocks->size());
 
     uint32_t memopcnt = 0;
     uint32_t membytcnt = 0;
     uint32_t fltopcnt = 0;
     uint32_t insncnt = 0;
+    float memopavg = 0.0;
+
+#pragma omp parallel for schedule(dynamic,1) reduction(+:memopcnt) \
+  reduction(+:membytcnt) reduction(+:fltopcnt) reduction(+:insncnt)
     for (uint32_t i = 0; i < allBlocks->size(); i++){
         Base* b = (*allBlocks)[i];
         ASSERT(b->getType() == PebilClassType_BasicBlock);
@@ -1223,13 +1229,11 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
         fltopcnt += bb->getNumberOfFloatOps();
         insncnt += bb->getNumberOfInstructions();
     }
-    fprintf(staticFD, "# blocks    = %d\n", allBlocks->size());
-    fprintf(staticFD, "# memops    = %d\n", memopcnt);
-
-    float memopavg = 0.0;
-    if (memopcnt){
-        memopavg = (float)membytcnt/(float)memopcnt;
+    if (memopcnt) {
+        memopavg = (float)membytcnt / (float)memopcnt;
     }
+
+    fprintf(staticFD, "# memops    = %d\n", memopcnt);
     fprintf(staticFD, "# memopbyte = %d ( %.5f bytes/op)\n", membytcnt, 
       memopavg);
     fprintf(staticFD, "# fpops     = %d\n", fltopcnt);
@@ -1243,7 +1247,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     fprintf(staticFD, "# <sequence> <block_unqid> <memop> <fpop> <insn> <line> "
       "<fname> # <hex_unq_id> <vaddr>\n");
 
-    if (printDetail){
+    if (printDetail) {
         fprintf(staticFD, "# +lpi <loopcnt> <loopid> <ldepth> <lploc> <artcnt> "
           "<artid>\n");
         fprintf(staticFD, "# +cnt <branch_op> <int_op> <logic_op> "
@@ -1264,13 +1268,26 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
         fprintf(staticFD, "# +vec <#elem>x<elemSize>:<#fp>:<#int> ...\n");
     }
 
-    uint32_t noInst = 0;
-    uint32_t fileNameSize = 1;
-    uint32_t trapCount = 0;
-    uint32_t jumpCount = 0;
+    // Parallelize calculation of def use distances
+#pragma omp parallel for schedule(dynamic,1)
+    for(uint32_t i = 0; i < getNumberOfExposedInstructions(); i++) {
+        X86Instruction* x = getExposedInstruction(i);
+        x->getDefUseDist();
+    }
 
-    
-    for (uint32_t i = 0; i < numberOfInstPoints; i++){
+    // Parallelize creation output for each block
+    // Store output in a map: basic blocks --> output
+    std::map<uint32_t, std::string> staticAnalysisOutput;
+#pragma omp parallel for schedule(dynamic,1)
+    for (uint32_t i = 0; i < numberOfInstPoints; i++) {
+        uint32_t noInst = 0;
+        uint32_t fileNameSize = 1;
+        uint32_t trapCount = 0;
+        uint32_t jumpCount = 0;
+        float memopavg = 0.0;
+        std::stringstream thisStream;
+        char thisBuffer[8192];
+
         Base* b = (*allBlocks)[i];
         ASSERT(b->getType() == PebilClassType_BasicBlock);
         BasicBlock* bb = (BasicBlock*)b;
@@ -1280,7 +1297,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
         uint32_t loopId = Invalid_UInteger_ID; 
         Loop* loop = bb->getFlowGraph()->getInnermostLoopForBlock(
           bb->getIndex());
-        if (loop){
+        if (loop) {
             loopId = loop->getIndex();
         }
         uint32_t loopDepth = bb->getFlowGraph()->getLoopDepth(bb->getIndex());
@@ -1290,7 +1307,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
         uint32_t artificialLoopId = Invalid_UInteger_ID; 
         Loop* artificialLoop = bb->getFlowGraph()->
           getInnermostArtificialLoopForBlock(bb->getIndex());
-        if (artificialLoop){
+        if (artificialLoop) {
             artificialLoopId = artificialLoop->getIndex();
         }
 
@@ -1303,31 +1320,35 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             fileName = INFO_UNKNOWN;
             lineNo = 0;
         }
-        fprintf(staticFD, "%d\t%lld\t%d\t%d\t%d\t%s:%d\t%s\t# %#llx\t%#llx\n", 
-          (*allBlockIds)[i], bb->getHashCode().getValue(), 
+
+        uint32_t bufferPointer = sprintf(thisBuffer, "%d\t%lld\t%d\t%d\t%d\t%s"
+          ":%d\t%s\t# %#llx\t%#llx\n", (*allBlockIds)[i], 
+          bb->getHashCode().getValue(), 
           bb->getNumberOfMemoryOps(), bb->getNumberOfFloatOps(), 
           bb->getNumberOfInstructions(), fileName, lineNo, 
           bb->getFunction()->getName(), bb->getHashCode().getValue(), 
           bb->getLeader()->getProgramAddress());
 
-        if (printDetail){
+        if (printDetail) {
             uint32_t loopLoc = 0;
-            if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())){
+            if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())) {
                 if (bb->getFlowGraph()->getInnermostLoopForBlock(
                   bb->getIndex())->getHead()->getHashCode().getValue() == 
-                  bb->getHashCode().getValue()){
+                  bb->getHashCode().getValue()) {
                     loopLoc = 1;
                 } else if (bb->getFlowGraph()->getInnermostLoopForBlock(
                   bb->getIndex())->getTail()->getHashCode().getValue() == 
-                  bb->getHashCode().getValue()){
+                  bb->getHashCode().getValue()) {
                     loopLoc = 2;
                 }
             }
-            fprintf(staticFD, "\t+lpi\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", 
-              loopCount, loopId, loopDepth, loopLoc, artificialLoopCount, 
-              artificialLoopId, bb->getHashCode().getValue());
-            fprintf(staticFD, "\t+cnt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
-              "\t%d\t%d\t%d\t%d # %#llx\n", bb->getNumberOfBranches(), 
+            bufferPointer += sprintf(thisBuffer + bufferPointer, 
+              "\t+lpi\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", loopCount, loopId, 
+              loopDepth, loopLoc, artificialLoopCount, artificialLoopId,
+              bb->getHashCode().getValue());
+            bufferPointer += sprintf(thisBuffer + bufferPointer, "\t+cnt\t%d\t"
+              "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", 
+              bb->getNumberOfBranches(), 
               bb->getNumberOfIntegerOps(), bb->getNumberOfLogicOps(), 
               bb->getNumberOfShiftRotOps(), bb->getNumberOfSyscalls(), 
               bb->getNumberOfSpecialRegOps(), bb->getNumberOfStringOps(), 
@@ -1340,11 +1361,12 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
               //  bb->getNumberOfMemoryOps());
 
             memopavg = 0.0;
-            if (bb->getNumberOfMemoryOps()){
+            if (bb->getNumberOfMemoryOps()) {
                 memopavg = ((float)bb->getNumberOfMemoryBytes()) / 
                   ((float)bb->getNumberOfMemoryOps());
             }
-            fprintf(staticFD, "\t+mem\t%d\t%d\t%.5f # %#llx\n", 
+            bufferPointer += sprintf(thisBuffer + bufferPointer, 
+              "\t+mem\t%d\t%d\t%.5f # %#llx\n", 
               bb->getNumberOfMemoryOps(), bb->getNumberOfMemoryBytes(), 
               memopavg, bb->getHashCode().getValue());
 
@@ -1355,14 +1377,14 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                 parentHead = f->getFlowGraph()->getParentLoop(
                   loop->getIndex())->getHead()->getHashCode().getValue();
             }
-            fprintf(staticFD, "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, 
-              parentHead, bb->getHashCode().getValue());
 
+            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, 
+              parentHead, bb->getHashCode().getValue());
             uint32_t currINT = 0;
             uint32_t currFP = 0;
             uint32_t currDist = 1;
 
-            fprintf(staticFD, "\t+dud");
+            bufferPointer += sprintf(thisBuffer + bufferPointer, "\t+dud");
 
             std::pebil_map_type<uint32_t, uint32_t> idist;
             std::pebil_map_type<uint32_t, uint32_t> fdist;
@@ -1394,24 +1416,26 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
 
             std::sort(dlist.begin(), dlist.end());
             for (std::vector<uint32_t>::iterator it = dlist.begin(); it != 
-              dlist.end(); it++){
+              dlist.end(); it++) {
                 uint32_t d = (*it);
-                fprintf(staticFD, "\t%d:%d:%d:%d", d, idist[d], fdist[d], 
-                  mdist[d]);
+                bufferPointer += sprintf(thisBuffer + bufferPointer, 
+                  "\t%d:%d:%d:%d", d, idist[d], fdist[d], mdist[d]);
             }
+            bufferPointer += sprintf(thisBuffer + bufferPointer, " # %#llx\n", 
+              bb->getHashCode().getValue());
 
-            fprintf(staticFD, " # %#llx\n", bb->getHashCode().getValue());
-
-            fprintf(staticFD, "\t+dxi\t%d\t%d # %#llx\n", bb->getDefXIter(), 
+            bufferPointer += sprintf(thisBuffer + bufferPointer, 
+              "\t+dxi\t%d\t%d # %#llx\n", bb->getDefXIter(), 
               bb->endsWithCall(), bb->getHashCode().getValue());
+
 
             uint64_t callTgtAddr = 0;
             char* callTgtName = INFO_UNKNOWN;
-            if (bb->endsWithCall()){
+            if (bb->endsWithCall()) {
                 callTgtAddr = bb->getExitInstruction()->getTargetAddress();
                 Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
                   callTgtAddr);
-                if (functionSymbol && functionSymbol->getSymbolName()){
+                if (functionSymbol && functionSymbol->getSymbolName()) {
                     callTgtName = functionSymbol->getSymbolName();
                 }
             } else if (bb->endsWithUnconditionalBranch()) {
@@ -1420,12 +1444,12 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                 // If target is within this function, it is not a function  
                 // call; Reset it
                 // If NOT, treat as a function call
-                if(bb->getFunction()->isInRange(callTgtAddr)) {
+                if (bb->getFunction()->isInRange(callTgtAddr)) {
                     callTgtAddr = 0;
                 } else {
                     Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
                       callTgtAddr);
-                    if (functionSymbol && functionSymbol->getSymbolName()){
+                    if (functionSymbol && functionSymbol->getSymbolName()) {
                         callTgtName = functionSymbol->getSymbolName();
                     } else {
                         PRINT_WARN(7, "BB 0x%llx has unconditional branch to "
@@ -1436,10 +1460,12 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                 } 
             }
 
-            fprintf(staticFD, "\t+ipa\t%#llx\t%s # %#llx\n", callTgtAddr, 
+            bufferPointer += sprintf(thisBuffer + bufferPointer, 
+              "\t+ipa\t%#llx\t%s # %#llx\n", callTgtAddr, 
               callTgtName, bb->getHashCode().getValue());
 
-            fprintf(staticFD, "\t+bin\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
+            bufferPointer += sprintf(thisBuffer + bufferPointer, 
+              "\t+bin\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
               "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
               "\t%d\t%d # %#llx\n", bb->getNumberOfBinUnknown(), 
               bb->getNumberOfBinInvalid(), bb->getNumberOfBinCond(), 
@@ -1456,8 +1482,6 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
               bb->getNumberOfBinSystem(), bb->getNumberOfBinCache(),
               bb->getNumberOfBinMem(), bb->getNumberOfBinOther(), 
               bb->getHashCode().getValue());
-
-
 
             // matrix to store counts elemsInVec X bytesInElem
             uint32_t fpvecs[65][16];
@@ -1506,14 +1530,15 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                     }
                 }
             }
-            fprintf(staticFD, "\t+vec");
+            bufferPointer += sprintf(thisBuffer + bufferPointer, "\t+vec");
             for(uint32_t nElem = 0; nElem < 65; ++nElem) {
                 for(uint32_t elemSize = 0; elemSize < 16; ++elemSize) {
                     uint32_t fpcnt = fpvecs[nElem][elemSize];
                     uint32_t intcnt = intvecs[nElem][elemSize];
                     if(fpcnt > 0 || intcnt > 0) {
-                        fprintf(staticFD, "\t%dx%d:%d:%d", nElem, (elemSize+1)
-                          * 8, fpcnt, intcnt);
+                        bufferPointer += sprintf(thisBuffer + bufferPointer, 
+                          "\t%dx%d:%d:%d", nElem, (elemSize+1) * 8, fpcnt, 
+                          intcnt);
                     }
                 }
             }
@@ -1521,144 +1546,166 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
 	              uint32_t fpcnt = unknownFP[elemSize];
 	              uint32_t intcnt = unknownInt[elemSize];
 	              if(fpcnt > 0 || intcnt > 0) {
-		                fprintf(staticFD, "\t???x%d:%d:%d", (elemSize+1)*8, fpcnt, 
-                      intcnt);
+                    bufferPointer += sprintf(thisBuffer + bufferPointer, 
+                      "\t???x%d:%d:%d", (elemSize+1) * 8, fpcnt, intcnt);
 	              }     
             }
             if(unkFP > 0 || unkInt > 0) {
-	              fprintf(staticFD, "\t???x8:%d:%d", unkFP, unkInt);
+                bufferPointer += sprintf(thisBuffer + bufferPointer, 
+                  "\t???x8:%d:%d", unkFP, unkInt);
             }
-            fprintf(staticFD, " # %#llx\n", bb->getHashCode().getValue());
+            bufferPointer += sprintf(thisBuffer + bufferPointer, " # %#llx\n", 
+              bb->getHashCode().getValue());
         }
+
+#pragma omp critical
+        staticAnalysisOutput[(*allBlockIds)[i]] = std::string(thisBuffer);
+
     }
+
+    // Print each block's info
+    for(uint32_t i = 0; i < numberOfInstPoints; i++) {
+        fprintf(staticFD, "%s", (staticAnalysisOutput.at((*allBlockIds)[i]).
+          c_str()));
+    }
+    
     fclose(staticFD);
 
-    ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase order must be observed"); 
+    ASSERT(currentPhase == ElfInstPhase_user_reserve && 
+      "Instrumentation phase order must be observed"); 
 }
 
 
-void InstrumentationTool::printCallTreeInfo(const char* extension, Vector<Base*>* allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* allBlockLineInfos, uint32_t bufferSize){
-  ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase order must be observed"); 
-  
-  ASSERT(!(*allBlockLineInfos).size() || (*allBlocks).size() == (*allBlockLineInfos).size());
-  ASSERT((*allBlocks).size() == (*allBlockIds).size());
-  
-  uint32_t numberOfInstPoints = (*allBlocks).size();
-  
-  char* staticFile = new char[__MAX_STRING_SIZE];
-  sprintf(staticFile,"%s.%s.%s", getFullFileName(), extension, "callTree");
-  FILE* staticFD = fopen(staticFile, "w");
-  delete[] staticFile;
-  
-  TextSection* text = getDotTextSection();
-  
-  fprintf(staticFD, "# appname   = %s\n", getApplicationName());
-  fprintf(staticFD, "# appsize   = %d\n", getApplicationSize());
-  fprintf(staticFD, "# extension = %s\n", getExtension());
-  fprintf(staticFD, "# phase     = %d\n", 0);
-  fprintf(staticFD, "# type      = %s\n", briefName());
-  fprintf(staticFD, "# cantidate = %d\n", getNumberOfExposedBasicBlocks());
-  fprintf(staticFD, "# sha1sum   = %s\n", getElfFile()->getSHA1Sum());
-  fprintf(staticFD, "# perinsn   = no\n");
-  
-  uint32_t memopcnt = 0;
-  uint32_t membytcnt = 0;
-  uint32_t fltopcnt = 0;
-  uint32_t insncnt = 0;
-  for (uint32_t i = 0; i < allBlocks->size(); i++){
-    Base* b = (*allBlocks)[i];
-    ASSERT(b->getType() == PebilClassType_BasicBlock);
-    BasicBlock* bb = (BasicBlock*)b;
+void InstrumentationTool::printCallTreeInfo(const char* extension, 
+  Vector<Base*>* allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* 
+  allBlockLineInfos, uint32_t bufferSize) {
+    ASSERT(currentPhase == ElfInstPhase_user_reserve && 
+      "Instrumentation phase order must be observed"); 
     
-    memopcnt += bb->getNumberOfMemoryOps();
-    membytcnt += bb->getNumberOfMemoryBytes();
-    fltopcnt += bb->getNumberOfFloatOps();
-    insncnt += bb->getNumberOfInstructions();
-  }
-  fprintf(staticFD, "# blocks    = %d\n", allBlocks->size());
-  fprintf(staticFD, "# memops    = %d\n", memopcnt);
-  
-  float memopavg = 0.0;
-  if (memopcnt){
-    memopavg = (float)membytcnt/(float)memopcnt;
-  }
-  fprintf(staticFD, "# memopbyte = %d ( %.5f bytes/op)\n", membytcnt, memopavg);
-  fprintf(staticFD, "# fpops     = %d\n", fltopcnt);
-  fprintf(staticFD, "# insns     = %d\n", insncnt);
-  
-  uint32_t noInst = 0;
-  uint32_t fileNameSize = 1;
-  uint32_t trapCount = 0;
-  uint32_t jumpCount = 0;
+    ASSERT(!(*allBlockLineInfos).size() || (*allBlocks).size() == 
+      (*allBlockLineInfos).size());
+    ASSERT((*allBlocks).size() == (*allBlockIds).size());
+    
+    uint32_t numberOfInstPoints = (*allBlocks).size();
+    
+    char* staticFile = new char[__MAX_STRING_SIZE];
+    sprintf(staticFile,"%s.%s.%s", getFullFileName(), extension, "callTree");
+    FILE* staticFD = fopen(staticFile, "w");
+    delete[] staticFile;
+    
+    TextSection* text = getDotTextSection();
+    
+    fprintf(staticFD, "# appname   = %s\n", getApplicationName());
+    fprintf(staticFD, "# appsize   = %d\n", getApplicationSize());
+    fprintf(staticFD, "# extension = %s\n", getExtension());
+    fprintf(staticFD, "# phase     = %d\n", 0);
+    fprintf(staticFD, "# type      = %s\n", briefName());
+    fprintf(staticFD, "# cantidate = %d\n", getNumberOfExposedBasicBlocks());
+    fprintf(staticFD, "# sha1sum   = %s\n", getElfFile()->getSHA1Sum());
+    fprintf(staticFD, "# perinsn   = no\n");
+    fprintf(staticFD, "# blocks    = %d\n", allBlocks->size());
+    
+    uint32_t memopcnt = 0;
+    uint32_t membytcnt = 0;
+    uint32_t fltopcnt = 0;
+    uint32_t insncnt = 0;
+    float memopavg = 0.0;
 
-  // construct the call tree info
-  std::map<std::string,std::set<std::string>> callTreeInfo;
-  for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
-    Function* f = getExposedFunction(i);
-    std::string thisFuncName=f->getName();
-
-    // initialize the calltree map
-    if(!callTreeInfo.count(thisFuncName)) {
-      std::set<std::string> temp;
-      callTreeInfo[thisFuncName]=temp;
+#pragma omp parallel for schedule(dynamic,1) reduction(+:memopcnt) \
+  reduction(+:membytcnt) reduction(+:fltopcnt) reduction(+:insncnt)
+    for (uint32_t i = 0; i < allBlocks->size(); i++){
+        Base* b = (*allBlocks)[i];
+        ASSERT(b->getType() == PebilClassType_BasicBlock);
+        BasicBlock* bb = (BasicBlock*)b;
+        
+        memopcnt += bb->getNumberOfMemoryOps();
+        membytcnt += bb->getNumberOfMemoryBytes();
+        fltopcnt += bb->getNumberOfFloatOps();
+        insncnt += bb->getNumberOfInstructions();
     }
+    if (memopcnt){
+      memopavg = (float)membytcnt/(float)memopcnt;
+    }
+
+    fprintf(staticFD, "# memops    = %d\n", memopcnt); 
+    fprintf(staticFD, "# memopbyte = %d ( %.5f bytes/op)\n", membytcnt, 
+      memopavg);
+    fprintf(staticFD, "# fpops     = %d\n", fltopcnt);
+    fprintf(staticFD, "# insns     = %d\n", insncnt);
     
-    // get all the instructions for this function
-    uint32_t ninstructions = f->getNumberOfInstructions();
-    X86Instruction** finstructions = new X86Instruction*[ninstructions];
-    f->getAllInstructions(finstructions, 0);
+    uint32_t noInst = 0;
+    uint32_t fileNameSize = 1;
+    uint32_t trapCount = 0;
+    uint32_t jumpCount = 0;
 
-    for( uint32_t j = 0; j < ninstructions; ++j) {
-      X86Instruction* ins = finstructions[j];
-      // only if the instruction is a call
-      if(ins->isCall()) {
-	// and the target address is not in the self
-	if(!f->inRange(ins->getTargetAddress())) {
-	  // get the function name
-	  uint64_t callTgtAddr=ins->getTargetAddress();
-	  Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(callTgtAddr);
-	  char* callTgtName=INFO_UNKNOWN;
-	  if (functionSymbol && functionSymbol->getSymbolName()){
-	    callTgtName = functionSymbol->getSymbolName();
-	  }
-	  std::set<std::string> temp=
-	    (std::set<std::string>)callTreeInfo.at(thisFuncName);
-	  temp.insert(callTgtName);
-	  callTreeInfo[thisFuncName]=temp;
-	  //fprintf(staticFD, "%s %s \n", f->getName(), callTgtName);
-	}	
-      }
-      
-    } 
-  }
-  std::stringstream dotStream;
-  dotStream << "digraph " << "\"" << getApplicationName() << "\" { " << std::endl;
+    // construct the call tree info
+    std::map<std::string,std::set<std::string>> callTreeInfo;
+    for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+        Function* f = getExposedFunction(i);
+        std::string thisFuncName = f->getName();
 
-    for(std::map<std::string,std::set<std::string>>::const_iterator it = callTreeInfo.begin();
-	it != callTreeInfo.end(); ++it)
-      {
-	//dotStream << it->first << " ";
-	//std::cout << it->first << ":: ";
-	std::set<std::string> entries=(std::set<std::string>)it->second;
-	for(std::set<std::string>::const_iterator itset = entries.begin();
-	    itset != entries.end(); ++itset)
-	  {
-	    dotStream << "\"" << it->first << "\"" << " -> " << "\"" << *itset << "\"" << std::endl; 
-	    //std::cout << *itset << ", ";
-	  }
-	//dotStream << ";" << std::endl;
-	//std::cout << std::endl;
-      }
-    
-    dotStream <<  "} " << std::endl;
-    //std::cout << dotStream.str();
-    fprintf(staticFD, "%s \n",  dotStream.str().c_str());
+        // initialize the calltree map
+        if(!callTreeInfo.count(thisFuncName)) {
+          std::set<std::string> temp;
+          callTreeInfo[thisFuncName] = temp;
+        }
+    }
 
+#pragma omp parallel for ordered schedule(dynamic,1)
+    for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+        Function* f = getExposedFunction(i);
+        std::string thisFuncName = f->getName();
 
+        
+        // get all the instructions for this function
+        uint32_t ninstructions = f->getNumberOfInstructions();
+        X86Instruction** finstructions = new X86Instruction*[ninstructions];
+        f->getAllInstructions(finstructions, 0);
+
+        for (uint32_t j = 0; j < ninstructions; ++j) {
+            X86Instruction* ins = finstructions[j];
+            // only if the instruction is a call
+            if (ins->isCall()) {
+	              // and the target address is not in the self
+	              if (!f->inRange(ins->getTargetAddress())) {
+	                  // get the function name
+	                  uint64_t callTgtAddr = ins->getTargetAddress();
+	                  Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
+                      callTgtAddr);
+	                  char* callTgtName = INFO_UNKNOWN;
+	                  if (functionSymbol && functionSymbol->getSymbolName()) {
+	                      callTgtName = functionSymbol->getSymbolName();
+	                  }
+	                  std::set<std::string> temp =
+	                    (std::set<std::string>)callTreeInfo.at(thisFuncName);
+	                  temp.insert(callTgtName);
+#pragma omp critical(callTreeInfo)
+	                  callTreeInfo[thisFuncName] = temp;
+	              }	
+            }
+        } 
+    }
+
+    std::stringstream dotStream;
+    dotStream << "digraph " << "\"" << getApplicationName() << "\" { " 
+      << std::endl;
  
-  fclose(staticFD);
-  
-  ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase order must be observed"); 
+    for(std::map<std::string, std::set<std::string>>::const_iterator it = 
+      callTreeInfo.begin(); it != callTreeInfo.end(); ++it) {
+        std::set<std::string> entries=(std::set<std::string>)it->second;
+        for(std::set<std::string>::const_iterator itset = entries.begin();
+          itset != entries.end(); ++itset) {
+            dotStream << "\"" << it->first << "\"" << " -> " << "\"" << *itset 
+              << "\"" << std::endl; 
+        }
+    }
+      
+    dotStream <<  "} " << std::endl;
+    fprintf(staticFD, "%s \n",  dotStream.str().c_str());
+    fclose(staticFD);
+    
+    ASSERT(currentPhase == ElfInstPhase_user_reserve && 
+      "Instrumentation phase order must be observed"); 
 }
 
 
