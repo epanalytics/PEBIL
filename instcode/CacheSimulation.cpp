@@ -536,41 +536,28 @@ void CacheSimulationTool::GetAndSetCacheDescriptionFile(StringParser* parser){
     char* e = parser->GetEnv("METASIM_CACHE_DESCRIPTIONS");
     string knobvalue;
 
-    if (e != NULL){
-        knobvalue = (string)e;
-    }
-
-    if (e == NULL || knobvalue.compare(0, 1, "$") == 0){
-        string str;
-        const char* freeenv = getenv(METASIM_ENV);
-        if (freeenv == NULL){
-            ErrorExit("default cache descriptions file requires that " 
-              METASIM_ENV " be set", MetasimError_Env);
-        }
-
-        str.append(freeenv);
-        str.append("/" DEFAULT_CACHE_FILE);
-
-        CacheDescriptionFile = str;
+    if (e != NULL) {
+        CacheDescriptionFile = (string)e;
         return;
     }
-    CacheDescriptionFile = knobvalue;
+
+    ErrorExit("Please set METASIM_CACHE_DESCRIPTIONS", MetasimError_Env);
 }
 
 // Read variables from the environment
-void CacheSimulationTool::HandleEnvVariables(StringParser* parser){
+void CacheSimulationTool::HandleEnvVariables(StringParser* parser) {
 
     // When to switch to highly associative cache level
-    uint32_t SaveHashMin = MinimumHighAssociativity;
+    uint32_t newMinimum = 0;
     bool flag = (parser->ReadEnvUint32("METASIM_LIMIT_HIGH_ASSOC", 
-      &MinimumHighAssociativity));
-    if (!flag){
-        MinimumHighAssociativity = SaveHashMin;
+      &newMinimum));
+    if (flag) {
+        MinimumHighAssociativity = newMinimum;
     }
 
     // Should the caches keep track of which lines are dirty?
     uint32_t dirtyStatusCheck = 0;
-    if(!(parser->ReadEnvUint32("METASIM_DIRTY_CACHE", &dirtyStatusCheck))){
+    if(!(parser->ReadEnvUint32("METASIM_DIRTY_CACHE", &dirtyStatusCheck))) {
         dirtyStatusCheck = 0;
     }
     if (dirtyStatusCheck)
@@ -579,7 +566,7 @@ void CacheSimulationTool::HandleEnvVariables(StringParser* parser){
     // Should we print a memory log (what parts of memory were read/written - 
     // Note that if dirty cache is OFF, all stores will be considered as writes)
     uint32_t memoryLogCheck = 0;
-    if(!(parser->ReadEnvUint32("METASIM_MEMORY_LOG", &memoryLogCheck))){
+    if(!(parser->ReadEnvUint32("METASIM_MEMORY_LOG", &memoryLogCheck))) {
         memoryLogCheck = 0;
     }
     if (memoryLogCheck)
@@ -604,7 +591,7 @@ void CacheSimulationTool::LogFileName(AddressStreamStats* stats, string& oFile){
 }
 
 uint32_t CacheSimulationTool::ReadCacheDescription(istream& cacheStream, 
-  StringParser* parser){
+  StringParser* parser) {
 
     bool streamResult = cacheStream.fail();
     if (streamResult){
@@ -613,12 +600,11 @@ uint32_t CacheSimulationTool::ReadCacheDescription(istream& cacheStream,
     }
 
     string line;
-    while (getline(cacheStream, line)){
-        if (parser->IsEmptyComment(line)){
+    while (getline(cacheStream, line)) {
+        if (parser->IsEmptyComment(line)) {
             continue;
         }
         CacheStructureHandler* c = new CacheStructureHandler(this, parser);
-//        c->SetParser(parser);
         if (!c->Init(line)){
             ErrorExit("cannot parse cache description line: " << line, 
               MetasimError_StringParse);
@@ -631,7 +617,7 @@ uint32_t CacheSimulationTool::ReadCacheDescription(istream& cacheStream,
 
 void CacheSimulationTool::PrintApplicationHeader(ofstream& file, 
   DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
-  uint64_t totalMemop, uint64_t sampledCount){
+  uint64_t totalMemop, uint64_t sampledCount) {
 
     AddressStreamStats* stats = AllData->GetData(pthread_self());
     uint32_t numCaches = handlers.size();
@@ -665,7 +651,7 @@ void CacheSimulationTool::PrintApplicationHeader(ofstream& file,
       << TAB << "ImageType" << TAB << "Name" << ENDL;
 
     for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
-      iit != AllData->allimages.end(); iit++){
+      iit != AllData->allimages.end(); iit++) {
         AddressStreamStats* s = (AddressStreamStats*)AllData->GetData(
           (*iit), pthread_self());
         file << "IMG" << TAB << hex << (*iit) 

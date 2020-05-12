@@ -98,7 +98,7 @@ class CacheSimulationTool : public AddressStreamTool {
     void SetCacheDescriptionFileName(std::string f) {CacheDescriptionFile = f;}
 
   protected:
-    std::string CacheDescriptionFile;
+    std::string CacheDescriptionFile = "";
     uint32_t MinimumHighAssociativity = 256;
     bool KeepMemoryLog = false;
     bool TrackDirtyStatus = false;
