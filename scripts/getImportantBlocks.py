@@ -133,7 +133,7 @@ class LoopLine(CounterLine):
     def __init__(self, toks):
         super(LoopLine, self).__init__(toks)
 
-        if len(toks) != 8:
+        if len(toks) != 9:
             print_usage('invalid loop tokens: ' + str(toks))
 
         if toks[0] != LOOP_IDENTIFIER:
