@@ -82,7 +82,7 @@ class TextObject;
 #define IS_REG(__reg) (IS_GPR(__reg) || IS_SEGMENT_REG(__reg) || IS_CONTROL_REG(__reg) || IS_DEBUG_REG(__reg) || \
                        IS_MMX_REG(__reg) || IS_X87_REG(__reg) || IS_XMM_REG(__reg) || IS_YMM_REG(__reg) || \
                        IS_ZMM_REG(__reg) || IS_K_REG(__reg) || IS_PC_REG(__reg))
-#define IS_ALU_REG(__reg) (IS_GPR(__reg) || IS_XMM_REG(__reg))
+#define IS_ALU_REG(__reg) (IS_GPR(__reg) || IS_XMM_REG(__reg) || IS_YMM_REG(__reg) || IS_ZMM_REG(__reg))
 
 #define IS_LOADADDR(__mne) (__mne == UD_Ilea)
 #define IS_PREFETCH(__mne) (__mne == UD_Iprefetch || __mne == UD_Iprefetchnta \
@@ -495,6 +495,8 @@ public:
     int32_t getBaseRegister();
     uint32_t getIndexRegister();
 
+    bool hasIndexRegister();
+
     void touchedRegisters(BitSet<uint32_t>* regs);
     bool isImmediate();
     bool isIndexRegXMM();
@@ -514,6 +516,7 @@ private:
     RegisterSet* liveIns;
     RegisterSet* liveOuts;
     uint32_t defUseDist;
+    bool defUseCalculated; // Set when defUseDist has been set
 
     uint32_t* flags_usedef;
 

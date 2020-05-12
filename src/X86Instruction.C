@@ -424,11 +424,15 @@ void RegisterSet::print(const char * const name){
 }
 
 uint32_t X86Instruction::getDefUseDist(){
-    if (container->isFunction() && !((Function*)container)->doneDefUse()){
+    if(!defUseCalculated) {
+      if (container->isFunction() && !((Function*)container)->doneDefUse()){
         ((Function*)container)->computeDefUse();
+      }
     }
+    defUseCalculated = true;
     return defUseDist;
 }
+
 void X86Instruction::setDefUseDist(uint32_t dudist){ 
     defUseDist = dudist;
 }
@@ -1344,6 +1348,12 @@ uint32_t OperandX86::getIndexRegister(){
     }
     __SHOULD_NOT_ARRIVE;
     return 0;
+}
+
+bool OperandX86::hasIndexRegister() {
+    if (GET(index) != UD_NONE)
+        return true;
+    return false;
 }
 
 void OperandX86::touchedRegisters(BitSet<uint32_t>* regs){
