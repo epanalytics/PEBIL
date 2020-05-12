@@ -58,7 +58,7 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
           handlers[i]);
         stats->Stats[indexInStats + i] = new CacheStats(currHandler->
           GetNumberOfCacheLevels(), currHandler->GetSysId(), stats->AllocCount, 
-          false);
+          currHandler->IsKeepingMemoryLog());
         CacheStats* cacheStats = (CacheStats*)stats->Stats[indexInStats 
           + i];
         cacheStats->InitMainMemoryStats(currHandler);
@@ -269,7 +269,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 s->Verify();
 
                 CacheStats* c = new CacheStats(s->LevelCount, s->SysId,
-                  st->BlockCount, false);
+                  st->BlockCount, IsKeepingMemoryLog());
 
                 MainMemory* refMem = s->MainMemoryStats[0];
                 c->MainMemoryStats = new MainMemory*[st->BlockCount];
