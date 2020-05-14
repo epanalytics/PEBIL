@@ -271,11 +271,13 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                 CacheStats* c = new CacheStats(s->LevelCount, s->SysId,
                   st->BlockCount, IsKeepingMemoryLog());
 
-                MainMemory* refMem = s->MainMemoryStats[0];
-                c->MainMemoryStats = new MainMemory*[st->BlockCount];
-                for (int i=0;i<st->BlockCount;i++){
-                    //c->MainMemoryStats[i] = s->MainMemoryStats[i];
-                    c->MainMemoryStats[i] = new MainMemory(*refMem);
+                if (IsKeepingMemoryLog()) {
+                    MainMemory* refMem = s->MainMemoryStats[0];
+                    c->MainMemoryStats = new MainMemory*[st->BlockCount];
+                    for (int i=0;i<st->BlockCount;i++){
+                        //c->MainMemoryStats[i] = s->MainMemoryStats[i];
+                        c->MainMemoryStats[i] = new MainMemory(*refMem);
+                    }
                 }
 
                 aggstats[sys] = c;
@@ -404,7 +406,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                   << TAB << dec << AllData->GetThreadSequence(st->threadid)
                   << ENDL;
 
-                if(IsKeepingMemoryLog()){
+                if(IsKeepingMemoryLog()) {
                     LogFile << "BLK" << TAB << dec << bbid
                       << TAB << hex << st->Hashes[bbid]
                       << TAB << dec << AllData->GetImageSequence((*iit))
@@ -445,17 +447,19 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                           << TAB << dec << c->GetStores(bbid,lvl)
                           << ENDL;  
                     }
-                    MemFile << TAB << dec << c->SysId;
-                    MemFile << TAB << "M"
-                      << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
-                      << TAB << dec << 0
-                      << TAB << dec << c->MainMemoryStats[bbid]->GetLoads()
-                      << TAB << dec << c->MainMemoryStats[bbid]->GetStores()
-                      << ENDL; 
-
                     if (IsKeepingMemoryLog()) {
-                        uint32_t numOfSets = c->MainMemoryStats[bbid]->numOfSets;
-                        uint32_t numOfLines = c->MainMemoryStats[bbid]->numOfLinesInSet;
+                        MemFile << TAB << dec << c->SysId;
+                        MemFile << TAB << "M"
+                          << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
+                          << TAB << dec << 0
+                          << TAB << dec << c->MainMemoryStats[bbid]->GetLoads()
+                          << TAB << dec << c->MainMemoryStats[bbid]->GetStores()
+                          << ENDL; 
+
+                        uint32_t numOfSets = c->MainMemoryStats[bbid]->
+                          numOfSets;
+                        uint32_t numOfLines = c->MainMemoryStats[bbid]->
+                          numOfLinesInSet;
                         NestedHash* readInsMap;
                         NestedHash* writeOutsMap;
                         EasyHash* dirInsMap;
@@ -701,7 +705,7 @@ CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity,
 }
 
 CacheStats::~CacheStats() {
-    if (CacheLevelStats) {
+    if (CacheLevelStats != NULL) {
         for (uint32_t i = 0; i < Capacity; i++) {
             if (CacheLevelStats[i]){
                 delete[] CacheLevelStats[i];
@@ -710,7 +714,7 @@ CacheStats::~CacheStats() {
         delete[] CacheLevelStats;
     }
 
-    if (MainMemoryStats) {
+    if (MainMemoryStats != NULL) {
         for (uint32_t i = 0; i < Capacity; i++) {
             if (MainMemoryStats[i]){
                 delete MainMemoryStats[i];
@@ -1042,15 +1046,15 @@ uint32_t CacheStructureHandler::ProcessAddress(CacheStats* stats, uint64_t
 
 /* CacheStructureHandler -- public functions */
 CacheStructureHandler::CacheStructureHandler(CacheSimulationTool* tool, 
-  StringParser* parser) : CacheSimTool(tool), Initialized(false), 
+  StringParser* parser) : AllocatedLevelCount(0), CacheSimTool(tool), 
   LevelCount(0), Levels(nullptr), Parser(parser), SysId(0) {
 
 }
 
 // Create a new CacheStructureHandler (new stats) with same base information
 CacheStructureHandler::CacheStructureHandler(CacheStructureHandler& h) {
+    AllocatedLevelCount = 0;   // Increase as they are allocated
     CacheSimTool = h.CacheSimTool;
-    Initialized = true;        // Will create structures that Init creates
     LevelCount = h.LevelCount;
     Parser = NULL;  // Parser not needed anymore; prevent memory weirdness
     SysId = h.SysId;
@@ -1066,17 +1070,20 @@ CacheStructureHandler::CacheStructureHandler(CacheStructureHandler& h) {
             InclusiveCacheLevel* l = new InclusiveCacheLevel();
             l->Init(Extract_Level_Args(i));
             Levels[i] = l;
+            AllocatedLevelCount++;
             l->SetLevelCount(LevelCount);
         } else if (LVLF(i, Type()) == CacheLevelType_NonInclusiveLowassoc){
             NonInclusiveCacheLevel* l = new NonInclusiveCacheLevel();
             l->Init(Extract_Level_Args(i)); 
             Levels[i] = l;
+            AllocatedLevelCount++;
             l->SetLevelCount(LevelCount);
         } else if (LVLF(i, Type()) == CacheLevelType_InclusiveHighassoc){
             HighlyAssociativeInclusiveCacheLevel* l = new 
               HighlyAssociativeInclusiveCacheLevel();
             l->Init(Extract_Level_Args(i));
             Levels[i] = l;
+            AllocatedLevelCount++;
             l->SetLevelCount(LevelCount);
         } else {
             assert(false);
@@ -1084,17 +1091,13 @@ CacheStructureHandler::CacheStructureHandler(CacheStructureHandler& h) {
     }
 }
 
-CacheStructureHandler::~CacheStructureHandler(){
-    if(Initialized) {
-        if (Levels) {
-            for (uint32_t i = 0; i < LevelCount; i++) {
-                if (Levels[i]) {
-                    CacheLevel* toDelete = Levels[i];
-                    delete toDelete;
-                }
-            }
-            delete[] Levels;
+CacheStructureHandler::~CacheStructureHandler() {
+    if (Levels != NULL) {
+        for (uint32_t i = 0; i < AllocatedLevelCount; i++) {
+            CacheLevel* toDelete = Levels[i];
+            delete toDelete;
         }
+        delete[] Levels;
     }
 }
 
@@ -1132,9 +1135,10 @@ bool CacheStructureHandler::Init(string desc) {
         CacheLevel* newLevel = ParseCacheLevelTokens(tokenizer, levelId, 
           &firstExclusiveLevel);
         if (newLevel == NULL)
-            return false;
+            break;
         newLevel->SetLevelCount(LevelCount);
         Levels[levelId] = newLevel;
+        AllocatedLevelCount++;
         // Get rid of any following "notes"
         tokenizer >> std::ws; // skip whitespace
         char nextChar = tokenizer.peek();
@@ -1157,7 +1161,6 @@ bool CacheStructureHandler::Init(string desc) {
         return false;
     }
 
-    Initialized = true;
     return Verify();
 }
 

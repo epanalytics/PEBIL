@@ -177,7 +177,7 @@ class CacheStructureHandler : public MemoryStreamHandler {
 
     CacheSimulationTool* CacheSimTool;
 
-    bool Initialized = false;
+    uint32_t AllocatedLevelCount;   // For deleting allocated memory
     uint32_t LevelCount;
     CacheLevel** Levels;
     StringParser* Parser;
@@ -203,7 +203,6 @@ class CacheStructureHandler : public MemoryStreamHandler {
 
     virtual bool Init(std::string desc);
 
-    bool IsInitialized() { return Initialized; }
     bool IsKeepingMemoryLog() { return CacheSimTool->IsKeepingMemoryLog(); }
     bool IsTrackingDirtyStatus() {return CacheSimTool->IsTrackingDirtyStatus();}
 
