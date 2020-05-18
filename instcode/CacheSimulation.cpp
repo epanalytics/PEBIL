@@ -1018,7 +1018,7 @@ CacheLevel* CacheStructureHandler::ParseCacheLevelTokens(stringstream&
 }
 
 uint32_t CacheStructureHandler::ProcessAddress(CacheStats* stats, uint64_t 
-  address, uint64_t memseq, uint8_t loadstoreflag) {
+  address, uint64_t memseq, uint8_t load) {
 
     EvictionInfo evictInfo;
     evictInfo.level = INVALID_CACHE_LEVEL;
@@ -1027,18 +1027,17 @@ uint32_t CacheStructureHandler::ProcessAddress(CacheStats* stats, uint64_t
 
     while (nextLevel < LevelCount){
         currLevel = nextLevel;
-        nextLevel = Levels[currLevel]->Process(address, loadstoreflag, 
-          &evictInfo);
+        nextLevel = Levels[currLevel]->Process(address, load, &evictInfo);
 
         // Update stats
         bool hit = (nextLevel == INVALID_CACHE_LEVEL);
-        stats->UpdateLevelStats(memseq, currLevel, hit, loadstoreflag);
+        stats->UpdateLevelStats(memseq, currLevel, hit, load);
     }
 
     // If missed on last level, update main memory stats
     if(nextLevel == LevelCount && IsKeepingMemoryLog()) {
         stats->UpdateMainMemoryStats(memseq, evictInfo.setid, evictInfo.lineid,
-          loadstoreflag);
+          load);
     }
 
     return 0; // No error
@@ -1537,6 +1536,9 @@ uint32_t NonInclusiveCacheLevel::Process(uint64_t addr, uint64_t loadstoreflag,
     uint64_t store = GetCacheAddress(addr);
     uint32_t toReturn = INVALID_CACHE_LEVEL;
     bool wasHit = false;
+
+    assert(store != 0); // If stored address is 0, then we can't tell if
+                        // it was a cold miss (initially it's 0)
 
     // Check to see if the processed address is in the cache and set the return
     // value based on the result (2)

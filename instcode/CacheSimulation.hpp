@@ -186,7 +186,7 @@ class CacheStructureHandler : public MemoryStreamHandler {
     CacheLevel* ParseCacheLevelTokens(std::stringstream& tokenizer, 
       uint32_t levelId, uint32_t* firstExcl);
     uint32_t ProcessAddress(CacheStats* stats, uint64_t address, uint64_t 
-      memseq, uint8_t loadstoreflag);
+      memseq, uint8_t load);
 
   public:      
     // note that this doesn't contain any stats gathering code. that is done at
