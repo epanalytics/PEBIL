@@ -25,6 +25,7 @@
 #include <ThreadedCommon.hpp>
 #include <CacheSimulation.hpp>
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -37,8 +38,6 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include <string.h>
-#include <assert.h>
 
 using namespace std;
 
@@ -707,7 +706,7 @@ CacheStats::CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity,
 CacheStats::~CacheStats() {
     if (CacheLevelStats != NULL) {
         for (uint32_t i = 0; i < Capacity; i++) {
-            if (CacheLevelStats[i]){
+            if (CacheLevelStats[i]) {
                 delete[] CacheLevelStats[i];
             }
         }
@@ -716,7 +715,7 @@ CacheStats::~CacheStats() {
 
     if (MainMemoryStats != NULL) {
         for (uint32_t i = 0; i < Capacity; i++) {
-            if (MainMemoryStats[i]){
+            if (MainMemoryStats[i]) {
                 delete MainMemoryStats[i];
             }
         }
@@ -1232,11 +1231,6 @@ bool CacheStructureHandler::Verify(){
 }
 
 /* CacheLevel -- Protected Functions */
-// Get the first address in a cache line
-uint64_t CacheLevel::GetCacheAddress(uint64_t addr){
-    return (addr >> NumBitsUsedPerLine);
-}
-
 // Are these cache contents (given the set and line) dirty?
 bool CacheLevel::GetDirtyStatus(uint32_t setid, uint32_t lineid) {
     return DirtyStatus[setid][lineid];
@@ -1453,6 +1447,11 @@ CacheLevel::~CacheLevel(){
     if (RecentlyUsed){
         delete[] RecentlyUsed;
     }
+}
+
+// Get the first address in a cache line
+uint64_t CacheLevel::GetCacheAddress(uint64_t addr){
+    return (addr >> NumBitsUsedPerLine);
 }
 
 // Print a description of the Cache Level

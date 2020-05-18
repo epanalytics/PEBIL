@@ -185,8 +185,8 @@ class CacheStructureHandler : public MemoryStreamHandler {
 
     CacheLevel* ParseCacheLevelTokens(std::stringstream& tokenizer, 
       uint32_t levelId, uint32_t* firstExcl);
-    uint32_t ProcessAddress(CacheStats* stats, uint64_t address, uint64_t 
-      memseq, uint8_t loadstoreflag);
+    virtual uint32_t ProcessAddress(CacheStats* stats, uint64_t address, 
+      uint64_t memseq, uint8_t loadstoreflag);
 
   public:      
     // note that this doesn't contain any stats gathering code. that is done at
@@ -263,8 +263,6 @@ protected:
     history** HistoryUsed = nullptr;  // doubly-linked list for each set
     uint32_t* RecentlyUsed = nullptr; // MRU for lru (nmru) and LRU for trulru
 
-    // Get the cache address, the first address in a cache line
-    uint64_t GetCacheAddress(uint64_t addr);
     // Is the cache line at this set and line dirty?
     virtual bool GetDirtyStatus(uint32_t setid, uint32_t lineid);
     // Get set for a given cache address
@@ -299,6 +297,8 @@ public:
     virtual uint32_t GetSizeInBytes() { return Size; }
     virtual CacheLevelType GetType() { return Type; }
 
+    // Get the cache address, the first address in a cache line
+    uint64_t GetCacheAddress(uint64_t addr);
     virtual uint32_t GetSetCount() { return NumSets; }
     // Initialize this cache level
     virtual void Init(CacheLevel_Init_Interface);
