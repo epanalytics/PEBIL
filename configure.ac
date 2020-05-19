@@ -132,6 +132,19 @@ AC_ARG_WITH(throttler_headers,
             [throttler_headers=no])
 AC_SUBST(THROTTLER_FLAGS)
 
+AC_ARG_WITH(epa_tools, [AS_HELP_STRING([--with-epa-tools=<path>],[specify path to epa tools])],
+            [epa_tools=$withval], [epa_tools=no])
+if test x"$epa_tools" = x"no"; then
+    PEBIL_EPA_TOOLS_AVAILABLE="no"
+    PEBIL_EPA_TOOLS_PATH=""
+else
+    PEBIL_EPA_TOOLS_AVAILABLE="yes"
+    PEBIL_EPA_TOOLS_PATH="$epa_tools"
+fi
+AC_SUBST(PEBIL_EPA_TOOLS_AVAILABLE)
+AC_SUBST(PEBIL_EPA_TOOLS_PATH)
+
+
 AC_ARG_ENABLE(mic_libs, AC_HELP_STRING([--enable-mic-libs], [Create mic runtime libraries [yes]]), mic_libs_ok=$enableval)
 if test "$mic_libs_ok" = "yes"; then
   PEBIL_MIC_LIBS_BUILD="yes"

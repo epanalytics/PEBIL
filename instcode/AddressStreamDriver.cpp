@@ -32,6 +32,10 @@
 #include <ScatterGatherLength.hpp>
 #include <SpatialLocality.hpp>
 
+#ifdef HAS_EPA_TOOLS
+#include <PrefetchSimulation.hpp>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -55,6 +59,7 @@ AddressStreamDriver::AddressStreamDriver() {
     // Only run Cache Simulation by default
     runAddressRange = false;
     runCacheSimulation = true;
+    runHardwarePrefetching = false;
     runReuseDistance = false;
     runScatterLength = false;
     runSpatialLocality = false;
@@ -461,6 +466,7 @@ void AddressStreamDriver::SetUpTools() {
     // Check for which tools to use
     uint32_t doAddressRange;
     uint32_t doCacheSimulation;
+    uint32_t doHardwarePrefetching;
     uint32_t doReuseDistance;
     uint32_t doScatterGatherLength;
     uint32_t doSpatialLocality;
@@ -469,6 +475,10 @@ void AddressStreamDriver::SetUpTools() {
     }
     if (parser->ReadEnvUint32("METASIM_CACHE_SIMULATION", &doCacheSimulation)){
         runCacheSimulation = (doCacheSimulation == 0) ? false : true;
+    }
+    if (parser->ReadEnvUint32("METASIM_HWPF_SIMULATION", 
+      &doHardwarePrefetching)){
+        runHardwarePrefetching = (doHardwarePrefetching == 0) ? false : true;
     }
     if (parser->ReadEnvUint32("METASIM_REUSE_DISTANCE", &doReuseDistance)){
         runReuseDistance = (doReuseDistance == 0) ? false : true;
@@ -486,6 +496,16 @@ void AddressStreamDriver::SetUpTools() {
 
     if (runCacheSimulation) {
         tools->push_back(new CacheSimulationTool());
+    }
+
+    if (runHardwarePrefetching) {
+#ifdef HAS_EPA_TOOLS
+        tools->push_back(new PrefetchSimulationTool());
+#else
+        DISPLAY_ERROR << "No hardware prefetching library linked. "
+          << "Unset Hardware prefetching library tool. Exitting." << ENDL;
+        exit(0);
+#endif
     }
 
     if (runReuseDistance) {
