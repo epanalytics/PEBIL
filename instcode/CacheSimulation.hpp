@@ -91,7 +91,7 @@ class CacheSimulationTool : public AddressStreamTool {
     virtual void HandleEnvVariables(StringParser* parser);
     bool IsKeepingMemoryLog() { return KeepMemoryLog; }
     bool IsTrackingDirtyStatus() { return TrackDirtyStatus; }
-    void LogFileName(AddressStreamStats* stats, std::string& oFile);
+    void MemoryLogFileName(AddressStreamStats* stats, std::string& oFile);
     virtual uint32_t ReadCacheDescription(std::istream& cacheStream, 
       StringParser* parser);
 
@@ -99,17 +99,36 @@ class CacheSimulationTool : public AddressStreamTool {
 
   protected:
     std::string CacheDescriptionFile = "";
+    std::ofstream CacheReportFile;
     uint32_t MinimumHighAssociativity = 256;
     bool KeepMemoryLog = false;
+    std::ofstream MemoryLogFile;
     bool TrackDirtyStatus = false;
 
+
+    virtual void AggregateCacheStats(CacheStats* aggregatedStats, uint32_t 
+      aggMemid, CacheStats* cacheStats, uint32_t memid);
+    virtual void CloseReportFiles();
+    virtual CacheStats* CreateAggregatedCacheStats(CacheStats* stats, uint32_t
+      numMemIds);
+    virtual void OpenReportFiles(AddressStreamStats* stats);
     void PrintApplicationHeader(std::ofstream& file, 
       DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
       uint64_t totalMemop, uint64_t sampledCount);
-    void PrintPerBlockCacheSimData(std::ofstream& file,
-      DataManager<AddressStreamStats*>* AllData);
-    void PrintSysidInfo(std::ofstream& file, CacheStats* c, 
-      std::set<image_key_t>::iterator iit);
+    virtual void PrintApplicationHeaders(DataManager<AddressStreamStats*>* 
+      AllData, SamplingMethod* Sampler, uint64_t totalMemop, uint64_t 
+      sampledCount);
+    virtual void PrintOverallStatistics(DataManager<AddressStreamStats*>*
+      AllData);
+    virtual void PrintOverallStatistics(DataManager<AddressStreamStats*>*
+      AllData, uint32_t sysidIndex, image_key_t imageid);
+    virtual void PrintOverallStatistics(CacheStats* cacheStats, thread_key_t 
+      threadid);
+    void PrintPerBlockData(DataManager<AddressStreamStats*>* AllData, 
+      image_key_t imageid, thread_key_t threadid, CacheStats** aggregatedStats, 
+      uint32_t bbid);
+    virtual void PrintReportHeaders();
+    virtual void PrintSysIdHeader(uint32_t sysid, image_key_t imageid);
     void PrintThreadidInfo(std::ofstream& file, thread_key_t thread, 
       DataManager<AddressStreamStats*>* AllData);
 };
@@ -186,7 +205,7 @@ class CacheStructureHandler : public MemoryStreamHandler {
     CacheLevel* ParseCacheLevelTokens(std::stringstream& tokenizer, 
       uint32_t levelId, uint32_t* firstExcl);
     virtual uint32_t ProcessAddress(CacheStats* stats, uint64_t address, 
-      uint64_t memseq, uint8_t loadstoreflag);
+      uint64_t memseq, uint8_t load);
 
   public:      
     // note that this doesn't contain any stats gathering code. that is done at

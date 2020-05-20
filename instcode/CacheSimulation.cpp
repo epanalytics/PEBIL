@@ -95,35 +95,13 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     AddressStreamStats* stats = AllData->GetData(pthread_self());
     uint32_t numCaches = handlers.size();
 
-    // Create the Cache Simulation Report (.cachesim)
-    ofstream MemFile;
-    string oFile;
-    const char* fileName;
-
-    // dump cache simulation results
-    CacheSimulationFileName(stats, oFile);
-    fileName = oFile.c_str();
-    inform << "Printing cache simulation results to " << fileName << ENDL;
-    TryOpen(MemFile, fileName);
-
-    // Create the MainMemoryLogging Report (.memlog)
-    ofstream LogFile;
-    string lFile;
-    const char* logName;
-
-    if(IsKeepingMemoryLog()){
-        // dump MainMemoryLogging results
-        LogFileName(stats, lFile);
-        logName = lFile.c_str();
-        inform << "Printing Memory Logging results to " << logName << ENDL;
-        TryOpen(LogFile, logName);
-    }
+    OpenReportFiles(stats);
 
     uint64_t sampledCount = 0;
     uint64_t totalMemop = 0;
     // Calculate the number of access counts
     for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
-      iit != AllData->allimages.end(); iit++){
+      iit != AllData->allimages.end(); iit++) {
 
         for(DataManager<AddressStreamStats*>::iterator it = 
           AllData->begin(*iit); it != AllData->end(*iit); ++it) {
@@ -158,97 +136,10 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
         }
     }
 
-    PrintApplicationHeader(MemFile, AllData, Sampler, totalMemop, sampledCount);
-    if(IsKeepingMemoryLog()){
-        PrintApplicationHeader(LogFile, AllData, Sampler, totalMemop, sampledCount);
-    }
-        
-    // Print statisics for each cache structure 
-    for (uint32_t sys = indexInStats; sys < indexInStats + numCaches; sys++) {
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
-          iit != AllData->allimages.end(); iit++) {
+    PrintApplicationHeaders(AllData, Sampler, totalMemop, sampledCount);
+    PrintOverallStatistics(AllData);
 
-            bool first = true;
-
-            for(DataManager<AddressStreamStats*>::iterator it = 
-              AllData->begin(*iit); it != AllData->end(*iit); ++it) {
-                AddressStreamStats* s = it->second;
-                thread_key_t thread = it->first;
-                assert(s);
-
-                CacheStats* c = (CacheStats*)s->Stats[sys];
-                assert(c->Capacity == s->AllocCount);
-
-                // Sanity check the cache structure
-                if(!c->Verify()) {
-                    warn << "Cache structure failed verification for "
-                      "system " << c->SysId << ", image " << hex << *iit 
-                      << ", thread " << hex << thread << ENDL;
-                }
-
-                if (first){
-                    PrintSysidInfo(MemFile, c, iit);
-                    if(IsKeepingMemoryLog()){
-                        PrintSysidInfo(LogFile, c, iit);
-                    }
-                    first = false;
-                }
-
-                PrintThreadidInfo(MemFile, thread, AllData);
-                if(IsKeepingMemoryLog()){
-                    PrintThreadidInfo(LogFile, thread, AllData);
-                }
-
-                // Print stats for each level in the cache structure
-                for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
-                    uint64_t h = c->GetHits(lvl);
-                    uint64_t m = c->GetMisses(lvl);
-                    uint64_t t = h + m;
-                    MemFile << "l" << dec << lvl << "[" << h << "/" << t 
-                      << "(" << CacheStats::GetHitRate(h, m) << ")] ";
-                }
-
-                MemFile<<"\n# Load store stats ";
-                if(IsKeepingMemoryLog())
-                    LogFile<<"Load store stats ";
-                for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
-                    uint64_t l = c->GetLoads(lvl);
-                    uint64_t s = c->GetStores(lvl);
-                    uint64_t t = l + s;
-                    double ratio=0.0f;
-                    if(t!=0)
-                      ratio= (double) l/t;
-                    MemFile << " l" << dec << lvl << "[" << l << "/" 
-                      << t << "(" << (ratio)<<")] ";
-                    if(IsKeepingMemoryLog())
-                        LogFile << " l" << dec << lvl << "[" << l << "/" 
-                          << t << "(" << (ratio)<<")] ";
-                }
-                if(IsKeepingMemoryLog()) {
-                    LogFile << ENDL << "#" << TAB;
-                    LogFile << "SetCount: " << dec << 
-                      c->MainMemoryStats[0]->numOfSets << TAB << "LineCount: " 
-                      << dec << c->MainMemoryStats[0]->numOfLinesInSet;
-                }
-
-                MemFile << ENDL;
-                if(IsKeepingMemoryLog()){
-                    LogFile << ENDL;
-                }
-            } // for each data manager
-        } // for each image
-        MemFile << ENDL;
-        if(IsKeepingMemoryLog()){
-            LogFile << ENDL;
-        }
-    } // for each cache structure
-
-//    PrintPerBlockCacheSimData(MemFile, AllData);
-    MemFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
-      << TAB << "ImageSequence" << TAB << "ThreadId " << ENDL;        
-    MemFile << "# " << TAB << "SysId" << TAB << "Level" << TAB 
-      << "HitCount" << TAB << "MissCount" << TAB << "LoadCount" << TAB 
-      << "StoreCount" << ENDL;
+    PrintReportHeaders();
 
     for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
       iit != AllData->allimages.end(); iit++) {
@@ -262,19 +153,16 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
             // compile per-instruction stats into blocks
             aggstats = new CacheStats*[numCaches];
             for (uint32_t sys = 0; sys < numCaches; sys++) {
-
                 CacheStats* s = (CacheStats*)st->Stats[sys + indexInStats];
                 assert(s);
                 s->Verify();
 
-                CacheStats* c = new CacheStats(s->LevelCount, s->SysId,
-                  st->BlockCount, IsKeepingMemoryLog());
+                CacheStats* c = CreateAggregatedCacheStats(s, st->BlockCount);
 
                 if (IsKeepingMemoryLog()) {
                     MainMemory* refMem = s->MainMemoryStats[0];
                     c->MainMemoryStats = new MainMemory*[st->BlockCount];
-                    for (int i=0;i<st->BlockCount;i++){
-                        //c->MainMemoryStats[i] = s->MainMemoryStats[i];
+                    for (int i = 0; i < st->BlockCount; i++){
                         c->MainMemoryStats[i] = new MainMemory(*refMem);
                     }
                 }
@@ -288,83 +176,20 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     } else {
                         bbid = st->BlockIds[memid];
                     }
-
-                    for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++) {
-                        c->Hit(bbid, lvl, s->GetHits(memid, lvl));
-                        c->Miss(bbid, lvl, s->GetMisses(memid, lvl));
-                        c->Load(bbid, lvl, s->GetLoads(memid, lvl));
-                        c->Store(bbid, lvl, s->GetStores(memid, lvl));
-                    } // for each cache level
-
-                    if(IsKeepingMemoryLog()){
-                        if( c->MainMemoryStats[0]->numOfLinesInSet > 1) {
-                            for(int i = 0; i < c->MainMemoryStats[0]->numOfSets;
-                              i++){
-                                for(int j = 0; j < 
-                                  c->MainMemoryStats[0]->numOfLinesInSet; j++){
-                                    NestedHash* CreadInsMap = 
-                                      c->MainMemoryStats[bbid]->readInsMap; 
-                                    NestedHash* CwriteOutsMap = 
-                                      c->MainMemoryStats[bbid]->writeOutsMap;
-                                    NestedHash* SreadInsMap = 
-                                      s->MainMemoryStats[memid]->readInsMap; 
-                                    NestedHash* SwriteOutsMap = 
-                                      s->MainMemoryStats[memid]->writeOutsMap;
-                                    
-                                    uint32_t toAddRead = SreadInsMap->get(i, j);
-                                    uint32_t toAddWrite = SwriteOutsMap->get(i,
-                                      j);
-                                    if (toAddRead > 0){
-                                        CreadInsMap->put(i, j, toAddRead);
-                                    }
-                                    if (toAddWrite > 0){
-                                        CwriteOutsMap->put(i, j, toAddWrite);
-                                    }
-                                }
-                            }
-                        } else {
-                            for(int i=0;i<c->MainMemoryStats[0]->numOfSets;i++){
-                                EasyHash* CdirInsMap = 
-                                  c->MainMemoryStats[bbid]->dirInsMap;
-                                EasyHash* CdirOutsMap = 
-                                  c->MainMemoryStats[bbid]->dirOutsMap;
-                                EasyHash* SdirInsMap = 
-                                  s->MainMemoryStats[memid]->dirInsMap;
-                                EasyHash* SdirOutsMap = 
-                                  s->MainMemoryStats[memid]->dirOutsMap;
-
-                                uint32_t toAddRead = SdirInsMap->get(i);
-                                uint32_t toAddWrite = SdirOutsMap->get(i);
-                                if (toAddRead > 0) {
-                                    CdirInsMap->add(i, toAddRead);
-                                }
-                                if (toAddWrite > 0) {
-                                    CdirOutsMap->add(i, toAddWrite);
-                                }
-                            }
-                        }
-                    }
-                } // for each memop
+                    AggregateCacheStats(c, bbid, s, memid);
+                }
 
                 if(!c->Verify()) {
                     warn << "Failed check on aggregated cache stats" 
                       << ENDL;
                 }
 
-            //delete s here
+            // delete s here
             delete s;
             } // for each cache structure
 
             CacheStats* root = aggstats[0];
             uint32_t MaxCapacity = root->Capacity;
-
-            if(IsKeepingMemoryLog()) {
-                LogFile << "#" << TAB << "BLK" << TAB << "BLKID" << TAB << "BLK HASH"
-                  << TAB << "ImageSequence" << TAB << "ThreadSequence" 
-                  TAB << "SYSID1:MISSES" << TAB << "SYSID2:MISSES ..." << ENDL;
-                LogFile << "#" << TAB << "BLK" << TAB << "SYSID" << TAB << "SET"
-                  << TAB << "LINE" << TAB << "READS" << TAB << "WRITES" << ENDL << ENDL;
-            }
 
             // Print the data for each block 
             for (uint32_t bbid = 0; bbid < MaxCapacity; bbid++) {
@@ -399,126 +224,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     idx = st->Counters[bbid];
                 }
 
-                MemFile << "BLK" << TAB << dec << bbid
-                  << TAB << hex << st->Hashes[bbid]
-                  << TAB << dec << AllData->GetImageSequence((*iit))
-                  << TAB << dec << AllData->GetThreadSequence(st->threadid)
-                  << ENDL;
-
-                if(IsKeepingMemoryLog()) {
-                    LogFile << "BLK" << TAB << dec << bbid
-                      << TAB << hex << st->Hashes[bbid]
-                      << TAB << dec << AllData->GetImageSequence((*iit))
-                      << TAB << dec << AllData->GetThreadSequence(st->threadid);
-                    for (uint32_t sys = 0; sys < numCaches; sys++){
-                        CacheStats* c = aggstats[sys];
-                        //NOTE threading issue here in future perhapps
-                        uint32_t lastLevel = c->LevelCount - 1;
-                        LogFile << TAB << dec << c->SysId << ":" 
-                          << c->GetMisses(bbid, lastLevel);
-                    }
-                    LogFile << ENDL;
-
-                    //Repeating information in a comment for Pefpal readability
-                    for (uint32_t sys = 0; sys < numCaches; sys++){
-                        CacheStats* c = aggstats[sys];
-                        //NOTE threading issue here in future perhapps
-                        uint32_t lastLevel = c->LevelCount - 1;
-                        LogFile << "# " << dec << c->SysId << ":" 
-                          << c->GetMisses(bbid, lastLevel) << ENDL;
-                    }
-                }
-
-                for (uint32_t sys = 0; sys < numCaches; sys++){
-                    CacheStats* c = aggstats[sys];
-
-                    if (AllData->CountThreads() == 1){
-                        assert(root->GetAccessCount(bbid) == 
-                          c->GetHits(bbid, 0) + c->GetMisses(bbid, 0));
-                    }
-
-                    for (uint32_t lvl = 0; lvl < c->LevelCount; lvl++){
-                        MemFile << TAB << dec << c->SysId;
-                        MemFile << TAB << dec << (lvl+1);
-                        MemFile << TAB << dec << c->GetHits(bbid, lvl)
-                          << TAB << dec << c->GetMisses(bbid, lvl)
-                          << TAB << dec << c->GetLoads(bbid,lvl)
-                          << TAB << dec << c->GetStores(bbid,lvl)
-                          << ENDL;  
-                    }
-                    if (IsKeepingMemoryLog()) {
-                        MemFile << TAB << dec << c->SysId;
-                        MemFile << TAB << "M"
-                          << TAB << dec << c->GetMisses(bbid, c->LevelCount-1)
-                          << TAB << dec << 0
-                          << TAB << dec << c->MainMemoryStats[bbid]->GetLoads()
-                          << TAB << dec << c->MainMemoryStats[bbid]->GetStores()
-                          << ENDL; 
-
-                        uint32_t numOfSets = c->MainMemoryStats[bbid]->
-                          numOfSets;
-                        uint32_t numOfLines = c->MainMemoryStats[bbid]->
-                          numOfLinesInSet;
-                        NestedHash* readInsMap;
-                        NestedHash* writeOutsMap;
-                        EasyHash* dirInsMap;
-                        EasyHash* dirOutsMap;
-                        if (numOfLines > 1) {
-                            readInsMap = c->MainMemoryStats[bbid]->readInsMap;
-                            writeOutsMap = c->MainMemoryStats[bbid]->writeOutsMap;
-                        } else {
-                            dirInsMap = c->MainMemoryStats[bbid]->dirInsMap;
-                            dirOutsMap = c->MainMemoryStats[bbid]->dirOutsMap;
-                        }
-
-                        if (numOfLines > 1) {
-                            for(int i=0;i<numOfSets;i++){
-                                for(int j=0;j<numOfLines;j++){
-                                    bool read = readInsMap->contains(i,j);
-                                    bool write = writeOutsMap->contains(i,j);
-                                    if( read || write) {
-                                        LogFile << TAB << bbid << TAB << dec << c->SysId
-                                          << TAB << dec << i
-                                          << TAB << dec << j;
-                                        if (read){
-                                            LogFile << TAB << dec << readInsMap->get(i,j);
-                                        } else {
-                                            LogFile << TAB << "0";
-                                        }
-                                        if (write){
-                                            LogFile << TAB << dec << writeOutsMap->get(i,j);
-                                        } else {
-                                            LogFile << TAB << "0";
-                                        } 
-                                        LogFile << ENDL;
-                                    }
-                                }
-                            }
-                        }
-                        else {
-                            for(int i=0;i<numOfSets;i++){
-                                bool read = dirInsMap->contains(i);   
-                                bool write = dirOutsMap->contains(i);
-                                if( read || write) {
-                                    LogFile << TAB << bbid << TAB << dec << c->SysId
-                                      << TAB << dec << i
-                                      << TAB << "0";
-                                    if (read) {
-                                        LogFile << TAB << dec << dirInsMap->get(i);
-                                    } else {
-                                        LogFile << TAB << "0";
-                                    }
-                                    if (write) {
-                                        LogFile << TAB << dec << dirOutsMap->get(i);
-                                    } else {
-                                        LogFile << TAB << "0";
-                                    }
-                                    LogFile << ENDL;
-                                }
-                            }
-                        }
-                    }
-                } // for each cache structure
+                PrintPerBlockData(AllData, *iit, st->threadid, aggstats, bbid);
             } // for each block
 
             // Delete aggregated stats
@@ -531,8 +237,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     } // for each image
 
     // Close the files   
-    MemFile.close();
-    LogFile.close();
+    CloseReportFiles();
 }
 
 void CacheSimulationTool::GetAndSetCacheDescriptionFile(StringParser* parser){
@@ -582,7 +287,8 @@ void CacheSimulationTool::HandleEnvVariables(StringParser* parser) {
     GetAndSetCacheDescriptionFile(parser);
 }
 
-void CacheSimulationTool::LogFileName(AddressStreamStats* stats, string& oFile){
+void CacheSimulationTool::MemoryLogFileName(AddressStreamStats* stats, 
+  string& oFile){
     oFile.clear();
     oFile.append(stats->Application);
     oFile.append(".r");
@@ -616,6 +322,108 @@ uint32_t CacheSimulationTool::ReadCacheDescription(istream& cacheStream,
     }
     assert(handlers.size() > 0 && "No cache structures found for simulation");
     return handlers.size();
+}
+
+/* CacheSimulationTool - protected functions */
+// Add cacheStats's stats for memid into aggregatedStats's stats for aggMemid
+void CacheSimulationTool::AggregateCacheStats(CacheStats* aggregatedStats,
+  uint32_t aggMemid, CacheStats* cacheStats, uint32_t memid) {
+
+    // Aggregate hits, misses, loads, and stores
+    for (uint32_t lvl = 0; lvl < aggregatedStats->LevelCount; lvl++) {
+        aggregatedStats->Hit(aggMemid, lvl, cacheStats->GetHits(memid, lvl));
+        aggregatedStats->Miss(aggMemid, lvl, cacheStats->GetMisses(memid, lvl));
+        aggregatedStats->Load(aggMemid, lvl, cacheStats->GetLoads(memid, lvl));
+        aggregatedStats->Store(aggMemid, lvl, cacheStats->GetStores(memid, 
+          lvl));
+    }
+
+    // Aggregate memory log maps, if using
+    if (IsKeepingMemoryLog()){
+        if (aggregatedStats->MainMemoryStats[0]->numOfLinesInSet > 1) {
+            for (int set = 0; set < aggregatedStats->MainMemoryStats[0]->
+              numOfSets; set++) {
+                for (int line = 0; line < aggregatedStats->MainMemoryStats[0]->
+                  numOfLinesInSet; line++) {
+                    NestedHash* aggReadInsMap = aggregatedStats->
+                      MainMemoryStats[aggMemid]->readInsMap; 
+                    NestedHash* aggWriteOutsMap = aggregatedStats->
+                      MainMemoryStats[aggMemid]->writeOutsMap;
+                    NestedHash* readInsMap = cacheStats->
+                      MainMemoryStats[memid]->readInsMap; 
+                    NestedHash* writeOutsMap = cacheStats->
+                      MainMemoryStats[memid]->writeOutsMap;
+                    
+                    uint32_t readsToAdd = readInsMap->get(set, line);
+                    uint32_t writesToAdd = writeOutsMap->get(set, line);
+                    if (readsToAdd > 0)
+                        aggReadInsMap->put(set, line, readsToAdd);
+                    if (writesToAdd > 0)
+                        aggWriteOutsMap->put(set, line, writesToAdd);
+                }
+            }
+        } else {
+            for (int set = 0; set < aggregatedStats->MainMemoryStats[0]->
+              numOfSets; set++) {
+                EasyHash* aggDirInsMap = aggregatedStats->MainMemoryStats[
+                  aggMemid]->dirInsMap;
+                EasyHash* aggDirOutsMap = aggregatedStats->MainMemoryStats[
+                  aggMemid]->dirOutsMap;
+                EasyHash* dirInsMap = cacheStats->MainMemoryStats[memid]->
+                  dirInsMap;
+                EasyHash* dirOutsMap = cacheStats->MainMemoryStats[memid]->
+                  dirOutsMap;
+
+                uint32_t readsToAdd = dirInsMap->get(set);
+                uint32_t writesToAdd = dirOutsMap->get(set);
+                if (readsToAdd > 0)
+                    aggDirInsMap->add(set, readsToAdd);
+                if (writesToAdd > 0)
+                    aggDirOutsMap->add(set, writesToAdd);
+            }
+        }
+    }
+}
+
+void CacheSimulationTool::CloseReportFiles() {
+    if (CacheReportFile.is_open())
+        CacheReportFile.close();
+    if (MemoryLogFile.is_open())
+        MemoryLogFile.close();
+}
+
+// Create a CacheStats object for aggragating information
+CacheStats* CacheSimulationTool::CreateAggregatedCacheStats(CacheStats* stats,
+  uint32_t numMemIds) {
+    return new CacheStats(stats->LevelCount, stats->SysId, numMemIds,
+      IsKeepingMemoryLog());
+}
+
+// Open the .cachesim and .memlog files
+void CacheSimulationTool::OpenReportFiles(AddressStreamStats* stats) {
+    // Open the Cache Simulation Report (.cachesim)
+    if (!CacheReportFile.is_open()) {
+        string oFile;
+        const char* fileName;
+
+        CacheSimulationFileName(stats, oFile);
+        fileName = oFile.c_str();
+        inform << "Printing cache simulation results to " << fileName << ENDL;
+        TryOpen(CacheReportFile, fileName);
+    }
+    assert(CacheReportFile.is_open());
+
+    // Open the MainMemoryLogging Report (.memlog)
+    if (!MemoryLogFile.is_open() && IsKeepingMemoryLog()) {
+        string oFile;
+        const char* fileName;
+
+        MemoryLogFileName(stats, oFile);
+        fileName = oFile.c_str();
+        inform << "Printing Memory Logging results to " << fileName << ENDL;
+        TryOpen(MemoryLogFile, fileName);
+        assert(MemoryLogFile.is_open());
+    }
 }
 
 void CacheSimulationTool::PrintApplicationHeader(ofstream& file, 
@@ -666,19 +474,279 @@ void CacheSimulationTool::PrintApplicationHeader(ofstream& file,
     file << ENDL;
 }
 
-void CacheSimulationTool::PrintPerBlockCacheSimData(ofstream& MemFile, 
-  DataManager<AddressStreamStats*>* AllData){
-    MemFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
-      << TAB << "ImageSequence" << TAB << "ThreadId " << ENDL;        
-    MemFile << "# " << TAB << "SysId" << TAB << "Level" << TAB 
-      << "HitCount" << TAB << "MissCount" << TAB << "LoadCount" << TAB 
-      << "StoreCount" << ENDL;
+void CacheSimulationTool::PrintApplicationHeaders(
+  DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
+  uint64_t totalMemop, uint64_t sampledCount) {
+
+    PrintApplicationHeader(CacheReportFile, AllData, Sampler, totalMemop, 
+      sampledCount);
+
+    if(IsKeepingMemoryLog()) {
+        PrintApplicationHeader(MemoryLogFile, AllData, Sampler, totalMemop, 
+          sampledCount);
+    }
+}
+
+void CacheSimulationTool::PrintOverallStatistics(
+  DataManager<AddressStreamStats*>* AllData) {
+    uint32_t numCaches = handlers.size();
+    // Print statisics for each cache structure 
+    for (uint32_t sys = indexInStats; sys < indexInStats + numCaches; sys++) {
+        // Print statistics for each image
+        for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
+          iit != AllData->allimages.end(); iit++) {
+
+            bool first = true;
+            PrintOverallStatistics(AllData, sys, *iit);
+
+        } // for each image
+        CacheReportFile << ENDL;
+        if(IsKeepingMemoryLog()){
+            MemoryLogFile << ENDL;
+        }
+    } // for each cache structure
+}
+
+// Print the Overall statistics for the given sysid and image
+void CacheSimulationTool::PrintOverallStatistics(
+  DataManager<AddressStreamStats*>* AllData, uint32_t sysidIndex, image_key_t 
+  imageid) {
+
+    // Print the sysid and imageid
+    AddressStreamStats* mainThreadStats = AllData->GetData(imageid, 
+      pthread_self());
+    uint32_t sysid = ((CacheStats*)mainThreadStats->Stats[sysidIndex])->
+      GetSysId();
+    PrintSysIdHeader(sysid, imageid);
+
+    // For each thread
+    for(DataManager<AddressStreamStats*>::iterator it = AllData->begin(imageid);
+      it != AllData->end(imageid); ++it) {
+        AddressStreamStats* s = it->second;
+        thread_key_t thread = it->first;
+        assert(s);
+
+        CacheStats* c = (CacheStats*)s->Stats[sysidIndex];
+        assert(c->Capacity == s->AllocCount);
+
+        // Sanity check the cache structure
+        if(!c->Verify()) {
+            warn << "Cache structure failed verification for "
+              "system " << c->SysId << ", image " << hex << imageid 
+              << ", thread " << hex << thread << ENDL;
+        }
+
+        PrintOverallStatistics(c, AllData->GetThreadSequence(thread));
+    } // for each data manager/thread
+}
+
+// Print the Overall statistics for the given cachestats object and thread
+void CacheSimulationTool::PrintOverallStatistics(CacheStats* cacheStats, 
+  thread_key_t threadid) {
+
+    // Print the cache simulation report
+    CacheReportFile << "# Threadid: " << dec << threadid << TAB;
+
+    // Print hit rates for each level in the cache structure
+    for (uint32_t lvl = 0; lvl < cacheStats->LevelCount; lvl++){
+        uint64_t h = cacheStats->GetHits(lvl);
+        uint64_t m = cacheStats->GetMisses(lvl);
+        uint64_t t = h + m;
+        CacheReportFile << "l" << dec << lvl << "[" << h << "/" << t << "(" 
+          << CacheStats::GetHitRate(h, m) << ")] ";
+    }
+
+    // Print the number of loads (as compared to stores) 
+    CacheReportFile<<"\n# Loads v stores ";
+    for (uint32_t lvl = 0; lvl < cacheStats->LevelCount; lvl++){
+        uint64_t l = cacheStats->GetLoads(lvl);
+        uint64_t s = cacheStats->GetStores(lvl);
+        uint64_t t = l + s;
+        double loadRatio = 0.0f;
+        if (t != 0)
+            loadRatio = (double) l/t;
+        CacheReportFile << " l" << dec << lvl << "[" << l << "/" << t << "(" 
+          << loadRatio <<")] ";
+    }
+    CacheReportFile << ENDL;
+
+    // Print the memory log file
+    if(IsKeepingMemoryLog()) {
+        MemoryLogFile << "# Threadid: " << dec << threadid << TAB;
+        MemoryLogFile << "SetCount: " << dec << cacheStats->MainMemoryStats[0]->
+          numOfSets << TAB << "LineCount: " << dec << cacheStats->
+          MainMemoryStats[0]->numOfLinesInSet;
+        MemoryLogFile << ENDL;
+    }
+}
+
+void CacheSimulationTool::PrintPerBlockData(DataManager<AddressStreamStats*>* 
+  AllData, image_key_t imageid, thread_key_t threadid, CacheStats** 
+  aggregatedStats, uint32_t bbid) {
+    uint32_t numCaches = handlers.size();
+    CacheStats* root = aggregatedStats[0];
+    AddressStreamStats* stats = AllData->GetData(imageid, threadid);
+    //uint32_t MaxCapacity = root->Capacity;
+
+    // Print cache sim report info
+    // Print block information
+    CacheReportFile << "BLK" << TAB << dec << bbid
+      << TAB << hex << stats->Hashes[bbid]
+      << TAB << dec << AllData->GetImageSequence(imageid)
+      << TAB << dec << AllData->GetThreadSequence(threadid)
+      << ENDL;
+
+    // Print hits, misses, loads, and stores for each cache and each level
+    for (uint32_t sys = 0; sys < numCaches; sys++){
+        CacheStats* cacheStats = aggregatedStats[sys];
+
+        if (AllData->CountThreads() == 1) {
+            assert(root->GetAccessCount(bbid) == 
+              cacheStats->GetHits(bbid, 0) + cacheStats->GetMisses(bbid, 0));
+        }
+
+        for (uint32_t lvl = 0; lvl < cacheStats->LevelCount; lvl++){
+            CacheReportFile << TAB << dec << cacheStats->SysId;
+            CacheReportFile << TAB << dec << (lvl + 1);
+            CacheReportFile << TAB << dec << cacheStats->GetHits(bbid, lvl)
+              << TAB << dec << cacheStats->GetMisses(bbid, lvl)
+              << TAB << dec << cacheStats->GetLoads(bbid,lvl)
+              << TAB << dec << cacheStats->GetStores(bbid,lvl)
+              << ENDL;  
+        }
+
+        // If tracking memory, print the memory line
+        if (IsKeepingMemoryLog()) {
+            CacheReportFile << TAB << dec << cacheStats->SysId;
+            CacheReportFile << TAB << "M"
+              << TAB << dec << cacheStats->GetMisses(bbid, 
+                cacheStats->LevelCount - 1)
+              << TAB << dec << 0
+              << TAB << dec << cacheStats->MainMemoryStats[bbid]->GetLoads()
+              << TAB << dec << cacheStats->MainMemoryStats[bbid]->GetStores()
+              << ENDL; 
+        }
+    }
+
+    // Print memory log report info
+    if (IsKeepingMemoryLog()) {
+    // Print block information
+        MemoryLogFile << "BLK" << TAB << dec << bbid
+          << TAB << hex << stats->Hashes[bbid]
+          << TAB << dec << AllData->GetImageSequence(imageid)
+          << TAB << dec << AllData->GetThreadSequence(threadid);
+        // Print the number of misses for each sysid
+        for (uint32_t sys = 0; sys < numCaches; sys++){
+            CacheStats* cacheStats = aggregatedStats[sys];
+            // NOTE threading issue here in future perhaps
+            uint32_t lastLevel = cacheStats->LevelCount - 1;
+            MemoryLogFile << TAB << dec << cacheStats->SysId << ":" 
+              << cacheStats->GetMisses(bbid, lastLevel);
+        }
+        MemoryLogFile << ENDL;
+
+        // Repeating information in a comment for Perfpal readability
+        for (uint32_t sys = 0; sys < numCaches; sys++) {
+            CacheStats* cacheStats = aggregatedStats[sys];
+            uint32_t lastLevel = cacheStats->LevelCount - 1;
+            MemoryLogFile << "# " << dec << cacheStats->SysId << ":" 
+              << cacheStats->GetMisses(bbid, lastLevel) << ENDL;
+        }
+
+        // Now print information for each sysid, set, and line
+        for (uint32_t sys = 0; sys < numCaches; sys++) {
+            CacheStats* cacheStats = aggregatedStats[sys];
+            uint32_t numOfSets = cacheStats->MainMemoryStats[bbid]->numOfSets;
+            uint32_t numOfLines = cacheStats->MainMemoryStats[bbid]->
+              numOfLinesInSet;
+
+            if (numOfLines > 1) {
+                NestedHash* readInsMap = cacheStats->MainMemoryStats[bbid]->
+                  readInsMap;
+                NestedHash* writeOutsMap = cacheStats->MainMemoryStats[bbid]->
+                  writeOutsMap;
+                for (int set = 0; set < numOfSets; set++) {
+                    for(int line = 0; line < numOfLines; line++) {
+                        bool read = readInsMap->contains(set, line);
+                        bool write = writeOutsMap->contains(set, line);
+                        if (read || write) {
+                            MemoryLogFile << TAB << bbid << TAB << dec << 
+                              cacheStats->SysId << TAB << dec << set
+                              << TAB << dec << line;
+                            if (read) {
+                                MemoryLogFile << TAB << dec << 
+                                  readInsMap->get(set, line);
+                            } else {
+                                MemoryLogFile << TAB << "0";
+                            }
+                            if (write){
+                                MemoryLogFile << TAB << dec << 
+                                  writeOutsMap->get(set, line);
+                            } else {
+                                MemoryLogFile << TAB << "0";
+                            } 
+                            MemoryLogFile << ENDL;
+                        }
+                    }
+                }
+            // if num lines in set <= 1
+            } else {
+                EasyHash* dirInsMap = cacheStats->MainMemoryStats[bbid]->
+                  dirInsMap;
+                EasyHash* dirOutsMap = cacheStats->MainMemoryStats[bbid]->
+                  dirOutsMap;
+                for (int set = 0; set < numOfSets; set++) {
+                    bool read = dirInsMap->contains(set);   
+                    bool write = dirOutsMap->contains(set);
+                    if (read || write) {
+                        MemoryLogFile << TAB << bbid << TAB << dec 
+                          << cacheStats->SysId << TAB << dec << set
+                          << TAB << "0";
+                        if (read) {
+                            MemoryLogFile << TAB << dec << dirInsMap->get(set);
+                        } else {
+                            MemoryLogFile << TAB << "0";
+                        }
+                        if (write) {
+                            MemoryLogFile << TAB << dec << dirOutsMap->get(set);
+                        } else {
+                            MemoryLogFile << TAB << "0";
+                        }
+                        MemoryLogFile << ENDL;
+                    }
+                }
+            } // if num lines <= 1
+        } // if printing memory log
+    } // for each cache structure
 };
 
-void CacheSimulationTool::PrintSysidInfo(ofstream& file, 
-  CacheStats* c, set<image_key_t>::iterator iit){
-    file << "# sysid" << dec << c->SysId << " in image "
-      << hex << (*iit) << ENDL;
+void CacheSimulationTool::PrintReportHeaders() {
+    // Print Cache Report Header
+    CacheReportFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
+      << TAB << "ImageSequence" << TAB << "ThreadId " << ENDL;        
+    CacheReportFile << "# " << TAB << "SysId" << TAB << "Level" << TAB 
+      << "HitCount" << TAB << "MissCount" << TAB << "LoadCount" << TAB 
+      << "StoreCount" << ENDL;
+
+    // Print Memory Log Header
+    if(IsKeepingMemoryLog()) {
+        MemoryLogFile << "# " << "BLK" << TAB << "Sequence" << TAB 
+          << "BlockHash" << TAB << "ImageSequence" << TAB << "ThreadSequence" 
+          TAB << "SysId1:Misses" << TAB << "SysId2:Misses ..." << ENDL;
+        MemoryLogFile << "# " << "Sequence" << TAB << "SysId" << TAB << "Set" 
+          << TAB << "Line" << TAB << "Reads" << TAB << "Writes" << ENDL;
+    }
+}
+
+
+void CacheSimulationTool::PrintSysIdHeader(uint32_t sysid, image_key_t 
+  imageid) {
+    CacheReportFile << "# sysid" << dec << sysid << " in image " << hex << 
+      imageid << ENDL;
+
+    if (IsKeepingMemoryLog())
+        MemoryLogFile << "# sysid" << dec << sysid << " in image " << hex << 
+          imageid << ENDL;
 }
 
 void CacheSimulationTool::PrintThreadidInfo(ofstream& file, thread_key_t thread, 
@@ -1017,7 +1085,7 @@ CacheLevel* CacheStructureHandler::ParseCacheLevelTokens(stringstream&
 }
 
 uint32_t CacheStructureHandler::ProcessAddress(CacheStats* stats, uint64_t 
-  address, uint64_t memseq, uint8_t loadstoreflag) {
+  address, uint64_t memseq, uint8_t load) {
 
     EvictionInfo evictInfo;
     evictInfo.level = INVALID_CACHE_LEVEL;
@@ -1026,18 +1094,17 @@ uint32_t CacheStructureHandler::ProcessAddress(CacheStats* stats, uint64_t
 
     while (nextLevel < LevelCount){
         currLevel = nextLevel;
-        nextLevel = Levels[currLevel]->Process(address, loadstoreflag, 
-          &evictInfo);
+        nextLevel = Levels[currLevel]->Process(address, load, &evictInfo);
 
         // Update stats
         bool hit = (nextLevel == INVALID_CACHE_LEVEL);
-        stats->UpdateLevelStats(memseq, currLevel, hit, loadstoreflag);
+        stats->UpdateLevelStats(memseq, currLevel, hit, load);
     }
 
     // If missed on last level, update main memory stats
     if(nextLevel == LevelCount && IsKeepingMemoryLog()) {
         stats->UpdateMainMemoryStats(memseq, evictInfo.setid, evictInfo.lineid,
-          loadstoreflag);
+          load);
     }
 
     return 0; // No error
@@ -1536,6 +1603,9 @@ uint32_t NonInclusiveCacheLevel::Process(uint64_t addr, uint64_t loadstoreflag,
     uint64_t store = GetCacheAddress(addr);
     uint32_t toReturn = INVALID_CACHE_LEVEL;
     bool wasHit = false;
+
+    assert(store != 0); // If stored address is 0, then we can't tell if
+                        // it was a cold miss (initially it's 0)
 
     // Check to see if the processed address is in the cache and set the return
     // value based on the result (2)
