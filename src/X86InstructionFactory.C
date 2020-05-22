@@ -299,6 +299,115 @@ X86Instruction* X86InstructionFactory64::emitMoveKToReg(uint32_t kreg_in, uint32
     return emitInstructionBase(len, buff);
 }
 
+X86Insturction* X86InstructionFactory::emmetsInstructionXmmPS(
+    uint32_t reg_out, uint32_t reg_in)
+{
+    //Asserts go here
+
+    bool usesExtraByte = false;
+    uint8_t extraByte = 0;
+    if(reg_out >= 8 /*TODO xmm8 not actually 8 rip edge case*/ ||
+      reg_in >= 8 /*TODO r8 not actually 8 */ ) {
+        usesExtraByte = true;
+        if(reg_out >= 8 /*TODO see above*/){
+            extraByte |= 0x41;
+        }
+        if(reg_in >= 8 /*TODO see above*/){
+            extraByte |= 0x44;
+        }
+    }
+    uint8_t byte1 = 0x0f;
+    uint8_t byte2 = 0x50;
+    uint8_t byte3 = 128;
+    uint8_t xmmBits = 0;
+    uint8_t destBits = 0;
+    //xmmBits = reg_in - X; //TODO X = values suck that xmm0-X == 0 and xmm15-X == 15
+    xmmBits &= 0x7;
+    byte3 |= xmmBits;
+    if (reg_out>=8){
+        destBits = reg_out - Y //TODO Y = values such that r8-Y==0 and r15-Y==7
+    } else {
+        switch (reg_out) {
+            case 0/*rax/eax*/:
+            case 16 /*rip/eip*/:
+                destBits = 0;
+                break;
+            case 1/*rbx/ebx*/:
+                destBits = 3;
+                break;
+            case 2/*rcx/ecx*/:
+                destBits = 1;
+                break;
+            case 3/*rdx/edx*/:
+                destBits = 2;
+                break;
+            case 4/*rsi/esi*/:
+                destBits = 6;
+                break;
+            case 0/*rax/eax*/:
+                destBits = 7;
+                break;
+            case 0/*rax/eax*/:
+                destBits = 5;
+                break;
+            case 0/*rax/eax*/:
+                destBits = 4;
+                break;
+            default :
+                assert(false && "this shouldn't be reached");
+        }
+    }
+    destBits = destBits << 3;
+    byte3 |= destBits;
+
+    if (usesExtraByte){
+        uint8_t len = 4;
+        char* buff = new char[len];
+        buff[0] = byte1;
+        buff[1] = byte2;
+        buff[2] = byte3;
+        return emitInstructionBase(len, buff);
+    } else {
+        uint8_t len = 4;
+        char* buff = new char[len];
+        buff[0] = extraByte;
+        buff[1] = byte1;
+        buff[2] = byte2;
+        buff[3] = byte3;
+        return emitInstructionBase(len, buff);
+    }
+}
+
+X86Instruction* X86InstructionFacto
+
+X86Instruction* X86InstructionFactory::emmetsInstructionXmm(
+    uint32_t reg_out, uint32_t reg_in,
+    uint32_t numIndices)
+{
+    //Asserts go here
+
+    //check data type
+    if(numIndices==0/*TODO*/){
+        return emmetsInstructionXmmPS(reg_out, reg_in);
+    } else {
+        return emmetsInstructionXmmPD(reg_out, reg_in);
+    }
+}
+
+X86Instruction* X86InstructionFactory::emmetsInstruction(
+    uint32_t reg_out, uint32_t reg_in,
+    uint32_t numIndices)
+{
+    //Asserts go here
+
+    //check if xmm0 or ymm0
+    if (true /*TODO*/){
+        return emmetsInstructionXmm(reg_out, reg_in, numIndices);
+    } else {
+        return emmetsInstructionYmm(reg_out, reg_in, numIndices);
+    }
+}
+
 X86Instruction* X86InstructionFactory64::emitMoveRegToK(uint32_t gpr_in, uint32_t kreg_in)
 {
     assert(gpr_in >= X86_REG_AX && gpr_in <= X86_REG_R15);
