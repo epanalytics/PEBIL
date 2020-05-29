@@ -85,8 +85,10 @@ class CacheSimulationTool : public AddressStreamTool {
     virtual uint32_t CreateHandlers(uint32_t index, StringParser* parser);
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
       SamplingMethod* Sampler);
-    std::string GetCacheDescriptionFileName() { return CacheDescriptionFile; }
     void GetAndSetCacheDescriptionFile(StringParser* parser);
+    std::string GetCacheDescriptionFileName() { return CacheDescriptionFile; }
+    void GetReportFileName(AddressStreamStats* stats, std::string& oFile, 
+      std::string suffix);
     uint32_t GetMinimumHighAssociativity() { return MinimumHighAssociativity; }
     virtual void HandleEnvVariables(StringParser* parser);
     bool IsKeepingMemoryLog() { return KeepMemoryLog; }
@@ -124,7 +126,7 @@ class CacheSimulationTool : public AddressStreamTool {
       AllData, uint32_t sysidIndex, image_key_t imageid);
     virtual void PrintOverallStatistics(CacheStats* cacheStats, thread_key_t 
       threadid);
-    void PrintPerBlockData(DataManager<AddressStreamStats*>* AllData, 
+    virtual void PrintPerBlockData(DataManager<AddressStreamStats*>* AllData, 
       image_key_t imageid, thread_key_t threadid, CacheStats** aggregatedStats, 
       uint32_t bbid);
     virtual void PrintReportHeaders();
@@ -202,8 +204,14 @@ class CacheStructureHandler : public MemoryStreamHandler {
     StringParser* Parser;
     uint32_t SysId;
 
+    virtual void InitializeDataStructures();
     CacheLevel* ParseCacheLevelTokens(std::stringstream& tokenizer, 
       uint32_t levelId, uint32_t* firstExcl);
+    virtual bool ParseNonCacheLevelTokens(std::stringstream& tokenizer,
+      uint32_t levelId);
+    virtual void PostProcessAddress(CacheStats* stats, uint64_t address, 
+      uint64_t memseq, uint8_t load, uint32_t currLevel, uint32_t nextLevel,
+      EvictionInfo* evictInfo);
     virtual uint32_t ProcessAddress(CacheStats* stats, uint64_t address, 
       uint64_t memseq, uint8_t load);
 

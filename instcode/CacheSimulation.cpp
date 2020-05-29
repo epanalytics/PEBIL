@@ -65,24 +65,12 @@ void CacheSimulationTool::AddNewStreamStats(AddressStreamStats* stats) {
 }
 
 void CacheSimulationTool::CacheSimulationFileName(AddressStreamStats* stats, 
-  string& oFile){
-    oFile.clear();
-    const char* prefix = getenv(ENV_OUTPUT_PREFIX);
-    if(prefix != NULL) {
-        oFile.append(prefix);
-        oFile.append("/");
-    }
-    oFile.append(stats->Application);
-    oFile.append(".r");
-    AppendRankString(oFile);
-    oFile.append(".t");
-    AppendTasksString(oFile);
-    oFile.append(".");
-    oFile.append("cachesim");
+  string& oFile) {
+    GetReportFileName(stats, oFile, "cachesim");
 }
 
 uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser* 
-  parser){
+  parser) {
     indexInStats = index;
     HandleEnvVariables(parser);
     ifstream CacheFile(GetCacheDescriptionFileName());
@@ -240,7 +228,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     CloseReportFiles();
 }
 
-void CacheSimulationTool::GetAndSetCacheDescriptionFile(StringParser* parser){
+void CacheSimulationTool::GetAndSetCacheDescriptionFile(StringParser* parser) {
     char* e = parser->GetEnv("METASIM_CACHE_DESCRIPTIONS");
     string knobvalue;
 
@@ -250,6 +238,23 @@ void CacheSimulationTool::GetAndSetCacheDescriptionFile(StringParser* parser){
     }
 
     ErrorExit("Please set METASIM_CACHE_DESCRIPTIONS", MetasimError_Env);
+}
+
+void CacheSimulationTool::GetReportFileName(AddressStreamStats* stats, 
+  string& oFile, string suffix) {
+    oFile.clear();
+    const char* prefix = getenv(ENV_OUTPUT_PREFIX);
+    if(prefix != NULL) {
+        oFile.append(prefix);
+        oFile.append("/");
+    }
+    oFile.append(stats->Application);
+    oFile.append(".r");
+    AppendRankString(oFile);
+    oFile.append(".t");
+    AppendTasksString(oFile);
+    oFile.append(".");
+    oFile.append(suffix);
 }
 
 // Read variables from the environment
@@ -289,14 +294,7 @@ void CacheSimulationTool::HandleEnvVariables(StringParser* parser) {
 
 void CacheSimulationTool::MemoryLogFileName(AddressStreamStats* stats, 
   string& oFile){
-    oFile.clear();
-    oFile.append(stats->Application);
-    oFile.append(".r");
-    AppendRankString(oFile);
-    oFile.append(".t");
-    AppendTasksString(oFile);
-    oFile.append(".");
-    oFile.append("memlog");
+    GetReportFileName(stats, oFile, "memlog");
 }
 
 uint32_t CacheSimulationTool::ReadCacheDescription(istream& cacheStream, 
@@ -586,7 +584,6 @@ void CacheSimulationTool::PrintPerBlockData(DataManager<AddressStreamStats*>*
     uint32_t numCaches = handlers.size();
     CacheStats* root = aggregatedStats[0];
     AddressStreamStats* stats = AllData->GetData(imageid, threadid);
-    //uint32_t MaxCapacity = root->Capacity;
 
     // Print cache sim report info
     // Print block information
@@ -597,7 +594,7 @@ void CacheSimulationTool::PrintPerBlockData(DataManager<AddressStreamStats*>*
       << ENDL;
 
     // Print hits, misses, loads, and stores for each cache and each level
-    for (uint32_t sys = 0; sys < numCaches; sys++){
+    for (uint32_t sys = 0; sys < numCaches; sys++) {
         CacheStats* cacheStats = aggregatedStats[sys];
 
         if (AllData->CountThreads() == 1) {
@@ -605,7 +602,7 @@ void CacheSimulationTool::PrintPerBlockData(DataManager<AddressStreamStats*>*
               cacheStats->GetHits(bbid, 0) + cacheStats->GetMisses(bbid, 0));
         }
 
-        for (uint32_t lvl = 0; lvl < cacheStats->LevelCount; lvl++){
+        for (uint32_t lvl = 0; lvl < cacheStats->LevelCount; lvl++) {
             CacheReportFile << TAB << dec << cacheStats->SysId;
             CacheReportFile << TAB << dec << (lvl + 1);
             CacheReportFile << TAB << dec << cacheStats->GetHits(bbid, lvl)
@@ -999,6 +996,11 @@ bool CacheStats::Verify() {
 }
 
 /* CacheStructureHandler -- protected functions */
+void CacheStructureHandler::InitializeDataStructures() {
+    assert(LevelCount > 0);
+    Levels = new CacheLevel*[LevelCount];
+}
+
 CacheLevel* CacheStructureHandler::ParseCacheLevelTokens(stringstream& 
   tokenizer, uint32_t levelId, uint32_t* firstExclusiveLevel) {
     string token;
@@ -1084,6 +1086,34 @@ CacheLevel* CacheStructureHandler::ParseCacheLevelTokens(stringstream&
     return NULL;
 }
 
+// Skip through tokens unrelated to cache level
+bool CacheStructureHandler::ParseNonCacheLevelTokens(stringstream& 
+  tokenizer, uint32_t levelId) {
+    string token;
+    tokenizer >> std::ws; // skip whitespace
+    char nextChar = tokenizer.peek();
+    while (!(isdigit(nextChar)) && nextChar != EOF) {
+       if (!(tokenizer >> token))
+           return false;
+       // if not last level and a comment, then bad token
+       if (Parser->IsEmptyComment(token)) {
+           if (levelId == LevelCount - 1)
+               break;
+           else
+               return false;
+       }
+       tokenizer >> std::ws;
+       nextChar = tokenizer.peek();
+    }
+
+}
+
+void CacheStructureHandler::PostProcessAddress(CacheStats* stats, uint64_t 
+  address, uint64_t memseq, uint8_t load, uint32_t currLevel, uint32_t 
+  nextLevel, EvictionInfo* evictInfo) {
+    return;
+}
+
 uint32_t CacheStructureHandler::ProcessAddress(CacheStats* stats, uint64_t 
   address, uint64_t memseq, uint8_t load) {
 
@@ -1099,6 +1129,9 @@ uint32_t CacheStructureHandler::ProcessAddress(CacheStats* stats, uint64_t
         // Update stats
         bool hit = (nextLevel == INVALID_CACHE_LEVEL);
         stats->UpdateLevelStats(memseq, currLevel, hit, load);
+
+        PostProcessAddress(stats, address, memseq, load, currLevel, nextLevel,
+          &evictInfo); 
     }
 
     // If missed on last level, update main memory stats
@@ -1193,7 +1226,8 @@ bool CacheStructureHandler::Init(string desc) {
     if (!(Parser->ParsePositiveInt32(token, &LevelCount))){
         return false;
     }
-    Levels = new CacheLevel*[LevelCount];
+
+    InitializeDataStructures();
 
     uint32_t levelId = 0;
     uint32_t firstExclusiveLevel = INVALID_CACHE_LEVEL;
@@ -1206,21 +1240,8 @@ bool CacheStructureHandler::Init(string desc) {
         Levels[levelId] = newLevel;
         AllocatedLevelCount++;
         // Get rid of any following "notes"
-        tokenizer >> std::ws; // skip whitespace
-        char nextChar = tokenizer.peek();
-        while (!(isdigit(nextChar)) && nextChar != EOF) {
-            if (!(tokenizer >> token))
-                return false;
-            // if not last level and a comment, then bad token
-            if (Parser->IsEmptyComment(token)) {
-                if (levelId == LevelCount - 1)
-                    break;
-                else
-                    return false;
-            }
-            tokenizer >> std::ws;
-            nextChar = tokenizer.peek();
-        }
+        if(!ParseNonCacheLevelTokens(tokenizer, levelId))
+            return false;
     }
 
     if (levelId != LevelCount) {
