@@ -1507,32 +1507,32 @@ CacheLevel::~CacheLevel(){
     if (RanPolicyRandomizer)
         delete RanPolicyRandomizer;
 
-    if (Contents){
-        for (uint32_t i = 0; i < NumSets; i++){
-            if (Contents[i]){
+    if (Contents) {
+        for (uint32_t i = 0; i < NumSets; i++) {
+            if (Contents[i]) {
                 delete[] Contents[i];
             }
         }
         delete[] Contents;
     }
 
-    if (DirtyStatus){
-        for (uint32_t i = 0; i < NumSets; i++){
-            if (DirtyStatus[i]){
+    if (DirtyStatus) {
+        for (uint32_t i = 0; i < NumSets; i++) {
+            if (DirtyStatus[i]) {
                 delete[] DirtyStatus[i];
             }
         }
         delete[] DirtyStatus;
     }
 
-    if (HistoryUsed){
-        for(int s = 0; s < NumSets; ++s){
+    if (HistoryUsed) {
+        for(int s = 0; s < NumSets; ++s) {
             delete[] HistoryUsed[s];
         }
         delete[] HistoryUsed;
     }
 
-    if (RecentlyUsed){
+    if (RecentlyUsed) {
         delete[] RecentlyUsed;
     }
 }
@@ -1540,6 +1540,13 @@ CacheLevel::~CacheLevel(){
 // Get the first address in a cache line
 uint64_t CacheLevel::GetCacheAddress(uint64_t addr){
     return (addr >> NumBitsUsedPerLine);
+}
+
+// Look for the given regular address in the cache and return the set/line
+bool CacheLevel::GetSetAndLine(uint64_t address, uint32_t* set, uint32_t* 
+  lineInSet) {
+    uint64_t cacheAddress = GetCacheAddress(address);
+    return Search(cacheAddress, set, lineInSet);
 }
 
 // Print a description of the Cache Level

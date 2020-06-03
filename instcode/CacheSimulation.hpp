@@ -326,6 +326,10 @@ public:
 
     // Get the cache address, the first address in a cache line
     uint64_t GetCacheAddress(uint64_t addr);
+    // Look for the given regular address in the cache and return the set/line
+    // Very similar to the Search function, but takes a regular address
+    virtual bool GetSetAndLine(uint64_t address, uint32_t* set, uint32_t* 
+      lineInSet);
     virtual uint32_t GetSetCount() { return NumSets; }
     // Initialize this cache level
     virtual void Init(CacheLevel_Init_Interface);
