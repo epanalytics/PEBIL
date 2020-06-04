@@ -94,6 +94,7 @@ public:
     static X86Instruction* emitMoveRegToRegaddrImm2Byte(int32_t src, int32_t base, uint32_t off);
     static X86Instruction* emitMoveKToReg(uint32_t kreg, uint32_t gpr);
     static X86Instruction* emitMoveRegToK(uint32_t gpr, uint32_t kreg);
+    static X86Instruction* emitVMovMask(uint32_t reg_out, uint32_t reg_in, uint32_t numIndices, uint32_t elementSize);
     static Vector<X86Instruction*>* emitUnalignedPackstoreRegaddrImm(uint32_t,uint32_t,uint32_t,uint32_t);
     static X86Instruction* emitMoveAlignedStackToZmmx(uint8_t reg, uint8_t disp);
     static X86Instruction* emitMoveZmmxToAlignedStack(uint8_t reg, uint8_t disp);
