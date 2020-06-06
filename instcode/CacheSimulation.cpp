@@ -312,7 +312,7 @@ uint32_t CacheSimulationTool::ReadCacheDescription(istream& cacheStream,
             continue;
         }
         CacheStructureHandler* c = new CacheStructureHandler(this, parser);
-        if (!c->Init(line)){
+        if (!c->Init(line)) {
             ErrorExit("cannot parse cache description line: " << line, 
               MetasimError_StringParse);
         }
@@ -999,6 +999,8 @@ bool CacheStats::Verify() {
 void CacheStructureHandler::InitializeDataStructures() {
     assert(LevelCount > 0);
     Levels = new CacheLevel*[LevelCount];
+    for (uint32_t lvl = 0; lvl < LevelCount; lvl++)
+        Levels[lvl] = NULL;
 }
 
 CacheLevel* CacheStructureHandler::ParseCacheLevelTokens(stringstream& 
@@ -1105,7 +1107,7 @@ bool CacheStructureHandler::ParseNonCacheLevelTokens(stringstream&
        tokenizer >> std::ws;
        nextChar = tokenizer.peek();
     }
-
+    return true;
 }
 
 void CacheStructureHandler::PostProcessAddress(CacheStats* stats, uint64_t 
@@ -1194,7 +1196,8 @@ CacheStructureHandler::~CacheStructureHandler() {
     if (Levels != NULL) {
         for (uint32_t i = 0; i < AllocatedLevelCount; i++) {
             CacheLevel* toDelete = Levels[i];
-            delete toDelete;
+            if (toDelete)
+                delete toDelete;
         }
         delete[] Levels;
     }
@@ -1214,7 +1217,7 @@ bool CacheStructureHandler::Init(string desc) {
         return false;
     if (Parser->IsEmptyComment(token))
         return false;
-    if (!(Parser->ParseInt32(token, (int32_t*)(&SysId), 0))){
+    if (!(Parser->ParseInt32(token, (int32_t*)(&SysId), 0))) {
         return false;
     }
 
@@ -1234,14 +1237,18 @@ bool CacheStructureHandler::Init(string desc) {
     for (levelId = 0; levelId < LevelCount; levelId++) {
         CacheLevel* newLevel = ParseCacheLevelTokens(tokenizer, levelId, 
           &firstExclusiveLevel);
-        if (newLevel == NULL)
+        if (newLevel == NULL) {
+            DISPLAY_ERROR << "Could not create cache level " << dec << levelId 
+              << " for sysid " << dec << SysId << ENDL;
             break;
+        }
         newLevel->SetLevelCount(LevelCount);
         Levels[levelId] = newLevel;
         AllocatedLevelCount++;
         // Get rid of any following "notes"
-        if(!ParseNonCacheLevelTokens(tokenizer, levelId))
+        if(!ParseNonCacheLevelTokens(tokenizer, levelId)) {
             return false;
+        }
     }
 
     if (levelId != LevelCount) {
