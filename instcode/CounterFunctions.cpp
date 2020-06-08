@@ -257,9 +257,9 @@ extern "C"
             return NULL;
         }
 
-        static bool finalized;
-        assert(!finalized);
-        finalized = true;
+        //static bool finalized;
+        //assert(!finalized);
+        //finalized = true;
 
         string bfile;
 
