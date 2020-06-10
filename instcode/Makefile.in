@@ -1,6 +1,8 @@
 STATIC_INST_LIB  = @PEBIL_STATIC_BUILD@
 PEBIL_MIC_LIBS_BUILD = @PEBIL_MIC_LIBS_BUILD@
 ADAMANT_LIBS_BUILD = @ADAMANT_LIBS_BUILD@
+EPA_TOOLS_AVAILABLE = @PEBIL_EPA_TOOLS_AVAILABLE@
+EPA_TOOLS_PATH = @PEBIL_EPA_TOOLS_PATH@
 PEBIL_PAPI_BUILD = @PEBIL_PAPI_BUILD@
 PAPI_PATH = @PAPI_PATH@
 PEBIL_LIBS = 
@@ -54,6 +56,12 @@ COMMON_OBJS_MIC = $(MICLIBDIR)/InstrumentationCommon.o
 SHARED_COMMON_OBJS = $(LIBDIR)/InstrumentationCommon.O $(LIBDIR)/ThreadedCommon.O $(LIBDIR)/DynamicInstrumentation.O
 
 ASL_OBJS = $(LIBDIR)/AddressStreamBase.O $(LIBDIR)/AddressRange.O $(LIBDIR)/CacheSimulation.O $(LIBDIR)/ReuseDistanceASI.O $(LIBDIR)/ScatterGatherLength.O $(LIBDIR)/SpatialLocality.O $(LIBDIR)/AddressStreamDriver.O
+
+#ifeq ($(EPA_TOOLS_AVAILABLE),yes)
+#  ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/PrefetchSimulation.o
+#  EXTRA_FLAGS += -DHAS_EPA_TOOLS
+#  EXTRA_INC += -I$(EPA_TOOLS_PATH)/instcode
+#endif
 
 ifeq ($(ADAMANT_LIBS_BUILD),yes)
 	EXTRA_LIBS = -ldl -lpthread -ladm
