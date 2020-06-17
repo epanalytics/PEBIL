@@ -322,6 +322,9 @@ X86Instruction* X86InstructionFactory64::emitMoveRegToK(uint32_t gpr_in, uint32_
     return emitInstructionBase(len, buff);
 }
 
+/*
+ * vmovmskps rax, xmm0
+ */
 X86Instruction* X86InstructionFactory64::emitVMovMask(
     uint32_t reg_out, uint32_t reg_in,
     uint32_t numIndices, uint32_t elementSize)
@@ -336,14 +339,14 @@ X86Instruction* X86InstructionFactory64::emitVMovMask(
 
     buff[0] = 0xc4;
 
-    uint8_t vexR = ((reg_out & 0x08)==0)?1:0;
     // !(reg_out)
-    uint8_t vexB = (((reg_in-X86_64BIT_GPRS) & 0x8)==0)?1:0;
+    uint8_t vexR = ((reg_out & 0x08)==0)?1:0;
     // !(reg_in)
+    uint8_t vexB = (((reg_in-X86_64BIT_GPRS) & 0x8)==0)?1:0;
     uint8_t vexX = 1;
     uint8_t temp = 0;
-    uint8_t mapSelect = 1;
     //m-mmmm
+    uint8_t mapSelect = 1;
     temp = vexR << 7;
     temp = temp | vexX << 6;
     temp = temp | vexB << 5;
@@ -360,8 +363,8 @@ X86Instruction* X86InstructionFactory64::emitVMovMask(
     if (elementSize == 64) {
         pp = 1;
     }
-    uint8_t we = 0;
     //we is ignored
+    uint8_t we = 0;
     temp = 0;
     temp = we << 7;
     temp = temp | (vvvv << 3);
@@ -377,34 +380,6 @@ X86Instruction* X86InstructionFactory64::emitVMovMask(
         reg = reg_out - 8; //r8-8==0 and r15-8==7
     } else {
         reg = (uint8_t)reg_out;
-//        switch (reg_outt) {
-//            case 0/*rax/eax*/:
-//                reg = 0;
-//                break;
-//            case 1/*rbx/ebx*/:
-//                reg = 3;
-//                break;
-//            case 2/*rcx/ecx*/:
-//                reg = 1;
-//                break;
-//            case 3/*rdx/edx*/:
-//                reg = 2;
-//                break;
-//            case 4/*rsi/esi*/:
-//                reg = 6;
-//                break;
-//            case 5/*rdi/eax*/:
-//                reg = 7;
-//                break;
-//            case 6/*rbp/eax*/:
-//                reg = 5;
-//                break;
-//            case 7/*rsp/eax*/:
-//                reg = 4;
-//                break;
-//            default :
-//                assert(false && "this shouldn't be reached");
-//        }
     }
 
     uint8_t rm = (reg_in-X86_64BIT_GPRS) & 0x7;

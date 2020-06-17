@@ -1557,7 +1557,7 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
           emitMoveKToReg(kreg, sr3));
     } else {  
         // If mask is a separate operand
-	    // then just move that register to sr2
+	    // then just move that register to sr3
         snip->addSnippetInstruction(X86InstructionFactory64::
           emitVMovMask(sr3, kreg, numIndices, elementSize));
     }
