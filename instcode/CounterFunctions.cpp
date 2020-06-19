@@ -257,9 +257,12 @@ extern "C"
             return NULL;
         }
 
-        //static bool finalized;
-        //assert(!finalized);
-        //finalized = true;
+        // Only print one file --> it will print data for all images
+        static bool finalized;
+        if (finalized)
+            return NULL;
+
+        finalized = true;
 
         string bfile;
 

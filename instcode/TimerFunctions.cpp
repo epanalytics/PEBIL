@@ -324,10 +324,18 @@ extern "C"
             return NULL;
         }
 
+        // Only print one file with data from all images
+        static bool finalized;
+        if (finalized)
+            return NULL;
+
+        finalized = true;
+
         if (!timers->master){
             printf("Image is not master, skipping\n");
             return NULL;
         }
+
 
         uint64_t appTimeEnd = read_timestamp_counter();
         struct timeval tvEnd;
@@ -367,16 +375,21 @@ extern "C"
 
                     if(timers->functionShutoff[funcIndex]==1) {
                         fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
-                          "%lld\tHash: 0x%llx\t*\t", AllData->GetThreadSequence(*tit), (double)(timers->
-                          functionTimerAccum[funcIndex]) / timerCPUFreq, 
-                          timers->functionEntryCounts[funcIndex], timers->
-                          functionHashes[funcIndex]);
+                          "%lld\tHash: 0x%llx\tImage: %d\t*\t", 
+                          AllData->GetThreadSequence(*tit), 
+                          (double)(timers->functionTimerAccum[funcIndex])
+                          / timerCPUFreq, 
+                          timers->functionEntryCounts[funcIndex],
+                          timers->functionHashes[funcIndex],
+                          AllData->GetImageSequence(*iit));
                     } else {
                         fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
-                          "%lld\tHash: 0x%llx\t", AllData->GetThreadSequence(*tit), (double)(timers->
+                          "%lld\tHash: 0x%llx\tImage: %d\t", 
+                          AllData->GetThreadSequence(*tit), (double)(timers->
                           functionTimerAccum[funcIndex]) / timerCPUFreq, 
-                          timers->functionEntryCounts[funcIndex], timers->
-                          functionHashes[funcIndex]);
+                          timers->functionEntryCounts[funcIndex],
+                          timers->functionHashes[funcIndex],
+                          AllData->GetImageSequence(*iit));
                     }
                 }
             }
