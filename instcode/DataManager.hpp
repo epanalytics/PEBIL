@@ -197,6 +197,11 @@ public:
         UnLock();
     }
 
+    bool IsWriteLockHeld() {    
+       bool res = (pthread_rwlock_trywrlock(&rwlock) == 16);
+        return res;
+    }
+
     bool WriteLock(){
         bool res = (pthread_rwlock_wrlock(&rwlock) == 0);
         return res;

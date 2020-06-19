@@ -217,8 +217,9 @@ void AddressStreamDriver::InitializeAddressStreamDriver(
 // Initialize the Instrumentation Points that the sampler needs to turn off
 // Requires sampler and allData!
 void AddressStreamDriver::InitializeKeys() {
-    assert(liveMemoryAccessInstPointKeys == NULL);
-    liveMemoryAccessInstPointKeys = new set<uint64_t>();
+    if (liveMemoryAccessInstPointKeys == NULL)
+        liveMemoryAccessInstPointKeys = new set<uint64_t>();
+    assert(liveMemoryAccessInstPointKeys != NULL);
 
     // Get all the instrumentation points that put memory addresses in the 
     // buffer (PointType_bufferfill) so the sampler can turn them on/off

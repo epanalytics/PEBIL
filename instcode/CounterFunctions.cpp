@@ -168,12 +168,13 @@ extern "C"
 {
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag){
         SAVE_STREAM_FLAGS(cout);
-        DynamicPoints = new DynamicInstrumentation();
-        DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-          isThreadedModeFlag);
-
+        if (DynamicPoints == NULL) {
+            DynamicPoints = new DynamicInstrumentation();
+            DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+              isThreadedModeFlag);
+        }
         RESTORE_STREAM_FLAGS(cout);
-        //inform << "Leaving tool_dynamic_init" << ENDL;
+        //inform << "Leaving tool_dynamic_init with count " << *count << ENDL;
         return NULL;
     }
 
@@ -257,6 +258,7 @@ extern "C"
 
         if (DynamicPoints != NULL) {
             delete DynamicPoints;
+            DynamicPoints = NULL;
         }
 
         if (AllData == NULL){
