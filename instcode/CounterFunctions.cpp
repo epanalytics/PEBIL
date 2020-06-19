@@ -187,7 +187,7 @@ extern "C"
      */
     static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     void* tool_image_init(void* s, uint64_t* key, ThreadData* td){
-        inform << "Entered tool_image_init " << key << ENDL;
+        //inform << "Entered tool_image_init " << key << ENDL;
         SAVE_STREAM_FLAGS(cout);
 
         CounterArray* ctrs = (CounterArray*)s;
