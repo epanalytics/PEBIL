@@ -93,7 +93,8 @@ uint32_t CacheSimulationTool::CreateHandlers(uint32_t index, StringParser*
 
 void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>* 
   AllData, SamplingMethod* Sampler) {
-    AddressStreamStats* stats = AllData->GetData(pthread_self());
+    AddressStreamStats* stats = AllData->GetData(AllData->GetFirstImage(),
+      pthread_self());
     uint32_t numCaches = handlers.size();
 
     OpenReportFiles(stats);
