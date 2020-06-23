@@ -134,9 +134,13 @@ extern "C"
 
     // initialize dynamic instrumentation
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag) {
-        DynamicPoints = new DynamicInstrumentation();
+        if (DynamicPoints == NULL)
+            DynamicPoints = new DynamicInstrumentation();
+
+        static uint32_t imageSeq = 0;
         DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-          isThreadedModeFlag);
+          isThreadedModeFlag, imageSeq);
+        imageSeq++;
         return NULL;
     }
 
@@ -167,7 +171,7 @@ extern "C"
 
         // Remove this instrumentation
         set<uint64_t> inits;
-        inits.insert(*key);
+        inits.insert(GENERATE_KEY(*key, PointType_inits));
         DynamicPoints->SetDynamicPoints(inits, false);
 
         // If this is the first image, set up a data manager
@@ -184,6 +188,12 @@ extern "C"
     // 
     void* tool_image_fini(image_key_t* key) {
         image_key_t iid = *key;
+
+        static bool finalized = false;
+        if (finalized)
+            return NULL;
+
+        finalized = true;
 
         if (DynamicPoints != NULL) {
             delete DynamicPoints;

@@ -52,8 +52,10 @@ extern "C" {
             dynamicPoints = new DynamicInstrumentation();
             Driver->SetDynamicPoints(dynamicPoints);
         }
+        static uint32_t imageSeq = 0;
         dynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-          isThreadedModeFlag);
+          isThreadedModeFlag, imageSeq);
+        imageSeq++;
         RESTORE_STREAM_FLAGS(cout);
         return NULL;
     }
@@ -120,6 +122,12 @@ extern "C" {
     // Called when the application exits. Collect the rest of the addresses in
     // the buffer and create the reports
     void* tool_image_fini(image_key_t* key){
+        // Only finalize images once
+        static bool finalized = false;
+        if (finalized)
+            return NULL;
+
+        finalized = true;
         Driver->FinalizeImage(key);
         Driver->DeleteAllData();
         delete Driver;

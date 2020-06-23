@@ -297,9 +297,13 @@ extern "C"
   }
 
   void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* isThreadedModeFlag) {
-      DynamicPoints = new DynamicInstrumentation();
+      if (DynamicPoints == NULL)
+          DynamicPoints = new DynamicInstrumentation();
+
+      static uint32_t imageSeq = 0;
       DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-        isThreadedModeFlag);
+        isThreadedModeFlag, imageSeq);
+      imageSeq++;
       return NULL;
   }
 
@@ -328,7 +332,7 @@ extern "C"
     PAPIInst* counters = (PAPIInst*)args;
 
     set<uint64_t> inits;
-    inits.insert(*key);
+    inits.insert(GENERATE_KEY(*key, PointType_inits));
     DynamicPoints->SetDynamicPoints(inits, false);
 
     if (AllData == NULL){
@@ -350,6 +354,12 @@ extern "C"
   void* tool_image_fini(image_key_t* key)
   {
     image_key_t iid = *key;
+
+    static bool finalized = false;
+    if (finalized)
+        return NULL;
+
+    finalized = true;
 
     if (DynamicPoints != NULL) {
         delete DynamicPoints;

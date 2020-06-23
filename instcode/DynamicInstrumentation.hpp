@@ -26,11 +26,12 @@ class DynamicInstrumentation {
 
     virtual void GetAllDynamicKeys(std::set<uint64_t>& keys);
     void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn,
-      bool* isThreadedModeFlag);
+      bool* isThreadedModeFlag, uint32_t imageid);
     virtual bool IsThreadedMode() { return ThreadedMode; }
 
     void PrintAllDynamicPoints(); 
     void PrintDynamicPoint(DynamicInst* d); 
+    void PrintDynamicPoint(uint64_t key); 
     void SetDynamicPointStatus(DynamicInst* d, bool state);
     virtual void SetDynamicPoint(uint64_t key, bool state);
     virtual void SetDynamicPoints(std::set<uint64_t>& keys, bool state); 

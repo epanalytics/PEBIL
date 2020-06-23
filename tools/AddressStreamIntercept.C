@@ -110,7 +110,8 @@ void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction*
     InstrumentationPoint* pt = addInstrumentationPoint(memop, snip, 
       InstrumentationMode_trampinline, InstLocation_prior);
     pt->setPriority(InstPriority_low);
-    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_bufferfill), true);
+    dynamicPoint(pt, GENERATE_UNIQUE_KEY(blockSeq, 0, PointType_bufferfill), 
+      true);
 
     // Then we fill the snippet with instructions
     // Code requires three scratch registers so grab 3
@@ -893,7 +894,8 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
     InstrumentationPoint* pt = addInstrumentationPoint(inst, memBufferFunc, 
       InstrumentationMode_tramp, loc);
     pt->setPriority(InstPriority_userinit);
-    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_buffercheck), true);
+    dynamicPoint(pt, GENERATE_UNIQUE_KEY(blockSeq, 0, PointType_buffercheck), 
+      true);
 
     // Create instructions that will determine if we dump the buffer and call
     // the runtime function
@@ -946,7 +948,8 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
     InstrumentationSnippet* snip = addInstrumentationSnippet();
     pt = addInstrumentationPoint(inst, snip, InstrumentationMode_inline, loc);
     pt->setPriority(InstPriority_regular);
-    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_bufferinc), true);
+    dynamicPoint(pt, GENERATE_UNIQUE_KEY(blockSeq, 0, PointType_bufferinc), 
+      true);
 
     // sr1 = stats
     if (threadReg == X86_REG_INVALID && usePIC()){
@@ -1163,8 +1166,8 @@ void AddressStreamIntercept::instrumentEntryPoint() {
                 PRINT_ERROR("Cannot find an instrumentation point at the entry "
                   "function");
             }            
-
-            dynamicPoint(point, getElfFile()->getUniqueId(), true);
+            dynamicPoint(point, GENERATE_KEY(getElfFile()->getUniqueId(), 
+              PointType_inits), true);
         }
     } else {
         InstrumentationPoint* point = addInstrumentationPoint(
@@ -1442,7 +1445,8 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
     InstrumentationPoint* point = addInstrumentationPoint(
         vectorIns, snip, InstrumentationMode_trampinline, InstLocation_prior);
     point->setPriority(InstPriority_low);
-    dynamicPoint(point, GENERATE_KEY(blockSeq, PointType_bufferfill), true);
+    dynamicPoint(point, GENERATE_UNIQUE_KEY(blockSeq, 0, PointType_bufferfill),
+      true);
 
     uint32_t sr1 = X86_REG_INVALID, sr2 = X86_REG_INVALID, sr3 = X86_REG_INVALID;
     if(threadReg != X86_REG_INVALID)

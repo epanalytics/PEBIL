@@ -232,37 +232,42 @@ extern "C"
         }
         timers->inFunction[funcIndex] = recDepth;
 
-            if(shutoffFunctionTimers) {
-                if (timers->functionEntryCounts[funcIndex] % shutoffIters == 0){
-                    double timePerVisit=((double)timers->functionTimerAccum[
-                      funcIndex]) / ((double)timers->functionEntryCounts[
-                      funcIndex]) / timerCPUFreq;
+        if(shutoffFunctionTimers) {
+            if (timers->functionEntryCounts[funcIndex] % shutoffIters == 0){
+                double timePerVisit=((double)timers->functionTimerAccum[
+                  funcIndex]) / ((double)timers->functionEntryCounts[
+                  funcIndex]) / timerCPUFreq;
 
-                    if(timePerVisit < (((double)timingThreshold)/1000000.0)) {
-                        AllData->WriteLock();
-                        uint64_t this_key = GENERATE_KEY(funcIndex, 
-                          PointType_functionExit);
-                        uint64_t corresponding_entry_key=GENERATE_KEY(funcIndex,
-                          PointType_functionEntry);
+                if(timePerVisit < (((double)timingThreshold)/1000000.0)) {
+                    uint64_t imageSeq = AllData->GetImageSequence(*key);
+                    AllData->WriteLock();
+                    uint64_t this_key = GENERATE_UNIQUE_KEY(funcIndex, imageSeq,
+                      PointType_functionExit);
+                    uint64_t corresponding_entry_key = GENERATE_UNIQUE_KEY(
+                      funcIndex, imageSeq, PointType_functionEntry);
 
-                        //warn << "Shutting off timing for function " << timers->functionNames[funcIndex] << "; time per visit averaged over " << timers->functionEntryCounts[funcIndex] << " entries is " << timePerVisit << "s; specified cut-off threshold is " << (((double)timingThreshold)/1000000.0) << "s." << ENDL;
-                        set<uint64_t> inits;
-                        inits.insert(this_key);
-                        inits.insert(corresponding_entry_key);
-                        DynamicPoints->SetDynamicPoints(inits, false); 
-                        timers->functionShutoff[funcIndex]=1;
-                        AllData->UnLock();
-                    }
+                    //warn << "Shutting off timing for function " << timers->functionNames[funcIndex] << "; time per visit averaged over " << timers->functionEntryCounts[funcIndex] << " entries is " << timePerVisit << "s; specified cut-off threshold is " << (((double)timingThreshold)/1000000.0) << "s." << ENDL;
+                    set<uint64_t> inits;
+                    inits.insert(this_key);
+                    inits.insert(corresponding_entry_key);
+                    DynamicPoints->SetDynamicPoints(inits, false); 
+                    timers->functionShutoff[funcIndex] = 1;
+                    AllData->UnLock();
                 }
             }
+        }
         return 0;
     }
 
     // initialize dynamic instrumentation
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag) {
-        DynamicPoints = new DynamicInstrumentation();
+        if (DynamicPoints == NULL) {
+            DynamicPoints = new DynamicInstrumentation();
+        }
+        static uint32_t imageSeq = 0;
         DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-          isThreadedModeFlag);
+          isThreadedModeFlag, imageSeq);
+        imageSeq++;
         return NULL;
     }
 
@@ -301,7 +306,7 @@ extern "C"
 
         // Remove this instrumentation
         set<uint64_t> inits;
-        inits.insert(*key);
+        inits.insert(GENERATE_KEY(*key, PointType_inits));
         DynamicPoints->SetDynamicPoints(inits, false);
 
         // If this is the first image, set up a data manager
@@ -320,6 +325,13 @@ extern "C"
 
         image_key_t iid = *key;
 
+        // Only print one file with data from all images
+        static bool finalized = false;
+        if (finalized)
+            return NULL;
+
+        finalized = true;
+
         if (DynamicPoints != NULL) {
             delete DynamicPoints;
         }
@@ -336,13 +348,6 @@ extern "C"
               MetasimError_NoImage);
             return NULL;
         }
-
-        // Only print one file with data from all images
-        static bool finalized;
-        if (finalized)
-            return NULL;
-
-        finalized = true;
 
         if (!timers->master){
             printf("Image is not master, skipping\n");
@@ -363,7 +368,6 @@ extern "C"
             cerr << "error: cannot open output file %s" << outFileName << ENDL;
             exit(-1);
         }
-
 
         fprintf(outFile, "App timestamp time: %lld %lld %f\n", 
           timers->appTimeStart, appTimeEnd, (double)(appTimeEnd - timers->appTimeStart) / timerCPUFreq);

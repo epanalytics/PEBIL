@@ -171,7 +171,7 @@ extern "C"
         if (DynamicPoints == NULL) {
             DynamicPoints = new DynamicInstrumentation();
             DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-              isThreadedModeFlag);
+              isThreadedModeFlag, 0);
         }
         RESTORE_STREAM_FLAGS(cout);
         //inform << "Leaving tool_dynamic_init with count " << *count << ENDL;
@@ -214,7 +214,7 @@ extern "C"
         if (AllData->allimages.count(*key) == 0){
             // Remove initialization points -- once per image
             set<uint64_t> inits;
-            inits.insert(*key);
+            inits.insert(GENERATE_KEY(*key, PointType_inits));
             inform << "Removing init points for image " << hex << (*key) << ENDL;
             DynamicPoints->SetDynamicPoints(inits, false);
 
@@ -272,7 +272,7 @@ extern "C"
         }
 
         // Only print one file --> it will print data for all images
-        static bool finalized;
+        static bool finalized = false;
         if (finalized)
             return NULL;
 

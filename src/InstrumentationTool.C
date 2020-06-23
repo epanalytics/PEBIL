@@ -824,7 +824,8 @@ void InstrumentationTool::instrument(){
                 PRINT_ERROR("Cannot find an instrumentation point at the entry function");
             }            
 
-            dynamicPoint(p, getElfFile()->getUniqueId(), true);
+            dynamicPoint(p, GENERATE_KEY(getElfFile()->getUniqueId(), 
+              PointType_inits), true);
         }
     } else {
         InstrumentationPoint* p = addInstrumentationPoint(getProgramEntryBlock(), dynamicInit, InstrumentationMode_tramp);

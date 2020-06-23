@@ -227,7 +227,7 @@ extern "C"
 
     // initialize dynamic instrumentation
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag) {
-        InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
+        InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag, 0);
         return NULL;
     }
 

@@ -275,7 +275,7 @@ void* AddressStreamDriver::InitializeNewImage(image_key_t* iid,
     allData->SetTimer(*iid, 0);
 
     // Remove initialization instrumentation points for this image
-    dynamicPoints->SetDynamicPoint((*iid), false);
+    dynamicPoints->SetDynamicPoint(GENERATE_KEY(*iid, PointType_inits), false);
 }
 
 void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
@@ -533,7 +533,7 @@ void AddressStreamDriver::SetUpTools() {
 }
 
 void AddressStreamDriver::ShutOffInstrumentationInAllBlocks() {
-    set<uint32_t> allBlocks;
+    set<uint64_t> allBlocks;
     for (set<uint64_t>::iterator it = liveMemoryAccessInstPointKeys->begin();
       it != liveMemoryAccessInstPointKeys->end(); it++) {
         allBlocks.insert(GET_BLOCKID(*it));
@@ -543,7 +543,7 @@ void AddressStreamDriver::ShutOffInstrumentationInAllBlocks() {
 
 // Not thread-safe! For performance, thread suspension should happen outside 
 // this function
-void AddressStreamDriver::ShutOffInstrumentationInBlock(uint32_t blockID) {
+void AddressStreamDriver::ShutOffInstrumentationInBlock(uint64_t blockID) {
 
     set<uint64_t> keysToRemove;
     uint64_t kcheck = GENERATE_KEY(blockID, PointType_buffercheck);
@@ -565,14 +565,14 @@ void AddressStreamDriver::ShutOffInstrumentationInBlock(uint32_t blockID) {
 
 }
 
-void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint32_t>& blocks){
+void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint64_t>& blocks){
     // Make sure only one thread is executing this code
     SuspendAllThreads(allData->CountThreads(), 
       allData->allthreads.begin(), allData->allthreads.end());
     
-    for (set<uint32_t>::iterator it = blocks.begin(); it != blocks.end(); 
+    for (set<uint64_t>::iterator it = blocks.begin(); it != blocks.end(); 
       it++) {
-        uint32_t blockID = *it;
+        uint64_t blockID = *it;
         ShutOffInstrumentationInBlock(blockID);
     }
 
@@ -601,13 +601,17 @@ void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid,
 
     // Can't combine this with above because a later block could cause 
     // group to exceed max
-    set<uint32_t> blocksToRemove;
+    set<uint64_t> blocksToRemove;
+    AddressStreamStats* imageStats;
     for (set<uint64_t>::iterator it = liveMemoryAccessInstPointKeys->begin();
       it != liveMemoryAccessInstPointKeys->end(); it++) {
-        uint32_t blockID = GET_BLOCKID(*it);
+        uint64_t blockID = GET_BLOCKID(*it);
+        image_key_t imageID = allData->GetImageId(GET_IMAGEID(*it));
+        imageStats = (AddressStreamStats*)allData->GetData(imageID, tid);
         // If max count is reached, we will remove this block
-        uint64_t blocksGroupId = stats->GroupIds[blockID]; 
-        if (sampler->ExceedsAccessLimit(stats->GroupCounters[blocksGroupId])) {
+        uint64_t blocksGroupId = imageStats->GroupIds[blockID]; 
+        if (sampler->ExceedsAccessLimit(imageStats->GroupCounters[
+          blocksGroupId])) {
             blocksToRemove.insert(blockID);            
         }
     }

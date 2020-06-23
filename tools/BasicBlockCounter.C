@@ -171,7 +171,8 @@ void BasicBlockCounter::instrument()
                 PRINT_ERROR("Cannot find an instrumentation point at the entry block");
             }
 
-            dynamicPoint(p, getElfFile()->getUniqueId(), true);
+            dynamicPoint(p, GENERATE_KEY(getElfFile()->getUniqueId(), 
+              PointType_inits), true);
         }
     } else {
         p = addInstrumentationPoint(getProgramEntryBlock(), entryFunc, InstrumentationMode_tramp, InstLocation_prior);

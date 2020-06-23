@@ -370,11 +370,12 @@ extern "C"
                 / timerCPUFreq;
 
               if (timePerVisit < (((double)timingThreshold) / 1000000.0)) {
+                  uint64_t imageSeq = AllData->GetImageSequence(*key);
                   AllData->WriteLock();
-                  uint64_t this_key = GENERATE_KEY(funcIndex,
+                  uint64_t this_key = GENERATE_UNIQUE_KEY(funcIndex, imageSeq,
                     PointType_functionExit);
-                  uint64_t corresponding_entry_key = GENERATE_KEY(funcIndex,
-                    PointType_functionEntry);
+                  uint64_t corresponding_entry_key = GENERATE_UNIQUE_KEY(
+                    funcIndex, imageSeq, PointType_functionEntry);
   
                   set<uint64_t> inits;
                   inits.insert(this_key);
@@ -391,9 +392,13 @@ extern "C"
   
   void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
     isThreadedModeFlag) {
-      DynamicPoints = new DynamicInstrumentation();
+      if (DynamicPoints == NULL) {
+          DynamicPoints = new DynamicInstrumentation();
+      }
+      static uint32_t imageSeq = 0;
       DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-        isThreadedModeFlag);
+        isThreadedModeFlag, imageSeq);
+      imageSeq++;
       return NULL;
   }
   
@@ -423,7 +428,7 @@ extern "C"
       FunctionPAPI* counters = (FunctionPAPI*)args;
     
       set<uint64_t> inits;
-      inits.insert(*key);
+      inits.insert(GENERATE_KEY(*key, PointType_inits));
       DynamicPoints->SetDynamicPoints(inits, false);
     
       if (AllData == NULL) {
@@ -445,6 +450,12 @@ extern "C"
   
   void* tool_image_fini(image_key_t* key) {
       image_key_t iid = *key;
+
+      static bool finalized = false;
+      if (finalized)
+          return NULL;
+
+      finalized = true;
 
       if (DynamicPoints != NULL) {
           delete DynamicPoints;
