@@ -318,7 +318,7 @@ void BasicBlockCounter::instrument()
             threadReg = threadMap->getThreadRegister(bb);
         }
 
-        if (isSaveAll() && isThreadedMode()) threadReg = X86_REG_INVALID;
+        if (isSaveAll() && usePIC) threadReg = X86_REG_INVALID;
 
         InstrumentationTool::insertBlockCounter(counterOffset, bb, true, threadReg);
     }
@@ -365,7 +365,7 @@ void BasicBlockCounter::instrument()
             threadReg = threadMap->getThreadRegister(head);
         }
 
-        if (isSaveAll() && isThreadedMode()) threadReg = X86_REG_INVALID;
+        if (isSaveAll() && usePIC) threadReg = X86_REG_INVALID;
 
         uint64_t hashValue = head->getHashCode().getValue();
         uint64_t addr = head->getProgramAddress();
