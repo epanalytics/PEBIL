@@ -31,6 +31,7 @@
 #include <ReuseDistanceASI.hpp>
 #include <ScatterGatherLength.hpp>
 #include <SpatialLocality.hpp>
+#include <SpatialLocalityPerMemOp.hpp>
 
 #ifdef HAS_EPA_TOOLS
 #include <PrefetchSimulation.hpp>
@@ -63,6 +64,7 @@ AddressStreamDriver::AddressStreamDriver() {
     runReuseDistance = false;
     runScatterLength = false;
     runSpatialLocality = false;
+    runSpatialLocalityPerMemOp = false;
 
     // Create the vector to store the tools
     tools = new vector<AddressStreamTool*>();
@@ -470,6 +472,7 @@ void AddressStreamDriver::SetUpTools() {
     uint32_t doReuseDistance;
     uint32_t doScatterGatherLength;
     uint32_t doSpatialLocality;
+    uint32_t doSpatialLocalityPerMemOp;
     if (parser->ReadEnvUint32("METASIM_ADDRESS_RANGE", &doAddressRange)){
         runAddressRange = (doAddressRange == 0) ? false : true;
     }
@@ -488,6 +491,9 @@ void AddressStreamDriver::SetUpTools() {
     }
     if (parser->ReadEnvUint32("METASIM_SPATIAL_LOCALITY", &doSpatialLocality)){
         runSpatialLocality = (doSpatialLocality == 0) ? false : true;
+    }
+    if (parser->ReadEnvUint32("METASIM_SPATIAL_LOCALITY_MEMOP", &doSpatialLocalityPerMemOp)){
+        runSpatialLocalityPerMemOp = (doSpatialLocalityPerMemOp == 0) ? false : true;
     }
 
     if (runAddressRange) {
@@ -518,6 +524,10 @@ void AddressStreamDriver::SetUpTools() {
 
     if (runSpatialLocality) {
         tools->push_back(new SpatialLocalityTool());
+    }
+
+    if (runSpatialLocalityPerMemOp) {
+        tools->push_back(new SpatialLocalityPerMemOpTool());
     }
 
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 

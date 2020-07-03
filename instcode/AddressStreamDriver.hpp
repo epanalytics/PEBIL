@@ -52,6 +52,7 @@ class AddressStreamDriver {
     bool runReuseDistance;
     bool runScatterLength;
     bool runSpatialLocality;
+    bool runSpatialLocalityPerMemOp;
 
     // Holds the tools that are being run
     std::vector<AddressStreamTool*>* tools = NULL;
