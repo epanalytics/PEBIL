@@ -25,6 +25,7 @@
 #include <ThreadedCommon.hpp>
 #include <ReuseDistance.hpp>  // external SpatialLocality
 #include <SpatialLocality.hpp>
+#include <SpatialLocalityPerMemOp.hpp>
 #include <AddressStreamStats.hpp>
 
 #include <cstring>
@@ -32,7 +33,7 @@
 using namespace std;
 
 void SpatialLocalityPerMemOpTool::AddNewHandlers(AddressStreamStats* stats) {
-    SpatialLocalityPerMemOpHandler* oldHandler = (SpatialLocalityHandler*)(handlers[0]);
+    SpatialLocalityPerMemOpHandler* oldHandler = (SpatialLocalityPerMemOpHandler*)(handlers[0]);
     SpatialLocalityPerMemOpHandler* newHandler = new SpatialLocalityPerMemOpHandler(
       *oldHandler);
     stats->Handlers[indexInStats] = newHandler;
@@ -88,7 +89,13 @@ void SpatialLocalityPerMemOpTool::FinalizeTool(DataManager<AddressStreamStats*>*
               indexInStats]);
             assert(sd);
             inform << "Spatial locality bins for " << hex << s->Application << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
-            sd->Print(SpatialLocFile);
+            for(pebil_map_type<uint64_t, ReuseDistance*>::iterator intMap = sd->mapInternalHandler->begin(); intMap != sd->mapInternalHandler->end(); intMap++){
+                SpatialLocFile << "MEMOP:" << TAB << intMap->first << "---------------" << ENDL;
+                ReuseDistance* toPrint = intMap->second;
+                toPrint->Print(SpatialLocFile);
+                SpatialLocFile << "END MEMOP:" << TAB << intMap->first << ENDL;
+            }
+            //sd->Print(SpatialLocFile);
         }
     }
     SpatialLocFile.close();
@@ -116,20 +123,53 @@ SpatialLocalityPerMemOpHandler::SpatialLocalityPerMemOpHandler(uint64_t w, uint6
     nmax = n;
 }
 
-SpatialLocalityPerMemOpHandler::SpatialLocalityPerMemOpyHandler(SpatialLocalityPerMemOpHandler& h) :
+SpatialLocalityPerMemOpHandler::SpatialLocalityPerMemOpHandler(SpatialLocalityPerMemOpHandler& h) :
   ReuseDistanceHandler(0, 0) {
     delete internalHandler;
-    internalHandler = new SpatialLocality((SpatialLocality*)h.internalHandler);
+    internalHandler = NULL;
+    //internalHandler = new SpatialLocality((SpatialLocality*)h.internalHandler);
+    mapInternalHandler = new pebil_map_type<uint64_t, ReuseDistance*>();
+    window = h.window;
+    bin = h.bin;
+    nmax = h.nmax;
 }
 
-SpatialLocalityPerMemOpHandler::Process(void* stats, BufferEntry* access){
+//TODO
+SpatialLocalityPerMemOpHandler::~SpatialLocalityPerMemOpHandler(){
+
+}
+
+uint32_t SpatialLocalityPerMemOpHandler::Process(void* stats, BufferEntry* access){
     uint64_t memOp = access->memseq;
+    ReuseDistance* individualMemOpSpatialLocality;
     //not in map, add it, process it
-    if (mapInternalHandler->find(memOp) = mapInternalHandler->end()) {
-        ReuseDistance* individualMemOpSpatialLocality = new ReuseDistance();
+    /*if (access_count % 10000000 == 0){
+        fprintf(stderr, "Access Count: %u\n", access_count);
+    }*/
+    if (mapInternalHandler->find(memOp) == mapInternalHandler->end()) {
+        //fprintf(stderr, "MemOp %u not found, adding it\n", access_count);
+        individualMemOpSpatialLocality = new SpatialLocality(window,bin,nmax);
         std::pair<uint64_t, ReuseDistance*> kvp (memOp, individualMemOpSpatialLocality);
         mapInternalHandler->insert(kvp);
     } else { //in map, grap it, process it
         //TODOTODO
+        individualMemOpSpatialLocality = mapInternalHandler->find(memOp)->second;
+    }
+
+    ReuseStreamStats* s = (ReuseStreamStats*)stats;
+    ReuseEntry entry = ReuseEntry();
+    entry.id = s->GetHash(access->memseq);
+    entry.address = access->address;
+    individualMemOpSpatialLocality->Process(entry);
+    //internalHandler->Process(entry);
+    access_count++;
+}
+
+void SpatialLocalityPerMemOpHandler::SkipAddresses(uint32_t numToSkip){
+    //map look up? TODO
+    for( pebil_map_type<uint64_t, ReuseDistance*>::iterator it = mapInternalHandler->begin();
+      it != mapInternalHandler->end(); it++){
+        ReuseDistance* current = it->second;
+        current->SkipAddresses(numToSkip);
     }
 }

@@ -53,14 +53,16 @@ class SpatialLocalityPerMemOpHandler : public ReuseDistanceHandler {
     uint64_t window;
     uint64_t bin;
     uint64_t nmax;
-  protected:
-    pebil_map_type<uint64_t, ReuseDistance*>* mapInternalHandler;
+    uint64_t access_count;
   public:
     SpatialLocalityPerMemOpHandler(uint64_t w, uint64_t b, uint64_t n);
     SpatialLocalityPerMemOpHandler(SpatialLocalityPerMemOpHandler &h);
+    ~SpatialLocalityPerMemOpHandler();
+    pebil_map_type<uint64_t, ReuseDistance*>* mapInternalHandler;
 
     //TODO
     uint32_t Process(void* stats, BufferEntry* access);
+    void SpatialLocalityPerMemOpHandler::SkipAddresses(uint32_t numToSkip);
 
 };
 
