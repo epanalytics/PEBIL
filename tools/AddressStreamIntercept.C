@@ -1556,23 +1556,21 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
     // write mask
     // for regular vector entry:
     //   kmov k, sr3
-    //   store sr3
     if(maskOp == NULL) {
         snip->addSnippetInstruction(X86InstructionFactory64::
           emitMoveKToReg(kreg, sr3));
-        snip->addSnippetInstruction(X86InstructionFactory64::
-          emitMoveRegToRegaddrImm(sr3, sr2, 
-          offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
-          true));
     } else {  
         // If mask is a separate operand
-	// then just move that register to sr2
+	    // then just move that register to sr3
         snip->addSnippetInstruction(X86InstructionFactory64::
-          emitMoveRegToRegaddrImm(kreg, sr2, 
-          offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
-          true));
+          emitVMovMask(sr3, kreg, numIndices, elementSize));
     }
 
+    //   store sr3
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveRegToRegaddrImm(sr3, sr2, 
+      offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
+      true));
     // write index vector
     snip->addSnippetInstruction(X86InstructionFactory64::
       emitMoveZmmToUnalignedRegaddrImm(zmmReg, X86_REG_K0, sr2, 
