@@ -40,9 +40,12 @@ using namespace std;
 static AddressStreamDriver* Driver = NULL;
 
 extern "C" {
+    // Create mutex to esnure that dynamicPoints are initialized exactly once
+    static pthread_rwlock_t dynamic_init_rwlock = PTHREAD_RWLOCK_INITIALIZER;
     // Called at just before image initialization
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
       isThreadedModeFlag){
+        pthread_rwlock_wrlock(&dynamic_init_rwlock);
         SAVE_STREAM_FLAGS(cout);
         if (Driver == NULL) {
             Driver = new AddressStreamDriver();
@@ -52,11 +55,10 @@ extern "C" {
             dynamicPoints = new DynamicInstrumentation();
             Driver->SetDynamicPoints(dynamicPoints);
         }
-        static uint32_t imageSeq = 0;
         dynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-          isThreadedModeFlag, imageSeq);
-        imageSeq++;
+          isThreadedModeFlag);
         RESTORE_STREAM_FLAGS(cout);
+        pthread_rwlock_unlock(&dynamic_init_rwlock);
         return NULL;
     }
 
@@ -81,14 +83,13 @@ extern "C" {
     // in the case that multiple threads exist before this image is initialized
     // It should be unnecessary if only a single thread exists because
     // this function kills initialization points
-    static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     void* tool_image_init(void* s, image_key_t* key, ThreadData* td){
         SAVE_STREAM_FLAGS(cout);
         AddressStreamStats* stats = (AddressStreamStats*)s;
 
         assert(stats->Initialized == true);
 
-        pthread_mutex_lock(&image_init_mutex);
+        pthread_rwlock_wrlock(&dynamic_init_rwlock);
 
         // initialize AllData once per address space
         if (Driver->GetAllData() == NULL){
@@ -102,7 +103,7 @@ extern "C" {
 
         Driver->InitializeNewImage(key, stats, td);
 
-        pthread_mutex_unlock(&image_init_mutex);
+        pthread_rwlock_unlock(&dynamic_init_rwlock);
 
         RESTORE_STREAM_FLAGS(cout);
         return NULL;
@@ -140,10 +141,12 @@ uint64_t ReferenceStreamStats(AddressStreamStats* stats){
 }
 
 void DeleteStreamStats(AddressStreamStats* stats){
-    if (!stats->Initialized){  // If created for thread
-        delete[] stats->Buffer;
+    if (!stats->Initialized && stats->FirstImage){  // If created for thread
+        if (stats->Buffer != NULL)
+            delete[] stats->Buffer;
+        stats->Buffer = NULL;
 
-        if (Driver->GetNumMemoryHandlers() > 0) {
+        if (Driver->GetNumMemoryHandlers() > 0 && (stats->Stats != NULL)) {
             for (uint32_t i = 0; i < Driver->GetNumMemoryHandlers(); i++) {
                 delete stats->Stats[i];
                 delete stats->Handlers[i];
@@ -151,6 +154,8 @@ void DeleteStreamStats(AddressStreamStats* stats){
             delete[] stats->Stats;
             delete[] stats->Handlers;
         }
+        stats->Stats = NULL;
+        stats->Handlers = NULL;
 
         // Counters initialized with stats so memory freed here
         free(stats);
@@ -175,7 +180,7 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     // allocate Counters contiguously with AddressStreamStats. Since the 
     // address of AddressStreamStats is the address of the thread data, this 
     // allows us to avoid an extra memory ref on Counter updates
-    if (typ == DataManagerType_Thread){
+    if (typ == DataManagerType_Thread) {
         AddressStreamStats* s = stats;
         stats = (AddressStreamStats*)malloc(sizeof(AddressStreamStats) + 
           (sizeof(uint64_t) * stats->BlockCount));
@@ -186,6 +191,7 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     assert(stats);
     stats->threadid = tid;
     stats->imageid = iid;
+    stats->FirstImage = (firstimage == iid);
 
     if(stats->MemopCount > stats->BlockCount) {
         stats->AllocCount = stats->MemopCount;
@@ -197,35 +203,34 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     Driver->InitializeStatsWithNewStreamStats(stats);
 
     // Initialize Memory Handlers
-    // TODO: This is not entirely correct. Handlers should be shared by images
-    // but each thread needs its own handlers. As long as there is only one 
-    // image, this should be fine (or a single-threaded multi-image app). 
-    // But, the first image may not even be the one to spawn the threads so 
-    // this is not a trivial issue.
-    if (typ == DataManagerType_Thread || (iid == firstimage)){
+    // Modified data generation (from DataManager) to always begin with the 
+    // first image. Even if another image spawns the thread, pebil will 
+    // GenerateStreamStats for the first image first. This allows us to 
+    // initialize data based on whether or not we are the first image, and 
+    // allows us to enforce one handler per thread (not per image).
+    if ((iid == firstimage)) {
         Driver->InitializeStatsWithNewHandlers(stats);
     } else {
         // Other images would share the handlers
         // Calls ReadLock - Release lock
         allData->UnLock();
-        AddressStreamStats * fs = allData->GetData(firstimage, tid);
+        AddressStreamStats* fs = allData->GetData(tid);
         allData->WriteLock();
         stats->Handlers = fs->Handlers;
     }
 
     // each thread gets its own buffer
-    // TODO: Again, will not work for multi-threaded, multi-image apps
-    if (typ == DataManagerType_Thread){
+    if ((typ == DataManagerType_Thread) && (iid == firstimage)) {
         uint64_t numEntries = BUFFER_CAPACITY(stats);
         stats->Buffer = new BufferEntry[numEntries + 1];
         assert(stats->Buffer && "Couldn't create Buffer");
         bzero(BUFFER_ENTRY(stats, 0), (numEntries) * sizeof(BufferEntry));
         BUFFER_CAPACITY(stats) = BUFFER_CAPACITY(s);
         BUFFER_CURRENT(stats) = 0;
-    } else if (iid != firstimage){
+    } else if (iid != firstimage) {
         // Calls ReadLock - Release lock
         allData->UnLock();
-        AddressStreamStats* fs = allData->GetData(firstimage, tid);
+        AddressStreamStats* fs = allData->GetData(tid);
         allData->WriteLock();
         stats->Buffer = fs->Buffer;
     }

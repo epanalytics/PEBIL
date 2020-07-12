@@ -146,9 +146,8 @@ void DeleteCounterArray(CounterArray* ctrs){
 }
 
 void* tool_thread_init(thread_key_t tid){
-    //inform << "Entering tool_thread_init" << ENDL;
+    //inform << "Entering tool_thread_init " << hex << tid << ENDL;
     SAVE_STREAM_FLAGS(cout);
-    //init_signal_handlers();
     if (AllData){
         if(DynamicPoints->IsThreadedMode())
             AllData->AddThread(tid);
@@ -166,14 +165,18 @@ void* tool_thread_fini(thread_key_t tid){
 
 extern "C"
 {
-    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag){
+    static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
+    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
+      isThreadedModeFlag){
+        pthread_mutex_lock(&dynamic_init_mutex);
         SAVE_STREAM_FLAGS(cout);
         if (DynamicPoints == NULL) {
             DynamicPoints = new DynamicInstrumentation();
-            DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-              isThreadedModeFlag, 0);
         }
+        DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+          isThreadedModeFlag);
         RESTORE_STREAM_FLAGS(cout);
+        pthread_mutex_unlock(&dynamic_init_mutex);
         //inform << "Leaving tool_dynamic_init with count " << *count << ENDL;
         return NULL;
     }
@@ -196,7 +199,7 @@ extern "C"
      */
     static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     void* tool_image_init(void* s, uint64_t* key, ThreadData* td){
-        //inform << "Entered tool_image_init " << key << ENDL;
+        //inform << "Entered tool_image_init " << hex << *key << ENDL;
         SAVE_STREAM_FLAGS(cout);
 
         CounterArray* ctrs = (CounterArray*)s;
@@ -206,24 +209,25 @@ extern "C"
         // on first visit create data manager - once per address space
         if (AllData == NULL){
             init_signal_handlers();
-            AllData = new DataManager<CounterArray*>(GenerateCounterArray, DeleteCounterArray, RefCounterArray);
+            AllData = new DataManager<CounterArray*>(GenerateCounterArray, 
+              DeleteCounterArray, RefCounterArray);
         }
 
         assert(AllData);
         // Initialize this image if we need to
         if (AllData->allimages.count(*key) == 0){
-            // Remove initialization points -- once per image
-            set<uint64_t> inits;
-            inits.insert(GENERATE_KEY(*key, PointType_inits));
-            inform << "Removing init points for image " << hex << (*key) << ENDL;
-            DynamicPoints->SetDynamicPoints(inits, false);
-
             // Add data for this image -- once per image
             AllData->AddImage(ctrs, td, *key);
             ctrs->threadid = AllData->GenerateThreadKey();
             ctrs->imageid = *key;
 
             AllData->SetTimer(*key, 0);
+
+            // Remove initialization points -- once per image
+            set<uint64_t> inits;
+            inits.insert(GENERATE_KEY(*key, PointType_inits));
+            inform << "Removing init points for image " << hex << (*key)<< ENDL;
+            DynamicPoints->SetDynamicPoints(inits, false);
         }
         assert(AllData->allimages.count(*key) == 1);
 

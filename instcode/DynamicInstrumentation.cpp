@@ -25,11 +25,18 @@ void DynamicInstrumentation::GetAllDynamicKeys(set<uint64_t>& keys) {
     }
 }
 
+// NOTE: This function must be called within a mutex because of imageid
 void DynamicInstrumentation::InitializeDynamicInstrumentation(uint64_t* count, 
-  DynamicInst** dyn, bool* isThreadedModeFlag, uint32_t imageid) {
+  DynamicInst** dyn, bool* isThreadedModeFlag) {
     assert(Dynamics != NULL);
-    ThreadedMode = (*isThreadedModeFlag);
 
+    if (InitializedDynamics.count(dyn) > 0)
+        return;
+
+
+    ThreadedMode = (*isThreadedModeFlag);
+    static uint32_t imageId = 0;
+    InitializedDynamics.insert(dyn);
 
     DynamicInst* dd = *dyn;
     for (uint32_t i = 0; i < *count; i++){
@@ -41,7 +48,7 @@ void DynamicInstrumentation::InitializeDynamicInstrumentation(uint64_t* count,
             if (type != PointType_inits) {
                 uint64_t blockid = GET_BLOCKID(k);
                 uint32_t type = GET_TYPE(k);
-                k = GENERATE_UNIQUE_KEY(blockid, imageid, type);
+                k = GENERATE_UNIQUE_KEY(blockid, imageId, type);
                 dd[i].Key = k;
             }
             if (Dynamics->count(k) == 0){
@@ -50,6 +57,8 @@ void DynamicInstrumentation::InitializeDynamicInstrumentation(uint64_t* count,
             (*Dynamics)[k].push_back(&dd[i]);
         }
     }
+
+    imageId++;
 }
 
 void DynamicInstrumentation::PrintAllDynamicPoints() {

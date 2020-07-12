@@ -293,6 +293,7 @@ void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
           << hex << tid << " but no images have been initialized.", 
           MetasimError_NoThread);
     }
+
     RESTORE_STREAM_FLAGS(cout);
     return NULL;
 }
@@ -326,13 +327,15 @@ void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
 }
 
 // Thread-safe function
-void AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid, 
+// Returns number of elements skipped
+uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid, 
   thread_key_t tid, uint32_t numElementsInBuffer) {
 
     //uint32_t threadSeq = allData->GetThreadSequence(tid);
     //uint32_t numProcessed = 0;
-
+    uint64_t numSkipped = 0;
     AddressStreamStats** faststats = fastData->GetBufferStats(tid);
+    assert(faststats != NULL);
     uint32_t elementIndex = 0; 
     for (elementIndex = 0; elementIndex < numElementsInBuffer; 
       elementIndex++){
@@ -340,6 +343,14 @@ void AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
         debug(assert(faststats[elementIndex]->Stats));
 
         AddressStreamStats* stats = faststats[elementIndex];
+        // If stats is null, then this buffer entry was empty.
+        // This is possible when you have multiple threads, and sampling was 
+        // turned on/off in the middle
+        if (stats == NULL) {
+            numSkipped++;
+            continue;
+        }
+        assert(stats != NULL);
 
         // Process for each memory handler
         for (uint32_t handlerIndex = 0; handlerIndex < GetNumMemoryHandlers(); 
@@ -358,6 +369,8 @@ void AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
       //      numProcessed++;
         }
     }
+
+    return numSkipped;
 }
 
 // Thread-safe
@@ -377,6 +390,11 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
   tid) {
 
 #define DONE_WITH_BUFFER(...) BUFFER_CURRENT(stats) = 0;  return NULL;
+
+    // Check if we are sampling
+    // Thread-safe: Sampling method protected with lock
+    bool isSampling;
+    isSampling = sampler->CurrentlySampling();
 
     assert(iid);
     if (allData == NULL){
@@ -418,11 +436,6 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
         DONE_WITH_BUFFER();
     }
 
-    // Check if we are sampling
-    // Thread-safe: Sampling method protected with lock
-    bool isSampling;
-    isSampling = sampler->CurrentlySampling();
-
     if (isSampling){
         // Refresh FastStats so it can be used
         // Thread-safe call
@@ -431,7 +444,14 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
         // Process the buffer for each memory handler
         // Thread-safe call
-        ProcessBufferForEachHandler(iid, tid, numElements);
+        uint64_t numSkipped = ProcessBufferForEachHandler(iid, tid, 
+          numElements);
+        if (numSkipped > 0) {
+            for (uint32_t i = 0; i < GetNumMemoryHandlers(); i++) {
+                MemoryStreamHandler* m = stats->Handlers[i];
+                m->SkipAddresses(numSkipped);
+            }
+        }
 
         // Shut off any instrumentation if sample max is hit
         // Thread-safe: Calls thread-safe functions

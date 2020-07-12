@@ -18,6 +18,7 @@ typedef struct DynamicInst_s DynamicInst;
 class DynamicInstrumentation {
   protected:
     pebil_map_type < uint64_t, std::vector < DynamicInst* > > * Dynamics;
+    std::set<DynamicInst**> InitializedDynamics;
     bool ThreadedMode;
     
   public:
@@ -26,7 +27,7 @@ class DynamicInstrumentation {
 
     virtual void GetAllDynamicKeys(std::set<uint64_t>& keys);
     void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn,
-      bool* isThreadedModeFlag, uint32_t imageid);
+      bool* isThreadedModeFlag);
     virtual bool IsThreadedMode() { return ThreadedMode; }
 
     void PrintAllDynamicPoints(); 

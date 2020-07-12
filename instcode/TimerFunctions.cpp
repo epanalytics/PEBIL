@@ -259,17 +259,6 @@ extern "C"
         return 0;
     }
 
-    // initialize dynamic instrumentation
-    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag) {
-        if (DynamicPoints == NULL) {
-            DynamicPoints = new DynamicInstrumentation();
-        }
-        static uint32_t imageSeq = 0;
-        DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-          isThreadedModeFlag, imageSeq);
-        imageSeq++;
-        return NULL;
-    }
 
     // Just after MPI_Init is called
     void* tool_mpi_init() {
@@ -294,20 +283,28 @@ extern "C"
         return NULL;
     }
 
+    // Create mutex to ensure that Dynamics is initialized exactly once
+    static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
+    // initialize dynamic instrumentation
+    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
+      isThreadedModeFlag) {
+        pthread_mutex_lock(&dynamic_init_mutex);
+        if (DynamicPoints == NULL) {
+            DynamicPoints = new DynamicInstrumentation();
+        }
+        DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+          isThreadedModeFlag);
+        pthread_mutex_unlock(&dynamic_init_mutex);
+        return NULL;
+    }
+
+    // Create mutex to ensure that each image is initialized exactly once
+    static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     // Called when new image is loaded
     void* tool_image_init(void* args, image_key_t* key, ThreadData* td) {
 
+        pthread_mutex_lock(&image_init_mutex);
         FunctionTimers* timers = (FunctionTimers*)args;
-
-        // image time
-        timers->appTimeStart = read_timestamp_counter();
-        gettimeofday(&timers->appTimeOfDayStart, NULL);
-
-
-        // Remove this instrumentation
-        set<uint64_t> inits;
-        inits.insert(GENERATE_KEY(*key, PointType_inits));
-        DynamicPoints->SetDynamicPoints(inits, false);
 
         // If this is the first image, set up a data manager
         if (AllData == NULL){
@@ -315,8 +312,27 @@ extern "C"
               DeleteFunctionTimers, ReferenceFunctionTimers);
         }
 
+        // Check if added already
+        if (AllData->allimages.count(*key) != 0) {
+            pthread_mutex_unlock(&image_init_mutex);
+            return NULL;
+        }
+
+        // image time
+        timers->appTimeStart = read_timestamp_counter();
+        gettimeofday(&timers->appTimeOfDayStart, NULL);
+
         // Add this image
         AllData->AddImage(timers, td, *key);
+
+        // Remove this instrumentation
+        // Must be done after the image is added, or threads may get to the 
+        // instrumentation before the image is initialized
+        set<uint64_t> inits;
+        inits.insert(GENERATE_KEY(*key, PointType_inits));
+        DynamicPoints->SetDynamicPoints(inits, false);
+
+        pthread_mutex_unlock(&image_init_mutex);
         return NULL;
     }
 

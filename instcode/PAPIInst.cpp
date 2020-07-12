@@ -296,14 +296,15 @@ extern "C"
     return 0;
   }
 
+  static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
   void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* isThreadedModeFlag) {
+      pthread_mutex_lock(&dynamic_init_mutex);
       if (DynamicPoints == NULL)
           DynamicPoints = new DynamicInstrumentation();
 
-      static uint32_t imageSeq = 0;
       DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-        isThreadedModeFlag, imageSeq);
-      imageSeq++;
+        isThreadedModeFlag);
+      pthread_mutex_unlock(&dynamic_init_mutex);
       return NULL;
   }
 
@@ -327,13 +328,11 @@ extern "C"
     return NULL;
   }
 
+  static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
   void* tool_image_init(void* args, image_key_t* key, ThreadData* td) {
 
+    pthread_mutex_lock(&image_init_mutex);
     PAPIInst* counters = (PAPIInst*)args;
-
-    set<uint64_t> inits;
-    inits.insert(GENERATE_KEY(*key, PointType_inits));
-    DynamicPoints->SetDynamicPoints(inits, false);
 
     if (AllData == NULL){
       AllData = new DataManager<PAPIInst*>(GeneratePAPIInst, DeletePAPIInst, ReferencePAPIInst);
@@ -347,6 +346,12 @@ extern "C"
       fprintf(stderr,"PAPI initialization failed");
       return NULL;
     }
+
+    set<uint64_t> inits;
+    inits.insert(GENERATE_KEY(*key, PointType_inits));
+    DynamicPoints->SetDynamicPoints(inits, false);
+
+    pthread_mutex_lock(&image_init_mutex);
     
     return NULL;
   }
