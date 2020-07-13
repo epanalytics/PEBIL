@@ -323,6 +323,73 @@ X86Instruction* X86InstructionFactory64::emitMoveRegToK(uint32_t gpr_in, uint32_
 }
 
 /*
+ * vmovmskps rax, xmm0
+ */
+X86Instruction* X86InstructionFactory64::emitVMovMask(
+    uint32_t reg_out, uint32_t reg_in,
+    uint32_t numIndices, uint32_t elementSize)
+{
+    //Asserts go here
+    assert(reg_out >= X86_REG_AX && reg_out <= X86_REG_R15);
+    assert(reg_in >= X86_FPREG_XMM0 && reg_in <= X86_FPREG_XMM15);
+    assert(elementSize == 32 || elementSize == 64);
+
+    uint32_t length = 5;
+    char* buff = new char[length];
+
+    buff[0] = 0xc4;
+
+    // !(reg_out)
+    uint8_t vexR = ((reg_out & 0x08)==0)?1:0;
+    // !(reg_in)
+    uint8_t vexB = (((reg_in-X86_64BIT_GPRS) & 0x8)==0)?1:0;
+    uint8_t vexX = 1;
+    uint8_t temp = 0;
+    //m-mmmm
+    uint8_t mapSelect = 1;
+    temp = vexR << 7;
+    temp = temp | vexX << 6;
+    temp = temp | vexB << 5;
+    temp = temp | mapSelect;
+    buff[1] = temp;
+
+    uint8_t vvvv = 0xf;
+    uint8_t l = 0;
+    if( (numIndices == 4 && elementSize == 64)
+      ||(numIndices == 8 && elementSize == 32) ){
+        l = 1;
+    }
+    uint8_t pp = 0;
+    if (elementSize == 64) {
+        pp = 1;
+    }
+    //we is ignored
+    uint8_t we = 0;
+    temp = 0;
+    temp = we << 7;
+    temp = temp | (vvvv << 3);
+    temp = temp | (l << 2);
+    temp = temp | pp;
+    buff[2] = temp;
+
+    buff[3] = 0x50;
+
+    uint8_t modrmbyte = 0xc0;
+    uint8_t reg;
+    if (reg_out>=8){
+        reg = reg_out - 8; //r8-8==0 and r15-8==7
+    } else {
+        reg = (uint8_t)reg_out;
+    }
+
+    uint8_t rm = (reg_in-X86_64BIT_GPRS) & 0x7;
+    modrmbyte = modrmbyte | (reg << 3) | rm;
+    buff[4] = modrmbyte;
+
+    return emitInstructionBase(length, buff);
+}
+
+/*
  * vmovapd (rsp+disp), zmmx
  */
 X86Instruction* X86InstructionFactory64::emitMoveAlignedStackToZmmx(uint8_t zmm, uint8_t disp)
