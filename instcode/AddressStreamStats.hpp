@@ -4,6 +4,12 @@
 //#define debug(...) __VA_ARGS__
 #define debug(...)
 
+#define LOAD 1
+#define STORE 0
+
+#define NORMAL 0
+#define SWPF   1
+
 typedef uint64_t image_key_t;
 typedef pthread_t thread_key_t;
 
