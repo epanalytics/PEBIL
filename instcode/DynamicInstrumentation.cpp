@@ -6,7 +6,8 @@
 
 using namespace std;
 
-DynamicInstrumentation::DynamicInstrumentation() : ThreadedMode(false) {
+DynamicInstrumentation::DynamicInstrumentation() : NumImagesInitialized(0), 
+  ThreadedMode(false) {
     Dynamics = new pebil_map_type < uint64_t, vector < DynamicInst* > > ();
 }
 
@@ -35,7 +36,6 @@ void DynamicInstrumentation::InitializeDynamicInstrumentation(uint64_t* count,
 
 
     ThreadedMode = (*isThreadedModeFlag);
-    static uint32_t imageId = 0;
     InitializedDynamics.insert(dyn);
 
     DynamicInst* dd = *dyn;
@@ -48,7 +48,7 @@ void DynamicInstrumentation::InitializeDynamicInstrumentation(uint64_t* count,
             if (type != PointType_inits) {
                 uint64_t blockid = GET_BLOCKID(k);
                 uint32_t type = GET_TYPE(k);
-                k = GENERATE_UNIQUE_KEY(blockid, imageId, type);
+                k = GENERATE_UNIQUE_KEY(blockid, NumImagesInitialized, type);
                 dd[i].Key = k;
             }
             if (Dynamics->count(k) == 0){
@@ -58,7 +58,7 @@ void DynamicInstrumentation::InitializeDynamicInstrumentation(uint64_t* count,
         }
     }
 
-    imageId++;
+    NumImagesInitialized++;
 }
 
 void DynamicInstrumentation::PrintAllDynamicPoints() {

@@ -44,6 +44,7 @@
 #include <sys/types.h>
 
 #include <vector>
+#include <map>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -553,22 +554,36 @@ void AddressStreamDriver::SetUpTools() {
 }
 
 void AddressStreamDriver::ShutOffInstrumentationInAllBlocks() {
-    set<uint64_t> allBlocks;
+    // map of imageSequences -> set of blocks to shut off
+    map<uint64_t, set<uint64_t>> allBlocks;
     for (set<uint64_t>::iterator it = liveMemoryAccessInstPointKeys->begin();
       it != liveMemoryAccessInstPointKeys->end(); it++) {
-        allBlocks.insert(GET_BLOCKID(*it));
+        uint32_t blockID = GET_BLOCKID(*it);
+        uint32_t imageSequence = GET_IMAGEID(*it);
+        (allBlocks[imageSequence]).insert(blockID);
+//        allBlocks.insert(GET_BLOCKID(*it));
     }
-    ShutOffInstrumentationInBlocks(allBlocks);
+    for (map<uint64_t, set<uint64_t>>::iterator it = allBlocks.begin();
+      it != allBlocks.end(); it++) {
+        uint32_t imageSequence = (*it).first;
+        image_key_t imageID = allData->GetImageId(imageSequence);
+        ShutOffInstrumentationInBlocks(allBlocks[imageSequence], imageID);
+
+    }
 }
 
 // Not thread-safe! For performance, thread suspension should happen outside 
 // this function
-void AddressStreamDriver::ShutOffInstrumentationInBlock(uint64_t blockID) {
+void AddressStreamDriver::ShutOffInstrumentationInBlock(uint64_t blockID, 
+  uint64_t imageSequence) {
 
     set<uint64_t> keysToRemove;
-    uint64_t kcheck = GENERATE_KEY(blockID, PointType_buffercheck);
-    uint64_t kinc = GENERATE_KEY(blockID, PointType_bufferinc);
-    uint64_t kfill = GENERATE_KEY(blockID, PointType_bufferfill);
+    uint64_t kcheck = GENERATE_UNIQUE_KEY(blockID, imageSequence, 
+      PointType_buffercheck);
+    uint64_t kinc = GENERATE_UNIQUE_KEY(blockID, imageSequence, 
+      PointType_bufferinc);
+    uint64_t kfill = GENERATE_UNIQUE_KEY(blockID, imageSequence, 
+      PointType_bufferfill);
 
     // If this key is not active, then done
     if (liveMemoryAccessInstPointKeys->count(kfill) == 0){
@@ -585,15 +600,18 @@ void AddressStreamDriver::ShutOffInstrumentationInBlock(uint64_t blockID) {
 
 }
 
-void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint64_t>& blocks){
+void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint64_t>& blocks,
+  image_key_t iid){
     // Make sure only one thread is executing this code
     SuspendAllThreads(allData->CountThreads(), 
       allData->allthreads.begin(), allData->allthreads.end());
+
+    uint64_t imageSequence = (uint32_t)allData->GetImageSequence(iid);
     
     for (set<uint64_t>::iterator it = blocks.begin(); it != blocks.end(); 
       it++) {
         uint64_t blockID = *it;
-        ShutOffInstrumentationInBlock(blockID);
+        ShutOffInstrumentationInBlock(blockID, imageSequence);
     }
 
     ResumeAllThreads();
@@ -639,7 +657,7 @@ void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid,
     // Only call this if there are blocks to remove since it will suspend 
     // threads
     if (blocksToRemove.size() > 0)
-        ShutOffInstrumentationInBlocks(blocksToRemove);
+        ShutOffInstrumentationInBlocks(blocksToRemove, iid);
 }
 
 // For testing

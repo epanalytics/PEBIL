@@ -253,7 +253,7 @@ public:
         return ret;
     }
 
-    uint32_t GetImageSequence(image_key_t iid){
+    virtual uint32_t GetImageSequence(image_key_t iid){
         ReadLock();
         assert(imageseq.count(iid) == 1 && 
           "image must be added with AddImage method");
@@ -561,7 +561,8 @@ public:
         uint32_t newsize = tid_index+1 > threadcount ? tid_index+1 : threadcount;
 
         // Grow stats and copy old data if necessary
-        // Also initialize stats for any other threads which are implied to exist
+        // Also initialize stats for any other threads which are implied to 
+        // exist
         if(newsize > threadcount) {
             T** tmp = new T*[newsize];
             for (uint32_t i = 0; i < threadcount; ++i){
@@ -570,7 +571,8 @@ public:
             delete[] stats;
             stats = tmp;
 
-            // initialize any new data, zeroing out any new data not for this thread
+            // initialize any new data, zeroing out any new data not for this 
+            // thread
             for(uint32_t i = threadcount; i < newsize; ++i){
                 stats[i] = new T[capacity];
                 if(i != tid_index)

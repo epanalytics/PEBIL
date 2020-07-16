@@ -118,8 +118,9 @@ class AddressStreamDriver {
     virtual void SetUpTools();
 
     void ShutOffInstrumentationInAllBlocks();
-    void ShutOffInstrumentationInBlock(uint64_t blockID);
-    void ShutOffInstrumentationInBlocks(std::set<uint64_t>& blocks);
+    void ShutOffInstrumentationInBlock(uint64_t blockID, uint64_t imageSeq);
+    void ShutOffInstrumentationInBlocks(std::set<uint64_t>& blocks, image_key_t 
+      iid);
     void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
 
     // For Testing Purposes

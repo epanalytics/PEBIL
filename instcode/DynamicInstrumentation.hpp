@@ -19,6 +19,7 @@ class DynamicInstrumentation {
   protected:
     pebil_map_type < uint64_t, std::vector < DynamicInst* > > * Dynamics;
     std::set<DynamicInst**> InitializedDynamics;
+    uint64_t NumImagesInitialized;
     bool ThreadedMode;
     
   public:
