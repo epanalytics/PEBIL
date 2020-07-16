@@ -22,6 +22,7 @@
 #define _SpatialLocalityPerMemOp_hpp_
 
 #include <ReuseDistanceASI.hpp>
+#include <ReuseDistance.hpp>  // external SpatialLocality
 
 #include <string>
 
@@ -49,20 +50,25 @@ class SpatialLocalityPerMemOpTool : public AddressStreamTool {
 // Very similar to Reuse Distance Handler but built a little differently
 //TODO also very similar to the SpatialLocalityPerMemOpHandler
 class SpatialLocalityPerMemOpHandler : public ReuseDistanceHandler {
-  private:
+  public:
     uint64_t window;
     uint64_t bin;
     uint64_t nmax;
-    uint64_t access_count;
-  public:
+
     SpatialLocalityPerMemOpHandler(uint64_t w, uint64_t b, uint64_t n);
     SpatialLocalityPerMemOpHandler(SpatialLocalityPerMemOpHandler &h);
     ~SpatialLocalityPerMemOpHandler();
-    pebil_map_type<uint64_t, ReuseDistance*>* mapInternalHandler;
+    //<memOp, external/SpatialLocality>
+    pebil_map_type<uint64_t, ReuseDistance*>* mapInternalHandler; 
+    //<blockId, memOp>
+    pebil_map_type<uint64_t, std::set<uint64_t>*>* blockMemopMapper;
 
     //TODO
     uint32_t Process(void* stats, BufferEntry* access);
     void SpatialLocalityPerMemOpHandler::SkipAddresses(uint32_t numToSkip);
+
+    void PrintBlockInfo(std::ostream& f, uint64_t block, std::set<uint64_t>* set);
+    void PrintMemOpInfo(std::ostream& f, uint64_t memop, ReuseDistance* rd, reuse_map_type<uint64_t,uint64_t> BinTotal);
 
 };
 

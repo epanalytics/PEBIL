@@ -349,6 +349,7 @@ void AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             StreamStats* ss = stats->Stats[handlerIndex];
 
             BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
+            //TODO play around here
 
             if (reference->imageid == 0){
                 debug(assert(AllData->CountThreads() > 1));
