@@ -97,19 +97,15 @@ void SpatialLocalityPerMemOpTool::FinalizeTool(DataManager<AddressStreamStats*>*
               << AllData->GetThreadSequence(thread) << ENDL;
 
             pebil_map_type<uint64_t, vector<uint64_t>*> blockMapper;
-            bool firstPrint = true;
+            sd->PrintHeader(SpatialLocFile);
 
             for (pebil_map_type<uint64_t, set<uint64_t>*>::iterator mem2blockITT 
               = sd->blockMemopMapper->begin(); mem2blockITT != sd->blockMemopMapper->end();
               mem2blockITT++){
 
                 uint64_t block = mem2blockITT->first;
+                //fprintf(stderr, "Inside block %u\n", block);
                 set<uint64_t>* memopSet = mem2blockITT->second;
-
-                //fprintf(stderr, "EEO: memopSet: %u\n", memopSet);
-                //fprintf(stderr, "EEO: memopSet->size(): %u\n", memopSet->size());
-                //fprintf(stderr, "EEO: memopSet->max_size(): %u\n", memopSet->max_size());
-                //fprintf(stderr, "EEO: memopSet: %u\n", memopSet);
                 sd->PrintBlockInfo(SpatialLocFile, block, memopSet);
             }
             //sd->Print(SpatialLocFile);
@@ -117,6 +113,18 @@ void SpatialLocalityPerMemOpTool::FinalizeTool(DataManager<AddressStreamStats*>*
     }
     SpatialLocFile.close();
 
+}
+
+void SpatialLocalityPerMemOpHandler::PrintHeader(ostream& f){
+    //line 1
+    f << "# SPATIALSTATS <block_count> <block_hash> <window_size> <bin_indiv> "
+      << "<max_track> <id_count> <tot_access> <tot_miss>" << ENDL;
+
+    //line2
+    f << "#" << TAB << "SPATIALID <id> <id_access> <id_miss>" << ENDL;
+
+    //line3
+    f << "#" << TAB << TAB << "<bin_lower_bound> <bin_upper_bound> <bin_count>" << ENDL;
 }
 
 void SpatialLocalityPerMemOpTool::SpatialLocalityPerMemOpFileName(AddressStreamStats* stats, 
@@ -209,16 +217,33 @@ void SpatialLocalityPerMemOpHandler::PrintBlockInfo(std::ostream& f, uint64_t bl
     vector<uint64_t> keys(set->begin(), set->end());
     sort(keys.begin(), keys.end());
     
-    uint64_t tot = 0, mis = 0;
+    uint64_t blockHash;
+
+    uint64_t tot = 0, mis = 0, count = 0;
     for (vector<uint64_t>::const_iterator it = keys.begin(); it != keys.end(); it++){
         uint64_t id = (*it);
         ReuseDistance* current = mapInternalHandler->find(id)->second;
-        ReuseStats* r = current->GetStats(id);
-        tot += r->GetAccessCount();
-        mis += r->GetMissCount();
+        vector<uint64_t> indices;
+        current->GetIndices(indices);
+        //vector<uint64_t> addrs;
+        //current->GetActiveAddresses(addrs);
+        //fprintf(stderr, "count: %u\n", count++);
+        //fprintf(stderr, "indices.size(): %u\n", indices.size());
+        //fprintf(stderr, "indices[0]: %u\n", indices[0]);
+        //fprintf(stderr, "addrs.size(): %u\n", addrs.size());
+        //fprintf(stderr, "addrs[0]: %u\n", addrs[0]);
+        //fprintf(stderr, "current: %x\n", current);
+        ReuseStats* r = current->GetStats(indices[0]);
+        if (r != nullptr){
+            tot += r->GetAccessCount();
+            mis += r->GetMissCount();
+            blockHash = indices[0]; 
+        }
     }
 
     f << "SPATIALSTATS"
+      << TAB << block << dec
+      << TAB << hex << blockHash << dec
         //capacity is size
       << TAB << dec << window//capacity
         //binindividual is bin
@@ -226,7 +251,6 @@ void SpatialLocalityPerMemOpHandler::PrintBlockInfo(std::ostream& f, uint64_t bl
         //maxtracking is nmax
       << TAB << nmax //maxtracking
       << TAB << keys.size()
-      << TAB << hex << block << dec
       << TAB << tot
       << TAB << mis
       << ENDL;
@@ -241,13 +265,17 @@ void SpatialLocalityPerMemOpHandler::PrintBlockInfo(std::ostream& f, uint64_t bl
 void SpatialLocalityPerMemOpHandler::PrintMemOpInfo( ostream& f, 
   uint64_t memop, ReuseDistance* rd, reuse_map_type<uint64_t,uint64_t> BinTotal){
 
-    ReuseStats* r = rd->GetStats(memop);
+    vector<uint64_t> indices;
+    rd->GetIndices(indices);
+    ReuseStats* r = rd->GetStats(indices[0]);
     
-    f << TAB << "SPATIALID"
-      << TAB << "MemOp: " << memop << dec
-      << TAB << r->GetAccessCount()
-      << TAB << r->GetMissCount()
-      << ENDL;
+    if (r != nullptr) {
+        f << TAB << "SPATIALID"
+          << TAB << memop << dec
+          << TAB << r->GetAccessCount()
+          << TAB << r->GetMissCount()
+          << ENDL;
 
-    r->Print(f, BinTotal);
+        r->Print(f, BinTotal);
+    }
 }

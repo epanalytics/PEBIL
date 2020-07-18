@@ -67,6 +67,7 @@ class SpatialLocalityPerMemOpHandler : public ReuseDistanceHandler {
     uint32_t Process(void* stats, BufferEntry* access);
     void SpatialLocalityPerMemOpHandler::SkipAddresses(uint32_t numToSkip);
 
+    void PrintHeader(std::ostream& f);
     void PrintBlockInfo(std::ostream& f, uint64_t block, std::set<uint64_t>* set);
     void PrintMemOpInfo(std::ostream& f, uint64_t memop, ReuseDistance* rd, reuse_map_type<uint64_t,uint64_t> BinTotal);
 
