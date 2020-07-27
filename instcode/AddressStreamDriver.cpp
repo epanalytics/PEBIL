@@ -31,10 +31,10 @@
 #include <ReuseDistanceASI.hpp>
 #include <ScatterGatherLength.hpp>
 #include <SpatialLocality.hpp>
-#include <SpatialLocalityPerMemOp.hpp>
 
 #ifdef HAS_EPA_TOOLS
 #include <PrefetchSimulation.hpp>
+#include <SpatialLocalityPerMemOp.hpp>
 #endif
 
 #include <stdio.h>
@@ -528,7 +528,13 @@ void AddressStreamDriver::SetUpTools() {
     }
 
     if (runSpatialLocalityPerMemOp) {
+#ifdef HAS_EPA_TOOLS
         tools->push_back(new SpatialLocalityPerMemOpTool());
+#else
+        DISPLAY_ERROR << "No spatial locality per memop library linked. "
+          << "Unset Spatial locality per memop library tool. Exitting." << ENDL;
+        exit(0);
+#endif
     }
 
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 
