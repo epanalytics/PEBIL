@@ -61,14 +61,16 @@ class SpatialLocalityPerMemOpHandler : public ReuseDistanceHandler {
     //<memOp, external/SpatialLocality>
     pebil_map_type<uint64_t, ReuseDistance*>* mapInternalHandler; 
     //<blockId, memOp>
-    pebil_map_type<uint64_t, std::set<uint64_t>*>* blockMemopMapper;
+    //pebil_map_type<uint64_t, std::set<uint64_t>*>* blockMemopMapper;
+    //<memOp, blockId>
+    pebil_map_type<uint64_t, uint64_t>* memopBlockMapper;
 
     //TODO
     uint32_t Process(void* stats, BufferEntry* access);
     void SpatialLocalityPerMemOpHandler::SkipAddresses(uint32_t numToSkip);
 
     void PrintHeader(std::ostream& f);
-    void PrintBlockInfo(std::ostream& f, uint64_t block, std::set<uint64_t>* set);
+    void PrintBlockInfo(std::ostream& f, uint64_t block, std::vector<uint64_t>* vec);
     void PrintMemOpInfo(std::ostream& f, uint64_t memop, ReuseDistance* rd, reuse_map_type<uint64_t,uint64_t> BinTotal);
 
 };

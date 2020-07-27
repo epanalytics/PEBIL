@@ -97,17 +97,45 @@ void SpatialLocalityPerMemOpTool::FinalizeTool(DataManager<AddressStreamStats*>*
               << AllData->GetThreadSequence(thread) << ENDL;
 
             pebil_map_type<uint64_t, vector<uint64_t>*> blockMapper;
+            vector<uint64_t> keys;
             sd->PrintHeader(SpatialLocFile);
 
-            for (pebil_map_type<uint64_t, set<uint64_t>*>::iterator mem2blockITT 
-              = sd->blockMemopMapper->begin(); mem2blockITT != sd->blockMemopMapper->end();
-              mem2blockITT++){
-
-                uint64_t block = mem2blockITT->first;
-                //fprintf(stderr, "Inside block %u\n", block);
-                set<uint64_t>* memopSet = mem2blockITT->second;
-                sd->PrintBlockInfo(SpatialLocFile, block, memopSet);
+            for (pebil_map_type<uint64_t, uint64_t>::iterator mem2blockIT =
+              sd->memopBlockMapper->begin(); mem2blockIT != sd->memopBlockMapper->end();
+              mem2blockIT++) {
+                uint64_t memOp = mem2blockIT->first;
+                uint64_t block = mem2blockIT->second;
+                if (blockMapper.find(block) == blockMapper.end()){
+                    vector<uint64_t>* newVec = new vector<uint64_t>();
+                    newVec->push_back(memOp);
+                    std::pair<uint64_t, vector<uint64_t>*> kvp (block, newVec);
+                    blockMapper.insert(kvp);
+                    keys.push_back(block);
+                } else {
+                    vector<uint64_t>* oldVec = blockMapper.find(block)->second;
+                    oldVec->push_back(memOp);
+                }
             }
+
+            sort(keys.begin(), keys.end());
+            //vector<vector<uint64_t>*> inOrder;
+            for(vector<uint64_t>::iterator blockIT = keys.begin(); blockIT != keys.end();
+              blockIT++){
+                uint64_t block = *blockIT;
+                vector<uint64_t>* blockVec = blockMapper.find(block)->second;
+                sd->PrintBlockInfo(SpatialLocFile, block, blockVec);
+                //inOrder.push_back(blockVec);
+                
+            }
+
+            /*SpatialLocFile << "-------------------------------------" << ENDL;
+
+            for (pebil_map_type<uint64_t, ReuseDistance*>::iterator itbit =
+              sd->mapInternalHandler->begin(); itbit != sd->mapInternalHandler->end();
+              itbit++){
+
+                itbit->second->Print(SpatialLocFile);
+            }*/
             //sd->Print(SpatialLocFile);
         }
     }
@@ -144,7 +172,8 @@ SpatialLocalityPerMemOpHandler::SpatialLocalityPerMemOpHandler(uint64_t w, uint6
     internalHandler = nullptr;
     //internalHandler = new SpatialLocality(w, b, n);
     mapInternalHandler = new pebil_map_type<uint64_t, ReuseDistance*>();
-    blockMemopMapper = new pebil_map_type<uint64_t, set<uint64_t>*>();
+    //blockMemopMapper = new pebil_map_type<uint64_t, set<uint64_t>*>();
+    memopBlockMapper = new pebil_map_type<uint64_t, uint64_t>();
     window = w;
     bin = b;
     nmax = n;
@@ -156,7 +185,8 @@ SpatialLocalityPerMemOpHandler::SpatialLocalityPerMemOpHandler(SpatialLocalityPe
     internalHandler = nullptr;
     //internalHandler = new SpatialLocality((SpatialLocality*)h.internalHandler);
     mapInternalHandler = new pebil_map_type<uint64_t, ReuseDistance*>();
-    blockMemopMapper = new pebil_map_type<uint64_t, set<uint64_t>*>();
+    //blockMemopMapper = new pebil_map_type<uint64_t, set<uint64_t>*>();
+    memopBlockMapper = new pebil_map_type<uint64_t, uint64_t>();
     window = h.window;
     bin = h.bin;
     nmax = h.nmax;
@@ -178,11 +208,14 @@ uint32_t SpatialLocalityPerMemOpHandler::Process(void* stats, BufferEntry* acces
         individualMemOpSpatialLocality = new SpatialLocality(window,bin,nmax);
         std::pair<uint64_t, ReuseDistance*> kvp (memOp, individualMemOpSpatialLocality);
         mapInternalHandler->insert(kvp);
+        uint64_t block = s->GetBlock(memOp);
+        std::pair<uint64_t, uint64_t> kvp2 (memOp, block);
+        memopBlockMapper->insert(kvp2);
     } else { //in map, grap it
         individualMemOpSpatialLocality = mapInternalHandler->find(memOp)->second;
     }
 
-    uint64_t block = s->GetBlock(memOp);
+    /*uint64_t block = s->GetBlock(memOp);
 
     //keep track of blockid -> memop 
     if (blockMemopMapper->find(block) == blockMemopMapper->end()) {
@@ -193,7 +226,7 @@ uint32_t SpatialLocalityPerMemOpHandler::Process(void* stats, BufferEntry* acces
     } else {
         set<uint64_t>* oldSet = blockMemopMapper->find(block)->second;
         oldSet->insert(memOp);
-    }
+    }*/
 
     //process it
     ReuseEntry entry = ReuseEntry();
@@ -211,28 +244,19 @@ void SpatialLocalityPerMemOpHandler::SkipAddresses(uint32_t numToSkip){
     }
 }
 
-void SpatialLocalityPerMemOpHandler::PrintBlockInfo(std::ostream& f, uint64_t block, std::set<uint64_t>* set){
+void SpatialLocalityPerMemOpHandler::PrintBlockInfo(std::ostream& f, uint64_t block, 
+  std::vector<uint64_t>* vec){
+
     reuse_map_type<uint64_t,uint64_t> BinTotal;
      
-    vector<uint64_t> keys(set->begin(), set->end());
-    sort(keys.begin(), keys.end());
-    
     uint64_t blockHash;
 
     uint64_t tot = 0, mis = 0, count = 0;
-    for (vector<uint64_t>::const_iterator it = keys.begin(); it != keys.end(); it++){
-        uint64_t id = (*it);
-        ReuseDistance* current = mapInternalHandler->find(id)->second;
+    for (vector<uint64_t>::const_iterator it = vec->begin(); it != vec->end(); it++){
+        uint64_t memOp = (*it);
+        ReuseDistance* current = mapInternalHandler->find(memOp)->second;
         vector<uint64_t> indices;
         current->GetIndices(indices);
-        //vector<uint64_t> addrs;
-        //current->GetActiveAddresses(addrs);
-        //fprintf(stderr, "count: %u\n", count++);
-        //fprintf(stderr, "indices.size(): %u\n", indices.size());
-        //fprintf(stderr, "indices[0]: %u\n", indices[0]);
-        //fprintf(stderr, "addrs.size(): %u\n", addrs.size());
-        //fprintf(stderr, "addrs[0]: %u\n", addrs[0]);
-        //fprintf(stderr, "current: %x\n", current);
         ReuseStats* r = current->GetStats(indices[0]);
         if (r != nullptr){
             tot += r->GetAccessCount();
@@ -250,15 +274,15 @@ void SpatialLocalityPerMemOpHandler::PrintBlockInfo(std::ostream& f, uint64_t bl
       << TAB << bin //binindividual
         //maxtracking is nmax
       << TAB << nmax //maxtracking
-      << TAB << keys.size()
+      << TAB << vec->size()
       << TAB << tot
       << TAB << mis
       << ENDL;
 
-    for (vector<uint64_t>::const_iterator it = keys.begin(); it != keys.end(); it++){
-        uint64_t id = (*it);
-        ReuseDistance* current = mapInternalHandler->find(id)->second;
-        PrintMemOpInfo(f, id, current, BinTotal);
+    for (vector<uint64_t>::const_iterator it = vec->begin(); it != vec->end(); it++){
+        uint64_t memOp = (*it);
+        ReuseDistance* current = mapInternalHandler->find(memOp)->second;
+        PrintMemOpInfo(f, memOp, current, BinTotal);
     }
 }
 

@@ -303,13 +303,7 @@ void ReuseDistance::Print(ostream& f, bool annotate){
 
 ReuseStats* ReuseDistance::GetStats(uint64_t id, bool gen){
     ReuseStats* s = stats[id];
-    fprintf(stderr, "EEO: s: %u\n", s);
-    for(reuse_map_type<uint64_t, ReuseStats*>::iterator it = stats.begin();
-      it != stats.end(); it++){
-        fprintf(stderr, "EEO: %u\n", it->first);
-    } 
     if (s == NULL && gen){
-        fprintf(stderr, "EEO: s==null\n");
         s = new ReuseStats(id, binindividual, capacity, ReuseDistance::Infinity);
         stats[id] = s;
     }
