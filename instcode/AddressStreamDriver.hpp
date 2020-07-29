@@ -107,6 +107,7 @@ class AddressStreamDriver {
     bool IsReuseDistance() { return runReuseDistance; }
     bool IsScatterLength() { return runScatterLength; }
     bool IsSpatialLocality() { return runSpatialLocality; }
+    bool IsSpatialLocalityPerMemOp() { return runSpatialLocalityPerMemOp; }
 
     void ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer);
