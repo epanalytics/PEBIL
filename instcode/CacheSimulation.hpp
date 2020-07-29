@@ -85,8 +85,10 @@ class CacheSimulationTool : public AddressStreamTool {
     virtual uint32_t CreateHandlers(uint32_t index, StringParser* parser);
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
       SamplingMethod* Sampler);
-    std::string GetCacheDescriptionFileName() { return CacheDescriptionFile; }
     void GetAndSetCacheDescriptionFile(StringParser* parser);
+    std::string GetCacheDescriptionFileName() { return CacheDescriptionFile; }
+    void GetReportFileName(AddressStreamStats* stats, std::string& oFile, 
+      std::string suffix);
     uint32_t GetMinimumHighAssociativity() { return MinimumHighAssociativity; }
     virtual void HandleEnvVariables(StringParser* parser);
     bool IsKeepingMemoryLog() { return KeepMemoryLog; }
@@ -124,7 +126,7 @@ class CacheSimulationTool : public AddressStreamTool {
       AllData, uint32_t sysidIndex, image_key_t imageid);
     virtual void PrintOverallStatistics(CacheStats* cacheStats, thread_key_t 
       threadid);
-    void PrintPerBlockData(DataManager<AddressStreamStats*>* AllData, 
+    virtual void PrintPerBlockData(DataManager<AddressStreamStats*>* AllData, 
       image_key_t imageid, thread_key_t threadid, CacheStats** aggregatedStats, 
       uint32_t bbid);
     virtual void PrintReportHeaders();
@@ -202,10 +204,16 @@ class CacheStructureHandler : public MemoryStreamHandler {
     StringParser* Parser;
     uint32_t SysId;
 
+    virtual void InitializeDataStructures();
     CacheLevel* ParseCacheLevelTokens(std::stringstream& tokenizer, 
       uint32_t levelId, uint32_t* firstExcl);
-    uint32_t ProcessAddress(CacheStats* stats, uint64_t address, uint64_t 
-      memseq, uint8_t load);
+    virtual bool ParseNonCacheLevelTokens(std::stringstream& tokenizer,
+      uint32_t levelId);
+    virtual void PostProcessAddress(CacheStats* stats, uint64_t address, 
+      uint64_t memseq, uint8_t load, uint32_t currLevel, uint32_t nextLevel,
+      EvictionInfo* evictInfo);
+    virtual uint32_t ProcessAddress(CacheStats* stats, uint64_t address, 
+      uint64_t memseq, uint8_t load);
 
   public:      
     // note that this doesn't contain any stats gathering code. that is done at
@@ -282,8 +290,6 @@ protected:
     history** HistoryUsed = nullptr;  // doubly-linked list for each set
     uint32_t* RecentlyUsed = nullptr; // MRU for lru (nmru) and LRU for trulru
 
-    // Get the cache address, the first address in a cache line
-    uint64_t GetCacheAddress(uint64_t addr);
     // Is the cache line at this set and line dirty?
     virtual bool GetDirtyStatus(uint32_t setid, uint32_t lineid);
     // Get set for a given cache address
@@ -318,6 +324,12 @@ public:
     virtual uint32_t GetSizeInBytes() { return Size; }
     virtual CacheLevelType GetType() { return Type; }
 
+    // Get the cache address, the first address in a cache line
+    uint64_t GetCacheAddress(uint64_t addr);
+    // Look for the given regular address in the cache and return the set/line
+    // Very similar to the Search function, but takes a regular address
+    virtual bool GetSetAndLine(uint64_t address, uint32_t* set, uint32_t* 
+      lineInSet);
     virtual uint32_t GetSetCount() { return NumSets; }
     // Initialize this cache level
     virtual void Init(CacheLevel_Init_Interface);

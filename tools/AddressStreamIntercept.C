@@ -37,12 +37,6 @@
 #define NOSTRING "__pebil_no_string__"
 #define BUFFER_ENTRIES 0x10000
 
-#define LOAD 1
-#define STORE 0
-
-#define NORMAL 0
-#define SWPF   1
-
 extern "C" {
     InstrumentationTool* AddressStreamInterceptMaker(ElfFile* elf){
         return new AddressStreamIntercept(elf);
@@ -1293,7 +1287,6 @@ void AddressStreamIntercept::setSr2ToBufferEntry(AddressStreamStats& stats,
     snip->addSnippetInstruction(X86InstructionFactory64::emitRegImmMultReg(sr3,
       sizeof(BufferEntry), sr3)); 
 
-
     // sr2 = pointer to memop's buffer entry
     snip->addSnippetInstruction(X86InstructionFactory64::
       emitLoadEffectiveAddress(sr2, sr3, 1, sizeof(BufferEntry) * bufferIndex, 
@@ -1557,7 +1550,7 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
           emitMoveKToReg(kreg, sr3));
     } else {  
         // If mask is a separate operand
-	    // then just move that register to sr3
+	      // then just move that register to sr3
         snip->addSnippetInstruction(X86InstructionFactory64::
           emitVMovMask(sr3, kreg, numIndices, elementSize));
     }
