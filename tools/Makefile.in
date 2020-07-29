@@ -50,6 +50,9 @@ S_%.o: %.C
 lib%Tool.so: %.o
 	$(CXX) $(SHARED_LIB) -o $@ $<
 
+libFunctionCounterTool.so: FunctionCounter.o BasicBlockCounter.o
+	$(CXX) $(SHARED_LIB) -o $@ $^
+
 lib%Tool.a: S_%.o
 	$(AR) $@ $<
 

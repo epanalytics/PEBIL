@@ -21,26 +21,18 @@
 #ifndef _FunctionCounter_h_
 #define _FunctionCounter_h_
 
-#include <InstrumentationTool.h>
-
-class FunctionCounter : public InstrumentationTool {
-private:
-    InstrumentationFunction* entryFunc;
-    InstrumentationFunction* exitFunc;
-
-    InstrumentationFunction* loopEntry;
-    InstrumentationFunction* loopExit;
+class FunctionCounter : public BasicBlockCounter {
+protected:
+    virtual uint32_t getNumberOfBlocksToInstrument();
+    virtual bool isInstrumentingLoops() { return false; }
+    virtual void setBlocksToInstrument();
 public:
-    FunctionCounter(ElfFile* elf);
-    ~FunctionCounter() {}
+    FunctionCounter(ElfFile* elf) : BasicBlockCounter(elf) {};
+    virtual ~FunctionCounter() {}
 
-    void declare();
-    void instrument();
-
-    const char* briefName() { return "FunctionCounter"; }
-    const char* defaultExtension() { return "fncinst"; }
-    uint32_t allowsArgs() { return PEBIL_OPT_NON; }
-    uint32_t requiresArgs() { return PEBIL_OPT_NON; }
+    virtual const char* briefName() { return "FunctionCounter"; }
+    virtual const char* defaultExtension() { return "fncinst"; }
+    virtual uint32_t allowsArgs() { return PEBIL_OPT_NON; }
 };
 
 
