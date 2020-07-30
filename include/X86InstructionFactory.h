@@ -106,7 +106,9 @@ public:
     static X86Instruction* emitFxSaveReg(uint8_t reg);
     static X86Instruction* emitFxRstorReg(uint8_t reg);
 
+    static X86Instruction* emitAddTLSOffsetToReg(uint32_t imm, uint8_t dest);
     static X86Instruction* emitMoveTLSOffsetToReg(uint32_t imm, uint8_t dest);
+    static X86Instruction* emitAddThreadIdToReg(uint8_t dest);
     static X86Instruction* emitMoveThreadIdToReg(uint8_t dest);
     static X86Instruction* emitCompareImmReg(uint64_t imm, uint8_t reg);
 
@@ -148,6 +150,8 @@ public:
     static X86Instruction* emitLoadRipImmReg(uint64_t imm, uint8_t dest);
 
     static Vector<X86Instruction*>* emitAddressComputation(X86Instruction* instruction, uint32_t dest, uint32_t impAddrFlag);
+    static X86Instruction* emitLoadEffectiveAddress(OperandX86* op, uint32_t 
+      dest, bool ignoreSeg);
     static X86Instruction* emitLoadEffectiveAddress(OperandX86* op, uint32_t 
       dest);
     static X86Instruction* emitLoadEffectiveAddress(uint32_t baseReg, uint32_t 
