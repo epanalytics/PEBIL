@@ -269,11 +269,18 @@ struct VectorInfo X86Instruction::getVectorInfo()
                 }
                 break;
             }
+            // Vectors that move the entire src in one go (not element by 
+            // element)
             case UD_Imovdqa:
             case UD_Imovdqu:
+            case UD_Imovntdq:
+            case UD_Imovntdqa:
             case UD_Ivmovdqa:
             case UD_Ivmovdqu:
+            case UD_Ivmovntdq:
+            case UD_Ivmovntdqa:
                 vectorInfo.elementSize = bytesInReg;
+                vectorInfo.nElements = 1;
                 vectorInfo.kval.confidence = Definitely;
                 break;
             default:
@@ -3279,8 +3286,8 @@ void X86InstructionClassifier::generateTable(){
     mkclass(            movd,     move,    move,   0,   64,    0,          32)
     mkclass(         movddup, helpMove,    move,   0, VRSZ,    0,          64)
     mkclass(         movdq2q,     move,    move,   0,   64,    0,          64)
-    mkclass(          movdqa, simdMove,    ints,   0, VRSZ,    0,          0)
-    mkclass(          movdqu, simdMove,    ints,   0, VRSZ,    0,          0)
+    mkclass(          movdqa, simdMove,    move,   0, VRSZ,    0,          0)
+    mkclass(          movdqu, simdMove,    move,   0, VRSZ,    0,          0)
     mkclass(         movhlps, simdMove,    move,   0,   32,    0,          32)
     mkclass(          movhpd, helpMove,    move,   0,   64,    0,          64)
     mkclass(          movhps, simdMove,    move,   0,   32,    0,          32)
@@ -3290,7 +3297,7 @@ void X86InstructionClassifier::generateTable(){
     mkclass(        movmskpd, simdMove,    move,   0, VRSZ,    0,          64)
     mkclass(        movmskps,     move,    move,   0, VRSZ,    0,          32)
     mkclass(         movntdq, simdMove,    move,   0, VRSZ,    0,          0)
-    mkclass(        movntdqa,     move,       0,   0,    0,    0,          0)
+    mkclass(        movntdqa, simdMove,    move,   0, VRSZ,    0,          0)
     mkclass(          movnti,     move,    move,   0, VRSZ,    0,          0)
     mkclass(         movntpd, simdMove,    move,   0, VRSZ,    0,          64)
     mkclass(         movntps, simdMove,    move,   0, VRSZ,    0,          32)
@@ -3887,11 +3894,11 @@ void X86InstructionClassifier::generateTable(){
     mkclass(         vmovaps,   simdMove,    floatv,    0,    VRSZ,    0,    32)
     mkclass(           vmovd,       move,         0,    0,       0,    0,    0)
     mkclass(        vmovddup,   simdMove,    floatv,    0,    VRSZ,    0,    64)
-    mkclass(         vmovdqa,   simdMove,      ints,    0,    VRSZ,    0,    0)
+    mkclass(         vmovdqa,   simdMove,      intv,    0,    VRSZ,    0,    0)
     mkclass(       vmovdqa32,   simdMove,      intv,    0,    VRSZ,    0,    32)
     mkclass(       vmovdqa64,   simdMove,      intv,    0,    VRSZ,    0,    64)
     // vmovdqu -- move happens at once
-    mkclass(         vmovdqu,   simdMove,      ints,    0,    VRSZ,    0,    0)
+    mkclass(         vmovdqu,   simdMove,      intv,    0,    VRSZ,    0,    0)
     mkclass(        vmovdqu8,   simdMove,      intv,    0,    VRSZ,    0,    8)
     mkclass(       vmovdqu16,   simdMove,      intv,    0,    VRSZ,    0,    16)
     mkclass(       vmovdqu32,   simdMove,      intv,    0,    VRSZ,    0,    32)
@@ -3909,7 +3916,7 @@ void X86InstructionClassifier::generateTable(){
     mkclass(    vmovnrngoapd,   simdMove,    floatv,    0,    VRSZ,    0,    64)
     mkclass(    vmovnrngoaps,   simdMove,    floatv,    0,    VRSZ,    0,    32)
     mkclass(        vmovntdq,   simdMove,      intv,    0,    VRSZ,    0,    0)
-    mkclass(       vmovntdqa,       move,         0,    0,       0,    0,    0)
+    mkclass(       vmovntdqa,   simdMove,    floatv,    0,    VRSZ,    0,    0)
     mkclass(        vmovntpd,   simdMove,    floatv,    0,    VRSZ,    0,    64)
     mkclass(        vmovntps,   simdMove,    floatv,    0,    VRSZ,    0,    32)
     mkclass(           vmovq,       move,         0,    0,       0,    0,    0)
