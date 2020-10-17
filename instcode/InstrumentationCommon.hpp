@@ -414,6 +414,14 @@ extern "C" {
             fprintf(stderr, "%s\n", symbols[i]);
         }
     }
+
+    static void interrupt_handler(int signo, siginfo_t* siginf, void* context) {
+        fprintf(stderr, "Thread %#llx Received signal %d SIGINT\n", 
+          pthread_self(), signo);
+        fprintf(stderr, "At address 0x%llx\n", siginf->si_addr);
+        print_backtrace();
+        exit(1);
+    }
     
     static void segfault_handler(int signo, siginfo_t* siginf, void* context)
     {
@@ -444,8 +452,7 @@ extern "C" {
 
     }
     
-    void init_signal_handlers()
-    {
+    void init_signal_handlers(bool debug = false) {
     
         struct sigaction illAction;
         illAction.sa_sigaction = illegal_instruction_handler;
@@ -456,9 +463,14 @@ extern "C" {
         segAction.sa_sigaction = segfault_handler;
         segAction.sa_flags = SA_SIGINFO | SA_NODEFER;
         sigaction(SIGSEGV, &segAction, NULL);
-        //fprintf(stderr, "Initialized signal handlers\n");
-    }
 
+        if (debug) {
+            struct sigaction intAction;
+            intAction.sa_sigaction = interrupt_handler;
+            intAction.sa_flags = SA_SIGINFO | SA_NODEFER;
+            sigaction(SIGINT, &intAction, NULL);
+        }
+    }
 
 };
 

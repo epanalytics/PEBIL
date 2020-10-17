@@ -142,7 +142,8 @@ void DeleteCounterArray(CounterArray* ctrs){
 void* tool_thread_init(thread_key_t tid){
     //inform << "Entering tool_thread_init" << ENDL;
     SAVE_STREAM_FLAGS(cout);
-    //init_signal_handlers();
+    // Each thread needs the signal handlers initialized
+    init_signal_handlers(true);
     if (AllData){
         if(isThreadedMode())
             AllData->AddThread(tid);
