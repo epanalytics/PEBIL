@@ -60,6 +60,7 @@ extern "C" {
     }
 
     void* tool_thread_init(thread_key_t tid){
+        init_signal_handlers(true);
         if(Driver != NULL)
           return Driver->InitializeNewThread(tid);
         return NULL;
@@ -87,7 +88,7 @@ extern "C" {
 
         // initialize AllData once per address space
         if (Driver->GetAllData() == NULL){
-            init_signal_handlers();
+            init_signal_handlers(true);
             DataManager<AddressStreamStats*>* AllData;
             AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats, 
               DeleteStreamStats, ReferenceStreamStats);
