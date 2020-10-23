@@ -94,13 +94,16 @@ public:
 
     bool hasCompleteDisassembly();
     bool containsCallToRange(uint64_t lowAddr, uint64_t highAddr);
+    bool isInRange(uint64_t addr);
 
     bool callsSelf();
     bool hasSelfDataReference();
     bool refersToInstruction();
     bool containsReturn();
 
-    uint32_t bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* instPoints);
+    uint32_t bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* 
+      instPoints, Vector<Vector<uint64_t>*>* oldInsnAddresses, 
+      Vector<uint64_t>* oldInsns, Vector<uint64_t>* newInsns);
     uint32_t addSafetyJump(X86Instruction* tgtInstruction);
 
     void setBaseAddress(uint64_t newBaseAddress);

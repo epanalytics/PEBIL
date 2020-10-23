@@ -48,6 +48,15 @@
 bool ElfFile::isMicBinary() {
     return getFileHeader()->GET(e_machine) == EM_K10M;
 }
+
+bool ElfFile::isAVX512Binary() {
+#ifdef HAS_AVX512_SET
+    return true;
+#else
+    return false;
+#endif
+}
+
 // get the smallest virtual address of all loadable segments (ie, the base address for the program)
 uint64_t ElfFile::getProgramBaseAddress(){
     uint64_t segmentBase = -1;

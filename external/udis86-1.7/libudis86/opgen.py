@@ -28,6 +28,7 @@ spl_mnm_types = [   'totaltypes', \
                     'grp_mod',    \
                     'grp_w',      \
                     'grp_l',      \
+                    'grp_ll',      \
                     'none'        \
                 ]
 
@@ -99,7 +100,8 @@ operand_dict = {
     "Ob"       : [    "OP_O"        , "SZ_B"     ], # An offset
     "Ow"       : [    "OP_O"        , "SZ_W"     ],
     "Ov"       : [    "OP_O"        , "SZ_V"     ],
-    "X"        : [    "OP_X"        , "SZ_X"     ], # xmm/ymm reg in VEX.vvvv
+    "X"        : [    "OP_X"        , "SZ_NA"    ], # xmm/ymm reg in VEX.vvvv
+    "Xx"       : [    "OP_X"        , "SZ_X"     ], 
     "V"        : [    "OP_V"        , "SZ_NA"    ], # xmm/ymm reg in ModRm.reg
     "Vd"       : [    "OP_V"        , "SZ_D"     ],
     "Vq"       : [    "OP_V"        , "SZ_Q"     ],
@@ -181,15 +183,27 @@ operand_dict = {
     "jWP"      : [    "OP_J"        , "SZ_WP"    ], # jump immediate
     "jDP"      : [    "OP_J"        , "SZ_DP"    ],
 
-    "ZR"       : [    "OP_ZR"       , "SZ_XZ"     ], # zmm in R':R:reg
+    "ZR"       : [    "OP_ZR"       , "SZ_NA"     ], # zmm in R':R:reg
+    "ZRx"      : [    "OP_ZR"       , "SZ_X"      ],
+    "ZRy"      : [    "OP_ZR"       , "SZ_Y"      ],
+    "ZRz"      : [    "OP_ZR"       , "SZ_XZ"      ],
     "ZM"       : [    "OP_ZM"       , "SZ_XZ"     ], # Mem in ModRm.rm
     "ZRM"      : [    "OP_ZRM"      , "SZ_XZ"     ], # zmm/m in X:B:ModRm.rm
     "ZRMER"    : [    "OP_ZRMER"    , "SZ_XZ"     ], # zmm/m{er} in X:B:ModRm.rm
     "ZV"       : [    "OP_ZV"       , "SZ_XZ"     ], # zmm in V'vvvv
-    "ZVM"      : [    "OP_ZVM"      , "SZ_XZ"     ], # Vector memory addresses
+    "ZVM"      : [    "OP_ZVM"      , "SZ_NA"     ], # Vector memory addresses
+    "ZVMx"     : [    "OP_ZVM"      , "SZ_X"      ],
+    "ZVMy"     : [    "OP_ZVM"      , "SZ_Y"      ], 
+    "ZVMz"     : [    "OP_ZVM"      , "SZ_XZ"     ],
 
-    "KR"       : [    "OP_KR"       , "SZ_W"      ], # K register in ModRm.reg
+    "KR"       : [    "OP_KR"       , "SZ_NA"     ], # K register in ModRm.reg
+    "KRb"      : [    "OP_KR"       , "SZ_B"      ],
+    "KRd"      : [    "OP_KR"       , "SZ_D"      ],
+    "KRq"      : [    "OP_KR"       , "SZ_Q"      ],
     "KRM"      : [    "OP_KRM"      , "SZ_W"      ], # K register in ModRm.rm
+    "KRMb"     : [    "OP_KRM"      , "SZ_B"      ], 
+    "KRMd"     : [    "OP_KRM"      , "SZ_D"      ], 
+    "KRMq"     : [    "OP_KRM"      , "SZ_Q"      ], 
     "KV"       : [    "OP_KV"       , "SZ_W"      ], # K register in MVEX.vvvv
 
 }
@@ -198,8 +212,8 @@ operand_dict = {
 # opcode prefix dictionary
 # 
 pfx_dict = { 
-    "aso"      : "P_aso",   
-    "oso"      : "P_oso",   
+    "aso"      : "P_aso",   # address size prefix (e.g. a32)
+    "oso"      : "P_oso",   # operand size prefix (e.g. o32)
     "rexw"     : "P_rexw", 
     "rexb"     : "P_rexb",  
     "rexx"     : "P_rexx",  
@@ -473,6 +487,8 @@ for node in tlNode.childNodes:
                 table_size = 256
                 table_avx = ''
                 table_index = op
+                table_sse  = ''
+                table_ssedone += 1
             elif op == '0F' and len(table_avx):
                 table_name = "itab__" + table_avx + "__0f"
                 table_size = 256
@@ -560,7 +576,7 @@ for node in tlNode.childNodes:
                 table_name = tables[table_name][table_index]['name']
                 table_index = "%02X" % int(op[3:4])
                 table_size = 2
-            elif op[0:3] == "/L=": # L=0 or 1 for now
+            elif op[0:3] == "/L=": # VEX L: 0 or 1
                 tables[table_name][table_index] = { \
                     'type' : 'grp_l', \
                     'name' : "%s__op_%s__l" % (table_name, table_index) \
@@ -568,6 +584,14 @@ for node in tlNode.childNodes:
                 table_name = tables[table_name][table_index]['name']
                 table_index = "%02X" % int(op[3:4])
                 table_size = 2
+            elif op[0:4] == "/LL=": # EVEX L'L: 0-2
+                tables[table_name][table_index] = { \
+                    'type' : 'grp_ll', \
+                    'name' : "%s__op_%s__ll" % (table_name, table_index) \
+                }
+                table_name = tables[table_name][table_index]['name']
+                table_index = "%02X" % int(op[4:5])
+                table_size = 4
             elif op[0:1] == '/':
                 tables[table_name][table_index] = { \
                     'type' : 'grp_reg',  \

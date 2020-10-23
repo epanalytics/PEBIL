@@ -40,7 +40,6 @@ extern "C" {
     DECLARE_INST_CLASS(DeadRegisterSquasher);
 };
 #endif
-
 #include <set>
 
 using namespace std;
@@ -110,7 +109,7 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--trk <tracking/file>] : path to a tracking file\n");
     fprintf(stderr,"\t\t[--perinsn] : gather statistics per instruction if a tool supports it\n");
     fprintf(stderr,"\t\t[--dtl] : " DEPRECATED_MESSAGE "\n");
-    fprintf(stderr,"\t\t[--lpi] : " DEPRECATED_MESSAGE "\n");
+    fprintf(stderr,"\t\t[--lpi] : loop inclusion: if sampling is turned off for a block, turn off sampling for all other blocks in the same loop.\n");
     fprintf(stderr,"\t\t[--phs <phase_no>] : " DEPRECATED_MESSAGE " (if given, must be == 1)\n");
     fprintf(stderr,"\t\t[--dfp <pattern/file>] : " DEPRECATED_MESSAGE "\n");
     fprintf(stderr,"\t\t[--dmp <off|on|nosim>] : " DEPRECATED_MESSAGE "\n");
@@ -119,7 +118,7 @@ void printUsage(const char* msg = NULL){
 }
 
 void printSuccess(){
-    PRINT_INFOR("******** Instrumentation Successfull ********");
+    PRINT_INFOR("******** Instrumentation Successful ********");
 }
 
 void printDone(){
@@ -216,6 +215,9 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(hybrid);
     DEFINE_FLAG(images);
     DEFINE_FLAG(perinsn);
+    DEFINE_FLAG(saveall);
+    DEFINE_FLAG(nosavezmm);
+    DEFINE_FLAG(printinsnmaps);
 
 #define DEFINE_ARG(__name) char* __name ## _arg = NULL
     DEFINE_ARG(typ); // char* typ_arg = NULL;
@@ -233,6 +235,7 @@ int main(int argc,char* argv[]){
     DEFINE_ARG(phs);
     DEFINE_ARG(dfp);
     DEFINE_ARG(out);
+    DEFINE_ARG(inv);
 
 #define FLAG_OPTION(__name, __char) {#__name, no_argument, &__name ## _flag, __char}
 #define ARG_OPTION(__name, __char) {#__name, required_argument, 0, __char}
@@ -240,14 +243,14 @@ int main(int argc,char* argv[]){
         /* These options set a flag. */
         FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'),
         FLAG_OPTION(version, 'V'), FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), FLAG_OPTION(threaded, 'P'),
-        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'),
+        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'),
 
         /* These options take an argument
            We distinguish them by their indices. */
         ARG_OPTION(typ, 'y'), ARG_OPTION(tool, 't'), ARG_OPTION(tlib, 'O'), ARG_OPTION(inp, 'p'), ARG_OPTION(trk, 'k'), 
         ARG_OPTION(lnc, 'n'), ARG_OPTION(inf, 'z'), ARG_OPTION(app, 'a'), ARG_OPTION(lib, 'l'),
         ARG_OPTION(ext, 'x'), ARG_OPTION(fbl, 'b'), ARG_OPTION(dmp, 'm'), ARG_OPTION(phs, 'f'), ARG_OPTION(dfp, 'g'),
-        ARG_OPTION(out, 'o'),
+        ARG_OPTION(out, 'o'), ARG_OPTION(inv, 'i'),
         {0,              0,                 0,              0},
     };
 
@@ -288,6 +291,7 @@ int main(int argc,char* argv[]){
         SET_ARGPTR(phs, 'f')
         SET_ARGPTR(dfp, 'g')
         SET_ARGPTR(out, 'o')
+        SET_ARGPTR(inv, 'i')
 
         /* this shouldn't happen, but handle it anyway */
         else {
@@ -575,7 +579,7 @@ int main(int argc,char* argv[]){
             instTool->initToolArgs(lpi_flag == 0 ? false : true,
                                    dtl_flag == 0 ? false : true,
                                    doi_flag == 0 ? false : true,
-                                   phaseNo, inp_arg, dfp_arg, trk_arg);
+                                   phaseNo, inp_arg, dfp_arg, trk_arg, inv_arg);
             if (!instTool->verifyArgs()){
                 printUsage("argument missing/incorrect");
             }
@@ -607,6 +611,18 @@ int main(int argc,char* argv[]){
             if (perinsn_flag){
                 instTool->setPerInstruction();
             }
+
+            if (saveall_flag) {
+                instTool->setSaveAll();
+            }
+
+            if (nosavezmm_flag) {
+                instTool->unsetSaveZmm();
+            }
+
+            if (printinsnmaps_flag) {
+                instTool->setTrackRelocatedInsns();
+            }
             
             ASSERT(instTool);
             instTool->phasedInstrumentation();
@@ -616,6 +632,8 @@ int main(int argc,char* argv[]){
            
 /**************************** Print any extra information *********************/
             elfFile->printDynamicLibraries();
+            instTool->printRelocatedInsnMaps();
+            instTool->printHiddenFunctions();
             if (inf_arg){
                 instTool->print(printCodes);
                 TIMER(t2 = timer();PRINT_INFOR("___timer: Instrumentation Step %d Print   : %.2f seconds",++stepNumber,t2-t1);t1=t2);

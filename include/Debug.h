@@ -298,7 +298,7 @@
     PRINT_INFO(); \
     PRINT_OUT("instruction %d %s list: ", __i, #__list);      \
     for (uint32_t __j = 0; __j < __elts; __j++){\
-    if (__list[__i]->contains(__j)){\
+    if (__list[__i].containsRegister(__j)){\
     PRINT_OUT("reg:%d ", __j);\
     }\
     }\

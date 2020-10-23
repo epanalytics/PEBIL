@@ -36,7 +36,7 @@ typedef struct {
     uint64_t id;
     uint64_t data;
 } ThreadData;
-#define ThreadHashShift (12)
+#define ThreadHashShift (16)
 #define ThreadHashMod   (0x3ffff)
 
 struct DynamicInstInternal {
@@ -120,6 +120,7 @@ protected:
     char* dfpFile;
     char* trackFile;
     bool doIntro;
+    char* inv_reg;
 
 #define PEBIL_OPT_ALL 0xffffffff
 #define PEBIL_OPT_NON 0x00000000
@@ -143,7 +144,7 @@ public:
     virtual ~InstrumentationTool() { }
 
     void init(char* ext);
-    void initToolArgs(bool lpi, bool dtl, bool doi, uint32_t phase, char* inp, char* dfp, char* trk);
+    void initToolArgs(bool lpi, bool dtl, bool doi, uint32_t phase, char* inp, char* dfp, char* trk, char* inv);
     void setMaker(InstrumentationTool* (*maker)(ElfFile*)) { this->maker = maker; };
 
     virtual void declare();

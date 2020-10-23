@@ -82,13 +82,26 @@ class TextObject;
 #define IS_REG(__reg) (IS_GPR(__reg) || IS_SEGMENT_REG(__reg) || IS_CONTROL_REG(__reg) || IS_DEBUG_REG(__reg) || \
                        IS_MMX_REG(__reg) || IS_X87_REG(__reg) || IS_XMM_REG(__reg) || IS_YMM_REG(__reg) || \
                        IS_ZMM_REG(__reg) || IS_K_REG(__reg) || IS_PC_REG(__reg))
-#define IS_ALU_REG(__reg) (IS_GPR(__reg) || IS_XMM_REG(__reg))
+#define IS_ALU_REG(__reg) (IS_GPR(__reg) || IS_XMM_REG(__reg) || IS_YMM_REG(__reg) || IS_ZMM_REG(__reg))
 
 #define IS_LOADADDR(__mne) (__mne == UD_Ilea)
-#define IS_PREFETCH(__mne) (__mne == UD_Iprefetch || __mne == UD_Iprefetchnta || __mne == UD_Iprefetcht0 || \
-                            __mne == UD_Iprefetcht1 || __mne == UD_Iprefetcht2 || __mne == UD_Ivprefetchnta || \
-                            __mne == UD_Ivprefetch0 || __mne == UD_Ivprefetch1 || __mne == UD_Ivprefetch2 || \
-                            __mne == UD_Ivprefetchenta || __mne == UD_Ivprefetche0 || __mne == UD_Ivprefetche1 || __mne == UD_Ivprefetche2 )
+#define IS_PREFETCH(__mne) (__mne == UD_Iprefetch || __mne == UD_Iprefetchnta \
+  || __mne == UD_Iprefetcht0 || __mne == UD_Iprefetcht1 || \
+  __mne == UD_Iprefetcht2 || __mne == UD_Ivprefetchnta || \
+  __mne == UD_Ivprefetch0 || __mne == UD_Ivprefetch1 || \
+  __mne == UD_Ivprefetch2 || __mne == UD_Ivprefetchenta || \
+  __mne == UD_Ivprefetche0 || __mne == UD_Ivprefetche1 || \
+   __mne == UD_Ivprefetche2 || \
+  __mne == UD_Ivgatherpf0dpd || __mne == UD_Ivgatherpf0dps || \
+  __mne == UD_Ivgatherpf0qpd || __mne == UD_Ivgatherpf0qps || \
+  __mne == UD_Ivgatherpf0hintdpd || __mne == UD_Ivgatherpf0hintdps || \
+  __mne == UD_Ivscatterpf0dpd ||__mne == UD_Ivscatterpf0dps || \
+  __mne == UD_Ivscatterpf0qpd || __mne == UD_Ivscatterpf0qps || \
+  __mne == UD_Ivscatterpf0hintdpd || __mne == UD_Ivscatterpf0hintdps || \
+  __mne == UD_Ivgatherpf1dpd || __mne == UD_Ivgatherpf1dps || \
+  __mne == UD_Ivgatherpf1qpd || __mne == UD_Ivgatherpf1qps || \
+  __mne == UD_Ivscatterpf1dpd || __mne == UD_Ivscatterpf1dps || \
+  __mne == UD_Ivscatterpf1qpd || __mne == UD_Ivscatterpf1qps)
 
 
 #define __reg_use 0
@@ -175,30 +188,31 @@ const static char* flag_name_map[X86_FLAG_BITS] = { "carry", __flag_reserved, "p
 #define X86_FPREG_XMM13 (13 + X86_64BIT_GPRS)
 #define X86_FPREG_XMM14 (14 + X86_64BIT_GPRS)
 #define X86_FPREG_XMM15 (15 + X86_64BIT_GPRS)
-#define X86_XMM_REGS 16
+#define X86_FPREG_XMM16 (16 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM17 (17 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM18 (18 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM19 (19 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM20 (20 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM21 (21 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM22 (22 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM23 (23 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM24 (24 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM25 (25 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM26 (26 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM27 (27 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM28 (28 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM29 (29 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM30 (30 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM31 (31 + X86_64BIT_GPRS)
+#define X86_XMM_REGS 32
 
 // YMM and ZMM regs are same as XMM
 #define X86_FPREG_YMM0 X86_FPREG_XMM0
 // FIXME fill in copies for rest of regs?
 #define X86_FPREG_ZMM0 X86_FPREG_XMM0
+#define X86_FPREG_ZMM31 X86_FPREG_XMM31
 // FIXME
-#define X86_FPREG_ZMM16 (16 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM17 (17 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM18 (18 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM19 (19 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM20 (20 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM21 (21 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM22 (22 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM23 (23 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM24 (24 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM25 (25 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM26 (26 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM27 (27 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM28 (28 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM29 (29 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM30 (30 + X86_64BIT_GPRS)
-#define X86_FPREG_ZMM31 (31 + X86_64BIT_GPRS)
-#define X86_ZMM_REGS 31
+#define X86_ZMM_REGS 32
 
 
 #define X87_REG_ST0 (0 + X86_64BIT_GPRS + X86_ZMM_REGS)
@@ -219,12 +233,18 @@ const static char* flag_name_map[X86_FLAG_BITS] = { "carry", __flag_reserved, "p
 #define X86_REG_K5 (5 + X86_REG_K0)
 #define X86_REG_K6 (6 + X86_REG_K0)
 #define X86_REG_K7 (7 + X86_REG_K0)
+#define X86_K_REGS 8
 
-#define X86_ALU_REGS (X86_64BIT_GPRS + X86_XMM_REGS + X87_REGS)
-const static char* alu_name_map[X86_ALU_REGS] = { "ax", "cx", "dx", "bx", "sp", "bp", "si", "di", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
-                                                  "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", 
-                                                  "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",
-                                                  "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7" };
+#define X86_ALU_REGS (X86_64BIT_GPRS + X86_XMM_REGS + X87_REGS + X86_K_REGS)
+const static char* alu_name_map[X86_ALU_REGS] = { "ax", "cx", "dx", "bx", 
+  "sp", "bp", "si", "di", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+  "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", 
+  "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "xmm16", 
+  "xmm17", "xmm18", "xmm19", "xmm20", "xmm21", "xmm22", "xmm23", "xmm24", 
+  "xmm25", "xmm26", "xmm27", "xmm28", "xmm29", "xmm30", "xmm31", 
+  "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7",
+  "k0", "k1", "k2", "k3", "k4", "k5", "k6", "k7",
+  };
 
     
 enum Confidence {
@@ -343,7 +363,7 @@ struct ud_compact
     uint8_t		adr_mode;
     //uint8_t		br_far;
     //uint8_t		br_near;
-    //uint8_t		implicit_addr;
+    uint8_t		implicit_addr;
     //uint8_t		c1;
     //uint8_t		c2;
     //uint8_t		c3;
@@ -475,7 +495,14 @@ public:
     int32_t getBaseRegister();
     uint32_t getIndexRegister();
 
+    bool hasIndexRegister();
+
     void touchedRegisters(BitSet<uint32_t>* regs);
+    bool isImmediate();
+    bool isIndexRegXMM();
+    bool isIndexRegYMM();
+    bool isIndexRegZMM();
+    bool isMemory();
     bool isRelative();
     uint32_t getType() { return GET(type); }
     int64_t getValue();
@@ -489,6 +516,7 @@ private:
     RegisterSet* liveIns;
     RegisterSet* liveOuts;
     uint32_t defUseDist;
+    bool defUseCalculated; // Set when defUseDist has been set
 
     uint32_t* flags_usedef;
 
@@ -546,8 +574,9 @@ public:
     BitSet<uint32_t>* getFlagsUsed();
     BitSet<uint32_t>* getFlagsDefined();
     RegisterSet * getUnusableRegisters();
-    RegisterSet * getRegistersUsed();
     RegisterSet * getRegistersDefined();
+    RegisterSet * getRegistersImplicitlyUsed();
+    RegisterSet * getRegistersUsed();
 
     bool allFlagsDeadIn();
     bool allFlagsDeadOut();
@@ -562,8 +591,8 @@ public:
 
     bool usesFlag(uint32_t flg);
     bool defsFlag(uint32_t flg);
-    bool implicitlyUsesReg(uint32_t alu);
-    bool implicitlyDefinesReg(uint32_t alu);
+    bool implicitlyUsesReg(uint64_t alu);
+    bool implicitlyDefinesReg(uint64_t alu);
 
     struct VectorInfo getVectorInfo();
     struct RuntimeValue getRegisterValue(enum ud_type reg);
@@ -644,6 +673,8 @@ public:
     bool isScatterGatherOp();
     bool isVectorMaskOp();
     bool isHelperMove();
+    bool isAdditionOp();
+    bool isSubtractionOp();
 
     bool isBinUnknown();
     bool isBinInvalid();

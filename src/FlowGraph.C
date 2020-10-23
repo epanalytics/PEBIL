@@ -1196,8 +1196,30 @@ Loop* FlowGraph::getInnermostLoopForBlock(uint32_t idx){
     return loop;
 }
 
+Loop* FlowGraph::getInnermostArtificialLoopForBlock(uint32_t idx){
+    Loop* loop = NULL;
+    for (uint32_t i = 0; i < artificialLoops.size(); i++){
+        if (artificialLoops[i]->isBlockIn(idx)){
+            if (loop){
+                if (artificialLoops[i]->getNumberOfBlocks() < 
+                  loop->getNumberOfBlocks()){
+                    loop = artificialLoops[i];
+                }
+            } else {
+                loop = artificialLoops[i];
+            }
+        }
+    }
+    return loop;
+}
+
 Loop* FlowGraph::getOuterMostLoopForLoop(uint32_t idx){
-    Loop* input = loops[idx];
+    Loop* input = NULL;
+    if (idx < loops.size())
+        input = loops[idx];
+    else
+        input = artificialLoops[idx - loops.size()];
+
     while (input->getIndex() != getOuterLoop(input->getIndex())->getIndex()){
         input = getOuterLoop(input->getIndex());
     }
@@ -1206,23 +1228,42 @@ Loop* FlowGraph::getOuterMostLoopForLoop(uint32_t idx){
 
 // Gets any outer loop of loop idx
 Loop* FlowGraph::getOuterLoop(uint32_t idx){
-    Loop* input = loops[idx];
-    for (uint32_t i = 0; i < loops.size(); i++){
-        if (input->isInnerLoopOf(loops[i])){
-            return loops[i];
+    Loop* input = NULL;
+    if (idx < loops.size()) {
+        input = loops[idx];
+        for (uint32_t i = 0; i < loops.size(); i++){
+            if (input->isInnerLoopOf(loops[i])){
+                return loops[i];
+            }
         }
+    } else {
+        input = artificialLoops[idx - loops.size()];
+        for (uint32_t i = 0; i < artificialLoops.size(); i++){
+            if (input->isInnerLoopOf(artificialLoops[i])){
+                return artificialLoops[i];
+            }
+        }
+
     }
     return input;
 }
 
 Loop* FlowGraph::getParentLoop(uint32_t idx){
-    Loop* input = loops[idx];
-    for (uint32_t i = 0; i < loops.size(); i++){
-        if (input->isInnerLoopOf(loops[i])){
-            if (getLoopDepth(loops[idx]->getHead()->getIndex()) == getLoopDepth(loops[i]->getHead()->getIndex()) + 1){
-                return loops[i];
+    Loop* input = NULL;
+    if (idx < loops.size()) {
+        input = loops[idx];
+        for (uint32_t i = 0; i < loops.size(); i++){
+            if (input->isInnerLoopOf(loops[i])){
+                if (getLoopDepth(loops[idx]->getHead()->getIndex()) == 
+                  getLoopDepth(loops[i]->getHead()->getIndex()) + 1){
+                    return loops[i];
+                }
             }
         }
+    } else {
+        // artificial loop depth never reset! Have to fix that before 
+        // using this function
+        assert(false);
     }
     return input;
 }
@@ -1253,6 +1294,10 @@ uint32_t FlowGraph::getLoopDepth(uint32_t idx){
         return 0;
     }
     return getLoopDepth(loop);
+}
+
+bool FlowGraph::isArtificialLoop(Loop* l) { 
+  return (l->getIndex() >= loops.size());
 }
 
 void FlowGraph::computeLiveness(){
@@ -1319,8 +1364,8 @@ void FlowGraph::computeLiveness(){
                             PRINT_OUT("%d ", (*it));
                         }
                         PRINT_OUT("\n");
-                        uses->print("uses");
-                        defs->print("defs");
+                        uses[i]->print("uses");
+                        defs[i]->print("defs");
                         //PRINT_REG_LIST(uses, maxElts, i);
                         //PRINT_REG_LIST(defs, maxElts, i);
                     }
@@ -1339,10 +1384,10 @@ void FlowGraph::computeLiveness(){
             PRINT_DEBUG_LIVE_REGS("before in[n] = use[n] U (out[n] - def[n])");
             DEBUG_LIVE_REGS(
                             {
-                    ins.print("ins");
-                    uses->print("uses");
-                    defs->print("defs");
-                    outs.print("outs");
+                    ins[i].print("ins");
+                    uses[i]->print("uses");
+                    defs[i]->print("defs");
+                    outs[i].print("outs");
                 }
             )
             //PRINT_REG_LIST(ins, maxElts, i);
@@ -1682,12 +1727,93 @@ uint32_t FlowGraph::buildLoops(){
     // Sort loops by loop head
     if (numberOfLoops){
         uint32_t i = 0;
+        Vector<uint32_t> subsetIndices;
+        Vector<uint32_t> matchingHeaderIndices;
         while (!loopList.empty()){
-            loops.append(loopList.shift());
+            Loop* naturalLoop = loopList.shift();
+            // All natural loops go into "loops"
+            loops.append(naturalLoop);
+
+            // Merge loops with same header for artificial loops
+            // TODO: Reset the depth!
+            Loop* currentLoop = new Loop(*naturalLoop);
+            PRINT_DEBUG_LOOP("Try adding loop with head %#llx and %d nodes\n", 
+              currentLoop->getHead()->getBaseAddress(), 
+              currentLoop->getNumberOfBlocks());
+            bool okayToInsert = true;
+            for (uint32_t i = 0; (i < artificialLoops.size()) && (okayToInsert);
+              i++) {
+                PRINT_DEBUG_LOOP("\t Test against %#llx", artificialLoops[i]->
+                  getHead()->getBaseAddress());
+                if (artificialLoops[i]->getHead() != currentLoop->getHead()) {
+                    PRINT_DEBUG_LOOP("\t\t Not the same head");
+                    continue;
+                }
+
+                if (artificialLoops[i]->isIdenticalLoop(currentLoop) || 
+                  currentLoop->isInnerLoopOf(artificialLoops[i])) {
+                    PRINT_DEBUG_LOOP("Found identical or bigger loop with head" 
+                      " %#llx and %d nodes\n", 
+                      artificialLoops[i]->getHead()->getBaseAddress(), 
+                      artificialLoops[i]->getNumberOfBlocks());
+                    okayToInsert = false;
+                    continue;
+                }
+
+                if (artificialLoops[i]->isInnerLoopOf(currentLoop)) {
+                    PRINT_DEBUG_LOOP("Found subset with head %#llx and %d nodes"
+                      " at index %d\n", artificialLoops[i]->getHead()->
+                      getBaseAddress(), artificialLoops[i]->getNumberOfBlocks(),
+                      i);
+                    subsetIndices.append(i);
+                    continue;
+                }
+
+                // If we get to this point, then we have two loops with the 
+                // same head, but they are not inner loops. They need to be 
+                // mergied
+                matchingHeaderIndices.append(i);
+                okayToInsert = false;
+            }
+
+            // If we have a matching header, we can't have a subset too
+            assert(!(subsetIndices.size() && matchingHeaderIndices.size()));
+
+            assert(subsetIndices.size() <= 1);
+            for (uint32_t i = 0; i < subsetIndices.size(); i++) {
+                PRINT_DEBUG_LOOP("Removing subset %d\n", subsetIndices[i]);
+                Loop* loopToDelete = artificialLoops.remove(subsetIndices[i]);
+                delete loopToDelete;
+            }
+            subsetIndices.clear();
+
+            assert(matchingHeaderIndices.size() <= 1);
+            for (uint32_t i = 0; i < matchingHeaderIndices.size(); i++) {
+                PRINT_DEBUG_LOOP("Adding loop to loop %d\n", 
+                  matchingHeaderIndices[i]);
+                Loop* loopToBeMergedInto = artificialLoops[
+                  matchingHeaderIndices[i]];
+                assert(loopToBeMergedInto->getFlowGraph() == currentLoop->
+                  getFlowGraph());
+                assert(loopToBeMergedInto->getHead() == currentLoop->getHead());
+                loopToBeMergedInto->mergeLoopInto(currentLoop);
+            }
+            matchingHeaderIndices.clear();
+
+            if (okayToInsert) {
+                artificialLoops.append(currentLoop);
+            } else {
+                delete currentLoop;
+            }
         }
         qsort(loops.array(),loops.size(),sizeof(Loop*),compareLoopEntry);
         for (i=0; i < loops.size(); i++){
             loops[i]->setIndex(i);
+        }
+        qsort(artificialLoops.array(), artificialLoops.size(), sizeof(Loop*),
+          compareLoopEntry);
+        for (i=0; i < artificialLoops.size(); i++){
+            artificialLoops[i]->setIndex(i + loops.size());
         }
     }
     ASSERT(loops.size() == numberOfLoops - excluded);
@@ -1710,6 +1836,8 @@ Vector<BasicBlock*>* FlowGraph::getExitBlocks(){
     Vector<BasicBlock*>* exitBlocks = new Vector<BasicBlock*>();
     for (uint32_t i = 0; i < basicBlocks.size(); i++){
         if (basicBlocks[i]->isExit()){
+            (*exitBlocks).append(basicBlocks[i]);
+        } else if (basicBlocks[i]->endsWithCall()) {
             (*exitBlocks).append(basicBlocks[i]);
         } else if (!getFunction()->inRange(basicBlocks[i]->getBaseAddress())){
             (*exitBlocks).append(basicBlocks[i]);

@@ -5,14 +5,14 @@ PEBIL_PAPI_BUILD = @PEBIL_PAPI_BUILD@
 PAPI_PATH = @PAPI_PATH@
 PEBIL_LIBS = 
 ifeq ($(STATIC_INST_LIB),yes)
-	PEBIL_LIBS = libtimer.a  libclassifier.a  libpfreq.a  libtautrace.a  libcounter.a  libsimulator.a
+	PEBIL_LIBS = libtimer.a  libclassifier.a  libpfreq.a  libtautrace.a  libcounter.a  libcachesimulator.a
 	ifeq ($(PEBIL_PAPI_BUILD),yes)
-		PEBIL_LIBS += libpapiinst.a
+		PEBIL_LIBS += libpapiinst.a libpapifunc.a
 	endif
 else
-	PEBIL_LIBS = libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libsimulator.so
+	PEBIL_LIBS = libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libcachesimulator.so libaddressrange.so libreusedist.so libscattergatherlength.so libspatlocal.so
 	ifeq ($(PEBIL_PAPI_BUILD),yes)
-		PEBIL_LIBS += libpapiinst.so
+		PEBIL_LIBS += libpapiinst.so libpapifunc.so
 	endif
 endif
 
@@ -78,14 +78,26 @@ $(MICLIBDIR)/libcounter.so : $(MICLIBDIR)/CounterFunctions.O
 $(MICLIBDIR)/libcounter.a : $(MICLIBDIR)/CounterFunctions.o $(COMMON_OBJS_MIC)
 	$(AR) $@ $(MICLIBDIR)/CounterFunctions.o $(COMMON_OBJS_MIC)
 
-$(LIBDIR)/libsimulator.so : $(LIBDIR)/Simulation.O
+$(LIBDIR)/libcachesimulator.so : $(LIBDIR)/CacheSimulation.O
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
-$(LIBDIR)/libsimulator.a : $(LIBDIR)/Simulation.o $(LIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS)
-	$(AR) $@ $(LIBDIR)/Simulation.o $(LIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS)
-$(MICLIBDIR)/libsimulator.so : $(MICLIBDIR)/Simulation.O
+$(LIBDIR)/libcachesimulator.a : $(LIBDIR)/CacheSimulation.o $(LIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS)
+	$(AR) $@ $(LIBDIR)/CacheSimulation.o $(LIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS)
+$(MICLIBDIR)/libcachesimulator.so : $(MICLIBDIR)/CacheSimulation.O
 	$(MPICXX_MIC) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_MIC_LIBS) $(CXXFLAGS) $(MICFLAGS)
-$(MICLIBDIR)/libsimulator.a : $(MICLIBDIR)/Simulation.o $(MICLIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS_MIC)
-	$(AR) $@ $(MICLIBDIR)/Simulation.o $(MICLIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS_MIC)
+$(MICLIBDIR)/libcachesimulator.a : $(MICLIBDIR)/CacheSimulation.o $(MICLIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS_MIC)
+	$(AR) $@ $(MICLIBDIR)/CacheSimulation.o $(MICLIBDIR)/CacheSimulationCommon.o $(COMMON_OBJS_MIC)
+
+$(LIBDIR)/libaddressrange.so : $(LIBDIR)/AddressRange.O
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
+
+$(LIBDIR)/libreusedist.so : $(LIBDIR)/ReuseDistAddr.O
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
+
+$(LIBDIR)/libscattergatherlength.so : $(LIBDIR)/ScatterGatherLength.O
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
+
+$(LIBDIR)/libspatlocal.so : $(LIBDIR)/SpatLocalAddr.O
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
 
 $(LIBDIR)/liblooptimer.so : $(LIBDIR)/LoopTimer.O
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)

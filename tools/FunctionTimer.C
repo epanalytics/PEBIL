@@ -125,6 +125,21 @@ void FunctionTimer::instrument(){
         uint64_t funcname = reserveDataOffset(strlen(f->getName()) + 1);
         initializeReservedPointer(funcname, funcNameArray + sizeof(char*) * i);
         initializeReservedData(getInstDataAddress() + funcname, strlen(f->getName()) + 1, (void*)f->getName());
+
+    }
+
+    // Adding the base address
+    uint64_t functionHashes = reserveDataOffset(getNumberOfExposedFunctions() * sizeof(uint64_t));
+    initializeReservedPointer(functionHashes, functionInfoStruct + offsetof(FunctionTimers, functionHashes));
+
+    for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+        Function* f = getExposedFunction(i);
+        BasicBlock* bb = f->getFlowGraph()->getEntryBlock();
+	temp64=bb->getHashCode().getValue();
+	//temp64=f->getBaseAddress();
+	uint64_t funchash = reserveDataOffset(sizeof(temp64));
+        initializeReservedData(getInstDataAddress() + functionHashes + sizeof(uint64_t)*i, (sizeof(uint64_t)), &temp64);
+
     }
 
     funcInfo.functionTimerAccum = NULL;
@@ -189,31 +204,49 @@ void FunctionTimer::instrument(){
         //InstrumentationPoint* p = addInstrumentationPoint(bestinst, functionEntry, InstrumentationMode_tramp, loc);
         //assignStoragePrior(p, i, functionEntryIndexRegister);
 	//PRINT_INFOR("Instrumenting entry block for %s at 0x%llx\n", f->getName(), (*exitBlocks)[j]->getBaseAddress());
-        instrumentEntry(bb, functionEntryIndexRegister, i);
+        // Instrumnet bb slightly later
+        //instrumentEntry(bb, functionEntryIndexRegister, i);
 
         // Instrument entry blocks of sub-functions
         uint32_t ninstructions = f->getNumberOfInstructions();
         X86Instruction** finstructions = new X86Instruction*[ninstructions];
         f->getAllInstructions(finstructions, 0);
 
+        // Check for calls to the middle of the current function
+        // First collect all unique blocks to prevent double-instrumentation
+        Vector<BasicBlock*> toInstrumentAsEntry;
+        toInstrumentAsEntry.append(bb);
         for( uint32_t j = 0; j < ninstructions; ++j) {
             X86Instruction* ins = finstructions[j];
             if(ins->isCall() && f->inRange(ins->getTargetAddress()) ) {
 
                 BasicBlock* callTarget = f->getBasicBlockAtAddress(ins->getTargetAddress());
                 assert(callTarget);
-                PRINT_INFOR("Instrumenting call to self in function %s at 0x%llx\n", f->getName(), callTarget->getBaseAddress());
-
-                instrumentEntry(callTarget, functionEntryIndexRegister, i);
-
+        //        PRINT_INFOR("Adding call to self in function %s at 0x%llx\n", f->getName(), callTarget->getBaseAddress());
+                toInstrumentAsEntry.append(callTarget);
             }
         }
         delete finstructions;
 
-        // Instrument each exit block
+        Vector<BasicBlock*>* removedEntries = toInstrumentAsEntry.removeRep(
+          compareBaseAddress);
+        for (uint32_t j = 0; j < toInstrumentAsEntry.size(); j++) {
+            PRINT_INFOR("Instrumenting with entry - function %s at 0x%llx\n", 
+              f->getName(), toInstrumentAsEntry[j]->getBaseAddress());
+            instrumentEntry(toInstrumentAsEntry[j], functionEntryIndexRegister, 
+              i);
+        }
+
+        delete removedEntries;
+
+        // Instrument each block that exits the function with no hope of 
+        // coming back. This includes returns and unconditional jumps
         for (uint32_t j = 0; j < (*exitBlocks).size(); j++){
 
-            if( !(*exitBlocks)[j]->getExitInstruction()->isReturn() )
+            // We can assume that the unconditional branch here leaves the 
+            // function because it is an exit block
+            if( !(*exitBlocks)[j]->getExitInstruction()->isReturn() &&
+              !(*exitBlocks)[j]->getExitInstruction()->isUnconditionalBranch())
                 continue;
 
             PRINT_INFOR("Instrumenting exit block for %s at 0x%llx\n", f->getName(), (*exitBlocks)[j]->getBaseAddress());

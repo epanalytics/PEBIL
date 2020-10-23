@@ -22,7 +22,8 @@
 #define _Simulation_hpp_
 
 #include <string>
-#include <Metasim.hpp>
+//#include <Metasim.hpp>
+#include <AddressStreamStats.hpp>
 
 using namespace std;
 
@@ -41,6 +42,7 @@ enum CacheLevelType {
     CacheLevelType_Undefined,
     CacheLevelType_InclusiveLowassoc,
     CacheLevelType_ExclusiveLowassoc,
+    CacheLevelType_NonInclusiveLowassoc,
     CacheLevelType_InclusiveHighassoc,
     CacheLevelType_ExclusiveHighassoc,
     CacheLevelType_Total
@@ -87,15 +89,15 @@ static bool ParsePositiveInt32(string token, uint32_t* value);
 static bool ParseInt32(string token, uint32_t* value, uint32_t min);
 static bool ParsePositiveInt32Hex(string token, uint32_t* value);
 static void ReadSettings();
-static SimulationStats* GenerateCacheStats(SimulationStats* stats, uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
-static uint64_t ReferenceCacheStats(SimulationStats* stats);
-static void DeleteCacheStats(SimulationStats* stats);
+static AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, 
+  uint32_t typ, image_key_t iid, thread_key_t tid, image_key_t firstimage);
+static uint64_t ReferenceStreamStats(AddressStreamStats* stats);
+static void DeleteStreamStats(AddressStreamStats* stats);
 static bool ReadEnvUint32(string name, uint32_t* var);
-static void PrintSimulationStats(ofstream& f, SimulationStats* stats, thread_key_t tid, bool perThread);
-static void SimulationFileName(SimulationStats* stats, string& oFile);
-static void ReuseDistFileName(SimulationStats* stats, string& oFle);
-static void SpatialDistFileName(SimulationStats* stats, string& oFile);
-static void RangeFileName(SimulationStats* stats, string& oFile);
+static void PrintAddressStreamStats(ofstream& f, AddressStreamStats* stats, 
+  thread_key_t tid, bool perThread);
+static void SimulationFileName(AddressStreamStats* stats, string& oFile);
+static void RangeFileName(AddressStreamStats* stats, string& oFile);
 
 extern "C" {
     void* tool_mpi_init();
@@ -118,7 +120,8 @@ public:
     LevelStats* HybridMemStats; // indexed by [memid]
     uint32_t Capacity;
     uint32_t hybridCache;
-    CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity,uint32_t hybridCache);
+    CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
+      hybridCache);
     ~CacheStats();
 
     bool HasMemId(uint32_t memid);
@@ -180,32 +183,6 @@ public:
     bool Verify();
 };
 
-struct AddressRange {
-    uint64_t Minimum;
-    uint64_t Maximum;
-};
-
-class RangeStats : public StreamStats {
-private:
-    static const uint64_t MAX_64BIT_VALUE = 0xffffffffffffffff;
-public:
-    uint32_t Capacity;
-    AddressRange** Ranges;
-    uint64_t* Counts;
-
-    RangeStats(uint32_t capacity);
-    ~RangeStats();
-
-    bool HasMemId(uint32_t memid);
-    uint64_t GetMinimum(uint32_t memid);
-    uint64_t GetMaximum(uint32_t memid);
-    uint64_t GetAccessCount(uint32_t memid) { return Counts[memid]; }
-
-    void Update(uint32_t memid, uint64_t addr);
-    void Update(uint32_t memid, uint64_t addr, uint32_t count);
-
-    bool Verify();
-};
 
 #define INVALID_REUSE_DISTANCE (-1)
 
@@ -264,10 +241,12 @@ public:
     CacheLevel();
     ~CacheLevel();
 
-    bool IsExclusive() { return (type == CacheLevelType_ExclusiveLowassoc || type == CacheLevelType_ExclusiveHighassoc); }
+    bool IsExclusive() { return (type == CacheLevelType_ExclusiveLowassoc || 
+      type == CacheLevelType_ExclusiveHighassoc); }
 
     uint32_t GetLevelCount() { return levelCount;}
-    uint32_t SetLevelCount(uint32_t InpLevelCount) { return levelCount=InpLevelCount; }
+    uint32_t SetLevelCount(uint32_t inpLevelCount) { return levelCount = 
+      inpLevelCount; }
     CacheLevelType GetType() { return type; }
     ReplacementPolicy GetReplacementPolicy() { return replpolicy; }
     uint32_t GetLevel() { return level; }
@@ -280,10 +259,14 @@ public:
     void Print(ofstream& f, uint32_t sysid);
 
     // re-implemented by Exclusive/InclusiveCacheLevel
-    virtual uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t loadstoreflag,bool* anyEvict,void* info);
-    virtual uint32_t EvictProcess(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t loadstoreflag,void* info);    
+    virtual uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, 
+      uint64_t loadstoreflag, bool* anyEvict, void* info);
+    virtual uint32_t EvictProcess(CacheStats* stats, uint32_t memid, uint64_t 
+      addr, uint64_t loadstoreflag, void* info);    
 
-    virtual void EvictDirty(CacheStats* stats,CacheLevel** levels,uint32_t memid,void* info); // void* info is needed since eventually 'Process' needs to be called! 
+    virtual void EvictDirty(CacheStats* stats, CacheLevel** levels, uint32_t 
+      memid, void* info); // void* info is needed since eventually 'Process' 
+      // needs to be called! 
     virtual bool GetEvictStatus();
 
     vector<uint64_t>* passEvictAddresses() { return toEvictAddresses;}
@@ -334,6 +317,21 @@ public:
         type = CacheLevelType_ExclusiveLowassoc;
         FirstExclusive = firstExcl;
         LastExclusive = lastExcl;
+    }
+    virtual const char* TypeString() { return "exclusive"; }
+};
+
+class NonInclusiveCacheLevel : public virtual CacheLevel {
+public:
+    uint32_t FirstExclusive;
+    uint32_t LastExclusive;
+
+    NonInclusiveCacheLevel() {}
+    uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t
+      loadstoreflag,bool* anyEvict,void* info);
+    virtual void Init(CacheLevel_Init_Interface){
+        CacheLevel::Init(CacheLevel_Init_Arguments);
+        type = CacheLevelType_NonInclusiveLowassoc;
     }
     virtual const char* TypeString() { return "exclusive"; }
 };
@@ -401,17 +399,6 @@ public:
     bool TryLock();
 
     static StreamHandlerTypes FindType(string desc) { return StreamHandlerType_CacheStructure; }
-};
-
-class AddressRangeHandler : public MemoryStreamHandler {
-public:
-    AddressRangeHandler();
-    AddressRangeHandler(AddressRangeHandler& h);
-    ~AddressRangeHandler();
-
-    void Print(ofstream& f);
-    uint32_t Process(void* stats, BufferEntry* access);
-    bool Verify() { return true; }
 };
 
 class CacheStructureHandler : public MemoryStreamHandler {

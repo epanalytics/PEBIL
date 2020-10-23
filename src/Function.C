@@ -161,7 +161,9 @@ void Function::printDisassembly(bool instructionDetail){
     }
 }
 
-uint32_t Function::bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* instPoints){
+uint32_t Function::bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* 
+  instPoints, Vector<Vector<uint64_t>*>* oldInsnAddresses, Vector<uint64_t>* 
+  oldInsns, Vector<uint64_t>* newInsns){
     uint32_t currByte = 0;
     if ((*instPoints).size() != flowGraph->getNumberOfBasicBlocks()){
         print();
@@ -173,11 +175,12 @@ uint32_t Function::bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* inst
     uint32_t bbidx = 0;
     for (uint32_t i = 0; i < flowGraph->getNumberOfBlocks(); i++){
         Block* block = flowGraph->getBlock(i);
+        block->setBaseAddress(baseAddress + currByte);
         if (block->getType() == PebilClassType_BasicBlock){
-            ((BasicBlock*)block)->bloat((*instPoints)[bbidx]);
+            ((BasicBlock*)block)->bloat((*instPoints)[bbidx], 
+              (*oldInsnAddresses)[bbidx], oldInsns, newInsns);
             bbidx++;
         }
-        block->setBaseAddress(baseAddress + currByte);
         currByte += block->getNumberOfBytes();
     }
     ASSERT(bbidx == flowGraph->getNumberOfBasicBlocks());
@@ -298,6 +301,17 @@ bool Function::containsCallToRange(uint64_t lowAddr, uint64_t highAddr){
         if (flowGraph->getBasicBlock(i)->containsCallToRange(lowAddr,highAddr)){
             return true;
         }
+    }
+    return false;
+}
+
+// Return true if a given address is within range of the function
+bool Function::isInRange(uint64_t addr){
+    //PRINT_INFOR("ACC: -- Checking if 0x%x is in range of <0x%x, 0x%x>", addr,
+    //  getBaseAddress(), getBaseAddress() + getSizeInBytes());
+    if ((addr >= getBaseAddress()) && (addr < (getBaseAddress() + 
+      getSizeInBytes()))){
+        return true;
     }
     return false;
 }

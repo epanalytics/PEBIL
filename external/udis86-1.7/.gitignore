@@ -1,0 +1,7 @@
+# Make/Configuration
+Makefile
+config.log
+config.status
+
+# Compiled Files
+libtool

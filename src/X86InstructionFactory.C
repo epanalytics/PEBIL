@@ -283,14 +283,17 @@ X86Instruction* X86InstructionFactory64::emitMoveKToReg(uint32_t kreg_in, uint32
     uint8_t len = 4;
     char* buff = new char[len];
 
+    uint8_t R = (~gpr & 0x8) << 4;
+    uint8_t RvvvvLpp = R | 0x78;  // R vvvv L pp
+
     uint8_t mod = 0xc0;
     uint8_t reg = gpr << 3;
     uint8_t rm = kreg;
     uint8_t modrm = mod | reg | rm;
 
-    buff[0] = 0xc5; // prefix
-    buff[1] = 0xf8; // R vvvv L pp
-    buff[2] = 0x93; // opcode
+    buff[0] = 0xc5;     // prefix
+    buff[1] = RvvvvLpp; // R vvvv L pp
+    buff[2] = 0x93;     // opcode
     buff[3] = modrm;
 
     return emitInstructionBase(len, buff);
@@ -472,6 +475,82 @@ Vector<X86Instruction*>* X86InstructionFactory64::emitUnalignedPackstoreRegaddrI
     return retval;
 }
 /*
+ * vmovdqa32 mem {k}, zmm1
+ */
+// | 62 |R X B R' mmmm|W vvvv 0  pp |E SSS  v' aaa |
+X86Instruction* X86InstructionFactory64::emitMoveAlignedRegaddrToZmm(
+        uint32_t zmm_in,
+        uint32_t kreg_in,
+        uint32_t base_in,
+        uint32_t disp)
+{
+    assert(zmm_in >= X86_FPREG_ZMM0 && zmm_in <= X86_FPREG_ZMM31);
+    assert(kreg_in >= X86_REG_K0 && kreg_in <= X86_REG_K7);
+    assert(base_in >= X86_REG_AX && base_in <= X86_REG_R15);
+    assert(base_in != X86_REG_R12); // Requires and index reg and scale
+
+    // RSP encodes the SIB
+    bool useSIB = false;
+    if (base_in == X86_REG_SP) {
+        useSIB = true;
+    }                          
+
+    uint8_t zmm = zmm_in - X86_FPREG_ZMM0;
+    uint8_t kreg = kreg_in - X86_REG_K0;
+    uint8_t base = base_in - X86_REG_AX;
+
+    uint32_t len = 10;
+    if (useSIB) len++;
+    char* buff = new char[len];
+
+    // mmmm = 0001
+    // zmm is encoded in R:r:reg
+    // kreg is encoded in aaa
+    //
+    // addressing mode is [base]+disp32
+    //   mod = 10
+    // base is encoded in ~X:~B:rm
+
+    // R is 1 for 0-7, 16-23
+    // R is 0 for 9-15, 24-31
+    uint8_t R = (~zmm & 0x08) << 4;
+    // XB == 1
+    uint8_t X = 0x40;
+    // B is 1 for bases 0-7, 0 for bases 8-15
+    uint8_t B = (~base & 0x08) << 2;
+    // R' is 1 if < 16, 0 < 31
+    uint8_t r = (~zmm & 0x10);
+    uint8_t mmmm = 1;
+    uint8_t RXBrmmmm =  R | X | B | r | mmmm;
+
+    uint8_t mod = 1 << 7;
+    uint8_t reg = (zmm & 0x07) << 3;
+    uint8_t rm = (base & 0x07);
+    uint8_t modrm = mod | reg | rm;
+
+    buff[0] = 0x62;
+    buff[1] = RXBrmmmm;
+    buff[2] = 0x7d;        
+    buff[3] = 0x48 | kreg; 
+
+    buff[4] = 0x6F;        // opcode
+
+    buff[5] = modrm;
+
+    if (!useSIB) {
+        memcpy(buff+6, &disp, sizeof(disp));
+    } else {
+        uint8_t S = 0;
+        uint8_t I = 4 << 3;
+        uint8_t SIB = S | I | base;
+        buff[6] = SIB;
+        memcpy(buff+7, &disp, sizeof(disp));
+    }
+
+    return emitInstructionBase(len, buff);
+}
+
+/*
  * vmovdqa32 zmm1, mem {k}
  */
 // | 62 |R X B R' mmmm|W vvvv 0  pp |E SSS  v' aaa |
@@ -484,6 +563,83 @@ X86Instruction* X86InstructionFactory64::emitMoveZmmToAlignedRegaddrImm(
     assert(zmm_in >= X86_FPREG_ZMM0 && zmm_in <= X86_FPREG_ZMM31);
     assert(kreg_in >= X86_REG_K0 && kreg_in <= X86_REG_K7);
     assert(base_in >= X86_REG_AX && base_in <= X86_REG_R15);
+    assert(base_in != X86_REG_R12); // Requires and index reg and scale
+
+    // RSP encodes the SIB
+    bool useSIB = false;
+    if (base_in == X86_REG_SP) {
+        useSIB = true;
+    }                          
+
+    uint8_t zmm = zmm_in - X86_FPREG_ZMM0;
+    uint8_t kreg = kreg_in - X86_REG_K0;
+    uint8_t base = base_in - X86_REG_AX;
+
+    uint32_t len = 10;
+    if (useSIB) len++;
+    char* buff = new char[len];
+
+    // mmmm = 0001
+    // zmm is encoded in R:r:reg
+    // kreg is encoded in aaa
+    //
+    // addressing mode is [base]+disp32
+    //   mod = 10
+    // base is encoded in ~X:~B:rm
+
+    // R is 1 for 0-7, 16-23
+    // R is 0 for 9-15, 24-31
+    uint8_t R = (~zmm & 0x08) << 4;
+    // XB == 1
+    uint8_t X = 0x40;
+    // B is 1 for bases 0-7, 0 for bases 8-15
+    uint8_t B = (~base & 0x08) << 2;
+    // R' is 1 if < 16, 0 < 31
+    uint8_t r = (~zmm & 0x10);
+    uint8_t mmmm = 1;
+    uint8_t RXBrmmmm =  R | X | B | r | mmmm;
+
+    uint8_t mod = 1 << 7;
+    uint8_t reg = (zmm & 0x07) << 3;
+    uint8_t rm = (base & 0x07);
+    uint8_t modrm = mod | reg | rm;
+
+    buff[0] = 0x62;
+    buff[1] = RXBrmmmm;
+    buff[2] = 0x7d;        
+    buff[3] = 0x48 | kreg; 
+
+    buff[4] = 0x7F;        // opcode
+
+    buff[5] = modrm;
+
+    if (!useSIB) {
+        memcpy(buff+6, &disp, sizeof(disp));
+    } else {
+        uint8_t S = 0;
+        uint8_t I = 4 << 3;
+        uint8_t SIB = S | I | base;
+        buff[6] = SIB;
+        memcpy(buff+7, &disp, sizeof(disp));
+    }
+
+    return emitInstructionBase(len, buff);
+}
+/*
+ * vmovdqu32 zmm1, mem {k}
+ */
+// | 62 |R X B R' mmmm|W vvvv 0  pp |E SSS  v' aaa |
+X86Instruction* X86InstructionFactory64::emitMoveZmmToUnalignedRegaddrImm(
+        uint32_t zmm_in,
+        uint32_t kreg_in,
+        uint32_t base_in,
+        uint32_t disp)
+{
+    assert(zmm_in >= X86_FPREG_ZMM0 && zmm_in <= X86_FPREG_ZMM31);
+    assert(kreg_in >= X86_REG_K0 && kreg_in <= X86_REG_K7);
+    assert(base_in >= X86_REG_AX && base_in <= X86_REG_R15);
+    assert(base_in != X86_REG_SP && base_in != X86_REG_R12); // need diff modrm
+                                                             // and disp calc
 
     uint8_t zmm = zmm_in - X86_FPREG_ZMM0;
     uint8_t kreg = kreg_in - X86_REG_K0;
@@ -500,21 +656,27 @@ X86Instruction* X86InstructionFactory64::emitMoveZmmToAlignedRegaddrImm(
     //   mod = 10
     // base is encoded in ~X:~B:rm
 
-    uint8_t R = (~zmm & 0x10) << 3;
-    uint8_t XB = 0x60;
-    uint8_t r = (~zmm & 0x08) << 1;
+    // R is 1 for 0-7, 16-23
+    // R is 0 for 9-15, 24-31
+    uint8_t R = (~zmm & 0x08) << 4;
+    // X == 1
+    uint8_t X = 0x40;
+    // B is 1 for bases 0-7, 0 for bases 8-15
+    uint8_t B = (~base & 0x08) << 2;
+    // R' is 1 if < 16, 0 < 31
+    uint8_t r = (~zmm & 0x10);
     uint8_t mmmm = 1;
-    uint8_t RXBrmmmm =  R | XB | r | mmmm;
+    uint8_t RXBrmmmm =  R | X | B | r | mmmm;
 
     uint8_t mod = 1 << 7;
     uint8_t reg = (zmm & 0x07) << 3;
-    uint8_t rm = base;
+    uint8_t rm = (base & 0x07);
     uint8_t modrm = mod | reg | rm;
 
     buff[0] = 0x62;
     buff[1] = RXBrmmmm;
-    buff[2] = 0x79;        // 0 1111 0 01
-    buff[3] = 0x08 | kreg; // 0 000 1 kreg
+    buff[2] = 0x7e;       
+    buff[3] = 0x48 | kreg; 
 
     buff[4] = 0x7F;        // opcode
 
@@ -523,6 +685,7 @@ X86Instruction* X86InstructionFactory64::emitMoveZmmToAlignedRegaddrImm(
 
     return emitInstructionBase(len, buff);
 }
+
 X86Instruction* X86InstructionFactory64::emitFxSave(uint64_t addr){
     uint32_t len = 7;
     char* buff = new char[len];
@@ -672,19 +835,36 @@ X86Instruction* X86InstructionFactory32::emitMoveSegmentRegToReg(uint32_t src, u
     return emitInstructionBase(len,buff);
 }
 
-Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Instruction* instruction, uint32_t dest){
+// impAddrFlag is for implicit addresses that have more than one memory operand
+// Also used for push/pop instructions to know which memory operation to load
+// 1 -> the LOADED address
+// 0 -> the STORED address
+// Unused for any other instruction
+Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Instruction* instruction, uint32_t dest, uint32_t impAddrFlag){
     ASSERT(dest < X86_64BIT_GPRS && "Illegal register index given");
-    ASSERT(instruction->isMemoryOperation() || instruction->isSoftwarePrefetch());
+    ASSERT(instruction->isMemoryOperation() || 
+      instruction->isSoftwarePrefetch());
 
     DEBUG_LOADADDR(
-    instruction->print();
-    PRINT_DEBUG_LOADADDR("---");
-                   )
+      instruction->print();
+      PRINT_DEBUG_LOADADDR("---");
+    )
+
+    bool doImplicitOperation = false;
+    // If a push instruction but doing a STORE, then lea the implicit operation
+    if (instruction->isStackPush() && impAddrFlag == 0) {
+        doImplicitOperation = true;
+    }
+    // If a pop instruction but doing a LOAD, then lea the implicit operation
+    if (instruction->isStackPop() && impAddrFlag == 1) {
+        doImplicitOperation = true;
+    }
 
     Vector<X86Instruction*>* compInstructions = new Vector<X86Instruction*>();
     OperandX86* op = NULL;
 
-    if (instruction->isExplicitMemoryOperation() || instruction->isSoftwarePrefetch()){
+    if ((instruction->isExplicitMemoryOperation() || 
+      instruction->isSoftwarePrefetch()) && !doImplicitOperation){
 
         op = instruction->getMemoryOperand();
 
@@ -695,24 +875,49 @@ Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Inst
             (*compInstructions).append(emitMoveSegmentRegToReg(segIdx, dest));
         } else if (op->GET(base) == UD_R_RIP){
             PRINT_DEBUG_LOADADDR("making lea: mov rip imm");
-            uint64_t addr = op->getInstruction()->getProgramAddress() + op->getValue() + op->getInstruction()->getSizeInBytes();
+            uint64_t addr = op->getInstruction()->getProgramAddress() + 
+              op->getValue() + op->getInstruction()->getSizeInBytes();
             (*compInstructions).append(emitMoveImmToReg(addr, dest));
         } else {
             (*compInstructions).append(emitLoadEffectiveAddress(op, dest));
-            ASSERT((*compInstructions).back() && op && (*compInstructions).back()->getOperand(SRC1_OPERAND));
-            ASSERT(op->isSameOperand((*compInstructions).back()->getOperand(SRC1_OPERAND)) && "The emitd Address Computation operand does not match the operand given");
+            ASSERT((*compInstructions).back() && op && 
+              (*compInstructions).back()->getOperand(SRC1_OPERAND));
+            ASSERT(op->isSameOperand((*compInstructions).back()->getOperand(
+              SRC1_OPERAND)) && "The emitd Address Computation operand does "
+              "not match the operand given");
         }
 
     } else {
         ASSERT(instruction->isImplicitMemoryOperation());
-        uint64_t stackOffset = 0;
-        if (instruction->isStackPush()){
-            stackOffset = -1 * sizeof(uint64_t);
+        if (instruction->isStackPush() || instruction->isStackPop()) {
+            uint64_t stackOffset = 0;
+            if (instruction->isStackPush()){
+                stackOffset = -1 * sizeof(uint64_t);
+            } else {
+                ASSERT(instruction->isStackPop());
+                stackOffset = 0;
+            }
+            (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SP, 0, 
+              1, stackOffset, dest, true, false));
+        } else if (instruction->GET(implicit_addr)) {
+            if ((X86InstructionClassifier::getInstructionFormat(instruction) ==
+              X86OperandFormat_si || X86InstructionClassifier::
+              getInstructionFormat(instruction) == X86OperandFormat_dsi) &&
+              impAddrFlag == 1) {
+                (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SI,
+                  0, 1, 0, dest, UD_R_DS, true, false, true));
+            } else if ((X86InstructionClassifier::getInstructionFormat(
+              instruction) == X86OperandFormat_si || X86InstructionClassifier::
+              getInstructionFormat(instruction) == X86OperandFormat_dsi) &&
+              impAddrFlag == 0) {
+                (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_DI,
+                  0, 1, 0, dest, UD_R_ES, true, false, true));
+            } else {
+                __SHOULD_NOT_ARRIVE;
+            }
         } else {
-            ASSERT(instruction->isStackPop());
-            stackOffset = 0;
+            __SHOULD_NOT_ARRIVE;
         }
-        (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SP, 0, 1, stackOffset, dest, true, false));
     }
 
     
@@ -727,7 +932,7 @@ Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Inst
     return compInstructions;
 }
 
-Vector<X86Instruction*>* X86InstructionFactory32::emitAddressComputation(X86Instruction* instruction, uint32_t dest){
+Vector<X86Instruction*>* X86InstructionFactory32::emitAddressComputation(X86Instruction* instruction, uint32_t dest, uint32_t impAddrFlag){
     ASSERT(dest < X86_32BIT_GPRS && "Illegal register index given");
     ASSERT(instruction->isMemoryOperation());
 
@@ -751,24 +956,48 @@ Vector<X86Instruction*>* X86InstructionFactory32::emitAddressComputation(X86Inst
         } else if (op->GET(base) == UD_R_RIP){
             __SHOULD_NOT_ARRIVE;
             PRINT_DEBUG_LOADADDR("making lea: mov rip imm");
-            uint64_t addr = op->getInstruction()->getProgramAddress() + op->getValue() + op->getInstruction()->getSizeInBytes();
+            uint64_t addr = op->getInstruction()->getProgramAddress() + 
+              op->getValue() + op->getInstruction()->getSizeInBytes();
             (*compInstructions).append(emitMoveImmToReg(addr, dest));
         } else {
             (*compInstructions).append(emitLoadEffectiveAddress(op, dest));
-            ASSERT((*compInstructions).back() && op && (*compInstructions).back()->getOperand(SRC1_OPERAND));
-            ASSERT(op->isSameOperand((*compInstructions).back()->getOperand(SRC1_OPERAND)) && "The emitd Address Computation operand does not match the operand given");
+            ASSERT((*compInstructions).back() && op && 
+              (*compInstructions).back()->getOperand(SRC1_OPERAND));
+            ASSERT(op->isSameOperand((*compInstructions).back()->getOperand(
+              SRC1_OPERAND)) && "The emitd Address Computation operand does "
+              "not match the operand given");
         }
-
     } else {
         ASSERT(instruction->isImplicitMemoryOperation());
-        uint64_t stackOffset = 0;
-        if (instruction->isStackPush()){
-            stackOffset = -1 * sizeof(uint64_t);
+        if (instruction->isStackPush() || instruction->isStackPop()) {
+            uint64_t stackOffset = 0;
+            if (instruction->isStackPush()){
+                stackOffset = -1 * sizeof(uint64_t);
+            } else {
+                ASSERT(instruction->isStackPop());
+                stackOffset = 0;
+            }
+            (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SP, 0, 
+              1, stackOffset, dest, true, false));
+        } else if (instruction->GET(implicit_addr)) {
+            if ((X86InstructionClassifier::getInstructionFormat(instruction) ==
+              X86OperandFormat_si || X86InstructionClassifier::
+              getInstructionFormat(instruction) == X86OperandFormat_dsi) &&
+              impAddrFlag == 1) {
+                (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SI,
+                  0, 1, 0, dest, true, false));
+            } else if ((X86InstructionClassifier::getInstructionFormat(
+              instruction) == X86OperandFormat_si || X86InstructionClassifier::
+              getInstructionFormat(instruction) == X86OperandFormat_dsi) &&
+              impAddrFlag == 0) {
+                (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_DI,
+                  0, 1, 0, dest, true, false));
+            } else {
+                __SHOULD_NOT_ARRIVE;
+            }
         } else {
-            ASSERT(instruction->isStackPop());
-            stackOffset = 0;
+            __SHOULD_NOT_ARRIVE;
         }
-        (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SP, 0, 1, stackOffset, dest, true, false));
     }
 
     
@@ -783,7 +1012,131 @@ Vector<X86Instruction*>* X86InstructionFactory32::emitAddressComputation(X86Inst
     return compInstructions;
 }
 
-X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(uint32_t baseReg, uint32_t indexReg, uint8_t scale, uint64_t value, uint32_t dest, bool hasBase, bool hasIndex){
+X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(OperandX86* op, uint32_t dest){
+    ASSERT(dest < X86_64BIT_GPRS && "Illegal register index given");
+    ASSERT(op);
+
+    uint32_t baseReg = 0;
+    uint32_t indexReg = 0;
+    uint32_t segReg = 0;
+    uint8_t scale = op->GET(scale);
+    if (!scale) { 
+        scale++; 
+    }
+    uint64_t value = op->getValue();
+
+    bool hasBase = false;
+    if (op->GET(base)){
+        hasBase = true;
+        baseReg = op->GET(base) - UD_R_RAX;
+    }
+    bool hasIndex = false;
+    if (op->GET(index)){
+        hasIndex = true;
+        indexReg = op->GET(index) - UD_R_RAX;
+    }
+
+    bool hasSeg = false;
+    if (op->getInstruction()->GET(pfx_seg)) {
+        hasSeg = true;
+        segReg = op->getInstruction()->GET(pfx_seg);
+    }
+
+    X86Instruction* lea = emitLoadEffectiveAddress(baseReg, indexReg, scale, 
+      value, dest, segReg, hasBase, hasIndex, hasSeg);
+    if (!lea || !op || !lea->getOperand(SRC1_OPERAND)){
+        fprintf(stderr, "emitLoadEffectiveAddress:\n");
+        lea->print();
+    }
+    ASSERT(lea && op && lea->getOperand(SRC1_OPERAND));
+    ASSERT(op->isSameOperand(lea->getOperand(SRC1_OPERAND)) && "The emitted LEA operand does not match the operand given");
+
+    return lea;
+}
+
+X86Instruction* X86InstructionFactory32::emitLoadEffectiveAddress(OperandX86* op, uint32_t dest){
+    ASSERT(dest < X86_32BIT_GPRS && "Illegal register index given");
+    ASSERT(op);
+
+    uint32_t baseReg = 0;
+    uint32_t indexReg = 0;
+    uint32_t segReg = 0;
+    uint8_t scale = op->GET(scale);
+    if (!scale) { 
+        scale++; 
+    }
+    uint64_t value = op->getValue();
+
+    bool hasBase = false;
+    if (op->GET(base)){
+        hasBase = true;
+        baseReg = op->GET(base) - UD_R_EAX;
+    }
+    bool hasIndex = false;
+    if (op->GET(index)){
+        hasIndex = true;
+        indexReg = op->GET(index) - UD_R_EAX;
+    }
+
+    bool hasSeg = false;
+    if (op->getInstruction()->GET(pfx_seg)) {
+        hasSeg = true;
+        segReg = op->getInstruction()->GET(pfx_seg);
+    }
+
+    X86Instruction* lea = emitLoadEffectiveAddress(baseReg, indexReg, scale, 
+      value, dest, segReg, hasBase, hasIndex, hasSeg);
+    if (!lea || !op || !lea->getOperand(SRC1_OPERAND)){
+        fprintf(stderr, "emitLoadEffectiveAddress:\n");
+        lea->print();
+    }
+    ASSERT(lea && op && lea->getOperand(SRC1_OPERAND));
+    ASSERT(op->isSameOperand(lea->getOperand(SRC1_OPERAND)) && "The emitted LEA operand does not match the operand given");
+
+    return lea;
+}
+
+
+X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(uint32_t 
+  baseReg, uint32_t indexReg, uint8_t scale, uint64_t value, uint32_t dest,       bool hasBase, bool hasIndex){
+    ASSERT(dest < X86_64BIT_GPRS && "Illegal register index given");
+
+    bool hasSeg = false;
+    uint32_t segReg = 0;
+
+    X86Instruction* lea = emitLoadEffectiveAddress(baseReg, indexReg, scale, 
+      value, dest, segReg, hasBase, hasIndex, hasSeg);
+    if (!lea){
+        fprintf(stderr, "emitLoadEffectiveAddress:\n");
+        lea->print();
+    }
+    ASSERT(lea);
+
+    return lea;
+}
+
+X86Instruction* X86InstructionFactory32::emitLoadEffectiveAddress(uint32_t
+  baseReg, uint32_t indexReg, uint8_t scale, uint64_t value, uint32_t dest, 
+  bool hasBase, bool hasIndex){
+    ASSERT(dest < X86_32BIT_GPRS && "Illegal register index given");
+
+    bool hasSeg = false;
+    uint32_t segReg = 0;
+
+    X86Instruction* lea = emitLoadEffectiveAddress(baseReg, indexReg, scale, 
+      value, dest, segReg, hasBase, hasIndex, hasSeg);
+    if (!lea){
+        fprintf(stderr, "emitLoadEffectiveAddress:\n");
+        lea->print();
+    }
+    ASSERT(lea);
+
+    return lea;
+}
+
+X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(uint32_t 
+  baseReg, uint32_t indexReg, uint8_t scale, uint64_t value, uint32_t dest, 
+  uint32_t segReg, bool hasBase, bool hasIndex, bool hasSeg) {
     ASSERT(dest < X86_64BIT_GPRS && "Illegal register index given");
     ASSERT(baseReg < X86_64BIT_GPRS || baseReg + UD_R_RAX == UD_R_RIP);
     ASSERT(indexReg < X86_64BIT_GPRS && "Illegal register index given");
@@ -796,6 +1149,7 @@ X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(uint32_t baseR
 
     // scale/index/base
     if (hasIndex){
+        ASSERT(!hasSeg && "Have not implemented segmented addressing with SIB");
         uint8_t sa = 0;
         if (scale){
             sa = (logBase2(scale)) << 6;
@@ -872,40 +1226,92 @@ X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(uint32_t baseR
 
     // base + offset
     else if (hasBase){
-        len = 7;
-        uint32_t immoff = 3;
-        PRINT_DEBUG_LOADADDR("making lea: base + offset");
+        if(!hasSeg) {
+            len = 7;
+            uint32_t immoff = 3;
+            PRINT_DEBUG_LOADADDR("making lea: base + offset");
 
-        if (baseReg % X86_32BIT_GPRS == X86_REG_SP){
-            len++;
-            immoff++;
-        }
-        buff = new char[len];
+            if (baseReg % X86_32BIT_GPRS == X86_REG_SP){
+                len++;
+                immoff++;
+            }
+            buff = new char[len];
 
-        if (dest < X86_32BIT_GPRS){
-            buff[0] = 0x48;
+            if (dest < X86_32BIT_GPRS){
+                buff[0] = 0x48;
+            } else {
+                buff[0] = 0x4c;
+            }
+            if (baseReg < X86_32BIT_GPRS){
+            } else {
+                buff[0]++;
+            }
+            buff[1] = 0x8d;
+            if (baseReg + UD_R_RAX == UD_R_RIP){
+                buff[2] = 0x05;
+            } else {
+                buff[2] = 0x80 + (baseReg % X86_32BIT_GPRS);
+            }
+            buff[2] += 8 * (dest % X86_32BIT_GPRS);
+
+            if (baseReg % X86_32BIT_GPRS == X86_REG_SP){
+                buff[3] = 0x24;
+            }
+
+            uint32_t addr32 = value;
+            memcpy(buff + immoff, &addr32, sizeof(uint32_t));
+            lea = emitInstructionBase(len,buff);
         } else {
-            buff[0] = 0x4c;
-        }
-        if (baseReg < X86_32BIT_GPRS){
-        } else {
-            buff[0]++;
-        }
-        buff[1] = 0x8d;
-        if (baseReg + UD_R_RAX == UD_R_RIP){
-            buff[2] = 0x05;
-        } else {
-            buff[2] = 0x80 + (baseReg % X86_32BIT_GPRS);
-        }
-        buff[2] += 8 * (dest % X86_32BIT_GPRS);
+            // Has segment register
+            len = 8;
+            uint32_t immoff = 4;
+            PRINT_DEBUG_LOADADDR("making lea: segment + base + offset");
+            ASSERT((segReg <= UD_R_GS) && (segReg >= UD_R_ES) && "Illegal "
+              "segment register.");
 
-        if (baseReg % X86_32BIT_GPRS == X86_REG_SP){
-            buff[3] = 0x24;
-        }
+            if (baseReg % X86_32BIT_GPRS == X86_REG_SP){
+                len++;
+                immoff++;
+            }
+            buff = new char[len];
 
-        uint32_t addr32 = value;
-        memcpy(buff + immoff, &addr32, sizeof(uint32_t));
-        lea = emitInstructionBase(len,buff);
+            if (segReg == UD_R_ES) {
+                buff[0] = 0x26;
+            } else if (segReg == UD_R_CS) {
+                buff[0] = 0x2e;
+            } else if (segReg == UD_R_DS) {
+                buff[0] = 0x3e;
+            } else {
+                // Not yet implemented
+                __SHOULD_NOT_ARRIVE;
+            }
+
+            if (dest < X86_32BIT_GPRS){
+                buff[1] = 0x48;
+            } else {
+                buff[1] = 0x4c;
+            }
+            if (baseReg < X86_32BIT_GPRS){
+            } else {
+                buff[1]++;
+            }
+            buff[2] = 0x8d;
+            if (baseReg + UD_R_RAX == UD_R_RIP){
+                buff[3] = 0x05;
+            } else {
+                buff[3] = 0x80 + (baseReg % X86_32BIT_GPRS);
+            }
+            buff[3] += 8 * (dest % X86_32BIT_GPRS);
+
+            if (baseReg % X86_32BIT_GPRS == X86_REG_SP){
+                buff[4] = 0x24;
+            }
+
+            uint32_t addr32 = value;
+            memcpy(buff + immoff, &addr32, sizeof(uint32_t));
+            lea = emitInstructionBase(len,buff);
+
+        }
     } 
 
     // constant
@@ -932,11 +1338,14 @@ X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(uint32_t baseR
     return lea;
 }
 
-X86Instruction* X86InstructionFactory32::emitLoadEffectiveAddress(uint32_t baseReg, uint32_t indexReg, uint8_t scale, uint64_t value, uint32_t dest, bool hasBase, bool hasIndex){
+X86Instruction* X86InstructionFactory32::emitLoadEffectiveAddress(uint32_t 
+  baseReg, uint32_t indexReg, uint8_t scale, uint64_t value, uint32_t dest, 
+  uint32_t segReg, bool hasBase, bool hasIndex, bool hasSeg) {
     ASSERT(dest < X86_32BIT_GPRS && "Illegal register index given");
     ASSERT(baseReg < X86_32BIT_GPRS);
     ASSERT(indexReg < X86_32BIT_GPRS && "Illegal register index given");
     ASSERT(scale && isPowerOfTwo(scale) && scale <= 8);
+    ASSERT(!hasSeg && "LEA from a segment reg not implemented yet.");
 
     uint32_t len;
     char* buff;
@@ -1033,74 +1442,6 @@ X86Instruction* X86InstructionFactory32::emitLoadEffectiveAddress(uint32_t baseR
     }
 
     ASSERT(lea);
-    return lea;
-}
-
-X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(OperandX86* op, uint32_t dest){
-    ASSERT(dest < X86_64BIT_GPRS && "Illegal register index given");
-    ASSERT(op);
-
-    uint32_t baseReg = 0;
-    uint32_t indexReg = 0;
-    uint8_t scale = op->GET(scale);
-    if (!scale) { 
-        scale++; 
-    }
-    uint64_t value = op->getValue();
-
-    bool hasBase = false;
-    if (op->GET(base)){
-        hasBase = true;
-        baseReg = op->GET(base) - UD_R_RAX;
-    }
-    bool hasIndex = false;
-    if (op->GET(index)){
-        hasIndex = true;
-        indexReg = op->GET(index) - UD_R_RAX;
-    }
-
-    X86Instruction* lea = emitLoadEffectiveAddress(baseReg, indexReg, scale, value, dest, hasBase, hasIndex);
-    if (!lea || !op || !lea->getOperand(SRC1_OPERAND)){
-        fprintf(stderr, "emitLoadEffectiveAddress:\n");
-        lea->print();
-    }
-    ASSERT(lea && op && lea->getOperand(SRC1_OPERAND));
-    ASSERT(op->isSameOperand(lea->getOperand(SRC1_OPERAND)) && "The emitted LEA operand does not match the operand given");
-
-    return lea;
-}
-
-X86Instruction* X86InstructionFactory32::emitLoadEffectiveAddress(OperandX86* op, uint32_t dest){
-    ASSERT(dest < X86_32BIT_GPRS && "Illegal register index given");
-    ASSERT(op);
-
-    uint32_t baseReg = 0;
-    uint32_t indexReg = 0;
-    uint8_t scale = op->GET(scale);
-    if (!scale) { 
-        scale++; 
-    }
-    uint64_t value = op->getValue();
-
-    bool hasBase = false;
-    if (op->GET(base)){
-        hasBase = true;
-        baseReg = op->GET(base) - UD_R_EAX;
-    }
-    bool hasIndex = false;
-    if (op->GET(index)){
-        hasIndex = true;
-        indexReg = op->GET(index) - UD_R_EAX;
-    }
-
-    X86Instruction* lea = emitLoadEffectiveAddress(baseReg, indexReg, scale, value, dest, hasBase, hasIndex);
-    if (!lea || !op || !lea->getOperand(SRC1_OPERAND)){
-        fprintf(stderr, "emitLoadEffectiveAddress:\n");
-        lea->print();
-    }
-    ASSERT(lea && op && lea->getOperand(SRC1_OPERAND));
-    ASSERT(op->isSameOperand(lea->getOperand(SRC1_OPERAND)) && "The emitted LEA operand does not match the operand given");
-
     return lea;
 }
 

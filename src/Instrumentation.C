@@ -236,7 +236,7 @@ uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* ins
 #ifdef PROTECT_RAW_SNIPPETS
     FlagsProtectionMethods protectionMethod = getFlagsProtectionMethod();
 
-    bool stackIsSafe = true;
+    bool stackIsSafe = !getSaveAll();
     TextObject* to = point->getContainer();
     ASSERT(to->getType() == PebilClassType_Function);
     Function* f = (Function*)to;
@@ -244,12 +244,12 @@ uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* ins
     if (f->hasLeafOptimization() || bb->isEntry()){
         stackIsSafe = false;
     }
-    if (instrumentation->getType() == PebilClassType_InstrumentationFunction &&
-        ((InstrumentationFunction*)instrumentation)->hasSkipWrapper()){
+    if (getSaveAll() || (instrumentation->getType() == PebilClassType_InstrumentationFunction &&
+        ((InstrumentationFunction*)instrumentation)->hasSkipWrapper())){
         stackIsSafe = true;
     } 
 
-    bool protectStack = false;
+    bool protectStack = getSaveAll();
     if (protectionMethod != FlagsProtectionMethod_none || !stackIsSafe){
         protectStack = true;
     }
@@ -626,7 +626,7 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
     
     // Save k registers
     if(saveZmmRegisters) {
-        for(int i = 1; i < 8; ++i) {
+        for(int i = 1; i < X86_K_REGS; ++i) {
             wrapperInstructions.append(X86InstructionFactory64::emitMoveKToReg(i+X86_REG_K0, X86_REG_AX));
             wrapperInstructions.append(X86InstructionFactory64::emitStackPush(X86_REG_AX));
         }
@@ -651,12 +651,12 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
 
     // allocate space on stack for all zmm registers if this a Xeon Phi elf file
     if(saveZmmRegisters) {
-        // allocate 2KB of space on the stack
-        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, -1*2048, X86_REG_SP));
-        
+        // allocate # zmm registers * 512/8 bytes of space on the stack
+        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, -1*64*X86_ZMM_REGS, X86_REG_SP));
+
         // Write each zmmx register to its space on the stack
-        for(int i = 0; i < 32; ++i) {
-            wrapperInstructions.append(X86InstructionFactory64::emitMoveZmmxToAlignedStack(i, i));
+        for(int i = 0; i < X86_ZMM_REGS; ++i) {
+            wrapperInstructions.append(X86InstructionFactory64::emitMoveZmmToAlignedRegaddrImm(X86_FPREG_XMM0 + i, X86_REG_K0, X86_REG_SP, 64 * i));
         }
     } 
 
@@ -682,10 +682,10 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
 
     // Restore zmm registers
     if(saveZmmRegisters) {
-        for(int i = 31; i >= 0; --i) {
-            wrapperInstructions.append(X86InstructionFactory64::emitMoveAlignedStackToZmmx(i, i));
+        for(int i = X86_ZMM_REGS - 1; i >= 0; --i) {
+            wrapperInstructions.append(X86InstructionFactory64::emitMoveAlignedRegaddrToZmm(X86_FPREG_XMM0 + i, X86_REG_K0, X86_REG_SP, 64 * i));
         }
-        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, 2048, X86_REG_SP));
+        wrapperInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, 64*X86_ZMM_REGS, X86_REG_SP));
 
     }
 
@@ -697,7 +697,7 @@ uint32_t InstrumentationFunction64::generateWrapperInstructions(uint64_t textBas
 
     // Restore k registers
     if(saveZmmRegisters) {
-        for(int i = 7; i >= 1; --i) {
+        for(int i = X86_K_REGS - 1; i >= 1; --i) {
             wrapperInstructions.append(X86InstructionFactory64::emitStackPop(X86_REG_AX));
             wrapperInstructions.append(X86InstructionFactory64::emitMoveRegToK(X86_REG_AX, i+X86_REG_K0));
         }
@@ -977,7 +977,7 @@ Vector<X86Instruction*>* InstrumentationPoint::swapInstructionsAtPoint(Vector<X8
     return func->swapInstructions(getInstSourceAddress(), replacements);
 }
 
-BitSet<uint32_t>* getProtectedRegs(InstLocations loc, X86Instruction* xins, Vector<X86Instruction*>* insert, BitSet<uint32_t>* borrowedRegs){
+BitSet<uint32_t>* getProtectedRegs(InstLocations loc, X86Instruction* xins, Vector<X86Instruction*>* insert, BitSet<uint32_t>* borrowedRegs, bool saveAll){
     BitSet<uint32_t>* n = new BitSet<uint32_t>(X86_ALU_REGS);
 
     InstLocations proxyLoc = InstLocation_prior;
@@ -995,7 +995,7 @@ BitSet<uint32_t>* getProtectedRegs(InstLocations loc, X86Instruction* xins, Vect
                 continue;
             }
 
-            if (proxyLoc == InstLocation_prior && !xins->isRegDeadIn(j) && defs->containsRegister(j)){
+            if (proxyLoc == InstLocation_prior && (!xins->isRegDeadIn(j) || saveAll) && defs->containsRegister(j)){
                 n->insert(j);
             }
 
@@ -1003,7 +1003,7 @@ BitSet<uint32_t>* getProtectedRegs(InstLocations loc, X86Instruction* xins, Vect
             //   - defined by the instrumentation AND
             //   - live in the fallthrough target
             //if(proxyLoc == InstLocation_after && defs->containsRegister(j) && !xins->isRegDeadOut(j)) {
-            if (proxyLoc == InstLocation_after && defs->containsRegister(j) && fallthroughIns != NULL && !fallthroughIns->isRegDeadIn(j)){
+            if (proxyLoc == InstLocation_after && defs->containsRegister(j) && fallthroughIns != NULL && (!fallthroughIns->isRegDeadIn(j) || saveAll)){
                 n->insert(j);
             }
         }
@@ -1027,7 +1027,7 @@ BitSet<uint32_t>* InstrumentationPoint::getProtectedRegisters(){
         insns->append(getPostcursorInstruction(i));
     }
 
-    BitSet<uint32_t>* p = getProtectedRegs(getInstLocation(), point, insns, borrowedRegs);
+    BitSet<uint32_t>* p = getProtectedRegs(getInstLocation(), point, insns, borrowedRegs, getSaveAll());
     delete insns;
 
     return p;
@@ -1187,6 +1187,8 @@ InstrumentationPoint::InstrumentationPoint(Base* pt, Instrumentation* inst, Inst
     trampolineOffset = 0;
     priority = InstPriority_regular;
     offsetFromPoint = 0;
+
+    saveAll = false;
 
     verify();
 }

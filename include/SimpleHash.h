@@ -139,7 +139,7 @@ public:
             printf("\tBucket %5d :{ ",i);
             for(entry_t* current = buckets[i];
                 current;current=current->next){
-                printf("%lld ",current->key);
+                printf("%llx ",current->key);
             }
             printf("}\n");
         }
