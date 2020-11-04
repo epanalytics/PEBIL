@@ -1428,7 +1428,10 @@ void CacheLevel::MarkUsed(uint32_t setid, uint32_t lineid) {
         // (LRU)  B  E  A  D  C   (MRU)   if C is used.
         // No need to change next and prev pointers since the head and tail are
         // connected already
-        if(RecentlyUsed[setid] == lineid) {
+        uint32_t Mru = HistoryUsed[setid][RecentlyUsed[setid]].prev;
+        if(Mru == lineid){
+            //Do nothing, nothing to update
+        } else if(RecentlyUsed[setid] == lineid) {
             RecentlyUsed[setid] = HistoryUsed[setid][lineid].next;
         } else {
             // Say we remove E from the following:
@@ -1442,6 +1445,7 @@ void CacheLevel::MarkUsed(uint32_t setid, uint32_t lineid) {
             // That should give us:
             // (LRU)  C  B  A  D  E  (MRU)
             // (prev)               (next)
+
             uint32_t leftNeighbor = HistoryUsed[setid][lineid].prev;
             uint32_t rightNeighbor = HistoryUsed[setid][lineid].next;
             uint32_t theLru = RecentlyUsed[setid];

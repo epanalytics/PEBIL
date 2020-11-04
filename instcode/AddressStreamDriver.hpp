@@ -52,6 +52,7 @@ class AddressStreamDriver {
     bool runReuseDistance;
     bool runScatterLength;
     bool runSpatialLocality;
+    bool runSpatialLocalityPerMemOp;
 
     // Holds the tools that are being run
     std::vector<AddressStreamTool*>* tools = NULL;
@@ -106,6 +107,7 @@ class AddressStreamDriver {
     bool IsReuseDistance() { return runReuseDistance; }
     bool IsScatterLength() { return runScatterLength; }
     bool IsSpatialLocality() { return runSpatialLocality; }
+    bool IsSpatialLocalityPerMemOp() { return runSpatialLocalityPerMemOp; }
 
     uint64_t ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer);

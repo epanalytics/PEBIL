@@ -34,6 +34,7 @@
 
 #ifdef HAS_EPA_TOOLS
 #include <PrefetchSimulation.hpp>
+#include <SpatialLocalityPerMemOp.hpp>
 #endif
 
 #include <stdio.h>
@@ -64,6 +65,7 @@ AddressStreamDriver::AddressStreamDriver() {
     runReuseDistance = false;
     runScatterLength = false;
     runSpatialLocality = false;
+    runSpatialLocalityPerMemOp = false;
 
     // Create the vector to store the tools
     tools = new vector<AddressStreamTool*>();
@@ -492,6 +494,7 @@ void AddressStreamDriver::SetUpTools() {
     uint32_t doReuseDistance;
     uint32_t doScatterGatherLength;
     uint32_t doSpatialLocality;
+    uint32_t doSpatialLocalityPerMemOp;
     if (parser->ReadEnvUint32("METASIM_ADDRESS_RANGE", &doAddressRange)){
         runAddressRange = (doAddressRange == 0) ? false : true;
     }
@@ -510,6 +513,9 @@ void AddressStreamDriver::SetUpTools() {
     }
     if (parser->ReadEnvUint32("METASIM_SPATIAL_LOCALITY", &doSpatialLocality)){
         runSpatialLocality = (doSpatialLocality == 0) ? false : true;
+    }
+    if (parser->ReadEnvUint32("METASIM_SPATIAL_LOCALITY_MEMOP", &doSpatialLocalityPerMemOp)){
+        runSpatialLocalityPerMemOp = (doSpatialLocalityPerMemOp == 0) ? false : true;
     }
 
     if (runAddressRange) {
@@ -540,6 +546,16 @@ void AddressStreamDriver::SetUpTools() {
 
     if (runSpatialLocality) {
         tools->push_back(new SpatialLocalityTool());
+    }
+
+    if (runSpatialLocalityPerMemOp) {
+#ifdef HAS_EPA_TOOLS
+        tools->push_back(new SpatialLocalityPerMemOpTool());
+#else
+        DISPLAY_ERROR << "No spatial locality per memop library linked. "
+          << "Unset Spatial locality per memop library tool. Exitting." << ENDL;
+        exit(0);
+#endif
     }
 
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 
