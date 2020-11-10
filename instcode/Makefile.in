@@ -72,7 +72,7 @@ endif
 
 # opempi does not automatically link fortran mpi
 ifeq ($(MPICC), mpicc)
-  MPITYPE := $(shell mpirun --version | grep "Open MPI")
+  MPITYPE := "$(shell mpirun --version 2>&1 | grep "Open MPI")"
   # If using openmpi
   ifneq ($(MPITYPE), "")
 	  EXTRA_LIBS += @PEBIL_MPIFC_OPENMPI_LIB@
