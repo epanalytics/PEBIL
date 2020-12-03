@@ -376,7 +376,7 @@ extern "C"
             << ENDL;
     
         BlockFile
-            << "# LPP" << TAB << "Hashcode" << TAB << "ImageSequence" << TAB << "AllCounter" << TAB << "# File:Line" << TAB << "Function" << TAB << "Address" << ENDL
+            << "# LPP" << TAB << "Hashcode" << TAB << "ImageSequence" << TAB << "AllCounter" << TAB << "# File:Line" << TAB << "Function" << TAB << "Address" << TAB << "LoopID" << ENDL
             << "#" << TAB << "ThreadId" << TAB << "ThreadCounter" << ENDL 
             << ENDL;
 
@@ -413,6 +413,7 @@ extern "C"
                             << TAB << "# " << c->Files[i] << ":" << dec << c->Lines[i]
                             << TAB << c->Functions[i]
                             << TAB << hex << c->Addresses[i]
+                            << TAB << dec << c->BlockIds[i]
                             << ENDL;
                     } else {
                         BlockFile
@@ -449,3 +450,20 @@ extern "C"
         return NULL;
     }
 };
+
+// For testing only
+void InitializeAllData(DataManager<CounterArray*>* d){
+    AllData = d;
+}
+
+void InitializeDynamicInstrumentation(DynamicInstrumentation* p){
+    DynamicPoints = p;
+}
+
+DataManager<CounterArray*>* GetAllData(){
+    return AllData;
+}
+
+DynamicInstrumentation* GetDynamicInstrumentation(){
+    return DynamicPoints;
+}

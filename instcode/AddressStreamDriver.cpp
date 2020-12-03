@@ -32,6 +32,11 @@
 #include <ScatterGatherLength.hpp>
 #include <SpatialLocality.hpp>
 
+#ifdef HAS_EPA_TOOLS
+#include <PrefetchSimulation.hpp>
+#include <SpatialLocalityPerMemOp.hpp>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -55,9 +60,11 @@ AddressStreamDriver::AddressStreamDriver() {
     // Only run Cache Simulation by default
     runAddressRange = false;
     runCacheSimulation = true;
+    runHardwarePrefetching = false;
     runReuseDistance = false;
     runScatterLength = false;
     runSpatialLocality = false;
+    runSpatialLocalityPerMemOp = false;
 
     // Create the vector to store the tools
     tools = new vector<AddressStreamTool*>();
@@ -461,14 +468,20 @@ void AddressStreamDriver::SetUpTools() {
     // Check for which tools to use
     uint32_t doAddressRange;
     uint32_t doCacheSimulation;
+    uint32_t doHardwarePrefetching;
     uint32_t doReuseDistance;
     uint32_t doScatterGatherLength;
     uint32_t doSpatialLocality;
+    uint32_t doSpatialLocalityPerMemOp;
     if (parser->ReadEnvUint32("METASIM_ADDRESS_RANGE", &doAddressRange)){
         runAddressRange = (doAddressRange == 0) ? false : true;
     }
     if (parser->ReadEnvUint32("METASIM_CACHE_SIMULATION", &doCacheSimulation)){
         runCacheSimulation = (doCacheSimulation == 0) ? false : true;
+    }
+    if (parser->ReadEnvUint32("METASIM_HWPF_SIMULATION", 
+      &doHardwarePrefetching)){
+        runHardwarePrefetching = (doHardwarePrefetching == 0) ? false : true;
     }
     if (parser->ReadEnvUint32("METASIM_REUSE_DISTANCE", &doReuseDistance)){
         runReuseDistance = (doReuseDistance == 0) ? false : true;
@@ -479,6 +492,9 @@ void AddressStreamDriver::SetUpTools() {
     if (parser->ReadEnvUint32("METASIM_SPATIAL_LOCALITY", &doSpatialLocality)){
         runSpatialLocality = (doSpatialLocality == 0) ? false : true;
     }
+    if (parser->ReadEnvUint32("METASIM_SPATIAL_LOCALITY_MEMOP", &doSpatialLocalityPerMemOp)){
+        runSpatialLocalityPerMemOp = (doSpatialLocalityPerMemOp == 0) ? false : true;
+    }
 
     if (runAddressRange) {
         tools->push_back(new AddressRangeTool());
@@ -486,6 +502,16 @@ void AddressStreamDriver::SetUpTools() {
 
     if (runCacheSimulation) {
         tools->push_back(new CacheSimulationTool());
+    }
+
+    if (runHardwarePrefetching) {
+#ifdef HAS_EPA_TOOLS
+        tools->push_back(new PrefetchSimulationTool());
+#else
+        DISPLAY_ERROR << "No hardware prefetching library linked. "
+          << "Unset Hardware prefetching library tool. Exitting." << ENDL;
+        exit(0);
+#endif
     }
 
     if (runReuseDistance) {
@@ -500,11 +526,22 @@ void AddressStreamDriver::SetUpTools() {
         tools->push_back(new SpatialLocalityTool());
     }
 
+    if (runSpatialLocalityPerMemOp) {
+#ifdef HAS_EPA_TOOLS
+        tools->push_back(new SpatialLocalityPerMemOpTool());
+#else
+        DISPLAY_ERROR << "No spatial locality per memop library linked. "
+          << "Unset Spatial locality per memop library tool. Exitting." << ENDL;
+        exit(0);
+#endif
+    }
+
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 
       tools->end(); it++) {
         AddressStreamTool* currentTool = (*it);
+        StringParser parser;
         uint32_t handlersAdded = currentTool->CreateHandlers(
-          GetNumMemoryHandlers());
+          GetNumMemoryHandlers(), &parser);
         assert(handlersAdded > 0);
         numMemoryHandlers += handlersAdded;
     }

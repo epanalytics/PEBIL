@@ -82,7 +82,7 @@ class TextObject;
 #define IS_REG(__reg) (IS_GPR(__reg) || IS_SEGMENT_REG(__reg) || IS_CONTROL_REG(__reg) || IS_DEBUG_REG(__reg) || \
                        IS_MMX_REG(__reg) || IS_X87_REG(__reg) || IS_XMM_REG(__reg) || IS_YMM_REG(__reg) || \
                        IS_ZMM_REG(__reg) || IS_K_REG(__reg) || IS_PC_REG(__reg))
-#define IS_ALU_REG(__reg) (IS_GPR(__reg) || IS_XMM_REG(__reg))
+#define IS_ALU_REG(__reg) (IS_GPR(__reg) || IS_XMM_REG(__reg) || IS_YMM_REG(__reg) || IS_ZMM_REG(__reg))
 
 #define IS_LOADADDR(__mne) (__mne == UD_Ilea)
 #define IS_PREFETCH(__mne) (__mne == UD_Iprefetch || __mne == UD_Iprefetchnta \
@@ -495,10 +495,14 @@ public:
     int32_t getBaseRegister();
     uint32_t getIndexRegister();
 
+    bool hasIndexRegister();
+
     void touchedRegisters(BitSet<uint32_t>* regs);
+    bool isImmediate();
     bool isIndexRegXMM();
     bool isIndexRegYMM();
     bool isIndexRegZMM();
+    bool isMemory();
     bool isRelative();
     uint32_t getType() { return GET(type); }
     int64_t getValue();
@@ -512,6 +516,7 @@ private:
     RegisterSet* liveIns;
     RegisterSet* liveOuts;
     uint32_t defUseDist;
+    bool defUseCalculated; // Set when defUseDist has been set
 
     uint32_t* flags_usedef;
 
@@ -569,8 +574,9 @@ public:
     BitSet<uint32_t>* getFlagsUsed();
     BitSet<uint32_t>* getFlagsDefined();
     RegisterSet * getUnusableRegisters();
-    RegisterSet * getRegistersUsed();
     RegisterSet * getRegistersDefined();
+    RegisterSet * getRegistersImplicitlyUsed();
+    RegisterSet * getRegistersUsed();
 
     bool allFlagsDeadIn();
     bool allFlagsDeadOut();
@@ -585,8 +591,8 @@ public:
 
     bool usesFlag(uint32_t flg);
     bool defsFlag(uint32_t flg);
-    bool implicitlyUsesReg(uint32_t alu);
-    bool implicitlyDefinesReg(uint32_t alu);
+    bool implicitlyUsesReg(uint64_t alu);
+    bool implicitlyDefinesReg(uint64_t alu);
 
     struct VectorInfo getVectorInfo();
     struct RuntimeValue getRegisterValue(enum ud_type reg);
@@ -665,6 +671,7 @@ public:
     bool isLogicOp();
     bool isConditionalMove();
     bool isScatterGatherOp();
+    bool isVectorInstruction();
     bool isVectorMaskOp();
     bool isHelperMove();
     bool isAdditionOp();

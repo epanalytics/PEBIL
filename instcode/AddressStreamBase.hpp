@@ -28,6 +28,7 @@
 template <class T> class DataManager;
 class MemoryStreamHandler;
 class SamplingMethod;
+class StringParser;
 
 #define KILO (1024)
 #define MEGA (KILO*KILO)
@@ -42,7 +43,7 @@ class AddressStreamTool {
     virtual ~AddressStreamTool();
     virtual void AddNewHandlers(AddressStreamStats* stats) = 0;
     virtual void AddNewStreamStats(AddressStreamStats* stats) = 0;
-    virtual uint32_t CreateHandlers(uint32_t) = 0;
+    virtual uint32_t CreateHandlers(uint32_t, StringParser*) = 0;
     virtual void FinalizeTool(DataManager<AddressStreamStats*>*, 
       SamplingMethod*) = 0;
 };
@@ -113,6 +114,7 @@ class StringParser {
     StringParser() {};
     virtual ~StringParser() {};
 
+	virtual char* GetEnv(const char* var);
     virtual bool IsEmptyComment(std::string str);
     virtual bool ParseInt32(std::string token, int32_t* value, int32_t min);
     virtual bool ParsePositiveInt32(std::string token, uint32_t* value);
@@ -126,6 +128,36 @@ class Randomizer {
     virtual ~Randomizer() {}    
 
     virtual uint32_t RandomInt(uint32_t max);
+};
+
+class EasyHash {
+  private:
+    pebil_map_type<uint32_t, uint32_t>* internal_map; //key to running count
+
+  public:
+    EasyHash();
+    ~EasyHash();
+    bool contains(uint32_t key); //checks if key is currently in map
+    void add(uint32_t key, uint32_t valueToAdd);//takes the key, and adds to the running count
+                                           //if no key is present, creates and sets the running
+                                           //count to the passed in valueToAdd
+    uint32_t get(uint32_t key); //returns running count returns 0 if key is not found
+};
+
+class NestedHash {
+  private:
+    pebil_map_type<uint32_t, EasyHash*>* internal_hash; //set to EasyHash that has line and
+                                                        //running count
+
+  public:
+    NestedHash();
+    ~NestedHash();
+    bool contains(uint32_t set, uint32_t line); //checks if the set and line combo is in the map
+    //vvv Takes the set and line combination and adds to the running count,
+    //if no key is found, creates the key and sets valueToAdd as the starting running count
+    void put(uint32_t set, uint32_t line, uint32_t valueToAdd);
+    uint32_t get(uint32_t set, uint32_t line);//returns running count for set and line
+                                              //returns 0 if key is not found
 };
 
 #endif /* _AddressStreamBase_hpp_ */

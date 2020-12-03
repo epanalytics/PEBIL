@@ -40,7 +40,10 @@ protected:
 
     Vector<Block*> blocks; // contains both BasicBlocks and RawBlocks
     Vector<BasicBlock*> basicBlocks; // only BasicBlocks
-    Vector<Loop*> loops;
+    Vector<Loop*> loops;  // Natural loops (by definition)
+    Vector<Loop*> artificialLoops; // User-friendly loops (merged natural loops)
+    // ArtificialLoops are copies of their natural loops, and their loop 
+    // indices start with loops.size()
 
     Vector<BasicBlock**> blockCopies;
     std::map<uint32_t, std::map<uint32_t, BasicBlock*>* > interposedBlocks;
@@ -80,17 +83,21 @@ public:
     Vector<BasicBlock*>* getExitBlocks();
 
     Loop* getLoop(uint32_t idx) { return loops[idx]; }
+    Loop* getArtificialLoop(uint32_t idx) { return artificialLoops[idx]; }
     uint32_t getLoopDepth(Loop* loop);
     uint32_t getLoopDepth(uint32_t idx);
     uint32_t getNumberOfLoops() { return loops.size(); }
+    uint32_t getNumberOfArtificialLoops() { return artificialLoops.size(); }
     uint32_t buildLoops();
     void printInnerLoops();
     void printLoops();
     bool isBlockInLoop(uint32_t idx);
     Loop* getInnermostLoopForBlock(uint32_t idx);
+    Loop* getInnermostArtificialLoopForBlock(uint32_t idx);
     Loop* getOuterMostLoopForLoop(uint32_t idx);
     Loop* getParentLoop(uint32_t idx);
     Loop* getOuterLoop(uint32_t idx);
+    bool isArtificialLoop(Loop* l);
 
     void addBlock(Block* block);    
     

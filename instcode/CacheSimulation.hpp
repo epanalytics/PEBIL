@@ -23,18 +23,23 @@
 
 #include <AddressStreamBase.hpp>
 #include <string>
+#include <fstream>
+#include <unordered_map>
 
 #define DEFAULT_CACHE_FILE "instcode/CacheDescriptions.txt"
 
 #define INVALID_CACHE_LEVEL (0xffffffff)
 
+class CacheStructureHandler;
+class CacheStats;
+class CacheLevel;
+class MainMemory;
+
 enum CacheLevelType {
     CacheLevelType_Undefined,
     CacheLevelType_InclusiveLowassoc,
-    CacheLevelType_ExclusiveLowassoc,
     CacheLevelType_NonInclusiveLowassoc,
     CacheLevelType_InclusiveHighassoc,
-    CacheLevelType_ExclusiveHighassoc,
     CacheLevelType_Total
 };
 
@@ -60,6 +65,8 @@ struct EvictionInfo {
     uint32_t level;
     uint32_t setid;
     uint32_t lineid;
+    bool coldMiss;
+    bool dirty;
 };
 
 struct LevelStats {
@@ -74,95 +81,186 @@ class CacheSimulationTool : public AddressStreamTool {
     CacheSimulationTool() : AddressStreamTool() {}
     virtual void AddNewHandlers(AddressStreamStats* stats);
     virtual void AddNewStreamStats(AddressStreamStats* stats);
-    virtual uint32_t CreateHandlers(uint32_t index);
+    void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
+    virtual uint32_t CreateHandlers(uint32_t index, StringParser* parser);
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
       SamplingMethod* Sampler);
-    void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
+    void GetAndSetCacheDescriptionFile(StringParser* parser);
+    std::string GetCacheDescriptionFileName() { return CacheDescriptionFile; }
+    void GetReportFileName(AddressStreamStats* stats, std::string& oFile, 
+      std::string suffix);
+    uint32_t GetMinimumHighAssociativity() { return MinimumHighAssociativity; }
+    virtual void HandleEnvVariables(StringParser* parser);
+    bool IsKeepingMemoryLog() { return KeepMemoryLog; }
+    bool IsTrackingDirtyStatus() { return TrackDirtyStatus; }
+    void MemoryLogFileName(AddressStreamStats* stats, std::string& oFile);
+    virtual uint32_t ReadCacheDescription(std::istream& cacheStream, 
+      StringParser* parser);
 
-    std::string GetCacheDescriptionFile();
+    void SetCacheDescriptionFileName(std::string f) {CacheDescriptionFile = f;}
 
   protected:
+    std::string CacheDescriptionFile = "";
+    std::ofstream CacheReportFile;
     uint32_t MinimumHighAssociativity = 256;
-    uint32_t LoadStoreLogging = 0;
-    uint32_t DirtyCacheHandling = 0;
+    bool KeepMemoryLog = false;
+    std::ofstream MemoryLogFile;
+    bool TrackDirtyStatus = false;
+
+
+    virtual void AggregateCacheStats(CacheStats* aggregatedStats, uint32_t 
+      aggMemid, CacheStats* cacheStats, uint32_t memid);
+    virtual void CloseReportFiles();
+    virtual CacheStats* CreateAggregatedCacheStats(CacheStats* stats, uint32_t
+      numMemIds);
+    virtual void OpenReportFiles(AddressStreamStats* stats);
+    void PrintApplicationHeader(std::ofstream& file, 
+      DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
+      uint64_t totalMemop, uint64_t sampledCount);
+    virtual void PrintApplicationHeaders(DataManager<AddressStreamStats*>* 
+      AllData, SamplingMethod* Sampler, uint64_t totalMemop, uint64_t 
+      sampledCount);
+    virtual void PrintOverallStatistics(DataManager<AddressStreamStats*>*
+      AllData);
+    virtual void PrintOverallStatistics(DataManager<AddressStreamStats*>*
+      AllData, uint32_t sysidIndex, image_key_t imageid);
+    virtual void PrintOverallStatistics(CacheStats* cacheStats, thread_key_t 
+      threadid);
+    virtual void PrintPerBlockData(DataManager<AddressStreamStats*>* AllData, 
+      image_key_t imageid, thread_key_t threadid, CacheStats** aggregatedStats, 
+      uint32_t bbid);
+    virtual void PrintReportHeaders();
+    virtual void PrintSysIdHeader(uint32_t sysid, image_key_t imageid);
+    void PrintThreadidInfo(std::ofstream& file, thread_key_t thread, 
+      DataManager<AddressStreamStats*>* AllData);
 };
 
 
 class CacheStats : public StreamStats {
 public:
-    uint32_t LevelCount;
-    uint32_t SysId;
-    LevelStats** Stats; // indexed by [memid][level]
-    LevelStats* HybridMemStats; // indexed by [memid]
+    CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, bool
+      keepMemoryStats);
+    virtual ~CacheStats();
+
     uint32_t Capacity;
-    uint32_t hybridCache;
-    CacheStats(uint32_t lvl, uint32_t sysid, uint32_t capacity, uint32_t 
-      hybridCache);
-    ~CacheStats();
+    LevelStats** CacheLevelStats; // indexed by [memid][level]
+    bool KeepMemoryStats;
+    uint32_t LevelCount;
+    MainMemory** MainMemoryStats; // indexed by [memid]
+    uint32_t SysId;
+ 
+    void ExtendCapacity(uint32_t newSize);
+
+    uint64_t GetAccessCount(uint32_t memid);
+    uint32_t GetCapacity() { return Capacity; }
+    float GetCumulativeHitRate(uint32_t memid, uint32_t lvl);
+    static float GetHitRate(LevelStats* stats);
+    static float GetHitRate(uint64_t hits, uint64_t misses);
+    float GetHitRate(uint32_t memid, uint32_t lvl);
+    uint64_t GetHits(uint32_t lvl);
+    uint64_t GetHits(uint32_t memid, uint32_t lvl);
+    LevelStats* GetLevelStats(uint32_t memid, uint32_t lvl);
+    uint64_t GetLoads(uint32_t lvl);
+    uint64_t GetLoads(uint32_t memid, uint32_t lvl);
+    uint64_t GetMisses(uint32_t lvl);
+    uint64_t GetMisses(uint32_t memid, uint32_t lvl);
+    uint32_t GetNumberOfLevels() { return LevelCount; }
+    uint64_t GetStores(uint32_t lvl);
+    uint64_t GetStores(uint32_t memid, uint32_t lvl);
+    uint32_t GetSysId() { return SysId; }
 
     bool HasMemId(uint32_t memid);
-    void ExtendCapacity(uint32_t newSize);
-    void NewMem(uint32_t memid);
-
     void Hit(uint32_t memid, uint32_t lvl);
-    void HybridHit(uint32_t memid);
-
-    void Miss(uint32_t memid, uint32_t lvl);
-    void HybridMiss(uint32_t memid);
-
     void Hit(uint32_t memid, uint32_t lvl, uint32_t cnt);
-    void HybridHit(uint32_t memid, uint32_t cnt);
 
-    void Miss(uint32_t memid, uint32_t lvl, uint32_t cnt);
-    void HybridMiss(uint32_t memid,uint32_t cnt);
+    void InitMainMemoryStats(CacheStructureHandler* handler);
+    bool IsKeepingMemoryStats() { return KeepMemoryStats; }
 
     void Load(uint32_t memid,uint32_t lvl);
     void Load(uint32_t memid, uint32_t lvl, uint32_t cnt);
-    void HybridLoad(uint32_t memid);
-    void HybridLoad(uint32_t memid,uint32_t cnt); //  void HybridLoads(uint32_t memid, uint32_t cnt);
+
+    void Miss(uint32_t memid, uint32_t lvl);
+    void Miss(uint32_t memid, uint32_t lvl, uint32_t cnt);
    
     void Store(uint32_t memid,uint32_t lvl);
     void Store(uint32_t memid, uint32_t lvl, uint32_t cnt);
-    void HybridStore(uint32_t memid);
-    void HybridStore(uint32_t memid,uint32_t cnt);//    void HybridStores(uint32_t memid, uint32_t cnt);
- 
-    uint64_t GetLoads(uint32_t memid, uint32_t lvl);
-    uint64_t GetLoads(uint32_t lvl);
-    uint64_t GetHybridLoads(uint32_t memid);
-    uint64_t GetHybridLoads();
-    
-    uint64_t GetStores(uint32_t memid, uint32_t lvl);
-    uint64_t GetStores(uint32_t lvl);    
-    uint64_t GetHybridStores(uint32_t memid);
-    uint64_t GetHybridStores();    
 
-    static float GetHitRate(LevelStats* stats);
-    static float GetHitRate(uint64_t hits, uint64_t misses);
-
-    uint64_t GetHits(uint32_t memid, uint32_t lvl);
-    uint64_t GetHybridHits(uint32_t memid);
-
-    uint64_t GetHits(uint32_t lvl);
-    uint64_t GetHybridHits();
-    
-    uint64_t GetMisses(uint32_t memid, uint32_t lvl);
-    uint64_t GetHybridMisses(uint32_t memid);
-
-    uint64_t GetMisses(uint32_t lvl);
-    uint64_t GetHybridMisses();
-
-    LevelStats* GetLevelStats(uint32_t memid, uint32_t lvl);
-    uint64_t GetAccessCount(uint32_t memid);
-    float GetHitRate(uint32_t memid, uint32_t lvl);
-    float GetCumulativeHitRate(uint32_t memid, uint32_t lvl);
+    virtual void UpdateLevelStats(uint32_t memid, uint32_t lvl, bool hit, bool 
+      load);
+    virtual void UpdateMainMemoryStats(uint32_t memid, uint32_t set, uint32_t 
+      line, bool load);
 
     bool Verify();
 };
 
-#define USES_MARKERS(__pol) (__pol == ReplacementPolicy_nmru)
-#define CacheLevel_Init_Interface uint32_t lvl, uint32_t sizeInBytes, uint32_t assoc, uint32_t lineSz, ReplacementPolicy pol, uint32_t loadStore, uint32_t dirtyCache
-#define CacheLevel_Init_Arguments lvl, sizeInBytes, assoc, lineSz, pol, loadStore, dirtyCache
+class CacheStructureHandler : public MemoryStreamHandler {
+  protected: 
 
+    CacheSimulationTool* CacheSimTool;
+
+    uint32_t AllocatedLevelCount;   // For deleting allocated memory
+    uint32_t LevelCount;
+    CacheLevel** Levels;
+    StringParser* Parser;
+    uint32_t SysId;
+
+    virtual void InitializeDataStructures();
+    CacheLevel* ParseCacheLevelTokens(std::stringstream& tokenizer, 
+      uint32_t levelId, uint32_t* firstExcl);
+    virtual bool ParseNonCacheLevelTokens(std::stringstream& tokenizer,
+      uint32_t levelId);
+    virtual void PostProcessAddress(CacheStats* stats, uint64_t address, 
+      uint64_t memseq, uint8_t load, uint32_t currLevel, uint32_t nextLevel,
+      EvictionInfo* evictInfo);
+    virtual uint32_t ProcessAddress(CacheStats* stats, uint64_t address, 
+      uint64_t memseq, uint8_t load);
+
+  public:      
+    // note that this doesn't contain any stats gathering code. that is done at
+    // the thread level and is therefore done in ThreadData
+    CacheStructureHandler(CacheSimulationTool* tool, StringParser* parser);
+    CacheStructureHandler(CacheStructureHandler& h);
+    virtual ~CacheStructureHandler();
+
+    CacheLevel* GetCacheLevel(uint32_t lvl) { return Levels[lvl]; } //0-indexed
+    uint32_t GetMinimumHighAssociativity() { return 
+      CacheSimTool->GetMinimumHighAssociativity(); }
+    uint32_t GetNumberOfCacheLevels() { return LevelCount; }
+    uint32_t GetSysId() { return SysId; }
+
+    virtual bool Init(std::string desc);
+
+    bool IsKeepingMemoryLog() { return CacheSimTool->IsKeepingMemoryLog(); }
+    bool IsTrackingDirtyStatus() {return CacheSimTool->IsTrackingDirtyStatus();}
+
+    void Print(std::ofstream& f);
+    uint32_t Process(void* stats, BufferEntry* access);
+    bool Verify();
+};
+
+#define CacheLevel_Init_Interface uint32_t lvl, uint32_t sizeInBytes, uint32_t assoc, uint32_t lineSz, ReplacementPolicy pol, bool trackDirty
+#define CacheLevel_Init_Arguments lvl, sizeInBytes, assoc, lineSz, pol, trackDirty
+
+// Keep order of lines (within a set) in a doubly-linked list where:
+//   Head is the most recently used
+//   Tail is the least recently used
+//   Prev is the line accessed less recently than the current line (except tail)
+//   Next is the line accessed more recently than the current line (except head)
+//   The head and tail are connected as well, instead of pointing to NULL
+//
+// Let's say 5 lines (A, B, C, D, and E) were accessed in the following order:
+//   D, E, B, C, A, D, A
+// Then the least recently used is E, then B, then C, then D, then A:
+//
+//  
+//         A -> ----- -> ----- -> ----- -> ----- -> ----- -> E      (next)
+// LRU (T)      | E |    | B |    | C |    | D |    | A |      (H)  MRU
+//         A <- ----- <- ----- <- ----- <- ----- <- ----- <- E      (prev)
+//
+//
+// Note: in CacheLevel, we keep track of the LRU in the "RecentlyUsed" data 
+//       structure. In HistoryUsed, we just keep track of which line is 
+//       next/previous to the given line
 struct history {
     uint32_t prev;
     uint32_t next;
@@ -171,112 +269,97 @@ struct history {
 class CacheLevel {
 protected:
 
-    CacheLevelType type;
+    // Description of cache level
+    uint32_t Level;               // current level #
+    uint32_t LevelCount;          // # levels
+    uint32_t Size;                // size of cache
+    uint32_t Associativity;       // # of lines per set
+    uint32_t LineSize;            // # bytes in a cache line
+    ReplacementPolicy ReplPolicy; // replacement policy
+    CacheLevelType Type;          // type (e.g. inclusive)
 
-    uint32_t level;
-    uint32_t levelCount;
-    uint32_t size;
-    uint32_t associativity;
-    uint32_t linesize;
-    ReplacementPolicy replpolicy;
+    // Cache Level metadata
+    uint32_t NumBitsUsedPerLine;     // Number of bits used in a cache line
+    uint32_t NumSets;                // Number of sets
+    Randomizer* RanPolicyRandomizer; // Randomizer for random policy
+	  bool TrackDirtyStatus;           // Are we tracking dirty lines
 
-    uint32_t countsets;
-    uint32_t linesizeBits;
+    // Cache Level data structures
+    uint64_t** Contents = nullptr;    // the cache -> Contents[setid][lineid]
+    bool**  DirtyStatus = nullptr;    // is Contents[setid][lineid] dirty?
+    history** HistoryUsed = nullptr;  // doubly-linked list for each set
+    uint32_t* RecentlyUsed = nullptr; // MRU for lru (nmru) and LRU for trulru
 
-    uint64_t** contents;
-    bool**  dirtystatus;
-    uint32_t* recentlyUsed;
-    history** historyUsed;
-    bool toEvict;
+    // Is the cache line at this set and line dirty?
+    virtual bool GetDirtyStatus(uint32_t setid, uint32_t lineid);
+    // Get set for a given cache address
+    uint32_t GetSet(uint64_t cacheAddress);
+    // Get the line to replace for a given set (as given by replacment policy)
+    uint32_t LineToReplace(uint32_t setid);
+    // Mark the Contents[setid][lineid] as just used
+    void MarkUsed(uint32_t setid, uint32_t lineid);
+    // Add the new cache address to the cache and return the replaced address
+    virtual uint64_t Replace(uint64_t cacheAddress, uint32_t setid, 
+      uint32_t lineid);
+    // Reset Dirty bit for the given set and line
+    virtual void ResetDirty(uint32_t setid, uint32_t lineid);
+    // Look for the given cache address in the cache and return the set/line
+    virtual bool Search(uint64_t addr, uint32_t* set, uint32_t* lineInSet);
+    // Set the dirty bit for the given set and line
+    virtual void SetDirty(uint32_t setid, uint32_t lineid);
 
-	uint32_t loadStoreLogging;
-	uint32_t dirtyCacheHandling;
+    // Return the type for the cache level
+    virtual const char* TypeString() = 0;
 
 public:
-    std::vector<uint64_t>* toEvictAddresses;
     CacheLevel();
-    ~CacheLevel();
+    virtual ~CacheLevel();
 
-    bool IsExclusive() { return (type == CacheLevelType_ExclusiveLowassoc || 
-      type == CacheLevelType_ExclusiveHighassoc); }
+    // For extracting level arguments
+    virtual uint32_t GetAssociativity() { return Associativity; }
+    virtual bool GetIsTrackingDirty() { return TrackDirtyStatus; }
+    virtual uint32_t GetLevel() { return Level; }
+    virtual uint32_t GetLineSize() { return LineSize; }
+    ReplacementPolicy GetReplacementPolicy() { return ReplPolicy; }
+    virtual uint32_t GetSizeInBytes() { return Size; }
+    virtual CacheLevelType GetType() { return Type; }
 
-    uint32_t GetLevelCount() { return levelCount;}
-    uint32_t SetLevelCount(uint32_t inpLevelCount) { return levelCount = 
-      inpLevelCount; }
-    CacheLevelType GetType() { return type; }
-    ReplacementPolicy GetReplacementPolicy() { return replpolicy; }
-    uint32_t GetLevel() { return level; }
-    uint32_t GetSizeInBytes() { return size; }
-    uint32_t GetAssociativity() { return associativity; }
-    uint32_t GetSetCount() { return countsets; }
-    uint32_t GetLineSize() { return linesize; }
-	uint32_t GetLoadStoreLog() { return loadStoreLogging; }
-	uint32_t GetDirtyCacheHandle() { return dirtyCacheHandling; }
-    uint64_t CountColdMisses();
-
+    // Get the cache address, the first address in a cache line
+    uint64_t GetCacheAddress(uint64_t addr);
+    // Look for the given regular address in the cache and return the set/line
+    // Very similar to the Search function, but takes a regular address
+    virtual bool GetSetAndLine(uint64_t address, uint32_t* set, uint32_t* 
+      lineInSet);
+    virtual uint32_t GetSetCount() { return NumSets; }
+    // Initialize this cache level
+    virtual void Init(CacheLevel_Init_Interface);
+    // Print a description of the cache level
     void Print(std::ofstream& f, uint32_t sysid);
+    void SetLevelCount(uint32_t num) { LevelCount = num; }
+    // Process the given address
+    virtual uint32_t Process(uint64_t addr, uint64_t loadstoreflag, 
+      EvictionInfo* info);
 
-    // re-implemented by Exclusive/InclusiveCacheLevel
-    virtual uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, 
-      uint64_t loadstoreflag, bool* anyEvict, void* info);
-    virtual uint32_t EvictProcess(CacheStats* stats, uint32_t memid, uint64_t 
-      addr, uint64_t loadstoreflag, void* info);    
+    // For testing purposes
+    uint64_t** GetContents() { return Contents; }
+    bool** GetDirtyStatus() { return DirtyStatus; }
+    uint32_t GetLevelCount() { return LevelCount; }
+    uint32_t GetNumBitsUsedPerLine() { return NumBitsUsedPerLine; }
+    history** GetHistoryUsed() { return HistoryUsed; }
+    uint32_t* GetRecentlyUsed() { return RecentlyUsed; }
 
-    virtual void EvictDirty(CacheStats* stats, CacheLevel** levels, uint32_t 
-      memid, void* info); // void* info is needed since eventually 'Process' 
-      // needs to be called! 
-    virtual bool GetEvictStatus();
-
-    std::vector<uint64_t>* passEvictAddresses() { return toEvictAddresses;}
-
-protected:
-
-    uint64_t GetStorage(uint64_t addr);
-    uint64_t GetAddress(uint64_t store);
-    uint32_t GetSet(uint64_t addr);
-    uint32_t LineToReplace(uint32_t setid);
-    bool MultipleLines(uint64_t addr, uint32_t width);
-
-    void MarkUsed(uint32_t setid, uint32_t lineid,uint64_t loadstoreflag);
-
-    // re-implemented by HighlyAssociativeCacheLevel
-    virtual bool Search(uint64_t addr, uint32_t* set, uint32_t* lineInSet);
-    virtual uint64_t Replace(uint64_t addr, uint32_t setid, uint32_t lineid,uint64_t loadstoreflag);
-
-    virtual const char* TypeString() = 0;
-    virtual void Init (CacheLevel_Init_Interface);
-    
-   // Both store and lineid is being sent since while calling these methods we do not make distinction as whether the object belongs to CacheLevel or HighlyAssociateCacheLevel
-    virtual void SetDirty(uint32_t setid, uint32_t lineid,uint64_t store);
-    virtual void ResetDirty(uint32_t setid, uint32_t lineid,uint64_t store);
-    virtual bool GetDirtyStatus(uint32_t setid, uint32_t lineid,uint64_t store);
 };
 
 class InclusiveCacheLevel : public virtual CacheLevel {
 public:
     InclusiveCacheLevel() {}
+    ~InclusiveCacheLevel() {}
 
-    virtual void Init (CacheLevel_Init_Interface){
+    virtual void Init(CacheLevel_Init_Interface) {
         CacheLevel::Init(CacheLevel_Init_Arguments);
-        type = CacheLevelType_InclusiveLowassoc;
+        Type = CacheLevelType_InclusiveLowassoc;
     }
     virtual const char* TypeString() { return "inclusive"; }
-};
-
-class ExclusiveCacheLevel : public virtual CacheLevel {
-public:
-    uint32_t FirstExclusive;
-    uint32_t LastExclusive;
-
-    ExclusiveCacheLevel() {}
-    uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr,uint64_t loadstoreflag,bool* anyEvict,void* info);
-    virtual void Init (CacheLevel_Init_Interface, uint32_t firstExcl, uint32_t lastExcl){
-        CacheLevel::Init(CacheLevel_Init_Arguments);
-        type = CacheLevelType_ExclusiveLowassoc;
-        FirstExclusive = firstExcl;
-        LastExclusive = lastExcl;
-    }
-    virtual const char* TypeString() { return "exclusive"; }
 };
 
 class NonInclusiveCacheLevel : public virtual CacheLevel {
@@ -285,97 +368,62 @@ public:
     uint32_t LastExclusive;
 
     NonInclusiveCacheLevel() {}
-    uint32_t Process(CacheStats* stats, uint32_t memid, uint64_t addr, uint64_t
-      loadstoreflag,bool* anyEvict,void* info);
-    virtual void Init(CacheLevel_Init_Interface){
+    virtual void Init(CacheLevel_Init_Interface) {
         CacheLevel::Init(CacheLevel_Init_Arguments);
-        type = CacheLevelType_NonInclusiveLowassoc;
+        Type = CacheLevelType_NonInclusiveLowassoc;
     }
-    virtual const char* TypeString() { return "exclusive"; }
+    virtual uint32_t Process(uint64_t addr, uint64_t loadstoreflag, 
+      EvictionInfo* info);
+    virtual const char* TypeString() { return "noninclusive"; }
 };
 
+// Should used in conjunction with another cache level 
+// (see HighlyAssociativeInclusiveCacheLevel)
 class HighlyAssociativeCacheLevel : public virtual CacheLevel {
 protected:
-    pebil_map_type <uint64_t, uint32_t>** fastcontents;
-    pebil_map_type <uint64_t, bool>** fastcontentsdirty;
+    std::unordered_map<uint64_t, uint32_t>** FastContents;
+
+    uint64_t Replace(uint64_t cacheAddress, uint32_t setid, uint32_t lineid);
+    bool Search(uint64_t cacheAddress, uint32_t* set, uint32_t* lineInSet);
+
 public:
-    HighlyAssociativeCacheLevel() {}
+    HighlyAssociativeCacheLevel() : FastContents(NULL) {}
     ~HighlyAssociativeCacheLevel();
 
-    bool Search(uint64_t addr, uint32_t* set, uint32_t* lineInSet);
-    uint64_t Replace(uint64_t addr, uint32_t setid, uint32_t lineid,uint64_t loadstoreflag);
-    virtual void Init (CacheLevel_Init_Interface);
-
-   // Both store and lineid is being sent since while calling these methods we do not make distinction as whether the object belongs to CacheLevel or HighlyAssociateCacheLevel
-   void SetDirty(uint32_t setid, uint32_t lineid,uint64_t store);
-   void ResetDirty(uint32_t setid, uint32_t lineid,uint64_t store);
-   bool GetDirtyStatus(uint32_t setid, uint32_t lineid,uint64_t store);  
+    virtual void Init(CacheLevel_Init_Interface);
 };
 
-class HighlyAssociativeInclusiveCacheLevel : public InclusiveCacheLevel, public HighlyAssociativeCacheLevel {
+class HighlyAssociativeInclusiveCacheLevel : public InclusiveCacheLevel, 
+  public HighlyAssociativeCacheLevel {
 public:
     HighlyAssociativeInclusiveCacheLevel() {}
-    virtual void Init (CacheLevel_Init_Interface){
+    virtual void Init(CacheLevel_Init_Interface) {
         InclusiveCacheLevel::Init(CacheLevel_Init_Arguments);
         HighlyAssociativeCacheLevel::Init(CacheLevel_Init_Arguments);
-        type = CacheLevelType_InclusiveHighassoc;
+        Type = CacheLevelType_InclusiveHighassoc;
     }
     const char* TypeString() { return "inclusive_H"; }
 };
 
-class HighlyAssociativeExclusiveCacheLevel : public ExclusiveCacheLevel, public HighlyAssociativeCacheLevel {
+class MainMemory {
 public:
-    HighlyAssociativeExclusiveCacheLevel() {}
-    virtual void Init (CacheLevel_Init_Interface, uint32_t firstExcl, uint32_t lastExcl){
-        ExclusiveCacheLevel::Init(CacheLevel_Init_Arguments, firstExcl, lastExcl);
-        HighlyAssociativeCacheLevel::Init(CacheLevel_Init_Arguments);
-        type = CacheLevelType_ExclusiveHighassoc;
-    }
-    const char* TypeString() { return "exclusive_H"; }
-};
+    MainMemory(uint32_t setSize, uint32_t numOfLines, uint32_t lineSize); 
+    MainMemory(MainMemory& mem);
+    ~MainMemory();
 
-class CacheStructureHandler : public MemoryStreamHandler {
-public:
-    uint32_t sysId;
-    uint32_t levelCount;
-    uint32_t hybridCache;
+    //Below HashMaps are used to keep count of loads and store to and from main memory
+    NestedHash* writeOutsMap = nullptr; //keyed by set and line
+    NestedHash* readInsMap = nullptr; //keyed by set and line
 
-    uint64_t* RamAddressStart;
-    uint64_t* RamAddressEnd;    
+    EasyHash* dirOutsMap = nullptr; //if using a direct map last level cache,
+    EasyHash* dirInsMap = nullptr; //should hopefully cut down even more memory usage
 
-    CacheLevel** levels;
-    std::string description;
+    uint32_t GetLoads(); //loops through all of readIns and gets a total sum
+    uint32_t GetStores(); //loops through all of writeOuts and gets a total sum
 
-protected: 
-      uint32_t MinimumHighAssociativity = 256;
-      uint32_t LoadStoreLogging = 0;
-      uint32_t DirtyCacheHandling = 0;
-
-      uint64_t hits;
-      uint64_t misses;
-      uint64_t AddressRangesCount;
-      std::vector<uint64_t>* toEvictAddresses;
-      uint32_t processAddress(void* stats, uint64_t address, uint64_t memseq, uint8_t loadstoreflag);
-
-public:      
-    // note that this doesn't contain any stats gathering code. that is done at the
-    // thread level and is therefore done in ThreadData
-
-    CacheStructureHandler();
-    CacheStructureHandler(CacheStructureHandler& h);
-    ~CacheStructureHandler();
-    bool Init(std::string desc, uint32_t MinimumHighAssociativity, 
-	  uint32_t LoadStoreLogging, uint32_t DirtyCacheHandling);
-
-    void Print(std::ofstream& f);
-    uint32_t Process(void* stats, BufferEntry* access);
-    bool Verify();
-
-    uint64_t GetHits(){return hits;}
-    uint64_t GetMisses(){ return misses;} 
-
-    bool CheckRange(CacheStats* stats,uint64_t addr,uint64_t loadstoreflag,uint32_t memid); //, uint32_t* set, uint32_t* lineInSet);    
-    void ExtractAddresses();
+    uint32_t numOfSets; //based on Last Level Cache
+    uint32_t numOfLinesInSet;
+    uint32_t sizeOfLine;
 };
 
 

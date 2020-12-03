@@ -24,6 +24,10 @@ enum DataManagerTypes {
 
 // data management support
 template <class T> class DataManager {
+protected:
+    uint32_t currentimageseq;
+    DataMap <image_key_t, uint32_t> imageseq;
+
 private:
 
     // Used to make sure reads cannot happen while a write is in progress
@@ -42,9 +46,6 @@ private:
 
     uint32_t currentthreadseq;
     DataMap <thread_key_t, uint32_t> threadseq;
-
-    uint32_t currentimageseq;
-    DataMap <image_key_t, uint32_t> imageseq;
 
     image_key_t firstimage;
 

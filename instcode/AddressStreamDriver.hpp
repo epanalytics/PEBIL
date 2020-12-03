@@ -48,9 +48,11 @@ class AddressStreamDriver {
     // Are we running these tools?
     bool runAddressRange;
     bool runCacheSimulation;
+    bool runHardwarePrefetching;
     bool runReuseDistance;
     bool runScatterLength;
     bool runSpatialLocality;
+    bool runSpatialLocalityPerMemOp;
 
     // Holds the tools that are being run
     std::vector<AddressStreamTool*>* tools = NULL;
@@ -101,9 +103,11 @@ class AddressStreamDriver {
 
     bool IsAddressRange() { return runAddressRange; }
     bool IsCacheSimulation() { return runCacheSimulation; }
+    bool IsHardwarePrefetching() { return runHardwarePrefetching; }
     bool IsReuseDistance() { return runReuseDistance; }
     bool IsScatterLength() { return runScatterLength; }
     bool IsSpatialLocality() { return runSpatialLocality; }
+    bool IsSpatialLocalityPerMemOp() { return runSpatialLocalityPerMemOp; }
 
     void ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer);
@@ -124,6 +128,7 @@ class AddressStreamDriver {
     void AddTool(AddressStreamTool* t) { tools->push_back(t); }
     void SetAddressRange(bool b) { runAddressRange = b; }
     void SetCacheSimulation(bool b) { runCacheSimulation = b; }
+    void SetHardwarePrefetching(bool b) { runHardwarePrefetching = b; }
     void SetReuseDistance(bool b) { runReuseDistance = b; }
     void SetScatterLength(bool b) { runScatterLength = b; }
     void SetSpatialLocality(bool b) { runSpatialLocality = b; }

@@ -1,6 +1,8 @@
 STATIC_INST_LIB  = @PEBIL_STATIC_BUILD@
 PEBIL_MIC_LIBS_BUILD = @PEBIL_MIC_LIBS_BUILD@
 ADAMANT_LIBS_BUILD = @ADAMANT_LIBS_BUILD@
+EPA_TOOLS_AVAILABLE = @PEBIL_EPA_TOOLS_AVAILABLE@
+EPA_TOOLS_PATH = @PEBIL_EPA_TOOLS_PATH@
 PEBIL_PAPI_BUILD = @PEBIL_PAPI_BUILD@
 PAPI_PATH = @PAPI_PATH@
 PEBIL_LIBS = 
@@ -10,7 +12,7 @@ ifeq ($(STATIC_INST_LIB),yes)
 		PEBIL_LIBS += libpapiinst.a libpapifunc.a
 	endif
 else
-	PEBIL_LIBS = libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libaddressstream.so
+	PEBIL_LIBS = libpebilruntime.so libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libaddressstream.so
 	ifeq ($(PEBIL_PAPI_BUILD),yes)
 		PEBIL_LIBS += libpapiinst.so libpapifunc.so
 	endif
@@ -55,6 +57,13 @@ SHARED_COMMON_OBJS = $(LIBDIR)/InstrumentationCommon.O $(LIBDIR)/ThreadedCommon.
 
 ASL_OBJS = $(LIBDIR)/AddressStreamBase.O $(LIBDIR)/AddressRange.O $(LIBDIR)/CacheSimulation.O $(LIBDIR)/ReuseDistanceASI.O $(LIBDIR)/ScatterGatherLength.O $(LIBDIR)/SpatialLocality.O $(LIBDIR)/AddressStreamDriver.O
 
+ifeq ($(EPA_TOOLS_AVAILABLE),yes)
+  ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/PrefetchSimulation.o
+  ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/SpatialLocalityPerMemOp.o
+  EXTRA_FLAGS += -DHAS_EPA_TOOLS
+  EXTRA_INC += -I$(EPA_TOOLS_PATH)/instcode
+endif
+
 ifeq ($(ADAMANT_LIBS_BUILD),yes)
 	EXTRA_LIBS = -ldl -lpthread -ladm
 else
@@ -63,7 +72,7 @@ endif
 
 # opempi does not automatically link fortran mpi
 ifeq ($(MPICC), mpicc)
-  MPITYPE := $(shell mpirun --version | grep "Open MPI")
+  MPITYPE := "$(shell mpirun --version 2>&1 | grep "Open MPI")"
   # If using openmpi
   ifneq ($(MPITYPE), "")
 	  EXTRA_LIBS += @PEBIL_MPIFC_OPENMPI_LIB@
@@ -80,6 +89,9 @@ $(MICLIBDIR)/%.o: %.c
 	$(MPICC_MIC) $(CFLAGS) $(MICFLAGS) $(EXTRA_FLAGS) $(EXTRA_DEF) $(EXTRA_INC) -c -o $@ $< $(SHARED_OPT)
 $(MICLIBDIR)/%.O: %.cpp
 	$(MPICXX_MIC) $(CXXFLAGS) $(MICFLAGS) $(EXTRA_FLAGS) $(EXTRA_DEF) $(EXTRA_INC) -c -o $@ $< $(SHARED_OPT)
+
+$(LIBDIR)/libpebilruntime.so : $(SHARED_COMMON_OBJS)
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 
 $(LIBDIR)/libcounter.so : $(LIBDIR)/CounterFunctions.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)

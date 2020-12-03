@@ -38,26 +38,28 @@ protected:
     uint32_t depth;
 public:
     Loop(BasicBlock* h, BasicBlock* t, FlowGraph* cfg, BitSet<BasicBlock*>* newBlocks);
+    Loop(const Loop &l);
     ~Loop();
 
+    bool containsCall();
+    uint32_t getAllBlocks(BasicBlock** arr);
+    uint32_t getAllInstructions(X86Instruction** instructions, uint32_t nexti);
     uint32_t getDepth() { return depth; }
-    void setDepth(uint32_t d) { depth = d; }
+    FlowGraph* getFlowGraph() { return flowGraph; }
     BasicBlock* getHead() { return head; }
-    BasicBlock* getTail() { return tail; }
+    uint32_t getIndex() { return index; }
     uint32_t getNumberOfBlocks() { return blocks->size(); }
     uint32_t getNumberOfInstructions();
-    uint32_t getAllBlocks(BasicBlock** arr);
-    bool isBlockIn(uint32_t idx) { return blocks->contains(idx); }
+    BasicBlock* getTail() { return tail; }
     bool hasSharedHeader(Loop* loop);
-    bool isInnerLoopOf(Loop* loop);
+    bool isBlockIn(uint32_t idx) { return blocks->contains(idx); }
     bool isIdenticalLoop(Loop* loop);
+    bool isInnerLoopOf(Loop* loop);
+    void mergeLoopInto(Loop* loopToBeMerged); // Merge a loop into this loop
     void print();
     void printLiveness();
+    void setDepth(uint32_t d) { depth = d; }
     void setIndex(uint32_t idx) { index = idx; }
-    uint32_t getIndex() { return index; }
-    FlowGraph* getFlowGraph() { return flowGraph; }
-    bool containsCall();
-    uint32_t getAllInstructions(X86Instruction** instructions, uint32_t nexti);
 };
 
 #endif // _Loop_h_
