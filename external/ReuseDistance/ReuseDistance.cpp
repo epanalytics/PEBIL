@@ -97,7 +97,8 @@ void ReuseDistance::Init(uint64_t w, uint64_t b){
 
     current = 0;
     sequence = 1;
-    window = newtree234();
+    //window = newtree234();
+    window = new list<ReuseEntry*>();
     assert(window);
     mwindow.clear();
 // TODO: Does adding reserve help improve hash table?
@@ -149,12 +150,17 @@ ReuseDistance::~ReuseDistance(){
         delete stats[id];
     }    
 
-    debug_assert(current == count234(window));
+    //debug_assert(current == count234(window));
+    debug_assert(current == window->size());
     while (current){
-        delete (ReuseEntry*)delpos234(window, 0);
+        //delete (ReuseEntry*)delpos234(window, 0);
+        //back is the same as delete index 0
+        window->pop_back();
         current--;
     }
-    freetree234(window); //CAUTION: Dangerous practice!! :( 
+    //freetree234(window); //CAUTION: Dangerous practice!! :( 
+    delete window;
+    window = nullptr;
 
 }
 
@@ -257,7 +263,7 @@ void ReuseDistance::Print(ostream& f, bool annotate){
 }
 
 void ReuseDistance::Print(bool annotate){
-    Print(cout, annotate);
+    Print(std::cout, annotate);
 }
 
 void ReuseDistance::PrintFormat(ostream& f){
@@ -279,7 +285,7 @@ void ReuseDistance::PrintFormat(ostream& f){
       << ENDL;
 }
 
-void ReuseDistance::Process(ReuseEntry& r){
+/*void ReuseDistance::Process(ReuseEntry& r){
     profile_declare(PROCESS_TREE_TIME);
     profile_declare(PROCESS_TIME);
     //profile_declare(PROCESS_UPDATE_TIME);
@@ -353,6 +359,76 @@ void ReuseDistance::Process(ReuseEntry& r){
     sequence++;
     profile_end(PROCESS_TIME);
    return;
+}*/
+
+void ReuseDistance::Process(ReuseEntry& r){
+  uint64_t addr = r.address;
+//  uint64_t* BBStats= GetPINStats(r.id,true);
+//  LRUDistanceAnalyzer::RecordMemAccess((void*)r.address,BBStats);
+    uint64_t id = r.id;
+    uint64_t mres = mwindow.count(addr);
+
+    ReuseStats* stats = GetStats(id, true);
+
+    int dist = 0;
+    ReuseEntry* result;
+    ReuseEntry* slot = NULL;
+    if (mres) {
+        mres = mwindow[addr];
+
+        //result = findrelpos234(window, &key, &dist);
+        list<ReuseEntry*>::iterator lastInstanceItr;
+        for (auto it = window->begin(); it!=window->end();it++){
+            if ((*it)->__seq == mres) {
+                lastInstanceItr = it;
+                break;
+            }
+        }
+
+        //it==window.begin() is a dist of 1
+        dist = distance(window->begin(), lastInstanceItr) + 1;
+
+        window->erase(lastInstanceItr);
+        //current--;
+
+        result = *lastInstanceItr;
+        debug_assert(result);
+        mwindow[addr] = sequence;
+        result->__seq = sequence;
+        result->address = addr;
+
+        if (capacity != ReuseDistance::Infinity) {
+            //debug_assert(current - dist <= capacity);
+            debug_assert(dist <= capacity);
+        }
+        //stats->Update(current - dist);
+        stats->Update(dist);
+
+        window->push_front(result);
+        //current++;
+    } else {
+        slot = new ReuseEntry();
+        mwindow[addr] = sequence;
+        slot->__seq = sequence;
+        slot->address = addr;
+        window->push_front(slot);
+        current++;
+
+        stats->Update(ReuseDistance::Infinity);
+
+        //change to capacity != ReuseDistance::Infinity && current >= capacity
+        if (window->size() > capacity) {
+            auto oldestSeqItr = window->end()--;
+            mwindow.erase((*oldestSeqItr)->address);
+            window->erase(oldestSeqItr);
+            current--;
+        }
+    }
+
+    debug_assert(window->size() == mwindow.size());
+    debug_assert(mwindow.size() <= current);
+    sequence++;
+    return;
 }
 
 void ReuseDistance::Process(ReuseEntry* rs, uint64_t count){
@@ -392,10 +468,15 @@ void ReuseDistance::GetIndices(std::vector<uint64_t>& ids){
 
 void ReuseDistance::GetActiveAddresses(std::vector<uint64_t>& addrs){
     assert(addrs.size() == 0);
-    debug_assert(current == count234(window));
+    //debug_assert(current == count234(window));
+    debug_assert(current == window->size());
 
-    for (int i = 0; i < current; i++){
+    /*for (int i = 0; i < current; i++){
         ReuseEntry* r = index234(window, i);
+        addrs.push_back(r->address);
+    }*/
+    for (auto it = window->begin();it != window->end();it++){
+        ReuseEntry* r = *it;
         addrs.push_back(r->address);
     }
 }
@@ -405,12 +486,14 @@ void ReuseDistance::SkipAddresses(uint64_t amount){
 
     // flush the window completely
     while (current){
-        delete delpos234(window, 0);
+        //delete delpos234(window, 0);
+        delete window->back();
+        window->pop_back();
         current--;
     }
     mwindow.clear();
     assert(mwindow.size() == 0);
-    assert(count234(window) == 0);
+    assert(window->size() == 0);
 }
 
 // ReuseStats class
