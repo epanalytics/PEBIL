@@ -417,7 +417,7 @@ void ReuseDistance::Process(ReuseEntry& r){
         stats->Update(ReuseDistance::Infinity);
 
         //change to capacity != ReuseDistance::Infinity && current >= capacity
-        if (window->size() > capacity) {
+        if (capacity != ReuseDistance::Infinity && current >= capacity) {
             auto oldestSeqItr = window->end()--;
             mwindow.erase((*oldestSeqItr)->address);
             window->erase(oldestSeqItr);
