@@ -37,6 +37,10 @@
 #include <SpatialLocalityPerMemOp.hpp>
 #endif
 
+#ifdef HAS_DATA_STRUCTURE_MODULE
+#include <DataStructureModule.hpp>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -53,6 +57,23 @@
 #include <assert.h>
 
 using namespace std;
+
+// Define directives to keep #ifdefs out of code
+#ifdef HAS_EPA_TOOLS
+  #define GENERATE_PREFETCH_TOOL new PrefetchSimulationTool()
+  #define GENERATE_SPATIAL_MEMOP_TOOL new SpatialLocalityPerMemOpTool()
+#else
+  #define GENERATE_PREFETCH_TOOL 0
+  #define GENERATE_SPATIAL_MEMOP_TOOL 0
+#endif
+
+#ifdef HAS_DATA_STRUCTURE_MODULE
+  #define GENERATE_MODULE(m) m = new DataStructureModule()
+  #define DELETE_MODULE(m) delete m
+#else
+  #define GENERATE_MODULE(m) 0
+  #define DELETE_MODULE(m) 0
+#endif
 
 // Default Constructor
 AddressStreamDriver::AddressStreamDriver() {
@@ -74,6 +95,7 @@ AddressStreamDriver::AddressStreamDriver() {
     // Create a parser for parsing
     parser = new StringParser();
 
+    GENERATE_MODULE(dataStructureModule);
 }
 
 AddressStreamDriver::~AddressStreamDriver() {
@@ -93,6 +115,24 @@ AddressStreamDriver::~AddressStreamDriver() {
     tools->clear();
     delete tools;
     delete fastData;
+
+    DELETE_MODULE(dataStructureModule);
+}
+
+bool AddressStreamDriver::BuiltWithDataStructureModule() {
+    #ifdef HAS_DATA_STRUCTURE_MODULE
+    return true;
+    #else
+    return false;
+    #endif
+}
+
+bool AddressStreamDriver::BuiltWithEPATools() {
+    #ifdef HAS_EPA_TOOLS
+    return true;
+    #else
+    return false;
+    #endif
 }
 
 void AddressStreamDriver::CreateFastData(uint64_t capacity) {
@@ -505,13 +545,13 @@ void AddressStreamDriver::SetUpTools() {
     }
 
     if (runHardwarePrefetching) {
-#ifdef HAS_EPA_TOOLS
-        tools->push_back(new PrefetchSimulationTool());
-#else
-        DISPLAY_ERROR << "No hardware prefetching library linked. "
-          << "Unset Hardware prefetching library tool. Exitting." << ENDL;
-        exit(0);
-#endif
+        if (BuiltWithEPATools()) {
+            tools->push_back(GENERATE_PREFETCH_TOOL);
+        } else {
+            DISPLAY_ERROR << "No hardware prefetching library linked. "
+              << "Unset Hardware prefetching library tool. Exitting." << ENDL;
+            exit(0);
+        }
     }
 
     if (runReuseDistance) {
@@ -527,13 +567,14 @@ void AddressStreamDriver::SetUpTools() {
     }
 
     if (runSpatialLocalityPerMemOp) {
-#ifdef HAS_EPA_TOOLS
-        tools->push_back(new SpatialLocalityPerMemOpTool());
-#else
-        DISPLAY_ERROR << "No spatial locality per memop library linked. "
-          << "Unset Spatial locality per memop library tool. Exitting." << ENDL;
-        exit(0);
-#endif
+        if (BuiltWithEPATools()) {
+            tools->push_back(GENERATE_SPATIAL_MEMOP_TOOL);
+        } else {
+            DISPLAY_ERROR << "No spatial locality per memop library linked. "
+              << "Unset Spatial locality per memop library tool. Exitting." 
+              << ENDL;
+            exit(0);
+        }
     }
 
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 
