@@ -97,7 +97,6 @@ void ReuseDistance::Init(uint64_t w, uint64_t b){
 
     current = 0;
     sequence = 1;
-    //window = newtree234();
     window = new list<ReuseEntry*>();
     assert(window);
     mwindow.clear();
@@ -150,15 +149,12 @@ ReuseDistance::~ReuseDistance(){
         delete stats[id];
     }    
 
-    //debug_assert(current == count234(window));
     debug_assert(current == window->size());
     while (current){
-        //delete (ReuseEntry*)delpos234(window, 0);
         //back is the same as delete index 0
         window->pop_back();
         current--;
     }
-    //freetree234(window); //CAUTION: Dangerous practice!! :( 
     delete window;
     window = nullptr;
 
@@ -263,7 +259,7 @@ void ReuseDistance::Print(ostream& f, bool annotate){
 }
 
 void ReuseDistance::Print(bool annotate){
-    Print(std::cout, annotate);
+    Print(cout, annotate);
 }
 
 void ReuseDistance::PrintFormat(ostream& f){
@@ -285,98 +281,26 @@ void ReuseDistance::PrintFormat(ostream& f){
       << ENDL;
 }
 
-/*void ReuseDistance::Process(ReuseEntry& r){
+void ReuseDistance::Process(ReuseEntry& r){
     profile_declare(PROCESS_TREE_TIME);
     profile_declare(PROCESS_TIME);
-    //profile_declare(PROCESS_UPDATE_TIME);
     profile_declare(NEW_SLOT_TIME);
     profile_declare(FIND_SLOT_TIME);
-    profile_declare(ADD_SLOT_TIME);
+    profile_declare(ADD_SLOT_TIME); 
     profile_declare(PROCESS_SLOT_TIME);
+
     profile_start(PROCESS_TIME);
-  uint64_t addr = r.address;
-//  uint64_t* BBStats= GetPINStats(r.id,true);
-//  LRUDistanceAnalyzer::RecordMemAccess((void*)r.address,BBStats);
+
+    uint64_t addr = r.address;
     uint64_t id = r.id;
     uint64_t mres = mwindow.count(addr);
-
     ReuseStats* stats = GetStats(id, true);
-
     int dist = 0;
     ReuseEntry* result;
-//    profile_start(PROCESS_UPDATE_TIME);
     if (mres) {
         mres = mwindow[addr];
-        ReuseEntry key;
-        key.address = addr;
-        key.__seq = mres;
+
         profile_start(PROCESS_TREE_TIME);
-        result = findrelpos234(window, &key, &dist);
-        profile_end(PROCESS_TREE_TIME);
-
-        debug_assert(result);
-
-        if (capacity != ReuseDistance::Infinity) {
-            debug_assert(current - dist <= capacity);
-        }
-        stats->Update(current - dist);
-    } else {
-        stats->Update(ReuseDistance::Infinity);
-    }
-//    profile_end(PROCESS_UPDATE_TIME);
-
-    profile_start(PROCESS_SLOT_TIME);
-    ReuseEntry* slot = NULL;
-    if (mres || (capacity != ReuseDistance::Infinity && current >= capacity)) {
-//        profile_start(PROCESS_TREE_TIME);
-        profile_start(FIND_SLOT_TIME);
-        slot = (ReuseEntry*)delpos234(window, dist);
-        profile_end(FIND_SLOT_TIME);
-//        profile_end(PROCESS_TREE_TIME);
-        debug_assert(mwindow[slot->address]);
-        mwindow.erase(slot->address);
-        debug_assert(count234(window) == mwindow.size());
-    } else {
-        slot = new ReuseEntry();
-        current++;
-    }
-
-        profile_start(NEW_SLOT_TIME);
-    mwindow[addr] = sequence;
-        profile_end(NEW_SLOT_TIME);
-
-    slot->__seq = sequence;
-    slot->address = addr;
-//    profile_start(PROCESS_TREE_TIME);
-    profile_start(ADD_SLOT_TIME);
-    add234(window, slot);
-    profile_end(ADD_SLOT_TIME);
-    profile_end(PROCESS_SLOT_TIME);
-
-    debug_assert(count234(window) == mwindow.size());
-//    profile_end(PROCESS_TREE_TIME);
-    debug_assert(mwindow.size() <= current);
-    sequence++;
-    profile_end(PROCESS_TIME);
-   return;
-}*/
-
-void ReuseDistance::Process(ReuseEntry& r){
-  uint64_t addr = r.address;
-//  uint64_t* BBStats= GetPINStats(r.id,true);
-//  LRUDistanceAnalyzer::RecordMemAccess((void*)r.address,BBStats);
-    uint64_t id = r.id;
-    uint64_t mres = mwindow.count(addr);
-
-    ReuseStats* stats = GetStats(id, true);
-
-    int dist = 0;
-    ReuseEntry* result;
-    ReuseEntry* slot = NULL;
-    if (mres) {
-        mres = mwindow[addr];
-
-        //result = findrelpos234(window, &key, &dist);
         list<ReuseEntry*>::iterator lastInstanceItr;
         for (auto it = window->begin(); it!=window->end();it++){
             if ((*it)->__seq == mres) {
@@ -384,50 +308,78 @@ void ReuseDistance::Process(ReuseEntry& r){
                 break;
             }
         }
-
         //it==window.begin() is a dist of 1
         dist = distance(window->begin(), lastInstanceItr) + 1;
+        result = *lastInstanceItr;
+        profile_end(PROCESS_TREE_TIME);
 
+        if (capacity != ReuseDistance::Infinity) {
+            debug_assert(dist <= capacity);
+        }
+        stats->Update(dist);
+        
+        profile_start(PROCESS_SLOT_TIME);
+
+        profile_start(FIND_SLOT_TIME);
         window->erase(lastInstanceItr);
         //current--;
+        profile_end(FIND_SLOT_TIME);
 
-        result = *lastInstanceItr;
         debug_assert(result);
+
+        profile_start(NEW_SLOT_TIME);
         mwindow[addr] = sequence;
+        profile_end(NEW_SLOT_TIME);
+
         result->__seq = sequence;
         result->address = addr;
 
-        if (capacity != ReuseDistance::Infinity) {
-            //debug_assert(current - dist <= capacity);
-            debug_assert(dist <= capacity);
-        }
-        //stats->Update(current - dist);
-        stats->Update(dist);
-
+        profile_start(ADD_SLOT_TIME);
         window->push_front(result);
         //current++;
+        profile_end(ADD_SLOT_TIME);
+
+        profile_end(PROCESS_SLOT_TIME);
+
     } else {
-        slot = new ReuseEntry();
-        mwindow[addr] = sequence;
-        slot->__seq = sequence;
-        slot->address = addr;
-        window->push_front(slot);
+        stats->Update(ReuseDistance::Infinity);
+        profile_start(PROCESS_SLOT_TIME);
+
+        result = new ReuseEntry();
         current++;
 
-        stats->Update(ReuseDistance::Infinity);
+        profile_start(NEW_SLOT_TIME);
+        mwindow[addr] = sequence;
+        profile_start(NEW_SLOT_TIME);
 
-        //change to capacity != ReuseDistance::Infinity && current >= capacity
+        result->__seq = sequence;
+        result->address = addr;
+
+        profile_start(ADD_SLOT_TIME);
+        window->push_front(result);
+        profile_end(ADD_SLOT_TIME);
+
+        //TODO check if >= or just >
         if (capacity != ReuseDistance::Infinity && current >= capacity) {
-            auto oldestSeqItr = window->end()--;
-            mwindow.erase((*oldestSeqItr)->address);
-            window->erase(oldestSeqItr);
+
+            profile_start(FIND_SLOT_TIME);
+            ReuseEntry* oldestSeq = window->back();
+            window->pop_back();
             current--;
+            delete oldestSeq;
+            profile_end(FIND_SLOT_TIME);
+
+            debug_assert(mwindow[result->__address]);
+            mwindow.erase(oldestSeq->address);
+            debug_assert(window->size() == mwindow.size());
         }
     }
 
     debug_assert(window->size() == mwindow.size());
     debug_assert(mwindow.size() <= current);
     sequence++;
+
+    profile_end(PROCESS_TIME);
     return;
 }
 
@@ -468,13 +420,8 @@ void ReuseDistance::GetIndices(std::vector<uint64_t>& ids){
 
 void ReuseDistance::GetActiveAddresses(std::vector<uint64_t>& addrs){
     assert(addrs.size() == 0);
-    //debug_assert(current == count234(window));
     debug_assert(current == window->size());
 
-    /*for (int i = 0; i < current; i++){
-        ReuseEntry* r = index234(window, i);
-        addrs.push_back(r->address);
-    }*/
     for (auto it = window->begin();it != window->end();it++){
         ReuseEntry* r = *it;
         addrs.push_back(r->address);
@@ -486,7 +433,6 @@ void ReuseDistance::SkipAddresses(uint64_t amount){
 
     // flush the window completely
     while (current){
-        //delete delpos234(window, 0);
         delete window->back();
         window->pop_back();
         current--;

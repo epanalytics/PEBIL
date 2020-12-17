@@ -87,7 +87,6 @@ class ReuseDistance {
 private:
     // [sequence -> address] A counted B-tree filled with ReuseEntry*, sorted 
     // by __seq. this is from tree234.h
-    //tree234* window;
     std::list<ReuseEntry*>* window;
 
     reuse_map_type<uint64_t, uint64_t> mwindow;
