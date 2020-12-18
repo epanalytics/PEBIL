@@ -33,6 +33,7 @@
 #include <SpatialLocality.hpp>
 
 #ifdef HAS_EPA_TOOLS
+#include <DataCentricAddressRange.hpp>
 #include <PrefetchSimulation.hpp>
 #include <SpatialLocalityPerMemOp.hpp>
 #endif
@@ -68,10 +69,16 @@ using namespace std;
 #endif
 
 #ifdef HAS_DATA_STRUCTURE_MODULE
+  #define GENERATE_DATA_ADDRESS_RANGE_TOOL new DataCentricAddressRangeTool()
   #define GENERATE_MODULE(m) m = new DataStructureModule()
+  #define GET_DATA_STRUCTURE_ID(m, a) m->GetDataStructureID(a)
+  #define GET_NUM_DATA_STRUCTURES(m) m->GetNumberOfDataStructures()
   #define DELETE_MODULE(m) delete m
 #else
+  #define GENERATE_DATA_ADDRESS_RANGE_TOOL 0
   #define GENERATE_MODULE(m) 0
+  #define GET_DATA_STRUCTURE_ID(m, a) 0
+  #define GET_NUM_DATA_STRUCTURES(m) 0
   #define DELETE_MODULE(m) 0
 #endif
 
@@ -87,10 +94,16 @@ AddressStreamDriver::AddressStreamDriver() {
     runSpatialLocality = false;
     runSpatialLocalityPerMemOp = false;
 
+    // Only run code-centric by default
+    runCodeCentric = true;
+    runDataCentric = false;
+
     // Create the vector to store the tools
     tools = new vector<AddressStreamTool*>();
+    numCodeCentricTools = 0;
 
     numMemoryHandlers = 0;
+    numCodeCentricMemoryHandlers = 0;
 
     // Create a parser for parsing
     parser = new StringParser();
@@ -164,12 +177,6 @@ void AddressStreamDriver::CreateSamplingMethod() {
 
 void AddressStreamDriver::DeleteAllData() {
     delete allData;
-}
-
-AddressStreamTool* AddressStreamDriver::GetTool(uint32_t index) {
-    assert(index < GetNumTools());
-
-    return tools->at(index);
 }
 
 bool AddressStreamDriver::HasLiveInstrumentationPoints() {
@@ -253,6 +260,9 @@ void AddressStreamDriver::InitializeAddressStreamDriver(
 
     // Set up the tools!
     SetUpTools();
+
+    // Set up the data structure module
+    SetUpDataStructureModule();
 
 }
 
@@ -359,11 +369,22 @@ void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
     stats->Stats = new StreamStats*[GetNumMemoryHandlers()];
     bzero(stats->Stats, sizeof(StreamStats*) * GetNumMemoryHandlers());
 
+    uint32_t originalAllocCount = stats->AllocCount;
+
+    uint32_t toolIndex = 0;
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
       tools->end(); it++) {
+          // For Data-Centric tools, set AllocCount to number of data
+          // structures
+          if (toolIndex == numCodeCentricTools)
+              stats->AllocCount = GET_NUM_DATA_STRUCTURES(dataStructureModule);
+          toolIndex++;
           AddressStreamTool* currentTool = (*it);
           currentTool->AddNewStreamStats(stats);
     }
+
+    // Reset AllocCount
+    stats->AllocCount = originalAllocCount;
 }
 
 // Thread-safe function
@@ -393,6 +414,14 @@ void AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             if (reference->imageid == 0){
                 debug(assert(AllData->CountThreads() > 1));
                 continue;
+            }
+
+            // If this is the first data-centric handler, then change the 
+            // memop ID to the data structure ID
+            if (handlerIndex == numCodeCentricMemoryHandlers) {
+                // TODO: change to correct address
+                reference->memseq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
+                  reference->address);
             }
 
             handler->Process((void*)ss, reference);
@@ -504,6 +533,10 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     DONE_WITH_BUFFER();
 }
 
+void AddressStreamDriver::SetUpDataStructureModule() {
+
+}
+
 void AddressStreamDriver::SetUpTools() {
     // Check for which tools to use
     uint32_t doAddressRange;
@@ -532,11 +565,25 @@ void AddressStreamDriver::SetUpTools() {
     if (parser->ReadEnvUint32("METASIM_SPATIAL_LOCALITY", &doSpatialLocality)){
         runSpatialLocality = (doSpatialLocality == 0) ? false : true;
     }
-    if (parser->ReadEnvUint32("METASIM_SPATIAL_LOCALITY_MEMOP", &doSpatialLocalityPerMemOp)){
-        runSpatialLocalityPerMemOp = (doSpatialLocalityPerMemOp == 0) ? false : true;
+    if (parser->ReadEnvUint32("METASIM_SPATIAL_LOCALITY_MEMOP", 
+      &doSpatialLocalityPerMemOp)){
+        runSpatialLocalityPerMemOp = (doSpatialLocalityPerMemOp == 0) ? false :
+          true;
     }
 
-    if (runAddressRange) {
+    // Check for which types of tools to use
+    // TODO: Check that one is set!
+    uint32_t doCodeCentric;
+    uint32_t doDataCentric;
+    if (parser->ReadEnvUint32("METASIM_CODE_CENTRIC", &doCodeCentric)){
+        runCodeCentric = (doCodeCentric == 0) ? false : true;
+    }
+    if (parser->ReadEnvUint32("METASIM_DATA_CENTRIC", &doDataCentric)){
+        runDataCentric = (doDataCentric == 0) ? false : true;
+    }
+
+    // First add code-centric tools.
+    if (runAddressRange && runCodeCentric) {
         tools->push_back(new AddressRangeTool());
     }
 
@@ -577,6 +624,20 @@ void AddressStreamDriver::SetUpTools() {
         }
     }
 
+    numCodeCentricTools = tools->size();
+
+    // THEN add the data-centric tools.
+    if (!BuiltWithDataStructureModule() && runDataCentric) {
+        DISPLAY_ERROR << "No data structure module linked. "
+          << "Unset Data Centric Libraries. Exitting." << ENDL;
+        exit(0);
+    }
+
+    if (runAddressRange && runDataCentric) {
+        tools->push_back(GENERATE_DATA_ADDRESS_RANGE_TOOL);
+    }
+
+    uint32_t toolIndex = 0;
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 
       tools->end(); it++) {
         AddressStreamTool* currentTool = (*it);
@@ -585,6 +646,9 @@ void AddressStreamDriver::SetUpTools() {
           GetNumMemoryHandlers(), &parser);
         assert(handlersAdded > 0);
         numMemoryHandlers += handlersAdded;
+        if (toolIndex < numCodeCentricTools)
+            numCodeCentricMemoryHandlers += handlersAdded;
+        toolIndex++;
     }
 }
 
@@ -675,6 +739,10 @@ void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid,
 }
 
 // For testing
+AddressStreamTool* AddressStreamDriver::GetTool(uint32_t index) {
+    return tools->at(index);
+}
+
 void AddressStreamDriver::SetParser(StringParser* p) {
     if (parser != NULL)
         delete parser;
