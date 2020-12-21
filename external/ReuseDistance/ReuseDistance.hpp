@@ -31,7 +31,6 @@
 
 #include <assert.h>
 #include <stdlib.h>
-#include <tree234.h>
 #include <math.h>
 #include <algorithm>
 #include <iostream>
@@ -85,8 +84,8 @@ class ReuseStats;
  */
 class ReuseDistance {
 private:
-    // [sequence -> address] A counted B-tree filled with ReuseEntry*, sorted 
-    // by __seq. this is from tree234.h
+    // [sequence -> address] A linked list filled with ReuseEntry*, sorted 
+    // by access order 
     std::list<ReuseEntry*>* window;
 
     reuse_map_type<uint64_t, uint64_t> mwindow;
