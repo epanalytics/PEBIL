@@ -630,6 +630,8 @@ CPUFREQ_FLAGS
 PAPI_PATH
 PEBIL_PAPI_BUILD
 PEBIL_MIC_LIBS_BUILD
+EPA_MEMORY_CONTAINER_PATH
+EPA_MEMORY_CONTAINER_AVAILABLE
 PEBIL_EPA_TOOLS_PATH
 PEBIL_EPA_TOOLS_AVAILABLE
 THROTTLER_FLAGS
@@ -711,6 +713,7 @@ enable_adamant
 enable_mpiinit_check
 with_throttler_headers
 with_epa_tools
+with_memory_container
 enable_mic_libs
 enable_papi
 '
@@ -1372,6 +1375,8 @@ Optional Packages:
   --with-throttler-headers=<path>
                           specify path to throttler headers
   --with-epa-tools=<path> specify path to epa tools
+  --with-memory-container=<path>
+                          specify path to memory container
 
 Some influential environment variables:
   CC          C compiler command
@@ -6262,6 +6267,24 @@ if test x"$epa_tools" = x"no"; then
 else
     PEBIL_EPA_TOOLS_AVAILABLE="yes"
     PEBIL_EPA_TOOLS_PATH="$epa_tools"
+fi
+
+
+
+
+# Check whether --with-memory_container was given.
+if test "${with_memory_container+set}" = set; then :
+  withval=$with_memory_container; memory_container=$withval
+else
+  memory_container=no
+fi
+
+if test x"$memory_container" = x"no"; then
+    EPA_MEMORY_CONTAINER_AVAILABLE="no"
+    EPA_MEMORY_CONTAINER_PATH=""
+else
+    EPA_MEMORY_CONTAINER_AVAILABLE="yes"
+    EPA_MEMORY_CONTAINER_PATH="$memory_container"
 fi
 
 

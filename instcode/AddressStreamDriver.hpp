@@ -37,6 +37,10 @@ template <class T, class V> class FastData;
 typedef struct AddressStreamStats_s AddressStreamStats;
 typedef struct BufferEntry_s BufferEntry;
 
+#ifdef HAS_DATA_STRUCTURE_MODULE
+class DataStructureModule;
+#endif
+
 #define DEFAULT_SAMPLE_ON  1000000
 #define DEFAULT_SAMPLE_OFF 10000000
 #define DEFAULT_SAMPLE_MAX 0
@@ -67,9 +71,18 @@ class AddressStreamDriver {
     std::set<uint64_t>* liveMemoryAccessInstPointKeys = NULL;  
 
     StringParser* parser = NULL;
+
+  #ifdef HAS_DATA_STRUCTURE_MODULE
+    DataStructureModule* dataStructureModule = NULL;
+  #else
+    int dataStructureModule = 0;  // placeholder to make .cpp code cleaner
+  #endif
   public:
     AddressStreamDriver();
     virtual ~AddressStreamDriver();
+
+    bool BuiltWithDataStructureModule();
+    bool BuiltWithEPATools();
 
     void CreateFastData(uint64_t capacity);
     virtual void CreateSamplingMethod();
