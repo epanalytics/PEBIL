@@ -70,7 +70,6 @@ struct ReuseEntry {
     uint64_t address;
 };
 
-
 class ReuseStats;
 
 /**
@@ -106,6 +105,12 @@ protected:
     virtual const std::string Describe() { return "REUSE"; }
 
 public:
+
+// FOR TESTING ONLY
+    std::list<ReuseEntry*>* TestGetWindow() { return window; }
+    reuse_map_type<uint64_t, uint64_t> TestGetMwindow() { return mwindow; }
+    uint64_t TestGetCurrent() { return current; }
+// End for testing only
 
     static const uint64_t DefaultBinIndividual = 32;
     static const uint64_t Infinity = INFINITY_REUSE;
