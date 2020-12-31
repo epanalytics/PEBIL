@@ -137,8 +137,10 @@ static bool mergeStates(struct RegisterStatePrediction* oldState, struct Registe
 }
 
 static RuntimeValue getValueOfOperand(OperandX86* src, RegisterStatePrediction* item) {
-    if(src->getType() == UD_OP_IMM)
-        return {Definitely, src->getValue()};
+    if(src->getType() == UD_OP_IMM) {
+        ASSERT(src->getValue() >= 0);
+        return {Definitely, (uint64_t)src->getValue()};
+    }
     else if(src->getType() == UD_OP_REG) {
         if(item->state.find(getRegId(src->GET(base))) != item->state.end()) {
             RuntimeValue val = item->state[getRegId(src->GET(base))];
@@ -684,10 +686,14 @@ void FlowGraph::computeVectorMasks(){
         }
 
         // Implicit writes to mask register
-        if(ins->GET(mnemonic) >= UD_Ivgatherdpd && ins->GET(mnemonic) <= UD_Ivgatherpf1dps ||
-           ins->GET(mnemonic) >= UD_Ivscatterdpd && ins->GET(mnemonic) <= UD_Ivscatterpf1dps ||
-           ins->GET(mnemonic) == UD_Ivpscatterdd || ins->GET(mnemonic) == UD_Ivpscatterdq ||
-           ins->GET(mnemonic) == UD_Ivpgatherdd || ins->GET(mnemonic) == UD_Ivpgatherdq) {
+        if (((ins->GET(mnemonic) >= UD_Ivgatherdpd) && 
+          (ins->GET(mnemonic) <= UD_Ivgatherpf1dps)) ||
+          ((ins->GET(mnemonic) >= UD_Ivscatterdpd) && 
+          (ins->GET(mnemonic) <= UD_Ivscatterpf1dps)) ||
+          (ins->GET(mnemonic) == UD_Ivpscatterdd) || 
+          (ins->GET(mnemonic) == UD_Ivpscatterdq) ||
+          (ins->GET(mnemonic) == UD_Ivpgatherdd) || 
+          (ins->GET(mnemonic) == UD_Ivpgatherdq)) {
             nextItem->state[ins->GET(vector_mask_register)].confidence = Maybe;
         }
 
@@ -859,7 +865,7 @@ inline void singleDefUse(FlowGraph* fg, X86Instruction* ins, BasicBlock* bb, Loo
                          std::pebil_map_type<uint64_t, BasicBlock*>& bmap,
                          std::pebil_map_type<uint64_t, LinkedList<X86Instruction::ReachingDefinition*>*>& alliuses,
                          std::pebil_map_type<uint64_t, LinkedList<X86Instruction::ReachingDefinition*>*>& allidefs,
-                         int k, uint64_t loopLeader, uint32_t fcnt){
+                         uint32_t k, uint64_t loopLeader, uint32_t fcnt){
 
     // Get defintions for this instruction: ins
     LinkedList<X86Instruction::ReachingDefinition*>* idefs = ins->getDefs();
@@ -884,7 +890,7 @@ inline void singleDefUse(FlowGraph* fg, X86Instruction* ins, BasicBlock* bb, Loo
 
     // Initialize worklist with the path from this instruction
     // Only take paths inside the loop. Since the definitions are in a loop, uses in the loop will be most relevant.
-    if (k == bb->getNumberOfInstructions() - 1){
+    if (k == (bb->getNumberOfInstructions() - 1)) {
         ASSERT(ins->controlFallsThrough());
         if (bb->getNumberOfTargets() > 0){
             ASSERT(bb->getNumberOfTargets() == 1);
@@ -1479,7 +1485,7 @@ bool FlowGraph::verify(){
             return false;
         }
     }
-    for (int32_t i = 0; i < blocks.size()-1; i++){
+    for (uint32_t i = 0; i < blocks.size()-1; i++){
         if (blocks[i]->getBaseAddress()+blocks[i]->getNumberOfBytes() != blocks[i+1]->getBaseAddress()){
             PRINT_ERROR("Blocks %d and %d in FlowGraph should be adjacent -- %#llx != %#llx", i, i+1, blocks[i]->getBaseAddress()+blocks[i]->getNumberOfBytes(), blocks[i+1]->getBaseAddress());
             return false;
@@ -1636,10 +1642,11 @@ BasicBlock** FlowGraph::getAllBlocks(){
     return basicBlocks.array();
 }
 
-uint32_t FlowGraph::buildLoops(){
+void FlowGraph::buildLoops(){
 
     if(loops.size())
-        return loops.size();
+        return;
+    //    return loops.size();
 
     PRINT_DEBUG_LOOP("Considering flowgraph for function %d -- has %d blocks", function->getIndex(),  basicBlocks.size());
 
@@ -1659,7 +1666,8 @@ uint32_t FlowGraph::buildLoops(){
 
     if(backEdges.empty()){
         PRINT_DEBUG_LOOP("\t%d Contains %d loops (back edges) from %d", getIndex(),loops.size(),basicBlocks.size());
-        return 0;
+        return;
+        //return 0;
     }
 
     ASSERT(!(backEdges.size() % 2) && "Fatal: Back edge list should be multiple of 2, (from->to)");
@@ -1855,11 +1863,11 @@ uint32_t FlowGraph::getIndex() {
     return function->getIndex(); 
 }
 
-uint32_t FlowGraph::getAllBlocks(uint32_t sz, BasicBlock** arr){
+void FlowGraph::getAllBlocks(uint32_t sz, BasicBlock** arr){
     ASSERT(sz == basicBlocks.size());
     for (uint32_t i = 0; i < basicBlocks.size(); i++)
         arr[i] = basicBlocks[i];
-    return basicBlocks.size();
+   // return basicBlocks.size();
 }
 
 void FlowGraph::findMemoryFloatOps(){

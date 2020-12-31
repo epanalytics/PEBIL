@@ -86,22 +86,22 @@ void ProgramHeader::print() {
 }
 
 
-uint32_t ProgramHeader32::read(BinaryInputFile* binaryInputFile){
+void ProgramHeader32::read(BinaryInputFile* binaryInputFile){
     setFileOffset(binaryInputFile->currentOffset());
 
     if(!binaryInputFile->copyBytesIterate(&entry,Size__32_bit_Program_Header)){
         PRINT_ERROR("Program header (32) can not be read");
     }
-    return Size__32_bit_Program_Header;
+    //return Size__32_bit_Program_Header;
 }
 
-uint32_t ProgramHeader64::read(BinaryInputFile* binaryInputFile){
+void ProgramHeader64::read(BinaryInputFile* binaryInputFile){
     setFileOffset(binaryInputFile->currentOffset());
 
     if(!binaryInputFile->copyBytesIterate(&entry,Size__64_bit_Program_Header)){
         PRINT_ERROR("Program header (64) can not be read");
     }
-    return Size__64_bit_Program_Header;
+    //return Size__64_bit_Program_Header;
 }
 
 bool ProgramHeader::verify(){

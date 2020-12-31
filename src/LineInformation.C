@@ -188,7 +188,7 @@ void LineInfoTable::dump(BinaryOutputFile* b, uint32_t offset){
  * Line Number Program Header:
  *
  */
-uint32_t LineInfoTable::read(BinaryInputFile* binaryInputFile){
+void LineInfoTable::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(rawDataPtr);
     setFileOffset(binaryInputFile->currentOffset());
 
@@ -336,7 +336,7 @@ uint32_t LineInfoTable::read(BinaryInputFile* binaryInputFile){
     ASSERT(currByte == sizeInBytes);
 
     verify();
-    return sizeInBytes;
+    //return sizeInBytes;
 }
 
 void LineInfoTable::appendRowToMatrix()

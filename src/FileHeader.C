@@ -198,7 +198,7 @@ void FileHeader::print() {
 void FileHeader::initFilePointers(BinaryInputFile* binaryInputFile){
 }
 
-uint32_t FileHeader32::read(BinaryInputFile* binaryInputFile){
+void FileHeader32::read(BinaryInputFile* binaryInputFile){
 
     setFileOffset(binaryInputFile->currentOffset());
 
@@ -210,10 +210,10 @@ uint32_t FileHeader32::read(BinaryInputFile* binaryInputFile){
 
     verify();
 
-    return Size__32_bit_File_Header;
+    //return Size__32_bit_File_Header;
 }
 
-uint32_t FileHeader64::read(BinaryInputFile* binaryInputFile){
+void FileHeader64::read(BinaryInputFile* binaryInputFile){
     setFileOffset(binaryInputFile->currentOffset());
 
     if(!binaryInputFile->copyBytesIterate(&entry,Size__64_bit_File_Header)){
@@ -224,7 +224,7 @@ uint32_t FileHeader64::read(BinaryInputFile* binaryInputFile){
 
     verify();
 
-    return Size__64_bit_File_Header;
+    //return Size__64_bit_File_Header;
 }
 
 void FileHeader32::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){

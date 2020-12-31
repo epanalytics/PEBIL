@@ -48,7 +48,6 @@ void ReuseDistance::Init(uint64_t w, uint64_t b){
     window = newtree234();
     assert(window);
     LRUDistanceAnalyzer::Init(); // Does this need a protection mechanism?
-    assert(ReuseDistance::Infinity == NULL && "NULL is non-zero!?");
 }
 
 ReuseDistance::ReuseDistance(uint64_t w, uint64_t b){

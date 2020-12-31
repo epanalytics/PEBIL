@@ -39,7 +39,7 @@ public:
     ~GlobalOffsetTable();
 
     void print();
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
 
     uint64_t getEntry(uint32_t index);
     uint32_t getEntrySize() { return entrySize; }

@@ -189,7 +189,7 @@ uint32_t Function::bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>*
     return sizeInBytes;
 }
 
-uint32_t Function::addSafetyJump(X86Instruction* tgtInstruction){
+void Function::addSafetyJump(X86Instruction* tgtInstruction){
     Block* block = flowGraph->getBasicBlock(flowGraph->getNumberOfBasicBlocks() - 1);
     if (block->getType() == PebilClassType_BasicBlock){
         CodeBlock* cb = ((CodeBlock*)block);
@@ -451,7 +451,10 @@ Vector<X86Instruction*>* Function::digestRecursive(){
 
         PRINT_DEBUG_CFG("recursive cfg: address %#llx with %d bytes", currentAddress, currentInstruction->getSizeInBytes());
 
-        if (currentInstruction->getInstructionType() == UD_Iinvalid){
+        if ((currentInstruction->getInstructionType() == 
+          X86InstructionType_invalid) || 
+          (currentInstruction->getInstructionType() == 
+          X86InstructionType_unknown)) {
             setBadInstruction(currentInstruction->getBaseAddress());
         }
 
@@ -556,7 +559,8 @@ Vector<X86Instruction*>* Function::digestRecursive(){
     return allInstructions;
 }
 
-uint32_t Function::generateCFG(Vector<X86Instruction*>* instructions, Vector<AddressAnchor*>* addressAnchors){
+void Function::generateCFG(Vector<X86Instruction*>* instructions, 
+  Vector<AddressAnchor*>* addressAnchors){
     BasicBlock* currentBlock = NULL;
     BasicBlock* entryBlock = NULL;
     uint32_t numberOfBasicBlocks = 0;
@@ -668,7 +672,7 @@ uint32_t Function::generateCFG(Vector<X86Instruction*>* instructions, Vector<Add
         unknownBlocks.append(new RawBlock(unknownBlocks.size(), flowGraph, textSection->getStreamAtAddress(getBaseAddress()),
                                               flowGraph->getBlock(0)->getBaseAddress()-getBaseAddress(), getBaseAddress()));
     }
-    for (int32_t i = 0; i < flowGraph->getNumberOfBlocks()-1; i++){
+    for (uint32_t i = 0; i < flowGraph->getNumberOfBlocks()-1; i++){
         uint64_t blockEnds = flowGraph->getBlock(i)->getBaseAddress() + flowGraph->getBlock(i)->getNumberOfBytes();        
         uint64_t blockBegins = flowGraph->getBlock(i+1)->getBaseAddress();        
         if (blockEnds < blockBegins){

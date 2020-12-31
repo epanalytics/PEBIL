@@ -224,7 +224,7 @@ public:
 
     void setLineInfoFinder();
     void findLoops();
-    uint32_t printDisassembly(bool instructionDetail);
+    void printDisassembly(bool instructionDetail);
     
 
     ProgramHeader* addSegment(uint16_t idx, uint32_t type, uint64_t offset, uint64_t vaddr, uint64_t paddr,
@@ -233,7 +233,7 @@ public:
                         uint64_t size, uint32_t link, uint32_t info, uint64_t addralign, uint64_t entsize);
 
     uint16_t findSectionIdx(uint64_t addr);
-    uint16_t findSectionIdx(char* name);
+    uint16_t findSectionIdx(const char* name);
     RawSection* findDataSectionAtAddr(uint64_t addr);
     void testBitSet();
 
