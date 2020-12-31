@@ -32,14 +32,15 @@ class SymbolTable;
 
 class Relocation : public Base {
 protected:
-    Relocation(char* relPtr, uint32_t idx) : Base(PebilClassType_Relocation), relocationPtr(relPtr), index(idx) {}
+    Relocation(char* relPtr, uint32_t idx) : Base(PebilClassType_Relocation), 
+      relocationPtr(relPtr), index(idx) {}
     char* relocationPtr;
     uint32_t index;
 
 public:
     virtual ~Relocation() {}
     virtual char* charStream() { __SHOULD_NOT_ARRIVE; return NULL; }
-    virtual uint32_t read(BinaryInputFile* binaryInputFile) { __SHOULD_NOT_ARRIVE; }
+    virtual void read(BinaryInputFile* binaryInputFile) {__SHOULD_NOT_ARRIVE;}
     virtual void print(char*) { __SHOULD_NOT_ARRIVE; }
     virtual uint64_t getSymbol() { __SHOULD_NOT_ARRIVE; }
     virtual uint64_t getType() { __SHOULD_NOT_ARRIVE; }
@@ -56,7 +57,7 @@ public:
     Relocation32(char* relPtr, uint32_t idx) : Relocation(relPtr,idx) {}
     ~Relocation32() {}
     char* charStream() { return (char*)&entry; }
-    uint32_t read(BinaryInputFile* binaryInputFile);
+    void read(BinaryInputFile* binaryInputFile);
     void print(char*);
     uint64_t getSymbol() { return (uint64_t)ELF32_R_SYM (GET(r_info)); }
     uint64_t getType()   { return (uint64_t)ELF32_R_TYPE(GET(r_info)); }
@@ -72,7 +73,7 @@ public:
     Relocation64(char* relPtr, uint32_t idx) : Relocation(relPtr,idx) {}
     ~Relocation64() {}
     char* charStream() { return (char*)&entry; }
-    uint32_t read(BinaryInputFile* binaryInputFile);
+    void read(BinaryInputFile* binaryInputFile);
     void print(char*);
     void setSymbolInfo(uint32_t sym)
 ;
@@ -86,7 +87,7 @@ public:
     RelocationAddend32(char* relPtr, uint32_t idx) : Relocation(relPtr,idx) {}
     ~RelocationAddend32() {}
     char* charStream() { return (char*)&entry; }
-    uint32_t read(BinaryInputFile* binaryInputFile);
+    void read(BinaryInputFile* binaryInputFile);
     void print(char*);
     uint64_t getSymbol() { return (uint64_t)ELF32_R_SYM (GET(r_info)); }
     uint64_t getType()   { return (uint64_t)ELF32_R_TYPE(GET(r_info)); }
@@ -105,7 +106,7 @@ public:
     RelocationAddend64(char* relPtr, uint32_t idx) : Relocation(relPtr,idx) {}
     ~RelocationAddend64() {}
     char* charStream() { return (char*)&entry; }
-    uint32_t read(BinaryInputFile* binaryInputFile);
+    void read(BinaryInputFile* binaryInputFile);
     void print(char*);
     uint64_t getSymbol() { return (uint64_t)ELF64_R_SYM (GET(r_info)); }
     uint64_t getType()   { return (uint64_t)ELF64_R_TYPE(GET(r_info)); }
@@ -127,11 +128,12 @@ protected:
     Vector<Relocation*> relocations;
 public:
 
-    RelocationTable(char* rawPtr, uint64_t size, uint16_t scnIdx, uint32_t idx, ElfFile* elf);
+    RelocationTable(char* rawPtr, uint64_t size, uint16_t scnIdx, uint32_t idx,
+      ElfFile* elf);
     ~RelocationTable();
 
     void print();
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
 
     bool verify();

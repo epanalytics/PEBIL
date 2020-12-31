@@ -3,10 +3,10 @@ DOXYGEN = doxygen
 
 PEBIL_MIC_LIBS_BUILD = @PEBIL_MIC_LIBS_BUILD@
 ifeq ($(PEBIL_MIC_LIBS_BUILD),yes)
-	SUBDIRS = external/udis86-1.7 external/ReuseDistance external/ReuseDistanceForMIC instcode testapps src tools
+	SUBDIRS = external/udis86-1.7 external/ReuseDistance external/ReuseDistanceForMIC instcode src tools
 	COPY_LIBS = cp external/ReuseDistance/libReuseDistance.so lib; cp external/ReuseDistanceForMIC/libReuseDistance.so miclib
 else
-	SUBDIRS = external/udis86-1.7 external/ReuseDistance instcode testapps src tools
+	SUBDIRS = external/udis86-1.7 external/ReuseDistance instcode src tools
 	COPY_LIBS = cp external/ReuseDistance/libReuseDistance.so lib
 endif
 

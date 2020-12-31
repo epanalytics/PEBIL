@@ -124,7 +124,7 @@ DataSection::DataSection(char* rawPtr, uint32_t size, uint16_t scnIdx, ElfFile* 
     rawBytes = NULL;
 }
 
-uint32_t DataSection::read(BinaryInputFile* b){
+void DataSection::read(BinaryInputFile* b){
     ASSERT(sizeInBytes);
     ASSERT(!rawBytes);
 
@@ -136,15 +136,15 @@ uint32_t DataSection::read(BinaryInputFile* b){
     }
 
     verify();
-    return sizeInBytes;
+    //return sizeInBytes;
 }
 
-uint32_t RawSection::read(BinaryInputFile* b){
+void RawSection::read(BinaryInputFile* b){
     b->setInPointer(rawDataPtr);
     setFileOffset(b->currentOffset());
 
     verify();
-    return sizeInBytes;
+    //return sizeInBytes;
 }
 
 char* RawSection::getStreamAtAddress(uint64_t addr){

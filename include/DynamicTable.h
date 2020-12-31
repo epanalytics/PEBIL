@@ -41,7 +41,7 @@ public:
     uint32_t index;
     char* dynPtr;
 
-    virtual uint32_t read(BinaryInputFile* binaryInputFile) { __SHOULD_NOT_ARRIVE; }
+    virtual void read(BinaryInputFile* binaryInputFile) {__SHOULD_NOT_ARRIVE;}
     virtual char* charStream() { __SHOULD_NOT_ARRIVE; }
 
     char* getDynamicPtr() { return dynPtr; }
@@ -66,7 +66,7 @@ public:
 
     DYNAMIC_MACROS_CLASS("For the get_X/set_X field macros check the defines directory");
 
-    uint32_t read(BinaryInputFile* binaryInputFile);
+    void read(BinaryInputFile* binaryInputFile);
     void clear() { bzero(charStream(), Size__32_bit_Dynamic_Entry); }
 };
 
@@ -81,7 +81,7 @@ public:
 
     DYNAMIC_MACROS_CLASS("For the get_X/set_X field macros check the defines directory");
 
-    uint32_t read(BinaryInputFile* binaryInputFile);
+    void read(BinaryInputFile* binaryInputFile);
     void clear() { bzero(charStream(), Size__64_bit_Dynamic_Entry); }
 };
 
@@ -98,7 +98,7 @@ public:
 
     void print();
     void printSharedLibraries();
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     virtual void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
 
     uint32_t findEmptyDynamic();

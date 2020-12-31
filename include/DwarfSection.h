@@ -57,7 +57,7 @@ public:
 
     bool verify();
     void print();
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     void dump(BinaryOutputFile* b, uint32_t offset);
 
     uint32_t getNumberOfLineInfoTables() { return lineInfoTables.size(); }

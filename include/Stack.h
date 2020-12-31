@@ -10,7 +10,7 @@
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * but WTHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
@@ -28,7 +28,7 @@ template <class T=uint32_t>
 class Stack {
 private:
     T* elements;
-    uint32_t maxSize;
+    int32_t maxSize;
     int32_t topIndex;
 
     void growStack(){
@@ -36,6 +36,7 @@ private:
         memcpy(newElts, elements, maxSize * sizeof(T));
         delete[] elements;
         maxSize *= STACK_GROWTH_FACTOR;
+        assert(maxSize == (uint32_t)maxSize);
         elements = newElts;
     }
 
