@@ -55,13 +55,24 @@ extern "C" {
         return NULL;
     }
 
+    void* tool_pre_mpi_fini() {
+        Driver->PauseApplicationWrappers();
+        return NULL;
+    }
+
+    void* tool_pre_mpi_init() {
+        Driver->PauseApplicationWrappers();
+        return NULL;
+    }
+
     void* tool_mpi_init(){
+        Driver->UnpauseApplicationWrappers();
         return NULL;
     }
 
     void* tool_thread_init(thread_key_t tid){
         if(Driver != NULL)
-          return Driver->InitializeNewThread(tid);
+            Driver->InitializeNewThread(tid);
         return NULL;
     }
 
@@ -95,7 +106,9 @@ extern "C" {
         }
         assert(Driver);
 
+        Driver->PauseApplicationWrappers();
         Driver->InitializeNewImage(key, stats, td);
+        Driver->UnpauseApplicationWrappers();
 
         pthread_mutex_unlock(&image_init_mutex);
 
@@ -109,7 +122,9 @@ extern "C" {
         SAVE_STREAM_FLAGS(cout);
 
         image_key_t iid = *key;
+        Driver->PauseApplicationWrappers();
         Driver->ProcessThreadBuffer(iid, pthread_self());
+        Driver->UnpauseApplicationWrappers();
 
         RESTORE_STREAM_FLAGS(cout);
     }
@@ -117,6 +132,7 @@ extern "C" {
     // Called when the application exits. Collect the rest of the addresses in
     // the buffer and create the reports
     void* tool_image_fini(image_key_t* key){
+        Driver->PauseApplicationWrappers();
         Driver->FinalizeImage(key);
         Driver->DeleteAllData();
         delete Driver;

@@ -96,6 +96,8 @@ int __give_pebil_name(MPI_Init)(int* argc, char*** argv){
 #else
 int __wrapper_name(MPI_Init)(int* argc, char*** argv){
 
+    tool_pre_mpi_init();
+
 #ifdef HAVE_MPI
     int retval = PMPI_Init(argc, argv);
 #else
@@ -116,11 +118,25 @@ int __wrapper_name(MPI_Init)(int* argc, char*** argv){
     return retval;
 }
 
+int __wrapper_name(MPI_Finalize)(){
+
+    tool_pre_mpi_fini();
+
+#ifdef HAVE_MPI
+    int retval = PMPI_Finalize();
+#else
+    int retval = 0;
+#endif
+
+    return retval;
+}
+
 #ifdef USES_PSINSTRACER
 void __give_pebil_name(mpi_init_)(int* ierr){
 #else
 void __wrapper_name(mpi_init_)(int* ierr){
   //fprintf(stderr, "PEBIL calling pmpi_init\n");
+    tool_pre_mpi_init();
 #ifdef HAVE_MPI
     pmpi_init_(ierr);
 #endif
@@ -137,6 +153,16 @@ void __wrapper_name(mpi_init_)(int* ierr){
     //fprintf(stdout, "-[p%d]- Mapping pid to taskid %d/%d in mpi_init_ wrapper\n", getpid(), __taskid, __ntasks);
     tool_mpi_init();
 }
+
+/* Not working? TODO
+void __wrapper_name(mpi_finalize_)(){
+    tool_pre_mpi_fini();
+#ifdef HAVE_MPI
+    pmpi_finalize_();
+#endif
+}
+*/
+
 //
 // C init wrapper
 #ifdef USES_PSINSTRACER
@@ -145,6 +171,7 @@ int __give_pebil_name(MPI_Init_thread)(int* argc, char*** argv, int required, in
 #else
 int __wrapper_name(MPI_Init_thread)(int* argc, char*** argv, int required, int* provided){
 
+    tool_pre_mpi_init();
 #ifdef HAVE_MPI
     int retval = PMPI_Init_thread(argc, argv, required, provided);
 #else
@@ -170,6 +197,7 @@ void __give_pebil_name(mpi_init_thread_)(int* required, int* provided, int* ierr
 #else
 void __wrapper_name(mpi_init_thread_)(int* required, int* provided, int* ierr){
 #ifdef HAVE_MPI
+    tool_pre_mpi_init();
     pmpi_init_thread_(required, provided, ierr);
 #endif
 #endif // USES_PSINSTRACER
