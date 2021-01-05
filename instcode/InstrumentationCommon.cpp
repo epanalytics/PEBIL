@@ -154,14 +154,11 @@ void __wrapper_name(mpi_init_)(int* ierr){
     tool_mpi_init();
 }
 
-/* Not working? TODO
-void __wrapper_name(mpi_finalize_)(){
-    tool_pre_mpi_fini();
+void __wrapper_name(mpi_finalize_)(int* ierr){
 #ifdef HAVE_MPI
-    pmpi_finalize_();
+    *ierr = __wrapper_name(MPI_Finalize)();
 #endif
 }
-*/
 
 //
 // C init wrapper
