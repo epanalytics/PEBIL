@@ -75,6 +75,7 @@ using namespace std;
   #define GET_NUM_DATA_STRUCTURES(m) m->GetNumberOfDataStructures()
   #define DELETE_MODULE(m) delete m
   #define PAUSE_MODULE(m) m->PauseMemoryWrappers()
+  #define PRINT_DATA_STRUCTURE_REPORT(m) m->PrintDataStructureReport()
   #define UNPAUSE_MODULE(m) m->UnpauseMemoryWrappers()
 #else
   #define GENERATE_DATA_ADDRESS_RANGE_TOOL 0
@@ -83,6 +84,7 @@ using namespace std;
   #define GET_NUM_DATA_STRUCTURES(m) 0
   #define DELETE_MODULE(m) 0
   #define PAUSE_MODULE(m) 0
+  #define PRINT_DATA_STRUCTURE_REPORT(m) 0
   #define UNPAUSE_MODULE(m) 0
 #endif
 
@@ -233,6 +235,7 @@ void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
         ProcessThreadBuffer(iid, (*it));
     }
 
+    PRINT_DATA_STRUCTURE_REPORT(dataStructureModule);
     
     // Create the reports 
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
