@@ -58,10 +58,18 @@ class AddressStreamDriver {
     bool runSpatialLocality;
     bool runSpatialLocalityPerMemOp;
 
-    // Holds the tools that are being run
-    std::vector<AddressStreamTool*>* tools = NULL;
+    // Which tool versions are we running?
+    bool runCodeCentric;
+    bool runDataCentric;
 
+    // Holds the tools that are being run
+    // First tools are code centric. Data centric will be after.
+    std::vector<AddressStreamTool*>* tools = NULL;
+    uint32_t numCodeCentricTools;
+
+    // Code Centric Handlers will be first. Then the Data Centric Handlers.
     uint32_t numMemoryHandlers;
+    uint32_t numCodeCentricMemoryHandlers;
 
     DynamicInstrumentation* dynamicPoints = NULL;
     SamplingMethod* sampler = NULL;
@@ -100,9 +108,11 @@ class AddressStreamDriver {
     SamplingMethod* GetSamplingMethod() { return sampler; }
     StringParser* GetStringParser() { return parser; }
 
+    uint32_t GetNumCodeCentricTools() { return numCodeCentricTools; }
+    uint32_t GetNumCodeCentricMemoryHandlers() { return 
+      numCodeCentricMemoryHandlers; }
     uint32_t GetNumMemoryHandlers() { return numMemoryHandlers; }
     uint32_t GetNumTools() { return tools->size(); }
-    AddressStreamTool* GetTool(uint32_t index);
 
     bool HasLiveInstrumentationPoints();
 
@@ -122,6 +132,9 @@ class AddressStreamDriver {
     bool IsSpatialLocality() { return runSpatialLocality; }
     bool IsSpatialLocalityPerMemOp() { return runSpatialLocalityPerMemOp; }
 
+    bool IsCodeCentric() { return runCodeCentric; }
+    bool IsDataCentric() { return runDataCentric; }
+
     void ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
@@ -130,6 +143,7 @@ class AddressStreamDriver {
       fastData = f; }
     void SetDynamicPoints(DynamicInstrumentation* d) { dynamicPoints = d; }
 
+    virtual void SetUpDataStructureModule();
     virtual void SetUpTools();
 
     void ShutOffInstrumentationInAllBlocks();
@@ -139,12 +153,16 @@ class AddressStreamDriver {
 
     // For Testing Purposes
     void AddTool(AddressStreamTool* t) { tools->push_back(t); }
+    AddressStreamTool* GetTool(uint32_t index);
     void SetAddressRange(bool b) { runAddressRange = b; }
     void SetCacheSimulation(bool b) { runCacheSimulation = b; }
     void SetHardwarePrefetching(bool b) { runHardwarePrefetching = b; }
     void SetReuseDistance(bool b) { runReuseDistance = b; }
     void SetScatterLength(bool b) { runScatterLength = b; }
     void SetSpatialLocality(bool b) { runSpatialLocality = b; }
+
+    void SetCodeCentric(bool b) { runCodeCentric = b; }
+    void SetDataCentric(bool b) { runDataCentric = b; }
 
     void SetNumMemoryHandlers(uint32_t n) { numMemoryHandlers = n; }
     void SetParser(StringParser* p);

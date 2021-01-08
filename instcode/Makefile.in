@@ -66,6 +66,7 @@ ifeq ($(EPA_TOOLS_AVAILABLE),yes)
   EXTRA_INC += -I$(EPA_TOOLS_PATH)/instcode
   # Data Structure Module requires epa-pebil-tools and memory container
   ifeq ($(MEMORY_CONTAINER_AVAILABLE),yes)
+    ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricAddressRange.o
     ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataStructureModule.o
     EXTRA_FLAGS += -DHAS_DATA_STRUCTURE_MODULE
   endif

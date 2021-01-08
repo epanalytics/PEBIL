@@ -217,6 +217,7 @@ void AddressRangeTool::FinalizeTool(DataManager<AddressStreamStats*>* AllData,
                   << TAB << hex << (aggRange->GetMaximum(bbid) -
                     aggRange->GetMinimum(bbid))<<ENDL;
             } // For each block
+            delete aggRange;
         } // For each data manager
     } // For each image
 
