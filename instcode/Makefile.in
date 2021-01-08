@@ -74,7 +74,8 @@ ifeq ($(EPA_TOOLS_AVAILABLE),yes)
   ifeq ($(MEMORY_CONTAINER_AVAILABLE),yes)
     ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricAddressRange.o
     EXTRA_FLAGS += -DHAS_DATA_STRUCTURE_MODULE
-    EXTRA_LIBS += -L$(EPA_TOOLS_PATH)/instcode -ldatastructuremodule
+    ASL_LIBS = -L$(EPA_TOOLS_PATH)/instcode -ldatastructuremodule
+    ASL_LIBS += -L$(MEMORY_CONTAINER_PATH)/src -lMemContainer
   endif
 endif
 
@@ -111,7 +112,7 @@ $(MICLIBDIR)/libcounter.a : $(MICLIBDIR)/CounterFunctions.o $(COMMON_OBJS_MIC)
 	$(AR) $@ $(MICLIBDIR)/CounterFunctions.o $(COMMON_OBJS_MIC)
 
 $(LIBDIR)/libaddressstream.so : $(LIBDIR)/AddressStreamLibrary.O $(ASL_OBJS) $(SHARED_COMMON_OBJS)
-	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(ASL_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
 
 $(LIBDIR)/liblooptimer.so : $(LIBDIR)/LoopTimer.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
