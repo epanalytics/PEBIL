@@ -74,9 +74,10 @@ using namespace std;
   #define GET_DATA_STRUCTURE_ID(m, a) m->GetDataStructureID(a)
   #define GET_NUM_DATA_STRUCTURES(m) m->GetNumberOfDataStructures()
   #define DELETE_MODULE(m) delete m
-  #define PAUSE_MODULE(m) m->PauseMemoryWrappers()
-  #define PRINT_DATA_STRUCTURE_REPORT(m) m->PrintDataStructureReport()
-  #define UNPAUSE_MODULE(m) m->UnpauseMemoryWrappers()
+  #define PAUSE_MODULE(m) if(runDataCentric) m->PauseMemoryWrappers()
+  #define PRINT_DATA_STRUCTURE_REPORT(m) if(runDataCentric) \
+    m->PrintDataStructureReport()
+  #define UNPAUSE_MODULE(m) if(runDataCentric) m->UnpauseMemoryWrappers()
 #else
   #define GENERATE_DATA_ADDRESS_RANGE_TOOL 0
   #define GENERATE_MODULE(m) 0
@@ -267,8 +268,10 @@ void AddressStreamDriver::InitializeAddressStreamDriver(
     // Set up the tools!
     SetUpTools();
 
-    // Set up the data structure module
-    SetUpDataStructureModule();
+    // Set up the data structure module -- Must be done after SetUpTools
+    // Otherwise runDataCentric will not be set
+    if (runDataCentric)
+        SetUpDataStructureModule();
 
 }
 
@@ -395,6 +398,17 @@ void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
 
 void AddressStreamDriver::PauseApplicationWrappers() {
     PAUSE_MODULE(dataStructureModule);
+}
+
+void AddressStreamDriver::ProcessAllBuffers() {
+    // Go through each image and thread and process their buffers
+    for (set<image_key_t>::iterator iit = allData->allimages.begin();
+      iit != allData->allimages.end(); iit++) {
+        for (set<thread_key_t>::iterator it = allData->allthreads.begin(); 
+          it != allData->allthreads.end(); it++) {
+            ProcessThreadBuffer((*iit), (*it));
+        }
+    }
 }
 
 // Thread-safe function
