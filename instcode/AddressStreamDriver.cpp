@@ -560,6 +560,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 void AddressStreamDriver::SetUpDataStructureModule() {
     dataStructureModule->CreateContainer();
     dataStructureModule->CreateDynamicTool();
+    dataStructureModule->SetDriver(this);
 }
 
 void AddressStreamDriver::SetUpTools() {
