@@ -1033,6 +1033,8 @@ CacheLevel* CacheStructureHandler::ParseCacheLevelTokens(stringstream&
     } else if (token.compare(0, 4, "rand") == 0){
         repl = ReplacementPolicy_random;
     } else if (token.compare(0, 6, "trulru") == 0){
+        assert(cacheValues[1] != 1 && 
+          "Can't have trulru with assoc of 1, Please use dir\n");
         repl = ReplacementPolicy_trulru;
     } else if (token.compare(0, 3, "dir") == 0){
         repl = ReplacementPolicy_direct;

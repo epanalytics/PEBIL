@@ -6,7 +6,7 @@
 using namespace std;
 
 
-typedef struct {
+typedef struct FunctionTimers_s {
     bool master;
     char* application;
     char* extension;
