@@ -229,7 +229,7 @@
   </instruction>
 
   <instruction mnemonic="movntdqa">
-    <opcode> aso rexr rexx rexb ; sse66 0f /3byte=38 2a ; V M ; ; </opcode>
+    <opcode> aso rexr rexx rexb ; sse66 0f /3byte=38 2a ; Vx M ; ; </opcode>
     <opcode> aso rexr rexx rexb vexlig ; avxC4 sse66 0f /3byte=38 2a ; V M ; ; </opcode>
   </instruction>
 
@@ -2328,7 +2328,7 @@ MAL MISSING PRE SSE?
   </instruction>
 
   <instruction mnemonic="movntdq">
-    <opcode> aso rexr rexx rexb ; sse66 0f e7 ; M V ; ; </opcode>
+    <opcode> aso rexr rexx rexb ; sse66 0f e7 ; M Vx ; ; </opcode>
     <opcode> aso rexr rexx rexb ; avxC4 sse66 0f e7 ; M V ; ; </opcode>
   </instruction>
 
