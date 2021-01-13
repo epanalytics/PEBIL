@@ -518,7 +518,8 @@ void BasicBlockCounter::instrument() {
               getBaseAddress()];
             threadReg = threadMap->getThreadRegister(head);
         }
-        if (isSaveAll() && isThreadedMode()) threadReg = X86_REG_INVALID;
+
+        if (isSaveAll() && usePIC) threadReg = X86_REG_INVALID;
 
         CounterTypes tmpct = CounterType_loop;
         initializeReservedData(getInstDataAddress() + (uint64_t)ctrs.Types + 
