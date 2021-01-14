@@ -141,29 +141,54 @@ uint64_t ReferenceStreamStats(AddressStreamStats* stats){
 }
 
 void DeleteStreamStats(AddressStreamStats* stats){
-    if (!stats->Initialized && stats->FirstImage){  // If created for thread
-        if (stats->Buffer != NULL)
-            delete[] stats->Buffer;
-        stats->Buffer = NULL;
+    // First delete memory allocated by every image/thread
+    // Every image and thread allocates its own stream stats:
+    if (Driver->GetNumMemoryHandlers() > 0 && (stats->Stats != NULL)) {
+        for (uint32_t i = 0; i < Driver->GetNumMemoryHandlers(); i++)
+            delete stats->Stats[i];
+        delete[] stats->Stats;
+    }
+    stats->Stats = NULL;
 
-        if (Driver->GetNumMemoryHandlers() > 0 && (stats->Stats != NULL)) {
-            for (uint32_t i = 0; i < Driver->GetNumMemoryHandlers(); i++) {
-                delete stats->Stats[i];
+    // Next, delete memory allocated for and shared by each thread
+    // Only delete it once per thread, so have the first image delete it
+    if (stats->FirstImage) {
+        // Every thread gets a set of handlers, including the master thread.
+        if (Driver->GetNumMemoryHandlers() > 0 && (stats->Handlers != NULL)) {
+            for (uint32_t i = 0; i < Driver->GetNumMemoryHandlers(); i++)
                 delete stats->Handlers[i];
-            }
-            delete[] stats->Stats;
             delete[] stats->Handlers;
         }
-        stats->Stats = NULL;
         stats->Handlers = NULL;
 
-        // Counters initialized with stats so memory freed here
-        free(stats);
+        // Every thread gets a buffer, but the master thread does not
+        if (!stats->Initialized) {  // If created for thread
+            if (stats->Buffer != NULL)
+                delete[] stats->Buffer;
+            stats->Buffer = NULL;
+        }
     }
+    
+    // Lastly, delete AddressStreamStats/Counters (they are allocated together)
+    // Every image and non-master thread allocates its own AddressStreamStats
+    if (!stats->Initialized)    // If created for thread
+        free(stats);
 }
 
 // called for every new image and thread
 // Initializes and allocates the AddressStreamStats data structure
+// The following data structures are allocated/copied:
+//   1. AddressStreamStats  (Each image/thread has its own)
+//   2. Counters            (Each image/thread has its own)
+//   3. Buffer              (Each thread has its own)
+//   4. MemoryHandlers      (Each thread has its own)
+//   5. StreamStats         (Each image/thread has its own)
+//
+//   - Each image begins with allocated AddressStreamStats and Counters (it 
+//     is located in the binary). So only non-master threads need to allocate 
+//     these
+//   - The main image begins with an allocated Buffer (in its binary). So
+//     only non-master threads need to allocate it.
 // NOTE: The write lock should be held before calling this function!
 AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
   image_key_t iid, thread_key_t tid, image_key_t firstimage){

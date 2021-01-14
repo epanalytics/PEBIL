@@ -173,8 +173,6 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                       << ENDL;
                 }
 
-            // delete s here
-            delete s;
             } // for each cache structure
 
             CacheStats* root = aggstats[0];
