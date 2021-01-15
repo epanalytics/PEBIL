@@ -90,6 +90,8 @@ inline uint64_t uint64abs(uint64_t a){
 
 // ReuseDistance class
 
+const uint64_t ReuseDistance::Infinity = INFINITY_REUSE;
+
 void ReuseDistance::Init(uint64_t w, uint64_t b){
     capacity = w;
     binindividual = b;
@@ -152,6 +154,7 @@ ReuseDistance::~ReuseDistance(){
     debug_assert(current == window->size());
     while (current){
         //back is the same as delete index 0
+        delete window->back();
         window->pop_back();
         current--;
     }
@@ -342,7 +345,8 @@ void ReuseDistance::Process(ReuseEntry& r){
         profile_end(PROCESS_SLOT_TIME);
 
     } else {
-        stats->Update(ReuseDistance::Infinity);
+        //stats->Update(ReuseDistance::Infinity);
+        stats->Miss();
         profile_start(PROCESS_SLOT_TIME);
 
         result = new ReuseEntry();
@@ -359,18 +363,17 @@ void ReuseDistance::Process(ReuseEntry& r){
         window->push_front(result);
         profile_end(ADD_SLOT_TIME);
 
-        //TODO check if >= or just >
-        if (capacity != ReuseDistance::Infinity && current >= capacity) {
+        if (capacity != ReuseDistance::Infinity && current > capacity) {
 
             profile_start(FIND_SLOT_TIME);
             ReuseEntry* oldestSeq = window->back();
             window->pop_back();
             current--;
+            mwindow.erase(oldestSeq->address);
             delete oldestSeq;
             profile_end(FIND_SLOT_TIME);
 
             debug_assert(mwindow[result->__address]);
-            mwindow.erase(oldestSeq->address);
             debug_assert(window->size() == mwindow.size());
         }
     }
@@ -428,6 +431,7 @@ void ReuseDistance::GetActiveAddresses(std::vector<uint64_t>& addrs){
     }
 }
 
+// TODO what if amount is less than current
 void ReuseDistance::SkipAddresses(uint64_t amount){
     sequence += amount;
 
@@ -445,19 +449,9 @@ void ReuseDistance::SkipAddresses(uint64_t amount){
 // ReuseStats class
 
 // this should be fast as possible. This code is from http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog
-static const uint64_t b[] = {0x2L, 0xCL, 0xF0L, 0xFF00L, 0xFFFF0000L, 0xFFFFFFFF00000000L};
-static const uint32_t S[] = {1, 2, 4, 8, 16, 32};
-inline uint64_t ShaveBitsPwr2(uint64_t val){
-    val -= 1;
-    register uint64_t r = 0; // result of log2(v) will go here
-    for (int32_t i = 5; i >= 0; i--){
-        if (val & b[i]){
-            val = val >> S[i];
-            r |= S[i];
-        }
-    }
-    return ( (uint64_t) 2 << r);
-}
+const uint64_t ReuseStats::b[] 
+  = {0x2L, 0xCL, 0xF0L, 0xFF00L, 0xFFFF0000L, 0xFFFFFFFF00000000L};
+const uint32_t ReuseStats::S[] = {1, 2, 4, 8, 16, 32};
 
 uint64_t ReuseStats::GetBin(uint64_t value){
     // not a valid value
@@ -470,7 +464,7 @@ uint64_t ReuseStats::GetBin(uint64_t value){
     }
     // valid but not tracked individually
     else if (binindividual != ReuseDistance::Infinity && value > binindividual){
-        return ShaveBitsPwr2(value);
+        return this->ShaveBitsPwr2(value);
     }
     // valid and tracked individually
     return value;
@@ -478,6 +472,11 @@ uint64_t ReuseStats::GetBin(uint64_t value){
 
 void ReuseStats::Update(uint64_t dist){
     distcounts[GetBin(dist)] += 1;
+    accesses++;
+}
+
+void ReuseStats::Miss() {
+    distcounts[invalid] += 1;
     accesses++;
 }
 

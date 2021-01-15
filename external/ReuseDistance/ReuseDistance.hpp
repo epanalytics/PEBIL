@@ -68,6 +68,12 @@
 struct ReuseEntry {
     uint64_t id;
     uint64_t address;
+
+    bool operator==(const ReuseEntry& rhs) const
+    {
+        return id == rhs.id
+            && address == rhs.address;
+    }
 };
 
 class ReuseStats;
@@ -110,10 +116,12 @@ public:
     std::list<ReuseEntry*>* TestGetWindow() { return window; }
     reuse_map_type<uint64_t, uint64_t> TestGetMwindow() { return mwindow; }
     uint64_t TestGetCurrent() { return current; }
+    uint64_t TestGetCapacity() { return capacity; }
+    uint64_t TestGetBinIndividual() { return binindividual; }
 // End for testing only
 
     static const uint64_t DefaultBinIndividual = 32;
-    static const uint64_t Infinity = INFINITY_REUSE;
+    static const uint64_t Infinity; //= INFINITY_REUSE;
 
     /**
      * Contructs a ReuseDistance object.
@@ -298,7 +306,7 @@ public:
  * ReuseStats holds count of observed reuse distances.
  */
 class ReuseStats {
-private:
+protected: //TODO is this okay? I change private to protected for ease of testing
     reuse_map_type<uint64_t, uint64_t> distcounts;
     uint64_t accesses;
 
@@ -307,9 +315,28 @@ private:
     uint64_t maxtracking;
     uint64_t invalid;
 
+    static const uint64_t b[];
+    // = {0x2L, 0xCL, 0xF0L, 0xFF00L, 0xFFFF0000L, 0xFFFFFFFF00000000L};
+    static const uint32_t S[];// = {1, 2, 4, 8, 16, 32};
+    inline uint64_t ShaveBitsPwr2(uint64_t val) {
+        val -= 1;
+        register uint64_t r = 0; // result of log2(v) will go here
+        for (int32_t i = 5; i >= 0; i--){
+            if (val & b[i]){
+                val = val >> S[i];
+                r |= S[i];
+            }
+        }
+        return ( (uint64_t) 2 << r);
+    }
     uint64_t GetBin(uint64_t value);
 
 public:
+
+    //TESTING FUNCTIONS
+    reuse_map_type<uint64_t, uint64_t>* TestGetDistcountsPtr() 
+      { return &distcounts; }
+    //END TESTING FUNCTIONS
 
     /**
      * Contructs a ReuseStats object.
