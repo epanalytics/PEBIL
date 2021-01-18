@@ -55,16 +55,26 @@ extern "C" {
         return NULL;
     }
 
+    // MPI_Init and MPI_Finalize do a lot of dynamic memory allocation. 
+    // Currently, we do not want to collect this data. Pause application 
+    // wrappers before entering MPI_Init and MPI_Finalize. Unpause them 
+    // after MPI_Init is finished.
+    // Could also unpause after MPI_Finalize, but applications should not 
+    // be doing anything after MPI_Finalize.
+
+    // Called before MPI_Finalize is called
     void* tool_pre_mpi_fini() {
         Driver->PauseApplicationWrappers();
         return NULL;
     }
 
+    // Called before MPI_Init is called
     void* tool_pre_mpi_init() {
         Driver->PauseApplicationWrappers();
         return NULL;
     }
 
+    // Called after MPI_Init is called
     void* tool_mpi_init(){
         Driver->UnpauseApplicationWrappers();
         return NULL;
