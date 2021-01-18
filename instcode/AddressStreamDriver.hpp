@@ -136,6 +136,7 @@ class AddressStreamDriver {
     bool IsDataCentric() { return runDataCentric; }
 
     void PauseApplicationWrappers();
+    void ProcessAllBuffers();
     void ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
@@ -168,6 +169,8 @@ class AddressStreamDriver {
     void SetDataCentric(bool b) { runDataCentric = b; }
 
     void SetNumMemoryHandlers(uint32_t n) { numMemoryHandlers = n; }
+    void SetNumCodeCentricMemoryHandlers(uint32_t n) { 
+      numCodeCentricMemoryHandlers = n; }
     void SetParser(StringParser* p);
     void SetSampler(SamplingMethod* s);
 };
