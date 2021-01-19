@@ -124,10 +124,10 @@ ReuseDistance::~ReuseDistance(){
     debug_assert(current == window->size());
     for (auto it = window->begin();it != window->end();it++){
         //back is the same as delete index 0
-        delete (*it)->back();
-        (*it)->pop_back();
+        delete *it;
         current--;
     }
+    window->clear();
     delete window;
     window = nullptr;
 }
@@ -400,10 +400,10 @@ void ReuseDistance::SkipAddresses(uint64_t amount){
 
     // flush the window completely
     for (auto it = window->begin();it != window->end();it++){
-        delete (*it)->back();
-        (*it)->pop_back();
+        delete *it;
         current--;
     }
+    window->clear();
     mwindow.clear();
     assert(mwindow.size() == 0);
     assert(window->size() == 0);
@@ -411,10 +411,13 @@ void ReuseDistance::SkipAddresses(uint64_t amount){
 
 // ReuseStats class
 
-// this should be fast as possible. This code is from http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog
-const uint64_t ReuseStats::b[] 
+// ShaveBitsPwr2 was moved so that it could be accessed by 
+// testing frameworks
+// these values are used for the inline function ShaveBitsPwr2
+const uint64_t ReuseStats::b[]
   = {0x2L, 0xCL, 0xF0L, 0xFF00L, 0xFFFF0000L, 0xFFFFFFFF00000000L};
 const uint32_t ReuseStats::S[] = {1, 2, 4, 8, 16, 32};
+    
 
 uint64_t ReuseStats::GetBin(uint64_t value){
     // not a valid value
@@ -427,7 +430,7 @@ uint64_t ReuseStats::GetBin(uint64_t value){
     }
     // valid but not tracked individually
     else if (binindividual != ReuseDistance::Infinity && value > binindividual){
-        return this->ShaveBitsPwr2(value);
+        return ShaveBitsPwr2(value);
     }
     // valid and tracked individually
     return value;

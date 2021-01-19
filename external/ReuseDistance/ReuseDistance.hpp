@@ -82,9 +82,13 @@ class ReuseStats;
  *
  * Tracks reuse distances for a memory address stream. Keep track of the 
  * addresses within a specific window of history, whose size can be finite or 
- * infinite. For basic usage, see the documentation at http://bit.ly/ScqZVj 
- * for the constructors, the Process methods and the Print methods. Also see 
- * the simple test file test/test.cpp included in this source package.
+ * infinite. We use a unordered map to keep track of what address are and are
+ * not in our List that holds the unique addresses in the reverse order they
+ * were visited in. We use this list to count the number of unique addresses
+ * from the current address we are processing to the last time it was seen
+ * we then update the list so that the unique addresses property and reverse
+ * order of last seen addresses property is maintained by deleting the old and
+ * adding to the front of list with the new.
  */
 class ReuseDistance {
 private:
@@ -318,9 +322,14 @@ protected:
     uint64_t maxtracking;
     uint64_t invalid;
 
+    // ShaveBitsPwr2 was moved so that it could be accessed by 
+    // testing frameworks
+    // commented out values are what they will be initialized too
     static const uint64_t b[];
-    // = {0x2L, 0xCL, 0xF0L, 0xFF00L, 0xFFFF0000L, 0xFFFFFFFF00000000L};
-    static const uint32_t S[];// = {1, 2, 4, 8, 16, 32};
+      //{0x2L, 0xCL, 0xF0L, 0xFF00L, 0xFFFF0000L, 0xFFFFFFFF00000000L};
+    static const uint32_t S[];//  {1, 2, 4, 8, 16, 32};
+    // this should be fast as possible. This code is from 
+    // http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog
     inline uint64_t ShaveBitsPwr2(uint64_t val) {
         val -= 1;
         register uint64_t r = 0; // result of log2(v) will go here
@@ -332,6 +341,7 @@ protected:
         }
         return ( (uint64_t) 2 << r);
     }
+    
     uint64_t GetBin(uint64_t value);
 
 public:
