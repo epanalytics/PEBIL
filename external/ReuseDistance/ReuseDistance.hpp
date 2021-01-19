@@ -38,7 +38,6 @@
 #include <list>
 #include <map>
 #include <vector>
-//#include<LRUDistanceAnalyzer.hpp>
 #include<math.h>
 // unordered_map is faster for many things, use it where sorted map isn't needed
 #ifdef HAVE_UNORDERED_MAP
@@ -90,20 +89,24 @@ class ReuseStats;
 class ReuseDistance {
 private:
     // [sequence -> address] A linked list filled with ReuseEntry*, sorted 
-    // by access order 
+    // by access order in descending order
     std::list<ReuseEntry*>* window;
 
-    reuse_map_type<uint64_t, uint64_t> mwindow;
+    // a dictionary of addresses to the last sequence they were seen in. If an 
+    // address is in window, it should be in mwindow as well as vice versa
+    reuse_map_type<uint64_t, uint64_t> mwindow; 
+    // keeping track of our window size
     uint64_t current;
 
 protected:
-    // store all stats
+    // store all stats keyed by memop
     reuse_map_type<uint64_t, ReuseStats*> stats;
     
-    uint64_t capacity;
-    uint64_t sequence;
-    uint64_t binindividual;
-    uint64_t maxtracking;
+    uint64_t capacity; // the max size of our window
+    uint64_t sequence; // the number of address we have visited + 1
+    // the maximum distance that we keep track of for individual distances
+    uint64_t binindividual; 
+    uint64_t maxtracking; // the max size of our window
 
     void Init(uint64_t w, uint64_t b);
     virtual ReuseStats* GetStats(uint64_t id, bool gen);
@@ -121,7 +124,7 @@ public:
 // End for testing only
 
     static const uint64_t DefaultBinIndividual = 32;
-    static const uint64_t Infinity; //= INFINITY_REUSE;
+    static const uint64_t Infinity;
 
     /**
      * Contructs a ReuseDistance object.
@@ -306,7 +309,7 @@ public:
  * ReuseStats holds count of observed reuse distances.
  */
 class ReuseStats {
-protected: //TODO is this okay? I change private to protected for ease of testing
+protected:
     reuse_map_type<uint64_t, uint64_t> distcounts;
     uint64_t accesses;
 

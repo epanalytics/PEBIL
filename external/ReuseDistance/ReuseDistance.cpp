@@ -40,7 +40,6 @@ using namespace std;
 #define ADD_SLOT_TIME 4
 #define NEW_SLOT_TIME 5
 #define FIND_SLOT_TIME 6
-//#define REUSE_TIME 1
 
 static double timerValues[7] = {0, 0, 0, 0, 0, 0, 0};
 static string timerNames[7] = {"Find Pos Tree", "Total Process", "Process Update", "Process Slot", "Add Slot", "New Slot", "Old Slot"};
@@ -50,20 +49,6 @@ inline uint64_t read_timestamp_counter() {
     __asm__ volatile ("rdtsc" : "=a" (low), "=d" (high));
     return ((unsigned long long)low | (((unsigned long long)high) << 32));
 }
-
-//static double diffTime(struct timeval t1, struct timeval t2) {
-//    struct timeval diff;
-//    if (t2.tv_usec < t1.tv_usec) {
-//          diff.tv_usec = 1000000 + t2.tv_usec - t1.tv_usec;
-//          diff.tv_sec = t2.tv_usec - t1.tv_sec - 1;
-//    } else {
-//          diff.tv_usec = t2.tv_usec - t1.tv_usec;
-//          diff.tv_sec = t2.tv_usec - t1.tv_sec;
-//    }
-//
-//    double time = (double)diff.tv_sec + (diff.tv_usec / 1000000.0);
-//    return time;
-//}
 
 #define profile_declare(__timer) uint64_t t##__timer##_s, t##__timer##_e
 #define profile_start(__timer) t##__timer##_s = read_timestamp_counter()
@@ -104,7 +89,6 @@ void ReuseDistance::Init(uint64_t w, uint64_t b){
     mwindow.clear();
 // TODO: Does adding reserve help improve hash table?
     mwindow.reserve(1000000);
-//    LRUDistanceAnalyzer::Init(); // Does this need a protection mechanism?
     assert(ReuseDistance::Infinity == NULL && "NULL is non-zero!?");
 }
 
@@ -116,21 +100,6 @@ ReuseStats* ReuseDistance::GetStats(uint64_t id, bool gen){
     }
     return s;
 }
-
-//uint64_t* ReuseDistance::GetPINStats(uint64_t id, bool gen)
-//{
-//    uint64_t* s = PINReuseStats[id];
-//    if (s == NULL && gen){
-//        s = new uint64_t[BIN_SIZE]; //ReuseStats(id, binindividual, capacity, ReuseDistance::Infinity);
-//        PINReuseStats[id] = s;
-//      
-//       for(int i=0;i<BIN_SIZE;i++)
-//           s[i]=0;
-//      
-//    }
-//    return s;
-//}
-
 
 ReuseDistance::ReuseDistance(uint64_t w, uint64_t b){
     ReuseDistance::Init(w, b);
@@ -146,112 +115,73 @@ ReuseDistance::ReuseDistance(ReuseDistance* r){
 
 ReuseDistance::~ReuseDistance(){
 
-    for (reuse_map_type<uint64_t, ReuseStats*>::const_iterator it = stats.begin(); it != stats.end(); it++){
+    for (reuse_map_type<uint64_t, ReuseStats*>::const_iterator 
+      it = stats.begin(); it != stats.end(); it++){
         uint64_t id = it->first;
         delete stats[id];
     }    
 
     debug_assert(current == window->size());
-    while (current){
+    for (auto it = window->begin();it != window->end();it++){
         //back is the same as delete index 0
-        delete window->back();
-        window->pop_back();
+        delete (*it)->back();
+        (*it)->pop_back();
         current--;
     }
     delete window;
     window = nullptr;
-
 }
 
 void ReuseDistance::Print(ostream& f, bool annotate){
-    //LRUDistanceAnalyzer::OutputResults();
-    //uint64_t BinStats[BIN_SIZE];
-    //uint64_t idTotals[PINReuseStats.size()];
-    //int tot = 0;
-    //for(int i=0;i<BIN_SIZE;i++)
-    //   BinStats[i]=0;
-    //for(int i=0; i<PINReuseStats.size();i++)
-    //    idTotals[i] = 0;
-    //int index = 0;
+    // vector of all the memops that have a distance associated with them
     vector <uint64_t> keys;
     for(reuse_map_type<uint64_t,ReuseStats*>::const_iterator it=stats.begin(); it!=stats.end();it++){
         keys.push_back(it->first);
     }
+    // sort the memops
     sort(keys.begin(), keys.end());
-
-//        int tempTotal = 0;
-//        for(int i=0;i<BIN_SIZE;i++)
-//        {
-//            if(it->second[i])
-//            {
-//               tot+=it->second[i];
-//               tempTotal+=it->second[i];
-//               BinStats[i]+=it->second[i];
-//            }
-//        }
-//        idTotals[index] = tempTotal;
-//        index++;
-//    }    
 
     uint64_t tot = 0, mis = 0;
     for (vector<uint64_t>::const_iterator it = keys.begin(); it != keys.end(); it++) {
+        // id is memop
         uint64_t id = (*it);
         ReuseStats* r= (ReuseStats*)stats[id];
         tot += r->GetAccessCount();
         mis += r->GetMissCount();
     }
 
+    // done once at the begining of the file
     if (annotate){
         ReuseDistance::PrintFormat(f);
         ReuseStats::PrintFormat(f);
-
     }
+    // Print the overall information
+    // Describe Returns REUSEDISTANCE 
     f << Describe() << "STATS"
       << TAB << dec << capacity
       << TAB << binindividual
       << TAB << maxtracking
       << TAB << keys.size()
       << TAB << tot 
-      << TAB << mis //We do not seem to record misses anymore
+      << TAB << mis //We do not seem to record misses anymore TODO check this comment
       << ENDL;
 
-    for (vector<uint64_t>::const_iterator it = keys.begin(); it != keys.end(); it++) {
-
+    for (vector<uint64_t>::const_iterator it = keys.begin(); 
+      it != keys.end(); it++) {
+        // memop
         uint64_t id = (*it);
         ReuseStats* r= (ReuseStats*)stats[id];
-    f << TAB << Describe() << "ID"
-      << TAB << dec << id
-      << TAB << r->GetAccessCount()
-      << TAB << r->GetMissCount()
-      << ENDL;
+        f << TAB << Describe() << "ID"
+          << TAB << dec << id
+          << TAB << r->GetAccessCount()
+          << TAB << r->GetMissCount()
+          << ENDL;
 
-      r->Print(f);
+          r->Print(f);
     }
 
-//    index = 0;
-    //for(reuse_map_type<uint64_t,uint64_t*>::const_iterator it=PINReuseStats.begin(); it!=PINReuseStats.end();it++)    
-    //{
-    //    f << "\tREUSEID\t" << hex << it->first << "\t" << dec << idTotals[index] << "\t" << "n/a"<< "\n";
-    //    for(int i=0;i<BIN_SIZE;i++)
-    //    {
-    //        if(it->second[i])
-    //        {
-    //           f << "\t\t" << ((int)(pow(2,(i-1))+1)) << "\t" << ((int)(pow(2,i))) << "\t" << it->second[i] << "\n";
-    //        }
-    //    }
-    //    index++;
-    //}
-   /* 
-    f<<"\n\n";
-    for(int i=0;i<BIN_SIZE;i++)
-    {
-        if(BinStats[i])
-        f<<"\n\t Bin: "<<i<<dec<<" Hits: "<<BinStats[i];
-    }
-    */
-
+    // report on timing from process at the end, this seems to be printed twice
     profile_report(PROCESS_TREE_TIME);
-//    profile_report(PROCESS_UPDATE_TIME);
     profile_report(NEW_SLOT_TIME);
     profile_report(FIND_SLOT_TIME);
     profile_report(ADD_SLOT_TIME);
@@ -284,7 +214,12 @@ void ReuseDistance::PrintFormat(ostream& f){
       << ENDL;
 }
 
+// Process : This Process method really works one of two ways, either the 
+// address we want to add is already in our window, or it isn't. The if block 
+// handles the case where we have the address in window already, the else block
+// handles the case where it doesn't
 void ReuseDistance::Process(ReuseEntry& r){
+    // timer declerations
     profile_declare(PROCESS_TREE_TIME);
     profile_declare(PROCESS_TIME);
     profile_declare(NEW_SLOT_TIME);
@@ -294,17 +229,25 @@ void ReuseDistance::Process(ReuseEntry& r){
 
     profile_start(PROCESS_TIME);
 
+    // the address
     uint64_t addr = r.address;
+    // the memop
     uint64_t id = r.id;
+    // after this call mres is either 0 for not present or 1 for present
     uint64_t mres = mwindow.count(addr);
+    // get the Stats associated with this memop, and generate it if we haven't
+    // seen this memop yet
     ReuseStats* stats = GetStats(id, true);
     int dist = 0;
     ReuseEntry* result;
-    if (mres) {
-        mres = mwindow[addr];
+    if (mres) { // if we have the address present
+        // at this point mres is now the sequence number of the last time we
+        // saw addr
+        mres = mwindow[addr]; 
 
         profile_start(PROCESS_TREE_TIME);
         list<ReuseEntry*>::iterator lastInstanceItr;
+        // find the node in our list where we last saw this address
         for (auto it = window->begin(); it!=window->end();it++){
             if ((*it)->__seq == mres) {
                 lastInstanceItr = it;
@@ -319,11 +262,14 @@ void ReuseDistance::Process(ReuseEntry& r){
         if (capacity != ReuseDistance::Infinity) {
             debug_assert(dist <= capacity);
         }
+        // update the current memop with the distance to the last time
+        // this address was seen
         stats->Update(dist);
         
         profile_start(PROCESS_SLOT_TIME);
 
         profile_start(FIND_SLOT_TIME);
+        // erase from the window
         window->erase(lastInstanceItr);
         //current--;
         profile_end(FIND_SLOT_TIME);
@@ -331,13 +277,17 @@ void ReuseDistance::Process(ReuseEntry& r){
         debug_assert(result);
 
         profile_start(NEW_SLOT_TIME);
+        // update our dictionary with the new sequence number
         mwindow[addr] = sequence;
         profile_end(NEW_SLOT_TIME);
 
+        // populate our data structure
         result->__seq = sequence;
         result->address = addr;
 
         profile_start(ADD_SLOT_TIME);
+        // and add to the front of the list but back in the sense that as you
+        // move forward in the list, sequences get smaller and smaller
         window->push_front(result);
         //current++;
         profile_end(ADD_SLOT_TIME);
@@ -345,41 +295,57 @@ void ReuseDistance::Process(ReuseEntry& r){
         profile_end(PROCESS_SLOT_TIME);
 
     } else {
+        // update current memop with a miss
         //stats->Update(ReuseDistance::Infinity);
         stats->Miss();
         profile_start(PROCESS_SLOT_TIME);
 
+        // gonna need to make a new ReuseEntry
         result = new ReuseEntry();
+        // increment our size tracker
         current++;
 
         profile_start(NEW_SLOT_TIME);
+        // add new address and sequence to our dictionary
         mwindow[addr] = sequence;
         profile_start(NEW_SLOT_TIME);
 
+        // populate our data structure
         result->__seq = sequence;
         result->address = addr;
 
         profile_start(ADD_SLOT_TIME);
+        // add to the front of our list
         window->push_front(result);
         profile_end(ADD_SLOT_TIME);
 
+        // if we go over capacity remove the oldest item
+        // TODO possible optimization by not deleting if we move stuff around
         if (capacity != ReuseDistance::Infinity && current > capacity) {
 
             profile_start(FIND_SLOT_TIME);
+            // get the smallest sequence we have
             ReuseEntry* oldestSeq = window->back();
+            // remove it from list
             window->pop_back();
+            // update size
             current--;
+            // update dictionary
             mwindow.erase(oldestSeq->address);
+            // free up memory
             delete oldestSeq;
             profile_end(FIND_SLOT_TIME);
 
+            // verify these statements remain true
             debug_assert(mwindow[result->__address]);
             debug_assert(window->size() == mwindow.size());
         }
     }
 
+    // verify these statements remain true
     debug_assert(window->size() == mwindow.size());
     debug_assert(mwindow.size() <= current);
+    // update sequence for the next time the function is called
     sequence++;
 
     profile_end(PROCESS_TIME);
@@ -389,7 +355,6 @@ void ReuseDistance::Process(ReuseEntry& r){
 void ReuseDistance::Process(ReuseEntry* rs, uint64_t count){
     for (uint32_t i = 0; i < count; i++){
         Process(rs[i]);
-       // LRUDistanceAnalyzer::RecordMemAccess((void *)rs[i].address);
     }
 }
 
@@ -397,7 +362,6 @@ void ReuseDistance::Process(vector<ReuseEntry> rs){
     for (vector<ReuseEntry>::const_iterator it = rs.begin(); it != rs.end(); it++){
         ReuseEntry r = *it;
         Process(r);
-    //LRUDistanceAnalyzer::RecordMemAccess((void *)r.address);       
     }
 }
 
@@ -405,7 +369,6 @@ void ReuseDistance::Process(vector<ReuseEntry*> rs){
     for (vector<ReuseEntry*>::const_iterator it = rs.begin(); it != rs.end(); it++){
         ReuseEntry* r = *it;
         Process((*r));
-       // LRUDistanceAnalyzer::RecordMemAccess((void *)r->address);
     }
 }
 
@@ -436,9 +399,9 @@ void ReuseDistance::SkipAddresses(uint64_t amount){
     sequence += amount;
 
     // flush the window completely
-    while (current){
-        delete window->back();
-        window->pop_back();
+    for (auto it = window->begin();it != window->end();it++){
+        delete (*it)->back();
+        (*it)->pop_back();
         current--;
     }
     mwindow.clear();
@@ -484,8 +447,6 @@ uint64_t ReuseStats::GetMissCount(){
     return distcounts[invalid];
 }
 
-//void ReuseStats::Print(ostream& f, reuse_map_type<uint64_t,uint64_t>& BinTotal,
-//  bool annotate){
 void ReuseStats::Print(ostream& f,  bool annotate){
     vector<uint64_t> keys;
     GetSortedDistances(keys);
@@ -514,13 +475,6 @@ void ReuseStats::Print(ostream& f,  bool annotate){
               << TAB << d
               << TAB << cnt
               << ENDL;
-              
-   
-              //if(BinTotal.count(p))
-              //     BinTotal[p]+=cnt;
-              // else
-              //  BinTotal[p]=cnt;
-          
         }
     }
 }
