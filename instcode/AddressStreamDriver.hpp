@@ -135,6 +135,8 @@ class AddressStreamDriver {
     bool IsCodeCentric() { return runCodeCentric; }
     bool IsDataCentric() { return runDataCentric; }
 
+    void PauseApplicationWrappers();
+    void ProcessAllBuffers();
     void ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
@@ -151,6 +153,8 @@ class AddressStreamDriver {
     void ShutOffInstrumentationInBlocks(std::set<uint32_t>& blocks);
     void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
 
+    void UnpauseApplicationWrappers();
+
     // For Testing Purposes
     void AddTool(AddressStreamTool* t) { tools->push_back(t); }
     AddressStreamTool* GetTool(uint32_t index);
@@ -165,6 +169,8 @@ class AddressStreamDriver {
     void SetDataCentric(bool b) { runDataCentric = b; }
 
     void SetNumMemoryHandlers(uint32_t n) { numMemoryHandlers = n; }
+    void SetNumCodeCentricMemoryHandlers(uint32_t n) { 
+      numCodeCentricMemoryHandlers = n; }
     void SetParser(StringParser* p);
     void SetSampler(SamplingMethod* s);
 };

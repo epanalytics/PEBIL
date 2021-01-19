@@ -108,6 +108,8 @@ protected:
     ThreadRegisterMap* instrumentForThreading(Function* func);
 
     InstrumentationFunction* imageInit;
+    InstrumentationFunction* finiWrapperC;
+    InstrumentationFunction* finiWrapperF;
     InstrumentationFunction* initWrapperC;
     InstrumentationFunction* initWrapperF;
     InstrumentationFunction* initTWrapperC;
