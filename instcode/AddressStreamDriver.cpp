@@ -593,6 +593,7 @@ void AddressStreamDriver::ShutOffInstrumentationInAllBlocks() {
 void AddressStreamDriver::ShutOffInstrumentationInBlock(uint64_t blockID, 
   uint64_t imageSequence) {
 
+    // Note: unique keys generated in InitializeDynamicInstrumentation
     set<uint64_t> keysToRemove;
     uint64_t kcheck = GENERATE_UNIQUE_KEY(blockID, imageSequence, 
       PointType_buffercheck);

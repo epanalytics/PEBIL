@@ -197,24 +197,28 @@ public:
         UnLock();
     }
 
-    bool IsWriteLockHeld() {    
-       bool res = (pthread_rwlock_trywrlock(&rwlock) == 16);
-        return res;
+    // TODO: Not a fan of this function
+    //bool IsWriteLockHeld() {
+    //    int res = pthread_rwlock_trywrlock(&rwlock);
+    //    if (res == 0) {
+    //        UnLock();
+    //        return false;
+    //    } else if (res == EDEADLK) {
+    //        return true;
+    //    }
+    //    return res;
+    //}
+
+    void ReadLock(){
+        (void) pthread_rwlock_rdlock(&rwlock);
     }
 
-    bool WriteLock(){
-        bool res = (pthread_rwlock_wrlock(&rwlock) == 0);
-        return res;
+    void UnLock(){
+        (void) pthread_rwlock_unlock(&rwlock);
     }
 
-    bool ReadLock(){
-        bool res = (pthread_rwlock_rdlock(&rwlock) == 0);
-        return res;
-    }
-
-    bool UnLock(){
-        bool res = (pthread_rwlock_unlock(&rwlock) == 0);
-        return res;
+    void WriteLock(){
+        (void) pthread_rwlock_wrlock(&rwlock);
     }
 
     // these can only be called correctly by the current thread
@@ -238,7 +242,7 @@ public:
         return ret;
     }
 
-    image_key_t GetImageId(uint32_t imageSequence) {
+    virtual image_key_t GetImageId(uint32_t imageSequence) {
         ReadLock();
         image_key_t ret = firstimage;
         for (std::set<image_key_t>::iterator iit = allimages.begin(); iit !=
