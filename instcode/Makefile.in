@@ -75,7 +75,7 @@ ifeq ($(EPA_TOOLS_AVAILABLE),yes)
     ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricAddressRange.o
     EXTRA_FLAGS += -DHAS_DATA_STRUCTURE_MODULE
     ASL_LIBS = -L$(EPA_TOOLS_PATH)/instcode -ldatastructuremodule
-    ASL_LIBS += -L$(MEMORY_CONTAINER_PATH)/src -lMemContainer
+    ASL_LIBS += -lunwind -L$(MEMORY_CONTAINER_PATH)/src -lMemContainer
   endif
 endif
 
