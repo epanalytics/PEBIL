@@ -75,6 +75,23 @@ struct ReuseEntry {
     }
 };
 
+// this should be fast as possible. This code is from 
+// http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog
+static const uint64_t b[]
+  = {0x2L, 0xCL, 0xF0L, 0xFF00L, 0xFFFF0000L, 0xFFFFFFFF00000000L};
+static const uint32_t S[] = {1, 2, 4, 8, 16, 32};
+extern inline uint64_t ShaveBitsPwr2(uint64_t val) {
+    val -= 1;
+    register uint64_t r = 0; // result of log2(v) will go here
+    for (int32_t i = 5; i >= 0; i--){
+        if (val & b[i]){
+            val = val >> S[i];
+            r |= S[i];
+        }
+    }
+    return ( (uint64_t) 2 << r);
+}
+
 class ReuseStats;
 
 /**
@@ -325,22 +342,7 @@ protected:
     // ShaveBitsPwr2 was moved so that it could be accessed by 
     // testing frameworks
     // commented out values are what they will be initialized too
-    static const uint64_t b[];
-      //{0x2L, 0xCL, 0xF0L, 0xFF00L, 0xFFFF0000L, 0xFFFFFFFF00000000L};
-    static const uint32_t S[];//  {1, 2, 4, 8, 16, 32};
-    // this should be fast as possible. This code is from 
-    // http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog
-    inline uint64_t ShaveBitsPwr2(uint64_t val) {
-        val -= 1;
-        register uint64_t r = 0; // result of log2(v) will go here
-        for (int32_t i = 5; i >= 0; i--){
-            if (val & b[i]){
-                val = val >> S[i];
-                r |= S[i];
-            }
-        }
-        return ( (uint64_t) 2 << r);
-    }
+    
     
     uint64_t GetBin(uint64_t value);
 

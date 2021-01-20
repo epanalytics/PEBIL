@@ -411,14 +411,6 @@ void ReuseDistance::SkipAddresses(uint64_t amount){
 
 // ReuseStats class
 
-// ShaveBitsPwr2 was moved so that it could be accessed by 
-// testing frameworks
-// these values are used for the inline function ShaveBitsPwr2
-const uint64_t ReuseStats::b[]
-  = {0x2L, 0xCL, 0xF0L, 0xFF00L, 0xFFFF0000L, 0xFFFFFFFF00000000L};
-const uint32_t ReuseStats::S[] = {1, 2, 4, 8, 16, 32};
-    
-
 uint64_t ReuseStats::GetBin(uint64_t value){
     // not a valid value
     if (value == invalid){
