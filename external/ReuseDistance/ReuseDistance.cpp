@@ -123,9 +123,7 @@ ReuseDistance::~ReuseDistance(){
 
     debug_assert(current == window->size());
     for (auto it = window->begin();it != window->end();it++){
-        //back is the same as delete index 0
         delete *it;
-        current--;
     }
     window->clear();
     delete window;
@@ -135,14 +133,16 @@ ReuseDistance::~ReuseDistance(){
 void ReuseDistance::Print(ostream& f, bool annotate){
     // vector of all the memops that have a distance associated with them
     vector <uint64_t> keys;
-    for(reuse_map_type<uint64_t,ReuseStats*>::const_iterator it=stats.begin(); it!=stats.end();it++){
+    for(reuse_map_type<uint64_t,ReuseStats*>::const_iterator it=stats.begin(); 
+      it!=stats.end();it++){
         keys.push_back(it->first);
     }
     // sort the memops
     sort(keys.begin(), keys.end());
 
     uint64_t tot = 0, mis = 0;
-    for (vector<uint64_t>::const_iterator it = keys.begin(); it != keys.end(); it++) {
+    for (vector<uint64_t>::const_iterator it = keys.begin(); it != keys.end(); 
+      it++) {
         // id is memop
         uint64_t id = (*it);
         ReuseStats* r= (ReuseStats*)stats[id];
@@ -163,7 +163,7 @@ void ReuseDistance::Print(ostream& f, bool annotate){
       << TAB << maxtracking
       << TAB << keys.size()
       << TAB << tot 
-      << TAB << mis //We do not seem to record misses anymore TODO check this comment
+      << TAB << mis
       << ENDL;
 
     for (vector<uint64_t>::const_iterator it = keys.begin(); 
