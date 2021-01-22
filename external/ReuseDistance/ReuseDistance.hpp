@@ -131,7 +131,6 @@ protected:
 
     void Init(uint64_t w, uint64_t b);
     virtual ReuseStats* GetStats(uint64_t id, bool gen);
-//    virtual uint64_t* GetPINStats(uint64_t id, bool gen);      
     virtual const std::string Describe() { return "REUSE"; }
 
 public:
@@ -287,30 +286,6 @@ public:
      * no ReuseStats is associate with id.
      */
     ReuseStats* GetStats(uint64_t id);
-
-    /**
-     * Get a std::vector containing all of the unique indices processed
-     * by this ReuseDistance object.
-     *
-     * @param ids  A std::vector which will contain the ids. It is an error to
-     * pass this vector non-empty (that is addrs.size() == 0 is enforced at 
-     * runtime).
-     *
-     * @return none
-     */
-    void GetIndices(std::vector<uint64_t>& ids);
-
-    /**
-     * Get a std::vector containing all of the addresses currently in this 
-     * ReuseDistance object's active window.
-     *
-     * @param addrs  A std::vector which will contain the addresses. It is an 
-     * error to pass this vector non-empty (that is addrs.size() == 0 is 
-     * enforced at runtime).
-     *
-     * @return none
-     */
-    virtual void GetActiveAddresses(std::vector<uint64_t>& addrs);
 
     /**
      * Pretend that some number of addresses in the stream were skipped. Useful

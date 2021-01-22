@@ -214,10 +214,14 @@ void ReuseDistance::PrintFormat(ostream& f){
       << ENDL;
 }
 
-// Process : This Process method really works one of two ways, either the 
-// address we want to add is already in our window, or it isn't. The if block 
-// handles the case where we have the address in window already, the else block
-// handles the case where it doesn't
+// Process : This Process method takes in a ReuseEntry with a memop id, and an 
+// address. It updates an internal dictionary that map memop id -> ReuseStats
+// When you process (memop, address) we update the associate ReuseStats, with
+// the number of unique addresses between now and the last time it was seen.
+// If an address hasn't been seen yet or is further back than the size of the
+// window, we update the ReuseStats with ReuseDistance::Infinity (also
+// referenced as invalid, and actual value is 0). If an address is seen twice in
+// a row, that is a reuse distance of 1
 void ReuseDistance::Process(ReuseEntry& r){
     // timer declerations
     profile_declare(PROCESS_TREE_TIME);
@@ -374,24 +378,6 @@ void ReuseDistance::Process(vector<ReuseEntry*> rs){
 
 ReuseStats* ReuseDistance::GetStats(uint64_t id){
     return GetStats(id, false);
-}
-
-void ReuseDistance::GetIndices(std::vector<uint64_t>& ids){
-    assert(ids.size() == 0);
-    for (reuse_map_type<uint64_t, ReuseStats*>::const_iterator it = stats.begin(); it != stats.end(); it++){
-        uint64_t id = it->first;
-        ids.push_back(id);
-    }
-}
-
-void ReuseDistance::GetActiveAddresses(std::vector<uint64_t>& addrs){
-    assert(addrs.size() == 0);
-    debug_assert(current == window->size());
-
-    for (auto it = window->begin();it != window->end();it++){
-        ReuseEntry* r = *it;
-        addrs.push_back(r->address);
-    }
 }
 
 // TODO what if amount is less than current
