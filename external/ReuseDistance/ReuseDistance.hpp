@@ -431,22 +431,6 @@ public:
     void GetSortedDistances(std::vector<uint64_t>& dists);
 
     /**
-     * Get the maximum distance observed.
-     *
-     * @return The maximum distance observed.
-     */
-    uint64_t GetMaximumDistance();
-
-    /**
-     * Count the number of times some distance has been observed.
-     *
-     * @param dist  The distance to count.
-     *
-     * @return The number of times d has been observed.
-     */
-    uint64_t CountDistance(uint64_t dist);
-
-    /**
      * Count the total number of distances observed.
      *
      * @return The total number of distances observed.

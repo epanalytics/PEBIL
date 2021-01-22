@@ -492,24 +492,6 @@ void ReuseStats::GetSortedDistances(vector<uint64_t>& dkeys){
     sort(dkeys.begin(), dkeys.end());    
 }
 
-uint64_t ReuseStats::GetMaximumDistance(){
-    uint64_t max = 0;
-    for (reuse_map_type<uint64_t, uint64_t>::const_iterator it = distcounts.begin(); it != distcounts.end(); it++){
-        uint64_t d = it->first;
-        if (d > max){
-            max = d;
-        }
-    }
-    return max;
-}
-
-uint64_t ReuseStats::CountDistance(uint64_t d){
-    if (distcounts.count(d) == 0){
-        return 0;
-    }
-    return distcounts[d];
-}
-
 uint64_t ReuseStats::GetAccessCount(){
     return accesses;
 }
