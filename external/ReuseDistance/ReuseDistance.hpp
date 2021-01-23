@@ -181,29 +181,6 @@ public:
 
     /**
      * Print statistics for this ReuseDistance to an output stream.
-     * The first line of the output is 7 tokens: 
-     * [1] a string identifier for the class (REUSESTATS or SPATIALSTATS), 
-     * [2] the capacity or window size (0 == unlimited), 
-     * [3] the maximum individual value being tracked, above which values are 
-     * tracked by bins whose boundaries are powers of 2,
-     * [4] the maximum value to track, above which any value is considered
-     * a miss. For ReuseDistance, this is equal to the capacity, for subclasses 
-     * this can be different. [6] the number of ids that will be printed, 
-     * [6] the total number of accesses
-     * made (the number of ReuseEntry elements that were Process'ed) and
-     * [7] the number of accesses that cold-misses or were outside the window 
-     * range.
-     * The stats for individual ids are printed on subsequent lines. The 
-     * printing of each id begins with a line which is comprised of 4 tokens: 
-     * [1] a string identifier (REUSEID or SPATIALID), 
-     * [2] the id, 
-     * [3] the number of accesses to that id and 
-     * [4] the number of accesses for that id that were cold-misses or were 
-     * outside the window range. 
-     * Each subsequent line contains information about a single bin for that 
-     * id. These lines have 3 tokens: 
-     * [1] and [2] the lower and upper boundaries (both inclusive) of the bin 
-     * and [3] the number of accesses falling into that bin. 
      * See also ReuseDistance::PrintFormat
      *
      * @param f  The output stream to print results to.
@@ -216,8 +193,6 @@ public:
 
     /**
      * Print statistics for this ReuseDistance to std::cout.
-     * See the other version of ReuseDistance::Print for information about 
-     * output format.
      *
      * @param annotate  Also print annotations describing the meaning of output
      * fields, preceded by a '#'.
