@@ -29,42 +29,6 @@ using namespace std;
 #define debug_assert(...)
 #endif
 
-#define REUSE_PROFILE
-#ifdef REUSE_PROFILE
-
-#define CLOCK_RATE_HZ 1800000000
-#define PROCESS_TREE_TIME 0
-#define PROCESS_TIME 1
-#define PROCESS_UPDATE_TIME 2
-#define PROCESS_SLOT_TIME 3
-#define ADD_SLOT_TIME 4
-#define NEW_SLOT_TIME 5
-#define FIND_SLOT_TIME 6
-
-static double timerValues[7] = {0, 0, 0, 0, 0, 0, 0};
-static string timerNames[7] = {"Find Pos Tree", "Total Process", "Process Update", "Process Slot", "Add Slot", "New Slot", "Old Slot"};
-
-inline uint64_t read_timestamp_counter() {
-    unsigned low, high;
-    __asm__ volatile ("rdtsc" : "=a" (low), "=d" (high));
-    return ((unsigned long long)low | (((unsigned long long)high) << 32));
-}
-
-#define profile_declare(__timer) uint64_t t##__timer##_s, t##__timer##_e
-#define profile_start(__timer) t##__timer##_s = read_timestamp_counter()
-#define profile_end(__timer) t##__timer##_e = read_timestamp_counter(); \
-                             timerValues[__timer] += (double)((t##__timer##_e - t##__timer##_s) / (double)(CLOCK_RATE_HZ))
-#define profile_report(__timer) printf("REUSE PROFILER: Time in %s = %f\n", \
-                             timerNames[__timer].c_str(), timerValues[__timer]);
-
-#else  // not REUSE_PROFILE
-
-#define profile_declare(...)
-#define profile_start(...)
-#define profile_end(...)
-
-#endif  // if REUSE_PROFILE
-
 inline uint64_t uint64abs(uint64_t a){
     if (a < 0x8000000000000000L){
         return a;
@@ -179,14 +143,6 @@ void ReuseDistance::Print(ostream& f, bool annotate){
 
           r->Print(f);
     }
-
-    // report on timing from process at the end, this seems to be printed twice
-    profile_report(PROCESS_TREE_TIME);
-    profile_report(NEW_SLOT_TIME);
-    profile_report(FIND_SLOT_TIME);
-    profile_report(ADD_SLOT_TIME);
-    profile_report(PROCESS_SLOT_TIME);
-    profile_report(PROCESS_TIME);
     return;
     
 }
@@ -223,16 +179,6 @@ void ReuseDistance::PrintFormat(ostream& f){
 // referenced as invalid, and actual value is 0). If an address is seen twice in
 // a row, that is a reuse distance of 1
 void ReuseDistance::Process(ReuseEntry& r){
-    // timer declerations
-    profile_declare(PROCESS_TREE_TIME);
-    profile_declare(PROCESS_TIME);
-    profile_declare(NEW_SLOT_TIME);
-    profile_declare(FIND_SLOT_TIME);
-    profile_declare(ADD_SLOT_TIME); 
-    profile_declare(PROCESS_SLOT_TIME);
-
-    profile_start(PROCESS_TIME);
-
     // the address
     uint64_t addr = r.address;
     // the memop
@@ -249,7 +195,6 @@ void ReuseDistance::Process(ReuseEntry& r){
         // saw addr
         mres = mwindow[addr]; 
 
-        profile_start(PROCESS_TREE_TIME);
         list<ReuseEntry*>::iterator lastInstanceItr;
         // find the node in our list where we last saw this address
         for (auto it = window->begin(); it!=window->end();it++){
@@ -261,7 +206,6 @@ void ReuseDistance::Process(ReuseEntry& r){
         //it==window.begin() is a dist of 1
         dist = distance(window->begin(), lastInstanceItr) + 1;
         result = *lastInstanceItr;
-        profile_end(PROCESS_TREE_TIME);
 
         if (capacity != ReuseDistance::Infinity) {
             debug_assert(dist <= capacity);
@@ -270,64 +214,50 @@ void ReuseDistance::Process(ReuseEntry& r){
         // this address was seen
         stats->Update(dist);
         
-        profile_start(PROCESS_SLOT_TIME);
 
-        profile_start(FIND_SLOT_TIME);
         // erase from the window
         window->erase(lastInstanceItr);
         //current--;
-        profile_end(FIND_SLOT_TIME);
 
         debug_assert(result);
 
-        profile_start(NEW_SLOT_TIME);
         // update our dictionary with the new sequence number
         mwindow[addr] = sequence;
-        profile_end(NEW_SLOT_TIME);
 
         // populate our data structure
         result->__seq = sequence;
         result->address = addr;
 
-        profile_start(ADD_SLOT_TIME);
         // and add to the front of the list but back in the sense that as you
         // move forward in the list, sequences get smaller and smaller
         window->push_front(result);
         //current++;
-        profile_end(ADD_SLOT_TIME);
 
-        profile_end(PROCESS_SLOT_TIME);
 
     } else {
         // update current memop with a miss
         //stats->Update(ReuseDistance::Infinity);
         stats->Miss();
-        profile_start(PROCESS_SLOT_TIME);
 
         // gonna need to make a new ReuseEntry
         result = new ReuseEntry();
         // increment our size tracker
         current++;
 
-        profile_start(NEW_SLOT_TIME);
         // add new address and sequence to our dictionary
         mwindow[addr] = sequence;
-        profile_start(NEW_SLOT_TIME);
 
         // populate our data structure
         result->__seq = sequence;
         result->address = addr;
 
-        profile_start(ADD_SLOT_TIME);
         // add to the front of our list
         window->push_front(result);
-        profile_end(ADD_SLOT_TIME);
 
         // if we go over capacity remove the oldest item
         // TODO possible optimization by not deleting if we move stuff around
         if (capacity != ReuseDistance::Infinity && current > capacity) {
 
-            profile_start(FIND_SLOT_TIME);
             // get the smallest sequence we have
             ReuseEntry* oldestSeq = window->back();
             // remove it from list
@@ -338,7 +268,6 @@ void ReuseDistance::Process(ReuseEntry& r){
             mwindow.erase(oldestSeq->address);
             // free up memory
             delete oldestSeq;
-            profile_end(FIND_SLOT_TIME);
 
             // verify these statements remain true
             debug_assert(mwindow[result->__address]);
@@ -352,7 +281,6 @@ void ReuseDistance::Process(ReuseEntry& r){
     // update sequence for the next time the function is called
     sequence++;
 
-    profile_end(PROCESS_TIME);
     return;
 }
 
