@@ -292,8 +292,18 @@ ReuseStats* ReuseDistance::GetStats(uint64_t id){
     return GetStats(id, false);
 }
 
-// TODO what if amount is less than window->size()
+// SkipAddresses is really only used when we are sampling, when we turn sampling
+// off, we flush the buffer. So even in the event of an infinite window, the
+// next time we see an address, we are going to report ReuseDistance::Infinity
+// (also known as invalid, or Miss or 0)
 void ReuseDistance::SkipAddresses(uint64_t amount){
+    if (!initialWarning) {
+        initialWarning = true;
+        fprintf(stderr, 
+          "WARNING: Using Sampling can cause inaccurate data reporting\n");
+    }
+    fprintf(stderr, "WARNING: skipped amount%u with window of size %u\n", 
+      amount, window->size());
     sequence += amount;
 
     // flush the window completely
