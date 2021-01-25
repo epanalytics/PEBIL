@@ -46,7 +46,6 @@ void ReuseDistance::Init(uint64_t w, uint64_t b){
     binindividual = b;
     maxtracking = capacity;
 
-    current = 0;
     sequence = 1;
     window = new list<ReuseEntry*>();
     assert(window);
@@ -85,7 +84,6 @@ ReuseDistance::~ReuseDistance(){
         delete stats[id];
     }    
 
-    debug_assert(current == window->size());
     for (auto it = window->begin();it != window->end();it++){
         delete *it;
     }
@@ -209,7 +207,6 @@ void ReuseDistance::Process(ReuseEntry& r){
 
         // erase from the window
         window->erase(lastInstanceItr);
-        //current--;
 
         debug_assert(result);
 
@@ -223,7 +220,6 @@ void ReuseDistance::Process(ReuseEntry& r){
         // and add to the front of the list but back in the sense that as you
         // move forward in the list, sequences get smaller and smaller
         window->push_front(result);
-        //current++;
 
 
     } else {
@@ -234,7 +230,6 @@ void ReuseDistance::Process(ReuseEntry& r){
         // gonna need to make a new ReuseEntry
         result = new ReuseEntry();
         // increment our size tracker
-        current++;
 
         // add new address and sequence to our dictionary
         mwindow[addr] = sequence;
@@ -248,14 +243,12 @@ void ReuseDistance::Process(ReuseEntry& r){
 
         // if we go over capacity remove the oldest item
         // TODO possible optimization by not deleting if we move stuff around
-        if (capacity != ReuseDistance::Infinity && current > capacity) {
+        if (capacity != ReuseDistance::Infinity && window->size() > capacity) {
 
             // get the smallest sequence we have
             ReuseEntry* oldestSeq = window->back();
             // remove it from list
             window->pop_back();
-            // update size
-            current--;
             // update dictionary
             mwindow.erase(oldestSeq->address);
             // free up memory
@@ -269,7 +262,6 @@ void ReuseDistance::Process(ReuseEntry& r){
 
     // verify these statements remain true
     debug_assert(window->size() == mwindow.size());
-    debug_assert(mwindow.size() <= current);
     // update sequence for the next time the function is called
     sequence++;
 
@@ -300,14 +292,13 @@ ReuseStats* ReuseDistance::GetStats(uint64_t id){
     return GetStats(id, false);
 }
 
-// TODO what if amount is less than current
+// TODO what if amount is less than window->size()
 void ReuseDistance::SkipAddresses(uint64_t amount){
     sequence += amount;
 
     // flush the window completely
     for (auto it = window->begin();it != window->end();it++){
         delete *it;
-        current--;
     }
     window->clear();
     mwindow.clear();

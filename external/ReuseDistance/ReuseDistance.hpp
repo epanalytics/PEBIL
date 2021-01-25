@@ -116,8 +116,6 @@ private:
     // a dictionary of addresses to the last sequence they were seen in. If an 
     // address is in window, it should be in mwindow as well as vice versa
     reuse_map_type<uint64_t, uint64_t> mwindow; 
-    // keeping track of our window size
-    uint64_t current;
 
 protected:
     // store all stats keyed by memop
@@ -140,7 +138,6 @@ public:
 // FOR TESTING ONLY
     std::list<ReuseEntry*>* TestGetWindow() { return window; }
     reuse_map_type<uint64_t, uint64_t> TestGetMwindow() { return mwindow; }
-    uint64_t TestGetCurrent() { return current; }
     uint64_t TestGetCapacity() { return capacity; }
     uint64_t TestGetBinIndividual() { return binindividual; }
 // End for testing only
