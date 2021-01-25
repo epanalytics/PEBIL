@@ -99,7 +99,7 @@ class ReuseStats;
  *
  * Tracks reuse distances for a memory address stream. Keep track of the 
  * addresses within a specific window of history, whose size can be finite or 
- * infinite. We use a unordered map to keep track of what address are and are
+ * infinite. We use a map to keep track of what address are and are
  * not in our List that holds the unique addresses in the reverse order they
  * were visited in. We use this list to count the number of unique addresses
  * from the current address we are processing to the last time it was seen
