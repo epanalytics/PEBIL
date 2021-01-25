@@ -170,14 +170,6 @@ void ReuseDistance::PrintFormat(ostream& f){
       << ENDL;
 }
 
-// Process : This Process method takes in a ReuseEntry with a memop id, and an 
-// address. It updates an internal dictionary that map memop id -> ReuseStats
-// When you process (memop, address) we update the associate ReuseStats, with
-// the number of unique addresses between now and the last time it was seen.
-// If an address hasn't been seen yet or is further back than the size of the
-// window, we update the ReuseStats with ReuseDistance::Infinity (also
-// referenced as invalid, and actual value is 0). If an address is seen twice in
-// a row, that is a reuse distance of 1
 void ReuseDistance::Process(ReuseEntry& r){
     // the address
     uint64_t addr = r.address;
