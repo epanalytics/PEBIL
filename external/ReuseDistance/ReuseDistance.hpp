@@ -127,7 +127,9 @@ protected:
     uint64_t sequence; // the number of address we have visited + 1
     // the maximum distance that we keep track of for individual distances
     uint64_t binindividual; 
-    uint64_t maxtracking; // the max size of our window
+    // used in spatial locality to determine the largest bin we will track
+    // anything over max tracking will bet reported as ReuseDistance::Infinity
+    uint64_t maxtracking; 
 
     void Init(uint64_t w, uint64_t b);
     virtual ReuseStats* GetStats(uint64_t id, bool gen);
