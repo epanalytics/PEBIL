@@ -31,7 +31,6 @@
 
 #include <assert.h>
 #include <stdlib.h>
-#include <tree234.h>
 #include <math.h>
 #include <algorithm>
 #include <iostream>
@@ -39,7 +38,6 @@
 #include <list>
 #include <map>
 #include <vector>
-//#include<LRUDistanceAnalyzer.hpp>
 #include<math.h>
 // unordered_map is faster for many things, use it where sorted map isn't needed
 #ifdef HAVE_UNORDERED_MAP
@@ -69,8 +67,30 @@
 struct ReuseEntry {
     uint64_t id;
     uint64_t address;
+
+    bool operator==(const ReuseEntry& rhs) const
+    {
+        return id == rhs.id
+            && address == rhs.address;
+    }
 };
 
+// this should be fast as possible. This code is from 
+// http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog
+static const uint64_t b[]
+  = {0x2L, 0xCL, 0xF0L, 0xFF00L, 0xFFFF0000L, 0xFFFFFFFF00000000L};
+static const uint32_t S[] = {1, 2, 4, 8, 16, 32};
+extern inline uint64_t ShaveBitsPwr2(uint64_t val) {
+    val -= 1;
+    register uint64_t r = 0; // result of log2(v) will go here
+    for (int32_t i = 5; i >= 0; i--){
+        if (val & b[i]){
+            val = val >> S[i];
+            r |= S[i];
+        }
+    }
+    return ( (uint64_t) 2 << r);
+}
 
 class ReuseStats;
 
@@ -79,37 +99,52 @@ class ReuseStats;
  *
  * Tracks reuse distances for a memory address stream. Keep track of the 
  * addresses within a specific window of history, whose size can be finite or 
- * infinite. For basic usage, see the documentation at http://bit.ly/ScqZVj 
- * for the constructors, the Process methods and the Print methods. Also see 
- * the simple test file test/test.cpp included in this source package.
+ * infinite. We use a map to keep track of what address are and are
+ * not in our List that holds the unique addresses in the reverse order they
+ * were visited in. We use this list to count the number of unique addresses
+ * from the current address we are processing to the last time it was seen
+ * we then update the list so that the unique addresses property and reverse
+ * order of last seen addresses property is maintained by deleting the old and
+ * adding to the front of list with the new.
  */
 class ReuseDistance {
 private:
-    // [sequence -> address] A counted B-tree filled with ReuseEntry*, sorted 
-    // by __seq. this is from tree234.h
-    tree234* window;
+    // [sequence -> address] A linked list filled with ReuseEntry*, sorted 
+    // by access order in descending order
+    std::list<ReuseEntry*>* window;
 
-    reuse_map_type<uint64_t, uint64_t> mwindow;
-    uint64_t current;
+    // a dictionary of addresses to the last sequence they were seen in. If an 
+    // address is in window, it should be in mwindow as well as vice versa
+    reuse_map_type<uint64_t, uint64_t> mwindow; 
 
 protected:
-    // store all stats
+    // store all stats keyed by memop
     reuse_map_type<uint64_t, ReuseStats*> stats;
     
-    uint64_t capacity;
-    uint64_t sequence;
-    uint64_t binindividual;
-    uint64_t maxtracking;
+    uint64_t capacity; // the max size of our window
+    uint64_t sequence; // the number of address we have visited + 1
+    // the maximum distance that we keep track of for individual distances
+    uint64_t binindividual; 
+    // used in spatial locality to determine the largest bin we will track
+    // anything over max tracking will bet reported as ReuseDistance::Infinity
+    uint64_t maxtracking; 
+    bool initialWarning = false;
 
     void Init(uint64_t w, uint64_t b);
     virtual ReuseStats* GetStats(uint64_t id, bool gen);
-//    virtual uint64_t* GetPINStats(uint64_t id, bool gen);      
     virtual const std::string Describe() { return "REUSE"; }
 
 public:
 
+// FOR TESTING ONLY
+    std::list<ReuseEntry*>* TestGetWindow() { return window; }
+    reuse_map_type<uint64_t, uint64_t> TestGetMwindow() { return mwindow; }
+    uint64_t TestGetCapacity() { return capacity; }
+    uint64_t TestGetBinIndividual() { return binindividual; }
+// End for testing only
+
     static const uint64_t DefaultBinIndividual = 32;
-    static const uint64_t Infinity = INFINITY_REUSE;
+    static const uint64_t Infinity;
 
     /**
      * Contructs a ReuseDistance object.
@@ -146,29 +181,6 @@ public:
 
     /**
      * Print statistics for this ReuseDistance to an output stream.
-     * The first line of the output is 7 tokens: 
-     * [1] a string identifier for the class (REUSESTATS or SPATIALSTATS), 
-     * [2] the capacity or window size (0 == unlimited), 
-     * [3] the maximum individual value being tracked, above which values are 
-     * tracked by bins whose boundaries are powers of 2,
-     * [4] the maximum value to track, above which any value is considered
-     * a miss. For ReuseDistance, this is equal to the capacity, for subclasses 
-     * this can be different. [6] the number of ids that will be printed, 
-     * [6] the total number of accesses
-     * made (the number of ReuseEntry elements that were Process'ed) and
-     * [7] the number of accesses that cold-misses or were outside the window 
-     * range.
-     * The stats for individual ids are printed on subsequent lines. The 
-     * printing of each id begins with a line which is comprised of 4 tokens: 
-     * [1] a string identifier (REUSEID or SPATIALID), 
-     * [2] the id, 
-     * [3] the number of accesses to that id and 
-     * [4] the number of accesses for that id that were cold-misses or were 
-     * outside the window range. 
-     * Each subsequent line contains information about a single bin for that 
-     * id. These lines have 3 tokens: 
-     * [1] and [2] the lower and upper boundaries (both inclusive) of the bin 
-     * and [3] the number of accesses falling into that bin. 
      * See also ReuseDistance::PrintFormat
      *
      * @param f  The output stream to print results to.
@@ -181,8 +193,6 @@ public:
 
     /**
      * Print statistics for this ReuseDistance to std::cout.
-     * See the other version of ReuseDistance::Print for information about 
-     * output format.
      *
      * @param annotate  Also print annotations describing the meaning of output
      * fields, preceded by a '#'.
@@ -203,8 +213,18 @@ public:
 
     /**
      * Process a single memory address.
+     * Process : This Process method takes in a ReuseEntry with a memop id, 
+     * and an  address. It updates an internal dictionary that map memop id -> 
+     * ReuseStats When you process (memop, address) we update the associate 
+     * ReuseStats, with the number of unique addresses between now and the last 
+     * time it was seen. If an address hasn't been seen yet or is further back 
+     * than the size of the window, we update the ReuseStats with 
+     * ReuseDistance::Infinity (also referenced as invalid, and actual value 
+     * is 0). If an address is seen twice in a row, that is a reuse 
+     * distance of 1
      *
-     * @param addr  The structure describing the memory address to process.
+     * @param addr  The structure describing the memory address 
+     * and memory op to process.
      *
      * @return none
      */
@@ -253,30 +273,6 @@ public:
     ReuseStats* GetStats(uint64_t id);
 
     /**
-     * Get a std::vector containing all of the unique indices processed
-     * by this ReuseDistance object.
-     *
-     * @param ids  A std::vector which will contain the ids. It is an error to
-     * pass this vector non-empty (that is addrs.size() == 0 is enforced at 
-     * runtime).
-     *
-     * @return none
-     */
-    void GetIndices(std::vector<uint64_t>& ids);
-
-    /**
-     * Get a std::vector containing all of the addresses currently in this 
-     * ReuseDistance object's active window.
-     *
-     * @param addrs  A std::vector which will contain the addresses. It is an 
-     * error to pass this vector non-empty (that is addrs.size() == 0 is 
-     * enforced at runtime).
-     *
-     * @return none
-     */
-    virtual void GetActiveAddresses(std::vector<uint64_t>& addrs);
-
-    /**
      * Pretend that some number of addresses in the stream were skipped. Useful
      * for intervel-based sampling. This has the effect of flushing the entire 
      * window.
@@ -294,7 +290,7 @@ public:
  * ReuseStats holds count of observed reuse distances.
  */
 class ReuseStats {
-private:
+protected:
     reuse_map_type<uint64_t, uint64_t> distcounts;
     uint64_t accesses;
 
@@ -303,9 +299,19 @@ private:
     uint64_t maxtracking;
     uint64_t invalid;
 
+    // ShaveBitsPwr2 was moved so that it could be accessed by 
+    // testing frameworks
+    // commented out values are what they will be initialized too
+    
+    
     uint64_t GetBin(uint64_t value);
 
 public:
+
+    //TESTING FUNCTIONS
+    reuse_map_type<uint64_t, uint64_t>* TestGetDistcountsPtr() 
+      { return &distcounts; }
+    //END TESTING FUNCTIONS
 
     /**
      * Contructs a ReuseStats object.
@@ -383,22 +389,6 @@ public:
      * @return none
      */
     void GetSortedDistances(std::vector<uint64_t>& dists);
-
-    /**
-     * Get the maximum distance observed.
-     *
-     * @return The maximum distance observed.
-     */
-    uint64_t GetMaximumDistance();
-
-    /**
-     * Count the number of times some distance has been observed.
-     *
-     * @param dist  The distance to count.
-     *
-     * @return The number of times d has been observed.
-     */
-    uint64_t CountDistance(uint64_t dist);
 
     /**
      * Count the total number of distances observed.

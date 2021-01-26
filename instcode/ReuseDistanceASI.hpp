@@ -21,8 +21,7 @@
 #ifndef _ReuseDistanceASI_hpp_
 #define _ReuseDistanceASI_hpp_
 
-#include <AddressStreamBase.hpp>
-
+#include <AddressStreamBase.hpp> 
 #include <string>
 
 #define INVALID_REUSE_DISTANCE (-1)
@@ -53,7 +52,7 @@ class ReuseStreamStats : public StreamStats {
     // FIXME
     uint64_t GetAccessCount(uint32_t memop) { return 0; }
     uint64_t GetBlock(uint32_t memop);
-    uint64_t GetHash(uint32_t memop);
+    virtual uint64_t GetHash(uint32_t memop);
 
     bool Verify() { return true; }
 };
@@ -71,6 +70,10 @@ class ReuseDistanceHandler : public MemoryStreamHandler {
 
     virtual void SkipAddresses(uint32_t numToSkip);
     bool Verify() { return true; }
+
+    // Testing functions
+    ReuseDistance* TestGetInternalHandler() { return internalHandler; }
+    // END Testing functions
 };
 
 #endif /* _ReuseDistanceASI_hpp_ */
