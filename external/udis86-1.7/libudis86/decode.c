@@ -1053,10 +1053,12 @@ static int resolve_mnemonic( struct ud* u )
           u->mnemonic == UD_Istosd || u->mnemonic == UD_Istosq ||
           u->mnemonic == UD_Istosw) {
             u->pfx_repe = 0x0;
+        // ret is technically illegal, but GNU still generates it and things 
+        // apparently don't break: https://repzret.org/p/repzret/
         } else if (u->mnemonic == UD_Icmpsb || u->mnemonic == UD_Icmpsd || 
           u->mnemonic == UD_Icmpsq || u->mnemonic == UD_Icmpsw || 
           u->mnemonic == UD_Iscasb || u->mnemonic == UD_Iscasd ||
-          u->mnemonic == UD_Iscasw) {
+          u->mnemonic == UD_Iscasw || u->mnemonic == UD_Iret) {
             u->pfx_rep = 0x0;
         } else {  // Only the above mnemonics can use these prefixes
             u->error = 1;

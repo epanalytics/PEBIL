@@ -157,6 +157,8 @@ ud_translate_att(struct ud *u)
   	mkasm(u,  "lock ");
   if (u->pfx_rep)
 	mkasm(u,  "rep ");
+  if (u->pfx_repe)
+	mkasm(u,  "repe ");
   if (u->pfx_repne)
 		mkasm(u,  "repne ");
 
