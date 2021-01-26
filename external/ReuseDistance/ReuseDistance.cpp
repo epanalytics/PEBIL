@@ -45,6 +45,7 @@ void ReuseDistance::Init(uint64_t w, uint64_t b){
     capacity = w;
     binindividual = b;
     maxtracking = capacity;
+    initialWarning = false;
 
     sequence = 1;
     window = new list<ReuseEntry*>();

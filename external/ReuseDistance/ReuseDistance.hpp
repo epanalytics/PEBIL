@@ -128,6 +128,7 @@ protected:
     // used in spatial locality to determine the largest bin we will track
     // anything over max tracking will bet reported as ReuseDistance::Infinity
     uint64_t maxtracking; 
+    bool initialWarning = false;
 
     void Init(uint64_t w, uint64_t b);
     virtual ReuseStats* GetStats(uint64_t id, bool gen);
