@@ -225,12 +225,10 @@ void ReuseDistance::Process(ReuseEntry& r){
 
     } else {
         // update current memop with a miss
-        //stats->Update(ReuseDistance::Infinity);
         stats->Miss();
 
         // gonna need to make a new ReuseEntry
         result = new ReuseEntry();
-        // increment our size tracker
 
         // add new address and sequence to our dictionary
         mwindow[addr] = sequence;
@@ -303,8 +301,15 @@ void ReuseDistance::SkipAddresses(uint64_t amount){
         fprintf(stderr, 
           "WARNING: Using Sampling can cause inaccurate data reporting\n");
     }
-    fprintf(stderr, "WARNING: skipped amount%u with window of size %u\n", 
-      amount, window->size());
+    bool useDefault = false;
+    if (binindividual == 1) {
+        useDefault = true;
+    }
+    if((!useDefault && amount < binindividual) || (useDefault && amount < 50)){
+        fprintf(stderr, 
+          "WARNING: skipped amount %u with window size %u and bin size %u\n", 
+          amount, window->size(), binindividual);
+    }
     sequence += amount;
 
     // flush the window completely
