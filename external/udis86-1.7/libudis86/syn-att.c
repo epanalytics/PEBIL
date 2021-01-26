@@ -165,7 +165,7 @@ ud_translate_att(struct ud *u)
   /* special instructions */
   switch (u->mnemonic) {
 	case UD_Iretf: 
-		mkasm(u, "lret "); 
+		mkasm(u, "lret"); 
 		break;
 	case UD_Idb:
 		mkasm(u, ".byte 0x%x", u->operand[0].lval.ubyte);

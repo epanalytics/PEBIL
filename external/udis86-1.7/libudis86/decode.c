@@ -1258,7 +1258,7 @@ static int clear_operand(register struct ud_operand* op){
 static void 
 decode_imm(struct ud* u, unsigned int s, struct ud_operand *op)
 {
-  op->position = ud_insn_len(u); /* PEBIL */
+  op->position = ud_insn_len(u) + 1; // position starts with 1 not 0
 
   op->size = resolve_operand_size(u, s);
   op->type = UD_OP_IMM;
@@ -2185,23 +2185,26 @@ static int resolve_implied_usedefs( struct ud *u )
 {
     u->flags_use = u->itab_entry->flags_use;
     u->flags_def = u->itab_entry->flags_def;
-    if (u->flags_def != 0 || u->flags_use != 0){
+    if (u->flags_def != 0 || u->flags_use != 0) {
         PEBIL_DEBUG("flags used: %#x, def: %#x", u->flags_use, u->flags_def);
     }
 
     /* set use of ZF for rep prefixes here */
-    if (u->pfx_repe || u->pfx_repne){
+    // Handle the repz ret, which doesn't actually do a repz
+    if ((u->pfx_repe || u->pfx_repne) && u->mnemonic != UD_Iret) {
         u->flags_use |= F_ZF;
     }
 
     u->impreg_use = u->itab_entry->impreg_use;
     u->impreg_def = u->itab_entry->impreg_def;
-    if (u->impreg_def != 0 || u->impreg_use != 0){
-        PEBIL_DEBUG("implied regs used: %#llx, def: %#llx", u->impreg_use, u->impreg_def);
+    if (u->impreg_def != 0 || u->impreg_use != 0) {
+        PEBIL_DEBUG("implied regs used: %#llx, def: %#llx", u->impreg_use, 
+          u->impreg_def);
     }
 
     /* set use/def of cx for rep prefixes here */
-    if (u->pfx_rep || u->pfx_repe || u->pfx_repne){
+    // Handle the repz ret, which doesn't actually do a repz
+    if ((u->pfx_rep || u->pfx_repe || u->pfx_repne) && u->mnemonic != UD_Iret) {
         u->impreg_use |= R_CX;
         u->impreg_def |= R_CX;
     }
