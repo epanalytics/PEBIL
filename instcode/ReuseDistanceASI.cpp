@@ -147,7 +147,7 @@ ReuseDistanceHandler::~ReuseDistanceHandler() {
 }
 
 void ReuseDistanceHandler::Print(ofstream& f) {
-    internalHandler->Print();//Print(false);
+    internalHandler->Print();
     internalHandler->Print(f, true);
 }
 
