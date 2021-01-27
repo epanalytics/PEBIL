@@ -273,6 +273,18 @@ public:
     ReuseStats* GetStats(uint64_t id);
 
     /**
+     * Get a std::vector containing all of the unique indices processed
+     * by this ReuseDistance object.
+     *
+     * @param ids  A std::vector which will contain the ids. It is an error to
+     * pass this vector non-empty (that is addrs.size() == 0 is enforced at 
+     * runtime).
+     *
+     * @return none
+     */
+    void GetIndices(std::vector<uint64_t>& ids);
+
+    /**
      * Pretend that some number of addresses in the stream were skipped. Useful
      * for intervel-based sampling. This has the effect of flushing the entire 
      * window.

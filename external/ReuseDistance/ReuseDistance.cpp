@@ -291,6 +291,14 @@ ReuseStats* ReuseDistance::GetStats(uint64_t id){
     return GetStats(id, false);
 }
 
+void ReuseDistance::GetIndices(std::vector<uint64_t>& ids){
+    assert(ids.size() == 0);
+    for (reuse_map_type<uint64_t, ReuseStats*>::const_iterator it = stats.begin(); it != stats.end(); it++){
+        uint64_t id = it->first;
+        ids.push_back(id);
+    }
+}
+
 // SkipAddresses is really only used when we are sampling, when we turn sampling
 // off, we flush the buffer. So even in the event of an infinite window, the
 // next time we see an address, we are going to report ReuseDistance::Infinity
