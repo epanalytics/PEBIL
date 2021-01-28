@@ -131,6 +131,11 @@ protected:
     bool initialWarning = false;
 
     void Init(uint64_t w, uint64_t b);
+    /*
+     * @param id The memop id that the ReuseStats is associated with
+     * @param gen Wether or not we are generating a new ReuseStats for this
+     * particular memop
+     */
     virtual ReuseStats* GetStats(uint64_t id, bool gen);
     virtual const std::string Describe() { return "REUSE"; }
 
