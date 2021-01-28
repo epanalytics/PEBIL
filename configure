@@ -6262,7 +6262,6 @@ fi
 
 
 
-
 # Check whether --enable-papi was given.
 if test "${enable_papi+set}" = set; then :
   enableval=$enable_papi; enable_papi_ok=$enableval

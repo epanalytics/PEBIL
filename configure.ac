@@ -144,15 +144,6 @@ fi
 AC_SUBST(PEBIL_EPA_TOOLS_AVAILABLE)
 AC_SUBST(PEBIL_EPA_TOOLS_PATH)
 
-
-AC_ARG_ENABLE(mic_libs, AC_HELP_STRING([--enable-mic-libs], [Create mic runtime libraries [yes]]), mic_libs_ok=$enableval)
-if test "$mic_libs_ok" = "yes"; then
-  PEBIL_MIC_LIBS_BUILD="yes"
-else
-  PEBIL_MIC_LIBS_BUILD="no"
-fi
-AC_SUBST(PEBIL_MIC_LIBS_BUILD)
-
 AC_ARG_ENABLE(papi, AC_HELP_STRING([--enable-papi], [Build with PAPI hardware counter support [yes]]), enable_papi_ok=$enableval)
 if test "$enable_papi_ok" = "yes"; then
   PEBIL_PAPI_BUILD="yes"
@@ -196,7 +187,6 @@ AC_CONFIG_FILES([Makefile
                  bashrc])
 AC_CONFIG_SUBDIRS([external/udis86-1.7])
 AC_CONFIG_SUBDIRS([external/ReuseDistance])
-AC_CONFIG_SUBDIRS([external/ReuseDistanceForMIC]) # Probably only wanna do if MIC
 AC_OUTPUT
 chmod +x scripts/blacklist.sh
 
