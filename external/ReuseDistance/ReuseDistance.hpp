@@ -148,7 +148,7 @@ public:
     uint64_t TestGetBinIndividual() { return binindividual; }
 // End for testing only
 
-    static const uint64_t DefaultBinIndividual = 32;
+    static const uint64_t DefaultBinIndividual;
     static const uint64_t Infinity;
 
     /**
@@ -354,7 +354,7 @@ public:
      *
      * @return none
      */
-    void Update(uint64_t dist);
+    virtual void Update(uint64_t dist);
 
     /**
      * Increment the number of misses. That is, addresses which were not found 
@@ -363,7 +363,7 @@ public:
      *
      * @return none
      */
-    void Miss();
+    virtual void Miss();
 
     /**
      * Get the number of misses. This is equal to the number of times

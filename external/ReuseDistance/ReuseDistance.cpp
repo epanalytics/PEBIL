@@ -40,6 +40,7 @@ inline uint64_t uint64abs(uint64_t a){
 // ReuseDistance class
 
 const uint64_t ReuseDistance::Infinity = INFINITY_REUSE;
+const uint64_t ReuseDistance::DefaultBinIndividual = 32;
 
 void ReuseDistance::Init(uint64_t w, uint64_t b){
     capacity = w;
@@ -78,7 +79,6 @@ ReuseDistance::ReuseDistance(ReuseDistance* r){
 }
 
 ReuseDistance::~ReuseDistance(){
-
     for (reuse_map_type<uint64_t, ReuseStats*>::const_iterator 
       it = stats.begin(); it != stats.end(); it++){
         uint64_t id = it->first;
