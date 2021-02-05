@@ -178,7 +178,7 @@ void ReuseDistance::Process(ReuseEntry& r){
     uint64_t mres = mwindow.count(addr);
     // get the Stats associated with this memop, and generate it if we haven't
     // seen this memop yet
-    ReuseStats* stats = GetStats(id, true);
+    ReuseStats* statsForMemop = GetStats(id, true);
     int dist = 0;
     ReuseEntry* result;
     if (mres) { // if we have the address present
@@ -203,7 +203,7 @@ void ReuseDistance::Process(ReuseEntry& r){
         }
         // update the current memop with the distance to the last time
         // this address was seen
-        stats->Update(dist);
+        statsForMemop->Update(dist);
         
 
         // erase from the window
@@ -225,7 +225,7 @@ void ReuseDistance::Process(ReuseEntry& r){
 
     } else {
         // update current memop with a miss
-        stats->Miss();
+        statsForMemop->Miss();
 
         // gonna need to make a new ReuseEntry
         result = new ReuseEntry();
