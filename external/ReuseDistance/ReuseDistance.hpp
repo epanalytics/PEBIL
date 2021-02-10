@@ -108,7 +108,7 @@ class ReuseStats;
  * adding to the front of list with the new.
  */
 class ReuseDistance {
-private:
+protected:
     // [sequence -> address] A linked list filled with ReuseEntry*, sorted 
     // by access order in descending order
     std::list<ReuseEntry*>* window;
@@ -117,7 +117,6 @@ private:
     // address is in window, it should be in mwindow as well as vice versa
     reuse_map_type<uint64_t, uint64_t> mwindow; 
 
-protected:
     // store all stats keyed by memop
     reuse_map_type<uint64_t, ReuseStats*> stats;
     
@@ -140,14 +139,10 @@ protected:
     virtual const std::string Describe() { return "REUSE"; }
 
 public:
-
-// FOR TESTING ONLY
-    std::list<ReuseEntry*>* TestGetWindow() { return window; }
-    reuse_map_type<uint64_t, uint64_t> TestGetMwindow() { return mwindow; }
+    // TESTING ONLY METHODS
     uint64_t TestGetCapacity() { return capacity; }
     uint64_t TestGetBinIndividual() { return binindividual; }
-// End for testing only
-
+    // END OF TESTING METHODS
     static const uint64_t DefaultBinIndividual;
     static const uint64_t Infinity;
 
@@ -324,11 +319,6 @@ protected:
     uint64_t GetBin(uint64_t value);
 
 public:
-
-    //TESTING FUNCTIONS
-    reuse_map_type<uint64_t, uint64_t>* TestGetDistcountsPtr() 
-      { return &distcounts; }
-    //END TESTING FUNCTIONS
 
     /**
      * Contructs a ReuseStats object.
