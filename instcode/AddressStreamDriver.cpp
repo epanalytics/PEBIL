@@ -115,6 +115,8 @@ AddressStreamDriver::AddressStreamDriver() {
     // Create a parser for parsing
     parser = new StringParser();
 
+    variableNameFile = "";
+
     GENERATE_MODULE(dataStructureModule);
 }
 
@@ -255,6 +257,16 @@ void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
     RESTORE_STREAM_FLAGS(cout);
 }
 
+// Look for a file that has variable names and locations
+// This will get passed onto the data structure module
+void AddressStreamDriver::GetAndSetVariableNameFile() {
+    char* fileName = parser->GetEnv("METASIM_VAR_NAME_FILE");
+
+    if (fileName != NULL) {
+        variableNameFile = string(fileName);
+    }
+}
+
 // Should only be called once per driver
 void AddressStreamDriver::InitializeAddressStreamDriver(
   DataManager<AddressStreamStats*>* d) {
@@ -270,8 +282,10 @@ void AddressStreamDriver::InitializeAddressStreamDriver(
 
     // Set up the data structure module -- Must be done after SetUpTools
     // Otherwise runDataCentric will not be set
-    if (runDataCentric)
+    if (runDataCentric) {
+        GetAndSetVariableNameFile();
         SetUpDataStructureModule();
+    }
 
 }
 
@@ -559,8 +573,10 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
 void AddressStreamDriver::SetUpDataStructureModule() {
     dataStructureModule->CreateContainer();
-    dataStructureModule->CreateDynamicTool();
     dataStructureModule->SetDriver(this);
+    dataStructureModule->SetVariableNameFile(variableNameFile);
+    dataStructureModule->ParseVariableFile();
+    dataStructureModule->CreateDynamicTool();
 }
 
 void AddressStreamDriver::SetUpTools() {
