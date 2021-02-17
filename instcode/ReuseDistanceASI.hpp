@@ -40,7 +40,7 @@ class ReuseDistanceTool : public AddressStreamTool {
 };
 
 class ReuseStreamStats : public StreamStats {
-  private:
+  protected:
     uint32_t numBlocks; // copy of AddressStreamStats BlockCount
     uint32_t numMemops; // copy of AddressStreamStats MemopCount
     uint64_t* blockIds; // copy of AddressStreamStats BlockIds
