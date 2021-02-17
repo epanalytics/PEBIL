@@ -157,13 +157,15 @@ ud_translate_att(struct ud *u)
   	mkasm(u,  "lock ");
   if (u->pfx_rep)
 	mkasm(u,  "rep ");
+  if (u->pfx_repe)
+	mkasm(u,  "repe ");
   if (u->pfx_repne)
 		mkasm(u,  "repne ");
 
   /* special instructions */
   switch (u->mnemonic) {
 	case UD_Iretf: 
-		mkasm(u, "lret "); 
+		mkasm(u, "lret"); 
 		break;
 	case UD_Idb:
 		mkasm(u, ".byte 0x%x", u->operand[0].lval.ubyte);
