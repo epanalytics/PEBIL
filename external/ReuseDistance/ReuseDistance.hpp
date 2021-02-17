@@ -391,7 +391,7 @@ public:
  * test/test.cpp included in this source package.
  */
 class SpatialLocality : public ReuseDistance {
-private:
+protected:
 
     // [address -> sequence]
     std::map<uint64_t, uint64_t> awindow;
