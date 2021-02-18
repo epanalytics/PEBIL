@@ -1258,7 +1258,7 @@ static int clear_operand(register struct ud_operand* op){
 static void 
 decode_imm(struct ud* u, unsigned int s, struct ud_operand *op)
 {
-  op->position = ud_insn_len(u) + 1; // position starts with 1 not 0
+  op->position = ud_insn_len(u);
 
   op->size = resolve_operand_size(u, s);
   op->type = UD_OP_IMM;
