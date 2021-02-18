@@ -31,7 +31,6 @@
 
 #include <assert.h>
 #include <stdlib.h>
-#include <tree234.h>
 #include <math.h>
 #include <algorithm>
 #include <iostream>
@@ -39,7 +38,6 @@
 #include <list>
 #include <map>
 #include <vector>
-#include<LRUDistanceAnalyzer.hpp>
 #include<math.h>
 // unordered_map is faster for many things, use it where sorted map isn't needed
 #ifdef HAVE_UNORDERED_MAP
@@ -69,64 +67,104 @@
 struct ReuseEntry {
     uint64_t id;
     uint64_t address;
+
+    bool operator==(const ReuseEntry& rhs) const
+    {
+        return id == rhs.id
+            && address == rhs.address;
+    }
 };
 
+// this should be fast as possible. This code is from 
+// http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog
+static const uint64_t b[]
+  = {0x2L, 0xCL, 0xF0L, 0xFF00L, 0xFFFF0000L, 0xFFFFFFFF00000000L};
+static const uint32_t S[] = {1, 2, 4, 8, 16, 32};
+extern inline uint64_t ShaveBitsPwr2(uint64_t val) {
+    val -= 1;
+    register uint64_t r = 0; // result of log2(v) will go here
+    for (int32_t i = 5; i >= 0; i--){
+        if (val & b[i]){
+            val = val >> S[i];
+            r |= S[i];
+        }
+    }
+    return ( (uint64_t) 2 << r);
+}
 
 class ReuseStats;
 
 /**
  * @class ReuseDistance
  *
- * Tracks reuse distances for a memory address stream. Keep track of the addresses within
- * a specific window of history, whose size can be finite or infinite. For basic usage, see
- * the documentation at http://bit.ly/ScqZVj for the constructors, the Process methods and
- * the Print methods. Also see the simple test file test/test.cpp included in this source 
- * package.
+ * Tracks reuse distances for a memory address stream. Keep track of the 
+ * addresses within a specific window of history, whose size can be finite or 
+ * infinite. We use a map to keep track of what address are and are
+ * not in our List that holds the unique addresses in the reverse order they
+ * were visited in. We use this list to count the number of unique addresses
+ * from the current address we are processing to the last time it was seen
+ * we then update the list so that the unique addresses property and reverse
+ * order of last seen addresses property is maintained by deleting the old and
+ * adding to the front of list with the new.
  */
 class ReuseDistance {
-private:
-    // [sequence -> address] A counted B-tree filled with ReuseEntry*, sorted by __seq. this is from tree234.h
-    tree234* window;
-
-    uint64_t current;
-
 protected:
-    // store all stats
+    // [sequence -> address] A linked list filled with ReuseEntry*, sorted 
+    // by access order in descending order
+    std::list<ReuseEntry*>* window;
+
+    // a dictionary of addresses to the last sequence they were seen in. If an 
+    // address is in window, it should be in mwindow as well as vice versa
+    reuse_map_type<uint64_t, uint64_t> mwindow; 
+
+    // store all stats keyed by memop
     reuse_map_type<uint64_t, ReuseStats*> stats;
-    // [id -> stats for this id]
-    reuse_map_type<uint64_t,uint64_t*> PINReuseStats;
     
-    uint64_t capacity;
-    uint64_t sequence;
-    uint64_t binindividual;
-    uint64_t maxtracking;
+    uint64_t capacity; // the max size of our window
+    uint64_t sequence; // the number of address we have visited + 1
+    // the maximum distance that we keep track of for individual distances
+    uint64_t binindividual; 
+    // used in spatial locality to determine the largest bin we will track
+    // anything over max tracking will bet reported as ReuseDistance::Infinity
+    uint64_t maxtracking; 
+    bool initialWarning = false;
 
     void Init(uint64_t w, uint64_t b);
+    /*
+     * @param id The memop id that the ReuseStats is associated with
+     * @param gen Wether or not we are generating a new ReuseStats for this
+     * particular memop
+     */
     virtual ReuseStats* GetStats(uint64_t id, bool gen);
-    virtual uint64_t* GetPINStats(uint64_t id, bool gen);      
     virtual const std::string Describe() { return "REUSE"; }
 
 public:
-
-    static const uint64_t DefaultBinIndividual = 32;
-    static const uint64_t Infinity = INFINITY_REUSE;
+    // TESTING ONLY METHODS
+    uint64_t TestGetCapacity() { return capacity; }
+    uint64_t TestGetBinIndividual() { return binindividual; }
+    // END OF TESTING METHODS
+    static const uint64_t DefaultBinIndividual;
+    static const uint64_t Infinity;
 
     /**
      * Contructs a ReuseDistance object.
      *
-     * @param w  The maximum window size, or alternatively the maximum possible reuse distance that this tool
-     * will find. No window/distance limit is imposed if ReuseDistance::Infinity is used, though you could easily
-     * run of of memory.
-     * @param b  All distances not greater than b will be tracked individually. All distances are tracked individually
-     * if b == ReuseDistance::Infinity. Beyond individual tracking, distances are tracked in bins whose boundaries
-     * are the powers of two greater than b (and not exeeding w, of course).
+     * @param w  The maximum window size, or alternatively the maximum 
+     * possible reuse distance that this tool will find. No window/distance 
+     * limit is imposed if ReuseDistance::Infinity is used, though you could 
+     * easily run out of memory.
+     * @param b  All distances not greater than b will be tracked individually.
+     * All distances are tracked individually if b == ReuseDistance::Infinity. 
+     * Beyond individual tracking, distances are tracked in bins whose 
+     * boundaries are the powers of two greater than b (and not exeeding w, 
+     * of course).
      *
      */
     ReuseDistance(uint64_t w, uint64_t b);
 
     /**
-     * Contructs a ReuseDistance object. Equivalent to calling the other constructor with 
-     * b == ReuseDistance::DefaultBinIndividual
+     * Contructs a ReuseDistance object. Equivalent to calling the other 
+     * constructor with b == ReuseDistance::DefaultBinIndividual
      */
     ReuseDistance(uint64_t w);
 
@@ -143,27 +181,11 @@ public:
 
     /**
      * Print statistics for this ReuseDistance to an output stream.
-     * The first line of the output is 7 tokens: [1] a string identifier
-     * for the class (REUSESTATS or SPATIALSTATS), [2] the capacity or window 
-     * size (0 == unlimited), [3] the maximum individual value being tracked, above
-     * which values are tracked by bins whose boundaries are powers of 2,
-     * [4] the maximum value to track, above which any value is considered
-     * a miss. For ReuseDistance, this is equal to the capacity, for subclasses 
-     * this can be different. [6] the number of ids that will be printed, 
-     * [6] the total number of accesses
-     * made (the number of ReuseEntry elements that were Process'ed) and
-     * [7] the number of accesses that cold-misses or were outside the window range.
-     * The stats for individual ids are printed on subsequent lines. The printing
-     * of each id begins with a line which is comprised of 4 tokens: [1] a string
-     * identifier (REUSEID or SPATIALID), [2] the id, [3] the number of accesses to that id and 
-     * [4] the number of accesses for that id that were cold-misses or were 
-     * outside the window range. Each subsequent line contains information about
-     * a single bin for that id. These lines have 3 tokens: [1] and [2] the lower and
-     * upper boundaries (both inclusive) of the bin and [3] the number of accesses
-     * falling into that bin. See also ReuseDistance::PrintFormat
+     * See also ReuseDistance::PrintFormat
      *
      * @param f  The output stream to print results to.
-     * @param annotate  Also print annotations describing the meaning of output fields, preceded by a '#'.
+     * @param annotate  Also print annotations describing the meaning of output
+     * fields, preceded by a '#'.
      *
      * @return none
      */
@@ -171,16 +193,17 @@ public:
 
     /**
      * Print statistics for this ReuseDistance to std::cout.
-     * See the other version of ReuseDistance::Print for information about output format.
      *
-     * @param annotate  Also print annotations describing the meaning of output fields, preceded by a '#'.
+     * @param annotate  Also print annotations describing the meaning of output
+     * fields, preceded by a '#'.
      *
      * @return none
      */
     virtual void Print(bool annotate=false);
 
     /**
-     * Print information about the output format of ReuseDistance or one of its subclasses
+     * Print information about the output format of ReuseDistance or one of its
+     * subclasses
      *
      * @param f  The stream to receive the output.
      *
@@ -190,17 +213,29 @@ public:
 
     /**
      * Process a single memory address.
+     * Process : This Process method takes in a ReuseEntry with a memop id, 
+     * and an  address. It updates an internal dictionary that map memop id -> 
+     * ReuseStats When you process (memop, address) we update the associate 
+     * ReuseStats, with the number of unique addresses between now and the last 
+     * time it was seen. If an address hasn't been seen yet or is further back 
+     * than the size of the window, we update the ReuseStats with 
+     * ReuseDistance::Infinity (also referenced as invalid, and actual value 
+     * is 0). If an address is seen twice in a row, that is a reuse 
+     * distance of 1
      *
-     * @param addr  The structure describing the memory address to process.
+     * @param addr  The structure describing the memory address 
+     * and memory op to process.
      *
      * @return none
      */
     virtual void Process(ReuseEntry& addr);
 
     /**
-     * Process multiple memory addresses. Equivalent to calling Process on each element of the input array.
+     * Process multiple memory addresses. Equivalent to calling Process on each
+     * element of the input array.
      *
-     * @param addrs  An array of structures describing memory addresses to process.
+     * @param addrs  An array of structures describing memory addresses to 
+     * process.
      * @param count  The number of elements in addrs.
      *
      * @return none
@@ -208,7 +243,8 @@ public:
     void Process(ReuseEntry* addrs, uint64_t count);
 
     /**
-     * Process multiple memory addresses. Equivalent to calling Process on each element of the input vector.
+     * Process multiple memory addresses. Equivalent to calling Process on each
+     * element of the input vector.
      *
      * @param addrs  A std::vector of memory addresses to process.
      *
@@ -217,7 +253,8 @@ public:
     void Process(std::vector<ReuseEntry> rs);
 
     /**
-     * Process multiple memory addresses. Equivalent to calling Process on each element of the input vector.
+     * Process multiple memory addresses. Equivalent to calling Process on each 
+     * element of the input vector.
      *
      * @param addrs  A std::vector of memory addresses to process.
      *
@@ -230,7 +267,8 @@ public:
      *
      * @param id  The unique id.
      *
-     * @return The ReuseStats object associated with parameter id, or NULL if no ReuseStats is associate with id.
+     * @return The ReuseStats object associated with parameter id, or NULL if 
+     * no ReuseStats is associate with id.
      */
     ReuseStats* GetStats(uint64_t id);
 
@@ -239,26 +277,17 @@ public:
      * by this ReuseDistance object.
      *
      * @param ids  A std::vector which will contain the ids. It is an error to
-     * pass this vector non-empty (that is addrs.size() == 0 is enforced at runtime).
+     * pass this vector non-empty (that is addrs.size() == 0 is enforced at 
+     * runtime).
      *
      * @return none
      */
     void GetIndices(std::vector<uint64_t>& ids);
 
     /**
-     * Get a std::vector containing all of the addresses currently in this ReuseDistance
-     * object's active window.
-     *
-     * @param addrs  A std::vector which will contain the addresses. It is an error to
-     * pass this vector non-empty (that is addrs.size() == 0 is enforced at runtime).
-     *
-     * @return none
-     */
-    virtual void GetActiveAddresses(std::vector<uint64_t>& addrs);
-
-    /**
-     * Pretend that some number of addresses in the stream were skipped. Useful for intervel-based sampling.
-     * This has the effect of flushing the entire window.
+     * Pretend that some number of addresses in the stream were skipped. Useful
+     * for intervel-based sampling. This has the effect of flushing the entire 
+     * window.
      * 
      * @param amount  The number of addresses to skip.
      *
@@ -273,7 +302,7 @@ public:
  * ReuseStats holds count of observed reuse distances.
  */
 class ReuseStats {
-private:
+protected:
     reuse_map_type<uint64_t, uint64_t> distcounts;
     uint64_t accesses;
 
@@ -282,6 +311,11 @@ private:
     uint64_t maxtracking;
     uint64_t invalid;
 
+    // ShaveBitsPwr2 was moved so that it could be accessed by 
+    // testing frameworks
+    // commented out values are what they will be initialized too
+    
+    
     uint64_t GetBin(uint64_t value);
 
 public:
@@ -295,7 +329,8 @@ public:
      * @param inv  The value which represents a miss
      */
     ReuseStats(uint64_t idx, uint64_t bin, uint64_t num, uint64_t inv)
-        : accesses(0), id(idx), binindividual(bin), maxtracking(num), invalid(inv) {}
+      : accesses(0), id(idx), binindividual(bin), maxtracking(num), 
+        invalid(inv) {}
 
     /**
      * Destroys a ReuseStats object.
@@ -309,15 +344,16 @@ public:
      *
      * @return none
      */
-    void Update(uint64_t dist);
+    virtual void Update(uint64_t dist);
 
     /**
-     * Increment the number of misses. That is, addresses which were not found inside
-     * the active address window. This is equivalent Update(0), but is faster.
+     * Increment the number of misses. That is, addresses which were not found 
+     * inside the active address window. This is equivalent Update(0), but is 
+     * faster.
      *
      * @return none
      */
-    void Miss();
+    virtual void Miss();
 
     /**
      * Get the number of misses. This is equal to the number of times
@@ -331,11 +367,14 @@ public:
      * Print a summary of the current reuse distances and counts for some id.
      *
      * @param f  The stream to receive the output.
-     * @param annotate  Also print annotations describing the meaning of output fields, preceded by a '#'.
+     * @param annotate  Also print annotations describing the meaning of output
+     * fields, preceded by a '#'.
      *
      * @return none
      */
-    virtual void Print(std::ostream& f,reuse_map_type<uint64_t,uint64_t>& BinTotal, bool annotate=false);
+    //virtual void Print(std::ostream& f, reuse_map_type<uint64_t,uint64_t>& 
+    //  BinTotal, bool annotate=false);
+    virtual void Print(std::ostream& f, bool annotate=false);
 
     /**
      * Print information about the output format of ReuseStats
@@ -347,30 +386,16 @@ public:
     static void PrintFormat(std::ostream& f);
 
     /**
-     * Get a std::vector containing the distances observed, sorted in ascending order.
+     * Get a std::vector containing the distances observed, sorted in ascending
+     * order.
      *
-     * @param dists  The vector which will hold the sorted distance values. It is an error
-     * for dists to be passed in non-empty (that is, dists.size() == 0 is enforced).
+     * @param dists  The vector which will hold the sorted distance values. It 
+     * is an error for dists to be passed in non-empty (that is, 
+     * dists.size() == 0 is enforced).
      *
      * @return none
      */
     void GetSortedDistances(std::vector<uint64_t>& dists);
-
-    /**
-     * Get the maximum distance observed.
-     *
-     * @return The maximum distance observed.
-     */
-    uint64_t GetMaximumDistance();
-
-    /**
-     * Count the number of times some distance has been observed.
-     *
-     * @param dist  The distance to count.
-     *
-     * @return The number of times d has been observed.
-     */
-    uint64_t CountDistance(uint64_t dist);
 
     /**
      * Count the total number of distances observed.
@@ -383,12 +408,14 @@ public:
 /**
  * @class SpatialLocality
  *
- * Finds and tracks spatial locality within a memory address stream. Spatial locality is defined
- * as the minimum distance between the current address and any of the previous N addresses, as
- * in http://www.sdsc.edu/~allans/sc05_locality.pdf. This class allows that window size N to
- * be customized. For basic usage, see the documentation at http://bit.ly/ScqZVj for the 
- * constructors, the Process methods and the Print methods. Also see the simple test file 
- * test/test.cpp included in this source package.
+ * Finds and tracks spatial locality within a memory address stream. Spatial 
+ * locality is defined as the minimum distance between the current address and 
+ * any of the previous N addresses, as in 
+ * http://www.sdsc.edu/~allans/sc05_locality.pdf. This class allows that 
+ * window size N to be customized. For basic usage, see the documentation at 
+ * http://bit.ly/ScqZVj for the constructors, the Process methods and the Print
+ * methods. Also see the simple test file test/test.cpp included in this 
+ * source package.
  */
 class SpatialLocality : public ReuseDistance {
 private:
@@ -411,41 +438,52 @@ public:
     static const uint64_t DefaultWindowSize = 64;
 
     /**
-     * Contructs a ReuseDistance object.
+     * Contructs a SpatialLocality object.
      *
-     * @param w  The maximum window size, which is the maximum number of addresses that will be searched for spatial
-     * locality. w != ReuseDistance::Infinity is enforced at runtime.
-     * @param b  All distances not greater than b will be tracked individually. All distances are tracked individually
-     * if b == ReuseDistance::Infinity. Beyond individual tracking, distances are tracked in bins whose boundaries
-     * are the powers of two greater than b and not greater than n.
-     * @param n  All distances greater than n will be counted as infinite. Use n == ReuseDistance::Infinity for no limit. n >= b is enforced at runtime.
+     * @param w  The maximum window size, which is the maximum number of 
+     * addresses that will be searched for spatial locality. 
+     * w != ReuseDistance::Infinity is enforced at runtime.
+     * @param b  All distances not greater than b will be tracked individually. 
+     * All distances are tracked individually if b == ReuseDistance::Infinity. 
+     * Beyond individual tracking, distances are tracked in bins whose 
+     * boundaries are the powers of two greater than b and not greater than n.
+     * @param n  All distances greater than n will be counted as infinite. Use 
+     * n == ReuseDistance::Infinity for no limit. n >= b is enforced at runtime.
      *
      */
-    SpatialLocality(uint64_t w, uint64_t b, uint64_t n) : ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, b, n); }
+    SpatialLocality(uint64_t w, uint64_t b, uint64_t n) : 
+      ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, b, n); }
 
     /**
-     * Constructs a SpatialLocality object. Equivalent to calling the other 3-argument constructor
-     * with n == ReuseDistance::Infinity
+     * Constructs a SpatialLocality object. Equivalent to calling the other 
+     * 3-argument constructor with n == ReuseDistance::Infinity
      */
-    SpatialLocality(uint64_t w, uint64_t b) : ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, b, INFINITY_REUSE); }
+    SpatialLocality(uint64_t w, uint64_t b) : ReuseDistance((uint64_t)0) { 
+        SpatialLocality::Init(w, b, INFINITY_REUSE); }
 
     /**
-     * Constructs a SpatialLocality object. Equivalent to calling the other 3-argument constructor
-     * with w == b and n == ReuseDistance::Infinity
+     * Constructs a SpatialLocality object. Equivalent to calling the other 
+     * 3-argument constructor with w == b and n == ReuseDistance::Infinity
      */
-    SpatialLocality(uint64_t w) : ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, w, INFINITY_REUSE); }
+    SpatialLocality(uint64_t w) : ReuseDistance((uint64_t)0) { 
+      SpatialLocality::Init(w, w, INFINITY_REUSE); }
  
     /**
-     * Constructs a SpatialLocality object. Equivalent to calling the other 3-argument constructor
-     * with w == b == SpatialLocality::DefaultWindowSize and n == ReuseDistance::Infinity
+     * Constructs a SpatialLocality object. Equivalent to calling the other 
+     * 3-argument constructor with 
+     * w == b == SpatialLocality::DefaultWindowSize and 
+     * n == ReuseDistance::Infinity
      */
-    SpatialLocality() : ReuseDistance((uint64_t)0) {  SpatialLocality::Init(DefaultWindowSize, DefaultWindowSize, INFINITY_REUSE); }
+    SpatialLocality() : ReuseDistance((uint64_t)0) { 
+      SpatialLocality::Init(DefaultWindowSize, DefaultWindowSize, 
+      INFINITY_REUSE); }
  
     /**
      * Constructs a SpatialLocality object equivalent to the given 
      * SpatialLocality object
      */
-    SpatialLocality(SpatialLocality* s) : ReuseDistance((uint64_t)0) {  SpatialLocality::Init(s->capacity, s->binindividual, s->maxtracking); }
+    SpatialLocality(SpatialLocality* s) : ReuseDistance((uint64_t)0) {
+      SpatialLocality::Init(s->capacity, s->binindividual, s->maxtracking); }
 
     /**
      * Destroys a SpatialLocality object.
@@ -453,11 +491,12 @@ public:
     virtual ~SpatialLocality() {}
 
     /**
-     * Get a std::vector containing all of the addresses currently in this SpatialLocality
-     * object's active window.
+     * Get a std::vector containing all of the addresses currently in this 
+     * SpatialLocality object's active window.
      *
-     * @param addrs  A std::vector which will contain the addresses. It is an error to
-     * pass this vector non-empty (that is addrs.size() == 0 is enforced at runtime).
+     * @param addrs  A std::vector which will contain the addresses. It is an 
+     * error to pass this vector non-empty (that is addrs.size() == 0 is 
+     * enforced at runtime).
      *
      * @return none
      */
@@ -473,8 +512,9 @@ public:
     virtual void Process(ReuseEntry& addr);
 
     /**
-     * Pretend that some number of addresses in the stream were skipped. Useful for intervel-based sampling.
-     * This has the effect of flushing the entire window.
+     * Pretend that some number of addresses in the stream were skipped. Useful
+     * for intervel-based sampling. This has the effect of flushing the entire 
+     * window.
      * 
      * @param amount  The number of addresses to skip.
      *
