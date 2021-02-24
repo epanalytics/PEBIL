@@ -142,6 +142,7 @@ public:
     // TESTING ONLY METHODS
     uint64_t TestGetCapacity() { return capacity; }
     uint64_t TestGetBinIndividual() { return binindividual; }
+    uint64_t TestGetNMax() { return maxtracking; }
     // END OF TESTING METHODS
     static const uint64_t DefaultBinIndividual;
     static const uint64_t Infinity;
@@ -431,11 +432,11 @@ protected:
     virtual ReuseStats* GetStats(uint64_t id, bool gen);
     virtual const std::string Describe() { return "SPATIAL"; }
 
-    static const uint64_t Invalid = INVALID_SPATIAL;
 
 public:
 
-    static const uint64_t DefaultWindowSize = 64;
+    static const uint64_t Invalid;
+    static const uint64_t DefaultWindowSize;
 
     /**
      * Contructs a SpatialLocality object.
@@ -459,14 +460,14 @@ public:
      * 3-argument constructor with n == ReuseDistance::Infinity
      */
     SpatialLocality(uint64_t w, uint64_t b) : ReuseDistance((uint64_t)0) { 
-        SpatialLocality::Init(w, b, INFINITY_REUSE); }
+        SpatialLocality::Init(w, b, INVALID_SPATIAL); }
 
     /**
      * Constructs a SpatialLocality object. Equivalent to calling the other 
      * 3-argument constructor with w == b and n == ReuseDistance::Infinity
      */
     SpatialLocality(uint64_t w) : ReuseDistance((uint64_t)0) { 
-      SpatialLocality::Init(w, w, INFINITY_REUSE); }
+      SpatialLocality::Init(w, w, INVALID_SPATIAL); }
  
     /**
      * Constructs a SpatialLocality object. Equivalent to calling the other 
@@ -476,7 +477,7 @@ public:
      */
     SpatialLocality() : ReuseDistance((uint64_t)0) { 
       SpatialLocality::Init(DefaultWindowSize, DefaultWindowSize, 
-      INFINITY_REUSE); }
+      INVALID_SPATIAL); }
  
     /**
      * Constructs a SpatialLocality object equivalent to the given 

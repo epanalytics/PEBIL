@@ -417,6 +417,9 @@ uint64_t ReuseStats::GetAccessCount(){
     return accesses;
 }
 
+const uint64_t SpatialLocality::Invalid = INVALID_SPATIAL;
+const uint64_t SpatialLocality::DefaultWindowSize = 64;
+
 void SpatialLocality::Init(uint64_t size, uint64_t bin, uint64_t max){
     sequence = 1;
     capacity = size;
