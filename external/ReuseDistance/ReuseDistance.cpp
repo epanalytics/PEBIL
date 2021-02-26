@@ -497,6 +497,7 @@ void SpatialLocality::Process(ReuseEntry& r){
     // insert the newest address into the window
     awindow[addr]++;
     swindow.push_back(addr);
+    sequence++;
 }
 
 void SpatialLocality::SkipAddresses(uint64_t amount){
@@ -514,6 +515,7 @@ void SpatialLocality::SkipAddresses(uint64_t amount){
         }
     }
 
+    sequence += amount;
     assert(awindow.size() == 0);
     assert(swindow.size() == 0);
 }
