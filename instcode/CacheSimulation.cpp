@@ -525,7 +525,7 @@ void CacheSimulationTool::PrintOverallStatistics(
         assert(s);
 
         CacheStats* c = (CacheStats*)s->Stats[sysidIndex];
-        assert(c->Capacity == s->AllocCount);
+        //assert(c->Capacity == s->AllocCount);
 
         // Sanity check the cache structure
         if(!c->Verify()) {

@@ -81,7 +81,8 @@ class CacheSimulationTool : public AddressStreamTool {
     CacheSimulationTool() : AddressStreamTool() {}
     virtual void AddNewHandlers(AddressStreamStats* stats);
     virtual void AddNewStreamStats(AddressStreamStats* stats);
-    void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
+    virtual void CacheSimulationFileName(AddressStreamStats* stats, 
+      std::string& oFile);
     virtual uint32_t CreateHandlers(uint32_t index, StringParser* parser);
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
       SamplingMethod* Sampler);
@@ -93,7 +94,8 @@ class CacheSimulationTool : public AddressStreamTool {
     virtual void HandleEnvVariables(StringParser* parser);
     bool IsKeepingMemoryLog() { return KeepMemoryLog; }
     bool IsTrackingDirtyStatus() { return TrackDirtyStatus; }
-    void MemoryLogFileName(AddressStreamStats* stats, std::string& oFile);
+    virtual void MemoryLogFileName(AddressStreamStats* stats, 
+      std::string& oFile);
     virtual uint32_t ReadCacheDescription(std::istream& cacheStream, 
       StringParser* parser);
 
