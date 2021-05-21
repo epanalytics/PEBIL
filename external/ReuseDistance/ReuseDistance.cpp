@@ -417,6 +417,9 @@ uint64_t ReuseStats::GetAccessCount(){
     return accesses;
 }
 
+const uint64_t SpatialLocality::Invalid = INVALID_SPATIAL;
+const uint64_t SpatialLocality::DefaultWindowSize = 64;
+
 void SpatialLocality::Init(uint64_t size, uint64_t bin, uint64_t max){
     sequence = 1;
     capacity = size;
@@ -494,6 +497,7 @@ void SpatialLocality::Process(ReuseEntry& r){
     // insert the newest address into the window
     awindow[addr]++;
     swindow.push_back(addr);
+    sequence++;
 }
 
 void SpatialLocality::SkipAddresses(uint64_t amount){
@@ -511,6 +515,7 @@ void SpatialLocality::SkipAddresses(uint64_t amount){
         }
     }
 
+    sequence += amount;
     assert(awindow.size() == 0);
     assert(swindow.size() == 0);
 }
