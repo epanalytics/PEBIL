@@ -110,6 +110,7 @@ class AddressStreamDriver {
       liveMemoryAccessInstPointKeys; }
     SamplingMethod* GetSamplingMethod() { return sampler; }
     StringParser* GetStringParser() { return parser; }
+    std::string GetVariableNameFile() { return variableNameFile; }
 
     uint32_t GetNumCodeCentricTools() { return numCodeCentricTools; }
     uint32_t GetNumCodeCentricMemoryHandlers() { return 
