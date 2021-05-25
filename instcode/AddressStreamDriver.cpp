@@ -573,11 +573,15 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 }
 
 void AddressStreamDriver::SetUpDataStructureModule() {
+    int32_t stackDepth;
+    bool setDepth = parser->ReadEnvInt32("METASIM_UNWIND_DEPTH", &stackDepth);
     dataStructureModule->CreateContainer();
     dataStructureModule->SetDriver(this);
     dataStructureModule->SetVariableNameFile(variableNameFile);
     dataStructureModule->ParseVariableFile();
     dataStructureModule->CreateDynamicTool();
+    if (setDepth)
+        dataStructureModule->SetStackDepth(stackDepth);
 }
 
 void AddressStreamDriver::SetUpTools() {

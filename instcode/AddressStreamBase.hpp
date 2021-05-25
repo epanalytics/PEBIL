@@ -118,6 +118,7 @@ class StringParser {
     virtual bool IsEmptyComment(std::string str);
     virtual bool ParseInt32(std::string token, int32_t* value, int32_t min);
     virtual bool ParsePositiveInt32(std::string token, uint32_t* value);
+    virtual bool ReadEnvInt32(std::string name, int32_t* var);
     virtual bool ReadEnvUint32(std::string name, uint32_t* var);
     virtual char ToLowerCase(char c);
 };

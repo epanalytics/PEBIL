@@ -216,6 +216,18 @@ bool StringParser::ParsePositiveInt32(string token, uint32_t* value){
     return ret;
 }
 
+bool StringParser::ReadEnvInt32(string name, int32_t* var){
+    char* e = getenv(name.c_str());
+    if (e == NULL){
+        debug(inform << "unable to find " << name << " in environment" << ENDL;)
+        return false;
+    }
+    string s (e);
+    // Min argument does not matter since we do not capture returned value
+    (void) ParseInt32(s, (int32_t*)var, 0);
+    return true;
+}
+
 bool StringParser::ReadEnvUint32(string name, uint32_t* var){
     char* e = getenv(name.c_str());
     if (e == NULL){
