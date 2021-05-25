@@ -144,18 +144,6 @@ fi
 AC_SUBST(PEBIL_EPA_TOOLS_AVAILABLE)
 AC_SUBST(PEBIL_EPA_TOOLS_PATH)
 
-AC_ARG_WITH(memory_container, [AS_HELP_STRING([--with-memory-container=<path>],[specify path to memory container])],
-            [memory_container=$withval], [memory_container=no])
-if test x"$memory_container" = x"no"; then
-    EPA_MEMORY_CONTAINER_AVAILABLE="no"
-    EPA_MEMORY_CONTAINER_PATH=""
-else
-    EPA_MEMORY_CONTAINER_AVAILABLE="yes"
-    EPA_MEMORY_CONTAINER_PATH="$memory_container"
-fi
-AC_SUBST(EPA_MEMORY_CONTAINER_AVAILABLE)
-AC_SUBST(EPA_MEMORY_CONTAINER_PATH)
-
 
 AC_ARG_ENABLE(mic_libs, AC_HELP_STRING([--enable-mic-libs], [Create mic runtime libraries [yes]]), mic_libs_ok=$enableval)
 if test "$mic_libs_ok" = "yes"; then
