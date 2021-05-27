@@ -80,6 +80,8 @@ class AddressStreamDriver {
 
     StringParser* parser = NULL;
 
+    std::string variableNameFile; // For data structure module
+
   #ifdef HAS_DATA_STRUCTURE_MODULE
     DataStructureModule* dataStructureModule = NULL;
   #else
@@ -100,6 +102,7 @@ class AddressStreamDriver {
     void* FinalizeImage(image_key_t*);
 
     DataManager<AddressStreamStats*>* GetAllData() { return allData; }
+    void GetAndSetVariableNameFile();
     DynamicInstrumentation* GetDynamicPoints() { return dynamicPoints; }
     FastData<AddressStreamStats*, BufferEntry*>* GetFastData() { 
       return fastData; }
@@ -107,6 +110,7 @@ class AddressStreamDriver {
       liveMemoryAccessInstPointKeys; }
     SamplingMethod* GetSamplingMethod() { return sampler; }
     StringParser* GetStringParser() { return parser; }
+    std::string GetVariableNameFile() { return variableNameFile; }
 
     uint32_t GetNumCodeCentricTools() { return numCodeCentricTools; }
     uint32_t GetNumCodeCentricMemoryHandlers() { return 

@@ -34,6 +34,7 @@
 
 #ifdef HAS_EPA_TOOLS
 #include <DataCentricAddressRange.hpp>
+#include <DataCentricCacheSimulation.hpp>
 #include <PrefetchSimulation.hpp>
 #include <SpatialLocalityPerMemOp.hpp>
 #endif
@@ -69,7 +70,7 @@ using namespace std;
 #endif
 
 #ifdef HAS_DATA_STRUCTURE_MODULE
-  #define GENERATE_DATA_ADDRESS_RANGE_TOOL new DataCentricAddressRangeTool()
+  #define GENERATE_DATA_TOOL(m) new m()
   #define GENERATE_MODULE(m) m = new DataStructureModule()
   #define GET_DATA_STRUCTURE_ID(m, a) m->GetDataStructureID(a)
   #define GET_NUM_DATA_STRUCTURES(m) m->GetNumberOfDataStructures()
@@ -79,7 +80,7 @@ using namespace std;
     m->PrintDataStructureReport()
   #define UNPAUSE_MODULE(m) if(runDataCentric) m->UnpauseMemoryWrappers()
 #else
-  #define GENERATE_DATA_ADDRESS_RANGE_TOOL 0
+  #define GENERATE_DATA_TOOL 0
   #define GENERATE_MODULE(m) 0
   #define GET_DATA_STRUCTURE_ID(m, a) 0
   #define GET_NUM_DATA_STRUCTURES(m) 0
@@ -114,6 +115,8 @@ AddressStreamDriver::AddressStreamDriver() {
 
     // Create a parser for parsing
     parser = new StringParser();
+
+    variableNameFile = "";
 
     GENERATE_MODULE(dataStructureModule);
 }
@@ -255,6 +258,16 @@ void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
     RESTORE_STREAM_FLAGS(cout);
 }
 
+// Look for a file that has variable names and locations
+// This will get passed onto the data structure module
+void AddressStreamDriver::GetAndSetVariableNameFile() {
+    char* fileName = parser->GetEnv("METASIM_VAR_NAME_FILE");
+
+    if (fileName != NULL) {
+        variableNameFile = string(fileName);
+    }
+}
+
 // Should only be called once per driver
 void AddressStreamDriver::InitializeAddressStreamDriver(
   DataManager<AddressStreamStats*>* d) {
@@ -270,8 +283,10 @@ void AddressStreamDriver::InitializeAddressStreamDriver(
 
     // Set up the data structure module -- Must be done after SetUpTools
     // Otherwise runDataCentric will not be set
-    if (runDataCentric)
+    if (runDataCentric) {
+        GetAndSetVariableNameFile();
         SetUpDataStructureModule();
+    }
 
 }
 
@@ -559,8 +574,10 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
 void AddressStreamDriver::SetUpDataStructureModule() {
     dataStructureModule->CreateContainer();
-    dataStructureModule->CreateDynamicTool();
     dataStructureModule->SetDriver(this);
+    dataStructureModule->SetVariableNameFile(variableNameFile);
+    dataStructureModule->ParseVariableFile();
+    dataStructureModule->CreateDynamicTool();
 }
 
 void AddressStreamDriver::SetUpTools() {
@@ -613,7 +630,7 @@ void AddressStreamDriver::SetUpTools() {
         tools->push_back(new AddressRangeTool());
     }
 
-    if (runCacheSimulation) {
+    if (runCacheSimulation && runCodeCentric) {
         tools->push_back(new CacheSimulationTool());
     }
 
@@ -660,7 +677,11 @@ void AddressStreamDriver::SetUpTools() {
     }
 
     if (runAddressRange && runDataCentric) {
-        tools->push_back(GENERATE_DATA_ADDRESS_RANGE_TOOL);
+        tools->push_back(GENERATE_DATA_TOOL(DataCentricAddressRangeTool));
+    }
+
+    if (runCacheSimulation && runDataCentric) {
+        tools->push_back(GENERATE_DATA_TOOL(DataCentricCacheSimulationTool));
     }
 
     uint32_t toolIndex = 0;
