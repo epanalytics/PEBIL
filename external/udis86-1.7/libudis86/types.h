@@ -151,7 +151,7 @@ struct ud_operand
 {
   enum ud_type  type;
   uint16_t      size;       // Size of operand (e.g. 128)
-  uint8_t       position;   // byte position: modrm, imm, offset (start w/ 1)
+  uint8_t       position;   // byte position: imm, offset (start w/ 0)
   union {
       int8_t    sbyte;
       uint8_t   ubyte;

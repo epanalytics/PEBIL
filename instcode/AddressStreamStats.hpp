@@ -1,6 +1,8 @@
 #ifndef _AddressStreamStats_hpp_
 #define _AddressStreamStats_hpp_
 
+//TODO see if below was actually needed
+//#include <Metasim.hpp>
 //#define debug(...) __VA_ARGS__
 #define debug(...)
 
