@@ -51,7 +51,7 @@
 
 #define MPI_INIT_THREAD_WRAPPER_FBIND   "mpi_init_thread__pebil_wrapper"
 #define MPI_INIT_THREAD_LIST_FBIND_PREF "pmpi_init_"
-#define MPI_INIT_THREAD_LIST_FBIND      "mpi_init_thread:MPI_INIT_THREAD"
+#define MPI_INIT_THREAD_LIST_FBIND      "mpi_init_thread_:MPI_INIT_THREAD"
 
 #define DYNAMIC_INST_INIT "tool_dynamic_init"
 
