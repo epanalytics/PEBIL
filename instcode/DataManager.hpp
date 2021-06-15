@@ -238,7 +238,7 @@ public:
         return ret;
     }
 
-    image_key_t GetImageId(uint32_t imageSequence) {
+    virtual image_key_t GetImageId(uint32_t imageSequence) {
         ReadLock();
         image_key_t ret = firstimage;
         for (std::set<image_key_t>::iterator iit = allimages.begin(); iit !=
