@@ -39,7 +39,7 @@ extern "C" {
 
     void* thread_started(void* args);
     int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-        void *(*start_routine) (void*), void *arg);
+        void *(*start_routine) (void*), void *arg) __THROWNL;
     int pthread_join(pthread_t thread, void **value_ptr);
 
     // Debugging signal handlers
