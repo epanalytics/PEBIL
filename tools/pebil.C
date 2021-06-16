@@ -102,6 +102,7 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--threaded] : implement thread safety features and keep statistics per thread\n");
     fprintf(stderr,"\t\t[--images] : prepare for multiple images\n");
     fprintf(stderr,"\t\t[--allowstatic] : try to instrument a static-linked executable " DEVELOPER_MESSAGE "\n");
+    fprintf(stderr,"\t\t[--disablestatic] : don't print static analysis file when running BasicBlockCounter tool\n");
     fprintf(stderr,"\t\t[--lib <shared_lib_dir>] : " DEPRECATED_MESSAGE "\n");
     fprintf(stderr,"\t{tool options} (each tool decides if/how to use these)\n");
     fprintf(stderr,"\t\t[--inp <input/file>] : path to an input file\n");
@@ -218,6 +219,7 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(saveall);
     DEFINE_FLAG(nosavezmm);
     DEFINE_FLAG(printinsnmaps);
+    DEFINE_FLAG(disablestatic);
 
 #define DEFINE_ARG(__name) char* __name ## _arg = NULL
     DEFINE_ARG(typ); // char* typ_arg = NULL;
@@ -243,7 +245,7 @@ int main(int argc,char* argv[]){
         /* These options set a flag. */
         FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'),
         FLAG_OPTION(version, 'V'), FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), FLAG_OPTION(threaded, 'P'),
-        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'),
+        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'), FLAG_OPTION(disablestatic, 'D'),
 
         /* These options take an argument
            We distinguish them by their indices. */
@@ -330,6 +332,7 @@ int main(int argc,char* argv[]){
     if (!dtl_flag){
         dtl_flag = 1;
     }
+
 
     // --typ: figure out which tool to use
     uint32_t instType = unknown_inst_type;
@@ -622,6 +625,10 @@ int main(int argc,char* argv[]){
 
             if (printinsnmaps_flag) {
                 instTool->setTrackRelocatedInsns();
+            }
+
+            if (disablestatic_flag) {
+                instTool->setDisableStatic();
             }
             
             ASSERT(instTool);
