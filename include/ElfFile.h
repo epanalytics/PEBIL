@@ -154,7 +154,7 @@ public:
     TextSection* getDotPltSection();
 
     void parse();
-    void initSectionFilePointers();
+    void initSectionFilePointers(bool sanitize);
     void dump(char* extension, bool isext=true);
     void dump(BinaryOutputFile* binaryOutputFile);
     void generateCFGs();

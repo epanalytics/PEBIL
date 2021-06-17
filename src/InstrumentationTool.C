@@ -698,7 +698,7 @@ void InstrumentationTool::instrumentEmbeddedElf(){
     PRINT_INFOR("Instrumenting an embedded elf object");
 
     HybridPhiElfFile* hybridElf = (HybridPhiElfFile*)elfFile;
-    ElfFile* embeddedElf = hybridElf->getEmbeddedElf();
+    ElfFile* embeddedElf = hybridElf->getEmbeddedElf(sanitize);
     if(embeddedElf == NULL) {
         PRINT_WARN(20, "Asked to instrument hybrid offload file, but no embedded elf image was found");
         return;
@@ -1164,7 +1164,22 @@ InstrumentationPoint* InstrumentationTool::insertBlockCounter(uint64_t counterOf
 
     return p;
 }
-
+bool InstrumentationTool::setSanitize(void){
+    sprintf(sanitizePassword,"%s","");
+    sanitize=true;
+    return setElfInstSanitize(true);
+}
+bool InstrumentationTool::setSanitize(const char* password){
+    sprintf(sanitizePassword,"%s",password);//ELIZABETH TODO: use password to encrpyt translation file
+    sanitize=true;
+    return setElfInstSanitize(true);
+}
+void InstrumentationTool::printSanitizeTranslationFile(void){
+    if (sanitizePassword[0] == '\0'){
+        fprintf(stderr,"TODO IMPLEMENT PASSWORD")
+    } 
+    fprintf(stderr,"TODO IMPLEMENT PRINTSANITIZETRANSLATION\n");
+}
 void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
   allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* 
   allBlockLineInfos, uint32_t bufferSize){
@@ -1746,6 +1761,7 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
 	              if (!f->inRange(ins->getTargetAddress())) {
 	                  // get the function name
 	                  uint64_t callTgtAddr = ins->getTargetAddress();
+			  //ELIZABETH TODO: replace callTgtName with HashCode!!
 	                  Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
                       callTgtAddr);
 	                  char* callTgtName = INFO_UNKNOWN;

@@ -113,6 +113,8 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--phs <phase_no>] : " DEPRECATED_MESSAGE " (if given, must be == 1)\n");
     fprintf(stderr,"\t\t[--dfp <pattern/file>] : " DEPRECATED_MESSAGE "\n");
     fprintf(stderr,"\t\t[--dmp <off|on|nosim>] : " DEPRECATED_MESSAGE "\n");
+    fprintf(stderr,"\t\t[--sanitize] : anonymize function names TODO IMPLEMENT\n");
+    fprintf(stderr,"\t\t[--sanitize_password] : anonymize function names TODO IMPLEMENT and encrypt file\n");
     fprintf(stderr,"\n");
     exit(1);
 }
@@ -218,6 +220,7 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(saveall);
     DEFINE_FLAG(nosavezmm);
     DEFINE_FLAG(printinsnmaps);
+    DEFINE_FLAG(sanitize);
 
 #define DEFINE_ARG(__name) char* __name ## _arg = NULL
     DEFINE_ARG(typ); // char* typ_arg = NULL;
@@ -236,6 +239,7 @@ int main(int argc,char* argv[]){
     DEFINE_ARG(dfp);
     DEFINE_ARG(out);
     DEFINE_ARG(inv);
+    DEFINE_ARG(sanitize_password);
 
 #define FLAG_OPTION(__name, __char) {#__name, no_argument, &__name ## _flag, __char}
 #define ARG_OPTION(__name, __char) {#__name, required_argument, 0, __char}
@@ -243,14 +247,14 @@ int main(int argc,char* argv[]){
         /* These options set a flag. */
         FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'),
         FLAG_OPTION(version, 'V'), FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), FLAG_OPTION(threaded, 'P'),
-        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'),
+        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'),FLAG_OPTION(sanitize,'a'),
 
         /* These options take an argument
            We distinguish them by their indices. */
         ARG_OPTION(typ, 'y'), ARG_OPTION(tool, 't'), ARG_OPTION(tlib, 'O'), ARG_OPTION(inp, 'p'), ARG_OPTION(trk, 'k'), 
         ARG_OPTION(lnc, 'n'), ARG_OPTION(inf, 'z'), ARG_OPTION(app, 'a'), ARG_OPTION(lib, 'l'),
         ARG_OPTION(ext, 'x'), ARG_OPTION(fbl, 'b'), ARG_OPTION(dmp, 'm'), ARG_OPTION(phs, 'f'), ARG_OPTION(dfp, 'g'),
-        ARG_OPTION(out, 'o'), ARG_OPTION(inv, 'i'),
+        ARG_OPTION(out, 'o'), ARG_OPTION(inv, 'i'), ARG_OPTION(sanitize_password,'s'),
         {0,              0,                 0,              0},
     };
 
@@ -292,6 +296,7 @@ int main(int argc,char* argv[]){
         SET_ARGPTR(dfp, 'g')
         SET_ARGPTR(out, 'o')
         SET_ARGPTR(inv, 'i')
+	SET_ARGPTR(sanitize_password,'s')
 
         /* this shouldn't happen, but handle it anyway */
         else {
@@ -391,7 +396,7 @@ int main(int argc,char* argv[]){
         functionBlackList = fbl_arg;
     }
     PRINT_INFOR("The function blacklist is taken from %s", functionBlackList);
-
+    bool sanitize=sanitize_flag || sanitize_password_arg;
     // --dmp: convert arg to dump code
     uint32_t dumpCode = dumpcode_off;
     if (dmp_arg){
@@ -501,7 +506,7 @@ int main(int argc,char* argv[]){
 
         TIMER(t1 = timer(); tapp = t1);
         elfFile->parse();
-        elfFile->initSectionFilePointers();
+        elfFile->initSectionFilePointers(sanitize);
         TIMER(t2 = timer();PRINT_INFOR("___timer: Step %d Parse  : %.2f seconds",++stepNumber,t2-t1);t1=t2);
 
         elfFile->generateCFGs();
@@ -590,6 +595,15 @@ int main(int argc,char* argv[]){
             
             ASSERT(functionBlackList);
             instTool->setInputFunctions(functionBlackList);
+	    if (sanitize_flag || sanitize_password_arg){
+               if (sanitize_password_arg){
+	           fprintf(stderr,"HERE SANITIZE %s\n",sanitize_password_arg);
+                   instTool->setSanitize(sanitize_password_arg);
+               } else {
+	           fprintf(stderr,"HERE SANITIZE\n");
+                   instTool->setSanitize();
+               }
+	    }
             
             if (allowstatic_flag){
                 instTool->setAllowStatic();

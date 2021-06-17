@@ -138,6 +138,8 @@ protected:
     uint64_t dynamicPointArray;
     uint64_t dynamicSize;
     bool isThreadedModeFlag;
+    char sanitizePassword[__MAX_STRING_SIZE];
+    bool sanitize=false;
 
 public:
     InstrumentationTool(ElfFile* elf);
@@ -162,6 +164,9 @@ public:
     virtual uint32_t requiresArgs() { return PEBIL_OPT_NON; }
     bool isMasterImage();
     void setMasterImage(bool isMaster);
+    bool setSanitize(void);
+    bool setSanitize(const char* password);
+    void printSanitizeTranslationFile(void);
 };
 
 

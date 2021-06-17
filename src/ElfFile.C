@@ -808,7 +808,7 @@ void ElfFile::sortSectionHeaders(){
 }
 
 
-void ElfFile::initSectionFilePointers(){
+void ElfFile::initSectionFilePointers(bool sanitize){
 
     char* stringTablePtr = ((StringTable*)rawSections[fileHeader->GET(e_shstrndx)])->getFilePointer();
 
@@ -864,7 +864,7 @@ void ElfFile::initSectionFilePointers(){
     }
     X86Instruction::initBlankUd(is64Bit());
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
-        textSections[i]->disassemble(binaryInputFile);
+        textSections[i]->disassemble(binaryInputFile,sanitize);
     }
 
 }

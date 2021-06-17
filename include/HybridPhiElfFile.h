@@ -44,7 +44,7 @@ public:
     HybridPhiElfFile(char* f, char* a);
 
     // Locate embedded file
-    ElfFile* getEmbeddedElf();
+    ElfFile* getEmbeddedElf(bool sanitize);
     IntelOffloadHeader* getIntelOffloadHeader() {return offloadHeader; }
 };
 

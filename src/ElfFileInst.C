@@ -475,7 +475,7 @@ uint32_t ElfFileInst::relocateAndBloatFunction(Function* operatedFunction, uint6
     }
     ASSERT(currentByte <= operatedFunction->getNumberOfBytes() && "Function is not big enough to relocate");
 
-    Function* placeHolder = new Function(text, operatedFunction->getIndex(), operatedFunction->getFunctionSymbol(), functionSize);
+    Function* placeHolder = new Function(text, operatedFunction->getIndex(), operatedFunction->getFunctionSymbol(), functionSize,sanitize);
 
     Vector<AddressAnchor*>* modAnchors = elfFile->searchAddressAnchors(operatedFunction->getBaseAddress());
     for (uint32_t i = 0; i < modAnchors->size(); i++){

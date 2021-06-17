@@ -26,7 +26,7 @@ HybridPhiElfFile::HybridPhiElfFile(char* f, char* a)
 *   offload_initv:
 *       __offload_register_image
 */
-ElfFile* HybridPhiElfFile::getEmbeddedElf(){
+ElfFile* HybridPhiElfFile::getEmbeddedElf(bool sanitize){
 
     if(embeddedElf != NULL )
         return embeddedElf;
@@ -69,7 +69,7 @@ ElfFile* HybridPhiElfFile::getEmbeddedElf(){
 
     // Analyze the elf file
     elfFile->parse();
-    elfFile->initSectionFilePointers();
+    elfFile->initSectionFilePointers(sanitize);
     elfFile->generateCFGs();
     elfFile->findLoops();
     elfFile->verify();
