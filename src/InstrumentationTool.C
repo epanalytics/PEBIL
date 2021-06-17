@@ -1176,7 +1176,7 @@ bool InstrumentationTool::setSanitize(const char* password){
 }
 void InstrumentationTool::printSanitizeTranslationFile(void){
     if (sanitizePassword[0] == '\0'){
-        fprintf(stderr,"TODO IMPLEMENT PASSWORD")
+        fprintf(stderr,"TODO IMPLEMENT PASSWORD");
     } 
     fprintf(stderr,"TODO IMPLEMENT PRINTSANITIZETRANSLATION\n");
 }
@@ -1761,13 +1761,28 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
 	              if (!f->inRange(ins->getTargetAddress())) {
 	                  // get the function name
 	                  uint64_t callTgtAddr = ins->getTargetAddress();
-			  //ELIZABETH TODO: replace callTgtName with HashCode!!
-	                  Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
-                      callTgtAddr);
+			  //ELIZABETH TODO: replace callTgtName with HashCode!! get function on bb entry
 	                  char* callTgtName = INFO_UNKNOWN;
-	                  if (functionSymbol && functionSymbol->getSymbolName()) {
-	                      callTgtName = functionSymbol->getSymbolName();
-	                  }
+			  if (!sanitize){
+	                      Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
+                          callTgtAddr);
+	                      if (functionSymbol && functionSymbol->getSymbolName()) {
+	                          callTgtName = functionSymbol->getSymbolName();
+	                      }
+			  } else {
+    				for (uint32_t i = 0; i < allBlocks->size(); i++){
+			        	Base* b = (*allBlocks)[i];
+			        	ASSERT(b->getType() == PebilClassType_BasicBlock);
+			        	BasicBlock* bb = (BasicBlock*)b;
+        				Function* f = bb->getFunction();
+					if (f->inRange(callTgtAddr)){
+						callTgtName=f->getName();
+                              			fprintf(stderr,"ERE %s\n",callTgtName);
+					        break;	
+						
+					}
+				}
+			  }
 	                  std::set<std::string> temp =
 	                    (std::set<std::string>)callTreeInfo.at(thisFuncName);
 	                  temp.insert(callTgtName);
