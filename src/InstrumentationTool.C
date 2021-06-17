@@ -1177,8 +1177,19 @@ bool InstrumentationTool::setSanitize(const char* password){
 void InstrumentationTool::printSanitizeTranslationFile(void){
     if (sanitizePassword[0] == '\0'){
         fprintf(stderr,"TODO IMPLEMENT PASSWORD");
-    } 
-    fprintf(stderr,"TODO IMPLEMENT PRINTSANITIZETRANSLATION\n");
+    }
+    char translationName[__MAX_STRING_SIZE];
+    sprintf(translationName,"%s%s",getApplicationName(),".translation");
+    FILE* fd = fopen(translationName,"w");
+    fprintf(fd,"Alias\tFunction Name\n");
+    for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+        Function* f = getExposedFunction(i);
+        char* fakeName = f->getName();
+        Symbol* funcSym = f->getFunctionSymbol();
+	char* realName=funcSym->getSymbolName();
+	fprintf(fd,"%s\t%s\n",fakeName,realName);
+    }
+    fclose(fd);
 }
 void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
   allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* 
@@ -1664,6 +1675,9 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
 
     ASSERT(currentPhase == ElfInstPhase_user_reserve && 
       "Instrumentation phase order must be observed"); 
+    if (sanitize){
+        printSanitizeTranslationFile();
+    }
 }
 
 

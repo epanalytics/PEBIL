@@ -47,7 +47,7 @@ protected:
 public:
     TextObject(PebilClassTypes typ, TextSection* text, uint32_t idx, Symbol* sym, uint64_t addr, uint32_t sz);
     ~TextObject() {}
-    void setSanitize(uint64_t input) {sprintf(sanitizeName,"ELIZABETH_0x%08llx",input);} 
+    void setSanitize(uint64_t input) {sprintf(sanitizeName,"0x%08llx",input);} 
     uint32_t getIndex() { return index; }
     uint64_t getBaseAddress() { return baseAddress; }
     bool inRange(uint64_t addr);
