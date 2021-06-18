@@ -1330,7 +1330,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
 
         char* fileName;
         uint32_t lineNo;
-        if (li){
+        if (li && !sanitize){
             fileName = li->getFileName();
             lineNo = li->GET(lr_line);
         } else {
