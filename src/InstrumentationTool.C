@@ -1175,9 +1175,6 @@ bool InstrumentationTool::setSanitize(const char* password){
     return setElfInstSanitize(true);
 }
 void InstrumentationTool::printSanitizeTranslationFile(void){
-    if (sanitizePassword[0] == '\0'){
-        fprintf(stderr,"TODO IMPLEMENT PASSWORD");
-    }
     char translationName[__MAX_STRING_SIZE];
     sprintf(translationName,"%s%s",getApplicationName(),".translation");
     FILE* fd = fopen(translationName,"w");
@@ -1190,6 +1187,12 @@ void InstrumentationTool::printSanitizeTranslationFile(void){
 	fprintf(fd,"%s\t%s\n",fakeName,realName);
     }
     fclose(fd);
+    if (sanitizePassword[0] != '\0'){
+	char encryptComm[__MAX_STRING_SIZE];
+	sprintf(encryptComm,"$PEBIL_ROOT/scripts/encryptGPG.sh %s %s",sanitizePassword,translationName);
+	system(encryptComm);
+    }
+
 }
 void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
   allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* 
@@ -1791,7 +1794,6 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
         				Function* f = bb->getFunction();
 					if (f->inRange(callTgtAddr)){
 						callTgtName=f->getName();
-                              			fprintf(stderr,"ERE %s\n",callTgtName);
 					        break;	
 						
 					}

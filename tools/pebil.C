@@ -597,10 +597,8 @@ int main(int argc,char* argv[]){
             instTool->setInputFunctions(functionBlackList);
 	    if (sanitize_flag || sanitize_password_arg){
                if (sanitize_password_arg){
-	           fprintf(stderr,"HERE SANITIZE %s\n",sanitize_password_arg);
                    instTool->setSanitize(sanitize_password_arg);
                } else {
-	           fprintf(stderr,"HERE SANITIZE\n");
                    instTool->setSanitize();
                }
 	    }
