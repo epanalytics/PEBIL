@@ -2854,10 +2854,6 @@ void X86Instruction::setFlags()
     __reg_define(flags_usedef, UD_Iverw, 0, __bit_shift(X86_FLAG_ZF));
     __reg_define(flags_usedef, UD_Ixadd, 0, __x86_flagset_alustd);
     __reg_define(flags_usedef, UD_Ixor, 0, __x86_flagset_alustd);
-    //__reg_define(flags_usedef, UD_Iscasb, __bit_shift(X86_FLAG_DF), 0);
-    //__reg_define(flags_usedef, UD_Iscasw, __bit_shift(X86_FLAG_DF), 0);
-    //__reg_define(flags_usedef, UD_Iscasq, __bit_shift(X86_FLAG_DF), 0);
-    //__reg_define(flags_usedef, UD_Iscasd, __bit_shift(X86_FLAG_DF), 0);
     __reg_define(flags_usedef, UD_Itest, 0, __x86_flagset_alustd);
 
     // these instructions have 2 versions: 1 is a string instruction that implicitly uses DF, the other is an SSE instruction

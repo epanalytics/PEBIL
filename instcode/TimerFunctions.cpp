@@ -234,9 +234,11 @@ extern "C"
 
         if(shutoffFunctionTimers) {
             if (timers->functionEntryCounts[funcIndex] % shutoffIters == 0){
-                double timePerVisit=((double)timers->functionTimerAccum[
-                  funcIndex]) / ((double)timers->functionEntryCounts[
-                  funcIndex]) / timerCPUFreq;
+                // time per visit is total t
+                double timeInFunction = timers->functionTimerAccum[funcIndex];
+                double numVisits = (double)timers->functionEntryCounts[
+                  funcIndex];
+                double timePerVisit= timeInFunction / numVisits / timerCPUFreq;
 
                 if(timePerVisit < (((double)timingThreshold)/1000000.0)) {
                     uint64_t imageSeq = AllData->GetImageSequence(*key);

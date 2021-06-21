@@ -27,8 +27,8 @@ class DynamicInstrumentation {
     virtual ~DynamicInstrumentation();
 
     virtual void GetAllDynamicKeys(std::set<uint64_t>& keys);
-    void InitializeDynamicInstrumentation(uint64_t* count, DynamicInst** dyn,
-      bool* isThreadedModeFlag);
+    virtual void InitializeDynamicInstrumentation(uint64_t* count, 
+      DynamicInst** dyn, bool* isThreadedModeFlag);
     virtual bool IsThreadedMode() { return ThreadedMode; }
 
     void PrintAllDynamicPoints(); 

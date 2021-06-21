@@ -22,7 +22,6 @@
 #include <DataManager.hpp>
 #include <DynamicInstrumentation.hpp>
 #include <ThreadedCommon.hpp>
-//#include <Simulation.hpp>
 #include <CounterFunctions.hpp>
 
 #include <stdio.h>
@@ -146,7 +145,6 @@ void DeleteCounterArray(CounterArray* ctrs){
 }
 
 void* tool_thread_init(thread_key_t tid){
-    //inform << "Entering tool_thread_init " << hex << tid << ENDL;
     SAVE_STREAM_FLAGS(cout);
     if (AllData){
         if(DynamicPoints->IsThreadedMode())
@@ -155,7 +153,6 @@ void* tool_thread_init(thread_key_t tid){
         ErrorExit("Calling PEBIL thread initialization library for thread " << hex << tid << " but no images have been initialized.", MetasimError_NoThread);
     }
     RESTORE_STREAM_FLAGS(cout);
-    //inform << "Leaving tool_thread_init" << ENDL;
     return NULL;
 }
 
@@ -177,7 +174,6 @@ extern "C"
           isThreadedModeFlag);
         RESTORE_STREAM_FLAGS(cout);
         pthread_mutex_unlock(&dynamic_init_mutex);
-        //inform << "Leaving tool_dynamic_init with count " << *count << ENDL;
         return NULL;
     }
 
@@ -199,7 +195,6 @@ extern "C"
      */
     static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     void* tool_image_init(void* s, uint64_t* key, ThreadData* td){
-        //inform << "Entered tool_image_init " << hex << *key << ENDL;
         SAVE_STREAM_FLAGS(cout);
 
         CounterArray* ctrs = (CounterArray*)s;
@@ -234,7 +229,6 @@ extern "C"
         pthread_mutex_unlock(&image_init_mutex);
 
         RESTORE_STREAM_FLAGS(cout);
-        //inform << "Leaving tool_image_init" << ENDL;
         return NULL;
     }
 
@@ -248,7 +242,6 @@ extern "C"
      */
     void  image_fini_master();
     void* tool_image_fini(uint64_t* key){
-        //inform << "Entering tool_image_fini" << ENDL;
         AllData->SetTimer(*key, 1);
         SAVE_STREAM_FLAGS(cout);
 
@@ -455,7 +448,6 @@ extern "C"
         inform << "cxxx Total Execution time for " << ctrs->Extension << "-instrumented image " << ctrs->Application << ": " << (AllData->GetTimer(*key, 1) - AllData->GetTimer(*key, 0)) << " seconds" << ENDL;
 
         RESTORE_STREAM_FLAGS(cout);
-        //inform << "Leaving tool_image_fini" << ENDL;
         return NULL;
     }
 };
