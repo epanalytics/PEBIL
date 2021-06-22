@@ -166,7 +166,7 @@ public:
     void setMasterImage(bool isMaster);
     bool setSanitize(void);
     bool setSanitize(const char* password);
-    void printSanitizeTranslationFile(void);
+    void printSanitizeTranslationFile(std::map<char*,std::string> lineInfo);
 };
 
 

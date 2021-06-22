@@ -1174,17 +1174,17 @@ bool InstrumentationTool::setSanitize(const char* password){
     sanitize=true;
     return setElfInstSanitize(true);
 }
-void InstrumentationTool::printSanitizeTranslationFile(void){
+void InstrumentationTool::printSanitizeTranslationFile(std::map<char*,std::string> lineNoInfo){
     char translationName[__MAX_STRING_SIZE];
     sprintf(translationName,"%s%s",getApplicationName(),".translation");
     FILE* fd = fopen(translationName,"w");
-    fprintf(fd,"Alias\tFunction Name\n");
+    fprintf(fd,"Alias\tFunction Name\tFile Name\tLine No.\n");
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
         Function* f = getExposedFunction(i);
         char* fakeName = f->getName();
         Symbol* funcSym = f->getFunctionSymbol();
-    char* realName=funcSym->getSymbolName();
-    fprintf(fd,"%s\t%s\n",fakeName,realName);
+        char* realName=funcSym->getSymbolName();
+        fprintf(fd,"%s\t%s\t%s\n",fakeName,realName,lineNoInfo[fakeName].c_str());
     }
     fclose(fd);
     if (sanitizePassword[0] != '\0'){
@@ -1295,6 +1295,8 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     // Parallelize creation output for each block
     // Store output in a map: basic blocks --> output
     std::map<uint32_t, std::string> staticAnalysisOutput;
+    std::map<char*,std::string> functionLineNo;
+
 #pragma omp parallel for schedule(dynamic,1)
     for (uint32_t i = 0; i < numberOfInstPoints; i++) {
         uint32_t noInst = 0;
@@ -1330,13 +1332,29 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
 
         char* fileName;
         uint32_t lineNo;
-        if (li && !sanitize){
+        if (li){
             fileName = li->getFileName();
             lineNo = li->GET(lr_line);
         } else {
             fileName = INFO_UNKNOWN;
             lineNo = 0;
         }
+	if (sanitize){
+            if (f->getBasicBlockAtAddress(f->getBaseAddress())->getHashCode().getValue()==bb->getHashCode().getValue()){
+		for (uint32_t x; x<getNumberOfExposedFunctions();x++){
+                    Function* temp = getExposedFunction(x);
+		    if (temp->getName() == f->getName()){ //Hashcode bc sanitized, name will be unique
+			std::string nm(fileName);
+			std::string res = nm+"\t"+std::to_string(lineNo);
+			functionLineNo.emplace(f->getName(),res);
+			//fprintf(stderr,"!!! %s at name %s\n",functionLineNo[f->getName()].c_str(),f->getName());
+			break;
+		    }
+		}
+            }
+            fileName=INFO_UNKNOWN;
+	    lineNo=0;
+	}
 
         uint32_t bufferPointer = sprintf(thisBuffer, "%d\t%lld\t%d\t%d\t%d\t%s"
           ":%d\t%s\t# %#llx\t%#llx\n", (*allBlockIds)[i], 
@@ -1679,7 +1697,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     ASSERT(currentPhase == ElfInstPhase_user_reserve && 
       "Instrumentation phase order must be observed"); 
     if (sanitize){
-        printSanitizeTranslationFile();
+        printSanitizeTranslationFile(functionLineNo);
     }
 }
 
