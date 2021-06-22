@@ -559,16 +559,14 @@ void BasicBlockCounter::instrument() {
         }
     }
 
-    if (!getDisableStatic()) {
-        if (isPerInstruction()){
-            printStaticFilePerInstruction(getExtension(), allBlocks, allBlockIds, 
-              allBlockLineInfos, allBlocks->size());
-        } else {
-            printStaticFile(getExtension(), allBlocks, allBlockIds, 
-              allBlockLineInfos, allBlocks->size());
-            printCallTreeInfo(getExtension(), allBlocks, allBlockIds, 
-              allBlockLineInfos, allBlocks->size());
-        }
+    if (isPerInstruction()){
+        printStaticFilePerInstruction(getExtension(), allBlocks, allBlockIds, 
+          allBlockLineInfos, allBlocks->size());
+    } else {
+        printStaticFile(getExtension(), allBlocks, allBlockIds, 
+          allBlockLineInfos, allBlocks->size());
+        printCallTreeInfo(getExtension(), allBlocks, allBlockIds, 
+          allBlockLineInfos, allBlocks->size());
     }
 
     delete[] nostring;

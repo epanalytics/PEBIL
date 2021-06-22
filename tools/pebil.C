@@ -102,7 +102,7 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--threaded] : implement thread safety features and keep statistics per thread\n");
     fprintf(stderr,"\t\t[--images] : prepare for multiple images\n");
     fprintf(stderr,"\t\t[--allowstatic] : try to instrument a static-linked executable " DEVELOPER_MESSAGE "\n");
-    fprintf(stderr,"\t\t[--disablestatic] : don't print static analysis file when running BasicBlockCounter tool\n");
+    fprintf(stderr,"\t\t[--disablestatic] : don't print static analysis file\n");
     fprintf(stderr,"\t\t[--lib <shared_lib_dir>] : " DEPRECATED_MESSAGE "\n");
     fprintf(stderr,"\t{tool options} (each tool decides if/how to use these)\n");
     fprintf(stderr,"\t\t[--inp <input/file>] : path to an input file\n");
