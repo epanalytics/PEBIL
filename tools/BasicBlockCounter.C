@@ -559,7 +559,7 @@ void BasicBlockCounter::instrument() {
         }
     }
 
-    if (!noPrint) {
+    if (!getDisableStatic()) {
         if (isPerInstruction()){
             printStaticFilePerInstruction(getExtension(), allBlocks, allBlockIds, 
               allBlockLineInfos, allBlocks->size());
