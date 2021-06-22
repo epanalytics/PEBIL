@@ -360,8 +360,8 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
             analyzeRegisters(allInstructions, numberOfInstructions, deadRegs, 
               unusedRegs);
 
-            if((!unusedRegs->empty() && !isThreadedMode()) || 
-              !deadRegs->empty()) {
+            if((!unusedRegs->empty() && !isThreadedMode() && !isMultiImage()) 
+              || !deadRegs->empty()) {
                 uint32_t u;
                 bool borrow = true;
 
@@ -824,7 +824,8 @@ void InstrumentationTool::instrument(){
                 PRINT_ERROR("Cannot find an instrumentation point at the entry function");
             }            
 
-            dynamicPoint(p, getElfFile()->getUniqueId(), true);
+            dynamicPoint(p, GENERATE_KEY(getElfFile()->getUniqueId(), 
+              PointType_inits), true);
         }
     } else {
         InstrumentationPoint* p = addInstrumentationPoint(getProgramEntryBlock(), dynamicInit, InstrumentationMode_tramp);
@@ -1041,7 +1042,7 @@ InstrumentationPoint* InstrumentationTool::insertInlinedTripCounter(uint64_t cou
 
     // snippet contents, in this case just increment a counter
     if (is64Bit()){
-        // any threaded
+        // any threaded FIXME-- should this include multi image?
         if (isThreadedMode() || isMultiImage()){
             // load thread data base addr into %sr1
             if (threadReg == X86_REG_INVALID){

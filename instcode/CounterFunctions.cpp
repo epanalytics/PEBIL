@@ -22,7 +22,6 @@
 #include <DataManager.hpp>
 #include <DynamicInstrumentation.hpp>
 #include <ThreadedCommon.hpp>
-//#include <Simulation.hpp>
 #include <CounterFunctions.hpp>
 
 #include <stdio.h>
@@ -146,9 +145,7 @@ void DeleteCounterArray(CounterArray* ctrs){
 }
 
 void* tool_thread_init(thread_key_t tid){
-    //inform << "Entering tool_thread_init" << ENDL;
     SAVE_STREAM_FLAGS(cout);
-    //init_signal_handlers();
     if (AllData){
         if(DynamicPoints->IsThreadedMode())
             AllData->AddThread(tid);
@@ -156,7 +153,6 @@ void* tool_thread_init(thread_key_t tid){
         ErrorExit("Calling PEBIL thread initialization library for thread " << hex << tid << " but no images have been initialized.", MetasimError_NoThread);
     }
     RESTORE_STREAM_FLAGS(cout);
-    //inform << "Leaving tool_thread_init" << ENDL;
     return NULL;
 }
 
@@ -166,14 +162,18 @@ void* tool_thread_fini(thread_key_t tid){
 
 extern "C"
 {
-    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag){
+    static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
+    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
+      isThreadedModeFlag){
+        pthread_mutex_lock(&dynamic_init_mutex);
         SAVE_STREAM_FLAGS(cout);
-        DynamicPoints = new DynamicInstrumentation();
+        if (DynamicPoints == NULL) {
+            DynamicPoints = new DynamicInstrumentation();
+        }
         DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
           isThreadedModeFlag);
-
         RESTORE_STREAM_FLAGS(cout);
-        //inform << "Leaving tool_dynamic_init" << ENDL;
+        pthread_mutex_unlock(&dynamic_init_mutex);
         return NULL;
     }
 
@@ -195,7 +195,6 @@ extern "C"
      */
     static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     void* tool_image_init(void* s, uint64_t* key, ThreadData* td){
-        inform << "Entered tool_image_init " << key << ENDL;
         SAVE_STREAM_FLAGS(cout);
 
         CounterArray* ctrs = (CounterArray*)s;
@@ -205,31 +204,31 @@ extern "C"
         // on first visit create data manager - once per address space
         if (AllData == NULL){
             init_signal_handlers();
-            AllData = new DataManager<CounterArray*>(GenerateCounterArray, DeleteCounterArray, RefCounterArray);
+            AllData = new DataManager<CounterArray*>(GenerateCounterArray, 
+              DeleteCounterArray, RefCounterArray);
         }
 
         assert(AllData);
         // Initialize this image if we need to
         if (AllData->allimages.count(*key) == 0){
-            // Remove initialization points -- once per image
-            set<uint64_t> inits;
-            inits.insert(*key);
-            inform << "Removing init points for image " << hex << (*key) << ENDL;
-            DynamicPoints->SetDynamicPoints(inits, false);
-
             // Add data for this image -- once per image
             AllData->AddImage(ctrs, td, *key);
             ctrs->threadid = AllData->GenerateThreadKey();
             ctrs->imageid = *key;
 
             AllData->SetTimer(*key, 0);
+
+            // Remove initialization points -- once per image
+            set<uint64_t> inits;
+            inits.insert(GENERATE_KEY(*key, PointType_inits));
+            inform << "Removing init points for image " << hex << (*key)<< ENDL;
+            DynamicPoints->SetDynamicPoints(inits, false);
         }
         assert(AllData->allimages.count(*key) == 1);
 
         pthread_mutex_unlock(&image_init_mutex);
 
         RESTORE_STREAM_FLAGS(cout);
-        //inform << "Leaving tool_image_init" << ENDL;
         return NULL;
     }
 
@@ -243,7 +242,6 @@ extern "C"
      */
     void  image_fini_master();
     void* tool_image_fini(uint64_t* key){
-        //inform << "Entering tool_image_fini" << ENDL;
         AllData->SetTimer(*key, 1);
         SAVE_STREAM_FLAGS(cout);
 
@@ -257,6 +255,7 @@ extern "C"
 
         if (DynamicPoints != NULL) {
             delete DynamicPoints;
+            DynamicPoints = NULL;
         }
 
         if (AllData == NULL){
@@ -269,8 +268,11 @@ extern "C"
             return NULL;
         }
 
-        static bool finalized;
-        assert(!finalized);
+        // Only print one file --> it will print data for all images
+        static bool finalized = false;
+        if (finalized)
+            return NULL;
+
         finalized = true;
 
         string bfile;
@@ -446,7 +448,6 @@ extern "C"
         inform << "cxxx Total Execution time for " << ctrs->Extension << "-instrumented image " << ctrs->Application << ": " << (AllData->GetTimer(*key, 1) - AllData->GetTimer(*key, 0)) << " seconds" << ENDL;
 
         RESTORE_STREAM_FLAGS(cout);
-        //inform << "Leaving tool_image_fini" << ENDL;
         return NULL;
     }
 };

@@ -232,39 +232,35 @@ extern "C"
         }
         timers->inFunction[funcIndex] = recDepth;
 
-            if(shutoffFunctionTimers) {
-                if (timers->functionEntryCounts[funcIndex] % shutoffIters == 0){
-                    double timePerVisit=((double)timers->functionTimerAccum[
-                      funcIndex]) / ((double)timers->functionEntryCounts[
-                      funcIndex]) / timerCPUFreq;
+        if(shutoffFunctionTimers) {
+            if (timers->functionEntryCounts[funcIndex] % shutoffIters == 0){
+                // time per visit is total t
+                double timeInFunction = timers->functionTimerAccum[funcIndex];
+                double numVisits = (double)timers->functionEntryCounts[
+                  funcIndex];
+                double timePerVisit= timeInFunction / numVisits / timerCPUFreq;
 
-                    if(timePerVisit < (((double)timingThreshold)/1000000.0)) {
-                        AllData->WriteLock();
-                        uint64_t this_key = GENERATE_KEY(funcIndex, 
-                          PointType_functionExit);
-                        uint64_t corresponding_entry_key=GENERATE_KEY(funcIndex,
-                          PointType_functionEntry);
+                if(timePerVisit < (((double)timingThreshold)/1000000.0)) {
+                    uint64_t imageSeq = AllData->GetImageSequence(*key);
+                    AllData->WriteLock();
+                    uint64_t this_key = GENERATE_UNIQUE_KEY(funcIndex, imageSeq,
+                      PointType_functionExit);
+                    uint64_t corresponding_entry_key = GENERATE_UNIQUE_KEY(
+                      funcIndex, imageSeq, PointType_functionEntry);
 
-                        //warn << "Shutting off timing for function " << timers->functionNames[funcIndex] << "; time per visit averaged over " << timers->functionEntryCounts[funcIndex] << " entries is " << timePerVisit << "s; specified cut-off threshold is " << (((double)timingThreshold)/1000000.0) << "s." << ENDL;
-                        set<uint64_t> inits;
-                        inits.insert(this_key);
-                        inits.insert(corresponding_entry_key);
-                        DynamicPoints->SetDynamicPoints(inits, false); 
-                        timers->functionShutoff[funcIndex]=1;
-                        AllData->UnLock();
-                    }
+                    //warn << "Shutting off timing for function " << timers->functionNames[funcIndex] << "; time per visit averaged over " << timers->functionEntryCounts[funcIndex] << " entries is " << timePerVisit << "s; specified cut-off threshold is " << (((double)timingThreshold)/1000000.0) << "s." << ENDL;
+                    set<uint64_t> inits;
+                    inits.insert(this_key);
+                    inits.insert(corresponding_entry_key);
+                    DynamicPoints->SetDynamicPoints(inits, false); 
+                    timers->functionShutoff[funcIndex] = 1;
+                    AllData->UnLock();
                 }
             }
+        }
         return 0;
     }
 
-    // initialize dynamic instrumentation
-    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag) {
-        DynamicPoints = new DynamicInstrumentation();
-        DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
-          isThreadedModeFlag);
-        return NULL;
-    }
 
     // Just after MPI_Init is called
     void* tool_mpi_init() {
@@ -289,20 +285,28 @@ extern "C"
         return NULL;
     }
 
+    // Create mutex to ensure that Dynamics is initialized exactly once
+    static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
+    // initialize dynamic instrumentation
+    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
+      isThreadedModeFlag) {
+        pthread_mutex_lock(&dynamic_init_mutex);
+        if (DynamicPoints == NULL) {
+            DynamicPoints = new DynamicInstrumentation();
+        }
+        DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+          isThreadedModeFlag);
+        pthread_mutex_unlock(&dynamic_init_mutex);
+        return NULL;
+    }
+
+    // Create mutex to ensure that each image is initialized exactly once
+    static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     // Called when new image is loaded
     void* tool_image_init(void* args, image_key_t* key, ThreadData* td) {
 
+        pthread_mutex_lock(&image_init_mutex);
         FunctionTimers* timers = (FunctionTimers*)args;
-
-        // image time
-        timers->appTimeStart = read_timestamp_counter();
-        gettimeofday(&timers->appTimeOfDayStart, NULL);
-
-
-        // Remove this instrumentation
-        set<uint64_t> inits;
-        inits.insert(*key);
-        DynamicPoints->SetDynamicPoints(inits, false);
 
         // If this is the first image, set up a data manager
         if (AllData == NULL){
@@ -310,8 +314,27 @@ extern "C"
               DeleteFunctionTimers, ReferenceFunctionTimers);
         }
 
+        // Check if added already
+        if (AllData->allimages.count(*key) != 0) {
+            pthread_mutex_unlock(&image_init_mutex);
+            return NULL;
+        }
+
+        // image time
+        timers->appTimeStart = read_timestamp_counter();
+        gettimeofday(&timers->appTimeOfDayStart, NULL);
+
         // Add this image
         AllData->AddImage(timers, td, *key);
+
+        // Remove this instrumentation
+        // Must be done after the image is added, or threads may get to the 
+        // instrumentation before the image is initialized
+        set<uint64_t> inits;
+        inits.insert(GENERATE_KEY(*key, PointType_inits));
+        DynamicPoints->SetDynamicPoints(inits, false);
+
+        pthread_mutex_unlock(&image_init_mutex);
         return NULL;
     }
 
@@ -319,6 +342,13 @@ extern "C"
     void* tool_image_fini(image_key_t* key) {
 
         image_key_t iid = *key;
+
+        // Only print one file with data from all images
+        static bool finalized = false;
+        if (finalized)
+            return NULL;
+
+        finalized = true;
 
         if (DynamicPoints != NULL) {
             delete DynamicPoints;
@@ -342,6 +372,7 @@ extern "C"
             return NULL;
         }
 
+
         uint64_t appTimeEnd = read_timestamp_counter();
         struct timeval tvEnd;
         gettimeofday(&tvEnd, NULL);
@@ -355,7 +386,6 @@ extern "C"
             cerr << "error: cannot open output file %s" << outFileName << ENDL;
             exit(-1);
         }
-
 
         fprintf(outFile, "App timestamp time: %lld %lld %f\n", 
           timers->appTimeStart, appTimeEnd, (double)(appTimeEnd - timers->appTimeStart) / timerCPUFreq);
@@ -380,16 +410,21 @@ extern "C"
 
                     if(timers->functionShutoff[funcIndex]==1) {
                         fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
-                          "%lld\tHash: 0x%llx\t*\t", AllData->GetThreadSequence(*tit), (double)(timers->
-                          functionTimerAccum[funcIndex]) / timerCPUFreq, 
-                          timers->functionEntryCounts[funcIndex], timers->
-                          functionHashes[funcIndex]);
+                          "%lld\tHash: 0x%llx\tImage: %d\t*\t", 
+                          AllData->GetThreadSequence(*tit), 
+                          (double)(timers->functionTimerAccum[funcIndex])
+                          / timerCPUFreq, 
+                          timers->functionEntryCounts[funcIndex],
+                          timers->functionHashes[funcIndex],
+                          AllData->GetImageSequence(*iit));
                     } else {
                         fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
-                          "%lld\tHash: 0x%llx\t", AllData->GetThreadSequence(*tit), (double)(timers->
+                          "%lld\tHash: 0x%llx\tImage: %d\t", 
+                          AllData->GetThreadSequence(*tit), (double)(timers->
                           functionTimerAccum[funcIndex]) / timerCPUFreq, 
-                          timers->functionEntryCounts[funcIndex], timers->
-                          functionHashes[funcIndex]);
+                          timers->functionEntryCounts[funcIndex],
+                          timers->functionHashes[funcIndex],
+                          AllData->GetImageSequence(*iit));
                     }
                 }
             }
