@@ -1182,7 +1182,6 @@ static bool isVectorInstruction(X86Instruction* ins) {
 void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
   allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* 
   allBlockLineInfos, uint32_t bufferSize){
-    //TODO should I put this short ciruit before or after the asserts?
     if (getDisableStatic()) {
         return;
     }
@@ -1715,6 +1714,9 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
 
 
 void InstrumentationTool::printStaticFilePerInstruction(const char* extension, Vector<Base*>* allInstructions, Vector<uint32_t>* allInstructionIds, Vector<LineInfo*>* allInstructionLineInfos, uint32_t bufferSize){
+  if (getDisableStatic()) {
+    return;
+  }
   ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase order must be observed"); 
   
   ASSERT(!(*allInstructionLineInfos).size() || (*allInstructions).size() == (*allInstructionLineInfos).size());
