@@ -1951,6 +1951,7 @@ ElfFileInst::ElfFileInst(ElfFile* elf){
     libraryList = NULL;
     saveAll = false;
     saveZmmRegs = true;
+    disableStatic = false;
 }
 
 void ElfFileInst::setInputFunctions(char* inputFuncList){
