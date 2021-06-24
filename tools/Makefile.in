@@ -12,7 +12,7 @@ SRCDIR        = ../src
 BINDIR        = ../bin
 LIBDIR        = ../lib
 EXTDIR        = ../external
-EXTRA_INC     = -I. -I../include -I$(EXTDIR)/udis86-1.7/ -I../instcode
+EXTRA_INC     = -I. -I../include -I$(EXTDIR)/udis86-1.7/ -I../instcode -I$(EXTDIR)/lib/include
 SHARED_LIBS   = -dynamic -L$(SRCDIR) -lpebilinst -L$(EXTDIR)/udis86-1.7/libudis86/.libs -ludis86 -ldl
 STATIC_LIBS   = $(SRCDIR)/libpebilinst.a -L$(EXTDIR)/udis86-1.7/libudis86/.libs -ludis86
 

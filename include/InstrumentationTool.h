@@ -27,6 +27,7 @@
 #include <map>
 
 #include <Metasim.hpp>
+#include <EncryptTool.h>
 
 class InstrumentationPoint;
 
@@ -80,6 +81,8 @@ private:
     InstrumentationTool* (*maker)(ElfFile*);
 
     void instrumentEmbeddedElf();
+    EncryptTool encryptTool();
+
 protected:
     uint64_t imageKey;
     uint64_t threadHash;

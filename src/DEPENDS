@@ -187,7 +187,14 @@ Instrumentation.o: Instrumentation.C ../include/Instrumentation.h \
  ../include/ElfFileInst.h ../include/ElfFile.h ../include/BinaryFile.h \
  ../include/ProgramHeader.h ../include/defines/ProgramHeader.d \
  ../include/X86InstructionFactory.h
+
+EncryptTool.o: EncryptTool.C \
+ ../external/lib/include/gpgme.h \
+ ../include/EncryptTool.h \
+ 
 InstrumentationTool.o: InstrumentationTool.C \
+ ../external/lib/include/gpgme.h \
+ ../include/EncryptTool.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
  ../include/Base.h ../include/CStructuresElf.h \
  ../include/CStructuresDwarf.h ../include/Debug.h ../include/Vector.h \
