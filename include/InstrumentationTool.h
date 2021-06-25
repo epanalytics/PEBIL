@@ -81,7 +81,7 @@ private:
     InstrumentationTool* (*maker)(ElfFile*);
 
     void instrumentEmbeddedElf();
-    EncryptTool encryptTool();
+    EncryptTool encryptTool;
 
 protected:
     uint64_t imageKey;
@@ -141,7 +141,7 @@ protected:
     uint64_t dynamicPointArray;
     uint64_t dynamicSize;
     bool isThreadedModeFlag;
-    char sanitizePassword[__MAX_STRING_SIZE];
+    bool encrypt;
     bool sanitize=false;
 
 public:
@@ -167,8 +167,7 @@ public:
     virtual uint32_t requiresArgs() { return PEBIL_OPT_NON; }
     bool isMasterImage();
     void setMasterImage(bool isMaster);
-    bool setSanitize(void);
-    bool setSanitize(const char* password);
+    bool setSanitize(bool);
     void printSanitizeTranslationFile(std::map<char*,std::string> lineInfo);
 };
 

@@ -29,6 +29,7 @@
 class EncryptTool {
 public:
     EncryptTool();
+    ~EncryptTool();
     std::string getPasswordFromUser(int);
     bool encryptFile(std::string filename);
     bool decryptFile(std::string filename);

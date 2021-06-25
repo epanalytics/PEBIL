@@ -1164,13 +1164,9 @@ InstrumentationPoint* InstrumentationTool::insertBlockCounter(uint64_t counterOf
 
     return p;
 }
-bool InstrumentationTool::setSanitize(void){
-    sprintf(sanitizePassword,"%s","");
-    sanitize=true;
-    return setElfInstSanitize(true);
-}
-bool InstrumentationTool::setSanitize(const char* password){
-    sprintf(sanitizePassword,"%s",password);//ELIZABETH TODO: use password to encrpyt translation file
+bool InstrumentationTool::setSanitize(bool encryption){
+   // elizabeth 
+    encrypt=encryption;
     sanitize=true;
     return setElfInstSanitize(true);
 }
@@ -1187,10 +1183,11 @@ void InstrumentationTool::printSanitizeTranslationFile(std::map<char*,std::strin
         fprintf(fd,"%s\t%s\t%s\n",fakeName,realName,lineNoInfo[fakeName].c_str());
     }
     fclose(fd);
-    if (sanitizePassword[0] != '\0'){
-    char encryptComm[__MAX_STRING_SIZE];
-    sprintf(encryptComm,"$PEBIL_ROOT/scripts/encryptGPG.sh %s %s",sanitizePassword,translationName);
-    system(encryptComm);
+    if (encrypt){
+	    encryptTool = EncryptTool();
+	    encryptTool.getPasswordFromUser(Encrypt);
+    //sprintf(encryptComm,"$PEBIL_ROOT/scripts/encryptGPG.sh %s %s",sanitizePassword,translationName);
+    //system(encryptComm);
     }
 
 }
