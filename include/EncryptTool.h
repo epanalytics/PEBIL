@@ -24,16 +24,18 @@
 
 #include <gpgme.h>
 #include <iostream>
+#include <fstream>
 #include <string>
 
 class EncryptTool {
 public:
     EncryptTool();
     ~EncryptTool();
-    std::string getPasswordFromUser(int);
+    void getPasswordFromUser(int);
     bool encryptFile(std::string filename);
     bool decryptFile(std::string filename);
 private:
+    void setPassword(std::string pass);
     std::string password;
 };
 enum EncryptType {

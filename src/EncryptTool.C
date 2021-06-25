@@ -1,44 +1,63 @@
 #include <EncryptTool.h>
+using namespace std;
 
 EncryptTool::EncryptTool(){
 }
 EncryptTool::~EncryptTool(){
 	fprintf(stderr,"destroying encryption tool");
 }
-std::string EncryptTool::getPasswordFromUser(int encryptOrDecrypt){
-    std::string attempt1;
-    std::string attempt2;
+void EncryptTool::setPassword(string pass){
+    password=pass;
+}
+void EncryptTool::getPasswordFromUser(int encryptOrDecrypt){
+    string attempt1;
+    string attempt2;
     switch(encryptOrDecrypt){
 	    case Encrypt :
-		std::cout << "Please provide a password to encrypt the translation file with:\n" << std::endl;
-		std::cin >> attempt1;
-		std::cout << "Please type your pasword in one more time to confirm\n" <<std::endl;
-		std::cin >> attempt2;
+		cout << "Please provide a password to encrypt the translation file with:\n" << endl;
+		cin >> attempt1;
+		cout << "Please type your pasword in one more time to confirm\n" <<endl;
+		cin >> attempt2;
     		if (attempt1 != attempt2){
 	    		fprintf(stderr,"Passwords do not match!\n");
 	    		return getPasswordFromUser(Encrypt);
     		} else {
-	    		password=attempt1;
-			std::cout << "ELIZABETH TODO DELETE PASSWORD " << password <<"\n" <<std::endl;
+	    		setPassword(attempt1);
+			cout << "ELIZABETH TODO DELETE PASSWORD " << password <<"\n" <<endl;
     		}
-		return password;
 		break;
             case Decrypt :
-		std::cout << "Type in your password to decrypt this file\n" << std::endl;
-		std::cin >> attempt1;
-		if (password.compare(attempt1) ==0){
+		cout << "Type in your password to decrypt this file\n" << endl;
+		cin >> attempt1;
+/*		if (password.compare(attempt1) ==0){
 			return password;
 		} else {
-			std::cerr << "WRONG PASSWORD!!\n" <<std::endl;
+			cerr << "WRONG PASSWORD!!\n" <<endl;
 			return getPasswordFromUser(Decrypt);
 		}
+*/
+        setPassword(attempt1);
 		break;
             default :
-		std::cerr << "SHOULD NOT GET HERE ELIZABETH\n" <<std::endl;	
+		cerr << "SHOULD NOT GET HERE ELIZABETH\n" <<endl;	
    }
 }
+bool EncryptTool::encryptFile(string filename){
+   fprintf(stderr,"HERE ELIZABETH\n");
+}
+bool EncryptTool::decryptFile(string filename){
+   ifstream fd(filename);
+   string line;
+   if (fd.is_open()){
+       while(getline(fd,line)){
+           cout << line << endl;
+       }
+   fd.close();
+   }
+}
+
 /*
-void InstrumentationTool::printSanitizeTranslationFile(std::map<char*,std::string> lineNoInfo){
+void InstrumentationTool::printSanitizeTranslationFile(map<char*,string> lineNoInfo){
     char translationName[__MAX_STRING_SIZE];
     sprintf(translationName,"%s%s",getApplicationName(),".translation");
     FILE* fd = fopen(translationName,"w");

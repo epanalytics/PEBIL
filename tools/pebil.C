@@ -23,6 +23,7 @@
 #include <HybridPhiElfFile.h>
 #include <Vector.h>
 #include <getopt.h>
+#include <EncryptTool.h>
 
 #ifdef STATIC_BUILD
 #define DECLARE_INST_CLASS(__class) extern InstrumentationTool* __class ## Maker(ElfFile*)
@@ -113,8 +114,9 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--phs <phase_no>] : " DEPRECATED_MESSAGE " (if given, must be == 1)\n");
     fprintf(stderr,"\t\t[--dfp <pattern/file>] : " DEPRECATED_MESSAGE "\n");
     fprintf(stderr,"\t\t[--dmp <off|on|nosim>] : " DEPRECATED_MESSAGE "\n");
-    fprintf(stderr,"\t\t[--sanitize] : anonymize function names TODO IMPLEMENT\n");
-    fprintf(stderr,"\t\t[--password] : anonymize function names TODO IMPLEMENT and encrypt file\n");
+    fprintf(stderr,"\t\t[--sanitize] : anonymize function names\n");
+    fprintf(stderr,"\t\t[--password] : anonymize function names and encrypt file\n");
+    fprintf(stderr,"\t\t[--decrypt <encrypted_file>] : decrypt the file that translates anonymous functions to their function names\n");
     fprintf(stderr,"\n");
     exit(1);
 }
@@ -240,6 +242,7 @@ int main(int argc,char* argv[]){
     DEFINE_ARG(dfp);
     DEFINE_ARG(out);
     DEFINE_ARG(inv);
+    DEFINE_ARG(decrypt);
 
 #define FLAG_OPTION(__name, __char) {#__name, no_argument, &__name ## _flag, __char}
 #define ARG_OPTION(__name, __char) {#__name, required_argument, 0, __char}
@@ -254,7 +257,7 @@ int main(int argc,char* argv[]){
         ARG_OPTION(typ, 'y'), ARG_OPTION(tool, 't'), ARG_OPTION(tlib, 'O'), ARG_OPTION(inp, 'p'), ARG_OPTION(trk, 'k'), 
         ARG_OPTION(lnc, 'n'), ARG_OPTION(inf, 'z'), ARG_OPTION(app, 'a'), ARG_OPTION(lib, 'l'),
         ARG_OPTION(ext, 'x'), ARG_OPTION(fbl, 'b'), ARG_OPTION(dmp, 'm'), ARG_OPTION(phs, 'f'), ARG_OPTION(dfp, 'g'),
-        ARG_OPTION(out, 'o'), ARG_OPTION(inv, 'i'), 
+        ARG_OPTION(out, 'o'), ARG_OPTION(inv, 'i'), ARG_OPTION(decrypt,'d'), 
         {0,              0,                 0,              0},
     };
 
@@ -296,6 +299,7 @@ int main(int argc,char* argv[]){
         SET_ARGPTR(dfp, 'g')
         SET_ARGPTR(out, 'o')
         SET_ARGPTR(inv, 'i')
+	    SET_ARGPTR(decrypt,'d')
 
         /* this shouldn't happen, but handle it anyway */
         else {
@@ -306,6 +310,14 @@ int main(int argc,char* argv[]){
     // --version: print version number and exit
     if (version_flag){
         fprintf(stdout, "pebil %s\n", PEBIL_VER);
+        return 0;
+    }
+    // --decrypt filename: decrypt encrypted file
+    if (decrypt_arg){
+        EncryptTool encryptTool = EncryptTool();
+        encryptTool.getPasswordFromUser(Decrypt);
+        std::string decryptFile(decrypt_arg); 
+        encryptTool.decryptFile(decryptFile);
         return 0;
     }
 
@@ -359,8 +371,8 @@ int main(int argc,char* argv[]){
 
     // --tool: make sure --tool or --typ was passed
     if (!tool_arg){
-        printUsage("one of the following options is required: --typ, --tool");
-        __SHOULD_NOT_ARRIVE;
+       printUsage("one of the following options is required: --typ, --tool");
+       __SHOULD_NOT_ARRIVE;
     }
         
     // --app: use the argument as the application name
@@ -406,7 +418,7 @@ int main(int argc,char* argv[]){
         __SHOULD_NOT_ARRIVE;
     }
 
-    // --dry: stop doing stuff and exit!
+    // --dry: stop doing stuff and !
     if (dry_flag){
         PRINT_INFOR("--dry option was used, exiting before file processing");
         return 0;
@@ -594,10 +606,9 @@ int main(int argc,char* argv[]){
             
             ASSERT(functionBlackList);
             instTool->setInputFunctions(functionBlackList);
-	    if (sanitize_flag || password_flag){
-               instTool->setSanitize(password_flag);
-	    }
-            
+	        if (sanitize_flag || password_flag){
+                instTool->setSanitize(password_flag);
+	        }
             if (allowstatic_flag){
                 instTool->setAllowStatic();
             }

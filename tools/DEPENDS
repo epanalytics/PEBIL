@@ -180,6 +180,7 @@ DeadRegisterSquasher.o: DeadRegisterSquasher.C DeadRegisterSquasher.h \
  ../include/LineInformation.h ../include/defines/LineInformation.d \
  ../include/Loop.h
 pebil.o: pebil.C ../include/Base.h ../include/CStructuresElf.h \
+ ../include/EncryptTool.h \
  ../include/CStructuresDwarf.h ../include/Debug.h ../include/Vector.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
  ../include/ElfFile.h ../include/BinaryFile.h ../include/ProgramHeader.h \
