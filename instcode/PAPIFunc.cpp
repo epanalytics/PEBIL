@@ -390,11 +390,12 @@ extern "C"
                 / timerCPUFreq;
 
               if (timePerVisit < (((double)timingThreshold) / 1000000.0)) {
+                  uint64_t imageSeq = AllData->GetImageSequence(*key);
                   AllData->WriteLock();
-                  uint64_t this_key = GENERATE_KEY(funcIndex,
+                  uint64_t this_key = GENERATE_UNIQUE_KEY(funcIndex, imageSeq,
                     PointType_functionExit);
-                  uint64_t corresponding_entry_key = GENERATE_KEY(funcIndex,
-                    PointType_functionEntry);
+                  uint64_t corresponding_entry_key = GENERATE_UNIQUE_KEY(
+                    funcIndex, imageSeq, PointType_functionEntry);
   
                   set<uint64_t> inits;
                   inits.insert(this_key);
@@ -409,11 +410,16 @@ extern "C"
       return 0;
   }
   
+  static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;  
   void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
     isThreadedModeFlag) {
-      DynamicPoints = new DynamicInstrumentation();
+      pthread_mutex_lock(&dynamic_init_mutex);
+      if (DynamicPoints == NULL) {
+          DynamicPoints = new DynamicInstrumentation();
+      }
       DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
         isThreadedModeFlag);
+      pthread_mutex_unlock(&dynamic_init_mutex);
       return NULL;
   }
   
@@ -437,14 +443,12 @@ extern "C"
   void* tool_thread_fini(thread_key_t tid) {
       return NULL;
   }
-  
+
+  static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;  
   void* tool_image_init(void* args, image_key_t* key, ThreadData* td) {
   
+      pthread_mutex_lock(&image_init_mutex);
       FunctionPAPI* counters = (FunctionPAPI*)args;
-    
-      set<uint64_t> inits;
-      inits.insert(*key);
-      DynamicPoints->SetDynamicPoints(inits, false);
     
       if (AllData == NULL) {
           AllData = new DataManager<FunctionPAPI*>(GenerateFunctionPAPI, 
@@ -459,12 +463,24 @@ extern "C"
           fprintf(stderr, "PAPI initialization failed");
           return NULL;
       }
+
+      set<uint64_t> inits;
+      inits.insert(GENERATE_KEY(*key, PointType_inits));
+      DynamicPoints->SetDynamicPoints(inits, false);
+ 
+      pthread_mutex_unlock(&image_init_mutex);
     
       return NULL;
   }
   
   void* tool_image_fini(image_key_t* key) {
       image_key_t iid = *key;
+
+      static bool finalized = false;
+      if (finalized)
+          return NULL;
+
+      finalized = true;
 
       if (DynamicPoints != NULL) {
           delete DynamicPoints;

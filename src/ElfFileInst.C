@@ -43,6 +43,8 @@
 #include <SymbolTable.h>
 #include <TextSection.h>
 
+#include <Metasim.hpp>
+
 #ifdef BLOAT_MOD
 uint32_t bloatCount = 0;
 #endif
@@ -1280,11 +1282,13 @@ void ElfFileInst::phasedInstrumentation(){
             InstrumentationPoint* p = addInstrumentationPoint(f, instrumentationSnippets[INST_SNIPPET_BOOTSTRAP_BEGIN], InstrumentationMode_tramp, InstLocation_prior);
             p->setPriority(InstPriority_sysinit);
 
-            dynamicPoint(p, getElfFile()->getUniqueId(), true);
+            dynamicPoint(p, GENERATE_KEY(getElfFile()->getUniqueId(), 
+              PointType_inits), true);
         }
 
         // get the program entry also
-        dynamicPoint((*instrumentationPoints)[0], getElfFile()->getUniqueId(), true);
+        dynamicPoint((*instrumentationPoints)[0], GENERATE_KEY(getElfFile()->
+          getUniqueId(), PointType_inits), true);
     }
 
     // Link instrumenation functions and libraries

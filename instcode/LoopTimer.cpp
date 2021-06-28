@@ -152,10 +152,16 @@ extern "C"
     }
 
     // initialize dynamic instrumentation
-    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag) {
-        DynamicPoints = new DynamicInstrumentation();
+    static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
+    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
+      isThreadedModeFlag) {
+        pthread_mutex_lock(&dynamic_init_mutex);
+        if (DynamicPoints == NULL)
+            DynamicPoints = new DynamicInstrumentation();
+
         DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
           isThreadedModeFlag);
+        pthread_mutex_unlock(&dynamic_init_mutex);
         return NULL;
     }
 
@@ -181,13 +187,10 @@ extern "C"
     }
 
     // Called when new image is loaded
+    static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     void* tool_image_init(void* args, image_key_t* key, ThreadData* td) {
+        pthread_mutex_lock(&image_init_mutex);
         LoopTimers* timers = (LoopTimers*)args;
-
-        // Remove this instrumentation
-        set<uint64_t> inits;
-        inits.insert(*key);
-        DynamicPoints->SetDynamicPoints(inits, false);
 
         // If this is the first image, set up a data manager
         if (AllData == NULL){
@@ -197,12 +200,25 @@ extern "C"
 
         // Add this image
         AllData->AddImage(timers, td, *key);
+
+        // Remove this instrumentation
+        set<uint64_t> inits;
+        inits.insert(GENERATE_KEY(*key, PointType_inits));
+        DynamicPoints->SetDynamicPoints(inits, false);
+
+        pthread_mutex_unlock(&image_init_mutex);
         return NULL;
     }
 
     // 
     void* tool_image_fini(image_key_t* key) {
         image_key_t iid = *key;
+
+        static bool finalized = false;
+        if (finalized)
+            return NULL;
+
+        finalized = true;
 
         if (DynamicPoints != NULL) {
             delete DynamicPoints;

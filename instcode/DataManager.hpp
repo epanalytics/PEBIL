@@ -216,19 +216,28 @@ public:
         UnLock();
     }
 
-    bool WriteLock(){
-        bool res = (pthread_rwlock_wrlock(&rwlock) == 0);
-        return res;
+    // TODO: Not a fan of this function
+    //bool IsWriteLockHeld() {
+    //    int res = pthread_rwlock_trywrlock(&rwlock);
+    //    if (res == 0) {
+    //        UnLock();
+    //        return false;
+    //    } else if (res == EDEADLK) {
+    //        return true;
+    //    }
+    //    return res;
+    //}
+
+    void ReadLock(){
+        (void) pthread_rwlock_rdlock(&rwlock);
     }
 
-    bool ReadLock(){
-        bool res = (pthread_rwlock_rdlock(&rwlock) == 0);
-        return res;
+    void UnLock(){
+        (void) pthread_rwlock_unlock(&rwlock);
     }
 
-    bool UnLock(){
-        bool res = (pthread_rwlock_unlock(&rwlock) == 0);
-        return res;
+    void WriteLock(){
+        (void) pthread_rwlock_wrlock(&rwlock);
     }
 
     // these can only be called correctly by the current thread
@@ -252,7 +261,22 @@ public:
         return ret;
     }
 
-    uint32_t GetImageSequence(image_key_t iid){
+    virtual image_key_t GetImageId(uint32_t imageSequence) {
+        ReadLock();
+        image_key_t ret = firstimage;
+        for (std::set<image_key_t>::iterator iit = allimages.begin(); iit !=
+          allimages.end(); iit++){
+            if (imageseq[*iit] == imageSequence) {
+                ret = *iit;
+                break;
+            }
+        }
+
+        UnLock();
+        return ret;
+    }
+
+    virtual uint32_t GetImageSequence(image_key_t iid){
         ReadLock();
         assert(imageseq.count(iid) == 1 && 
           "image must be added with AddImage method");
@@ -286,6 +310,7 @@ public:
     // Adds tid to threads to be tracked
     // If there are images initialized, creates initial data for each
     // No pre-conditions
+    // passed image id is the image adding the thread
     virtual void AddThread(thread_key_t tid){
         WriteLock();
 
@@ -299,10 +324,29 @@ public:
             threadseq[tid] = currentthreadseq++;
         }
 
+        // Generate data for first image first
+        if (firstimage != 0) {
+            assert(datamap[firstimage].size() > 0);
+            assert(datamap[firstimage].count(tid) == 0);
+            assert(allthreads.size() > 0);
+
+            std::set<thread_key_t>::iterator tit = allthreads.begin();
+
+            // Generate thread data for this image using some other thread's
+            // data as a template
+            datamap[firstimage][tid] = datagen(datamap[firstimage][*tit], 
+              DataManagerType_Thread, firstimage, tid, firstimage);
+            // initialize the thread hashtable data for this image
+            SetThreadData(firstimage, tid, DataManagerType_Thread);
+       }
+
         // Setup data for any previously initialized images
         for (std::set<image_key_t>::iterator iit = allimages.begin(); iit !=
           allimages.end(); iit++){
 
+            if ((*iit) == firstimage)
+                continue;
+        
             // This image must have been initialized
             // The thread must have not
             // There must have been some other thread that initialized this
@@ -419,12 +463,8 @@ public:
     }
 
     T GetData(thread_key_t tid){
-        ReadLock();
-        std::set<image_key_t>::iterator iit = allimages.begin();
-        assert(iit != allimages.end());
-        UnLock();
         // This GetData calls ReadLock()
-        T retVal = GetData(*iit, tid);
+        T retVal = GetData(firstimage, tid);
         return retVal;
     }
 
@@ -435,8 +475,8 @@ public:
     virtual T GetData(image_key_t iid, thread_key_t tid){
         ReadLock();
         if (datamap.count(iid) != 1){
-            inform << "About to fail iid check with " << std::dec <<
-              datamap.count(iid) << ENDL;
+            inform << "About to fail iid " << std::hex << iid << " check with "
+              << std::dec << datamap.count(iid) << ENDL;
         }
         assert(datamap.count(iid) == 1 && 
           "Attempting to look up data for uninitialized image");
@@ -511,6 +551,8 @@ public:
         assert(alldata->CountThreads() == 1);
         assert(alldata->CountImages() == 1);
         assert(alldata->GetThreadSequence(pthread_self()) == 0);
+        pthread_mutex_init(&lock, NULL);
+        Lock();
 
         stats = new T*[threadcount];
         stats[0] = new T[capacity];
@@ -518,17 +560,19 @@ public:
         for (uint32_t i = 0; i < capacity; i++){
             stats[0][i] = dat;
         }
+        UnLock();
 
-        pthread_mutex_init(&lock, NULL);
     }
 
     virtual ~FastData(){
+        Lock();
         if (stats){
             for (uint32_t i = 0; i < threadcount; i++){
                 delete[] stats[i];
             }
             delete[] stats;
         }
+        UnLock();
     }
 
     // tid must have already been added to alldata
@@ -540,7 +584,8 @@ public:
         uint32_t newsize = tid_index+1 > threadcount ? tid_index+1 : threadcount;
 
         // Grow stats and copy old data if necessary
-        // Also initialize stats for any other threads which are implied to exist
+        // Also initialize stats for any other threads which are implied to 
+        // exist
         if(newsize > threadcount) {
             T** tmp = new T*[newsize];
             for (uint32_t i = 0; i < threadcount; ++i){
@@ -549,7 +594,8 @@ public:
             delete[] stats;
             stats = tmp;
 
-            // initialize any new data, zeroing out any new data not for this thread
+            // initialize any new data, zeroing out any new data not for this 
+            // thread
             for(uint32_t i = threadcount; i < newsize; ++i){
                 stats[i] = new T[capacity];
                 if(i != tid_index)
@@ -615,12 +661,14 @@ public:
         // i = dataid at bufferidx
         // ci = current valid i
         // di = SimulationStats* for current thread,image
+        Lock();
         for (uint32_t j = 0; j < num; j++, buffer++){
 
             dataid(buffer, &i);
 
             if (i == 0){
                 if (alldata->CountThreads() > 1){
+                    stats[threadseq][j] = NULL;
                     continue;
                 }
                 assert(false && "the only way blank buffer entries should exist is when threads get signal-interrupted mid-block");
@@ -635,6 +683,7 @@ public:
 
             debug(assert(stats[threadseq][j]));
         }
+        UnLock();
     };
 
     virtual T* GetBufferStats(thread_key_t tid){

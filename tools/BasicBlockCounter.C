@@ -259,7 +259,9 @@ void BasicBlockCounter::instrument() {
                 PRINT_ERROR("Cannot find an instrumentation point at the entry "
                   "block");
             }
-            dynamicPoint(p, getElfFile()->getUniqueId(), true);
+
+            dynamicPoint(p, GENERATE_KEY(getElfFile()->getUniqueId(), 
+              PointType_inits), true);
         }
     } else {
         p = addInstrumentationPoint(getProgramEntryBlock(), entryFunc, 
@@ -421,7 +423,7 @@ void BasicBlockCounter::instrument() {
             threadReg = threadMap->getThreadRegister(bb);
         }
 
-        if (isSaveAll() && isThreadedMode()) threadReg = X86_REG_INVALID;
+        if (isSaveAll() && usePIC) threadReg = X86_REG_INVALID;
 
         // Instrument!
         InstrumentationTool::insertBlockCounter(counterOffset, bb, true, 
@@ -516,7 +518,8 @@ void BasicBlockCounter::instrument() {
               getBaseAddress()];
             threadReg = threadMap->getThreadRegister(head);
         }
-        if (isSaveAll() && isThreadedMode()) threadReg = X86_REG_INVALID;
+
+        if (isSaveAll() && usePIC) threadReg = X86_REG_INVALID;
 
         CounterTypes tmpct = CounterType_loop;
         initializeReservedData(getInstDataAddress() + (uint64_t)ctrs.Types + 
