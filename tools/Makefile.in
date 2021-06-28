@@ -76,7 +76,7 @@ lib%Tool.a: S_%.o
 	$(AR) $@ $<
 
 clean: 
-	rm -f *inst *.static core *.o *.ii *.s *.so *.a $(TARGETS)
+	rm -f *inst *.static core *.o *.ii *.s *.so *.a $(TARGETS) $(BINDIR)/* $(LIBDIR)/*.so $(LIBDIR)/*.a
 
 depend:
 	g++ -E -MM $(EXTRA_INC) $(SRCS) pebil.C > DEPENDS
