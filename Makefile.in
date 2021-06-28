@@ -29,7 +29,7 @@ BLACKLIST = scripts/inputlist/autogen-system.func
 include VERSION
 DISTDIR = PEBIL-$(PEBIL_FULL_VER)
 
-.PHONY: subdirs $(SUBDIRS) clean all install blacklist depend check docs
+.PHONY: subdirs $(SUBDIRS) clean all install blacklist depend docs
 
 # order here matters
 PREREQ = .CLEAN .DEPEND
@@ -37,7 +37,6 @@ PREREQ = .CLEAN .DEPEND
 # specify some explicit dependencies to order operations
 tools: src external/udis86-1.7 external/ReuseDistance
 install: instcode tools blacklist
-check: install
 
 ifneq (,$(findstring clean,$(MAKECMDGOALS)))
 .CLEAN: clean
@@ -54,7 +53,6 @@ clean:
 	$(MAKE) -C external/udis86-1.7 clean
 	$(MAKE) -C external/ReuseDistance clean
 	$(MAKE) -C src clean
-	$(MAKE) -C testapps clean
 	$(MAKE) -C instcode clean
 	$(MAKE) -C tools clean
 	rm -rf $(BLACKLIST)
@@ -76,9 +74,6 @@ install: $(PREREQ)
 	$(MAKE) -C tools install
 	$(MAKE) -C instcode install
 	$(COPY_LIBS)
-
-check: $(PREREQ)
-	$(MAKE) -C testapps check
 
 docs: $(PREREQ)
 	doxygen
