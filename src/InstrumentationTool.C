@@ -1165,7 +1165,6 @@ InstrumentationPoint* InstrumentationTool::insertBlockCounter(uint64_t counterOf
     return p;
 }
 bool InstrumentationTool::setSanitize(bool encryption){
-   // elizabeth 
     encrypt=encryption;
     sanitize=true;
     return setElfInstSanitize(true);
@@ -1184,8 +1183,8 @@ void InstrumentationTool::printSanitizeTranslationFile(std::map<char*,std::strin
     }
     fclose(fd);
     if (encrypt){
-	    encryptTool = EncryptTool();
-	    encryptTool.getPasswordFromUser(Encrypt);
+        encryptTool = EncryptTool();
+        encryptTool.getPasswordFromUser(Encrypt);
     //sprintf(encryptComm,"$PEBIL_ROOT/scripts/encryptGPG.sh %s %s",sanitizePassword,translationName);
     //system(encryptComm);
     }
@@ -1336,22 +1335,22 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             fileName = INFO_UNKNOWN;
             lineNo = 0;
         }
-	if (sanitize){
-            if (f->getBasicBlockAtAddress(f->getBaseAddress())->getHashCode().getValue()==bb->getHashCode().getValue()){
-		for (uint32_t x; x<getNumberOfExposedFunctions();x++){
-                    Function* temp = getExposedFunction(x);
-		    if (temp->getName() == f->getName()){ //Hashcode bc sanitized, name will be unique
-			std::string nm(fileName);
-			std::string res = nm+"\t"+std::to_string(lineNo);
-			functionLineNo.emplace(f->getName(),res);
-			//fprintf(stderr,"!!! %s at name %s\n",functionLineNo[f->getName()].c_str(),f->getName());
-			break;
-		    }
-		}
+    if (sanitize){
+        if (f->getBasicBlockAtAddress(f->getBaseAddress())->getHashCode().getValue()==bb->getHashCode().getValue()){
+            for (uint32_t x; x<getNumberOfExposedFunctions();x++){
+                Function* temp = getExposedFunction(x);
+                if (temp->getName() == f->getName()){ //Hashcode bc sanitized, name will be unique
+                    std::string nm(fileName);
+                    std::string res = nm+"\t"+std::to_string(lineNo);
+                    functionLineNo.emplace(f->getName(),res);
+                    //fprintf(stderr,"!!! %s at name %s\n",functionLineNo[f->getName()].c_str(),f->getName());
+                    break;
+                }
             }
-            fileName=INFO_UNKNOWN;
-	    lineNo=0;
-	}
+        }
+        fileName=INFO_UNKNOWN;
+        lineNo=0;
+    }
 
         uint32_t bufferPointer = sprintf(thisBuffer, "%d\t%lld\t%d\t%d\t%d\t%s"
           ":%d\t%s\t# %#llx\t%#llx\n", (*allBlockIds)[i], 
@@ -1793,7 +1792,6 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
                   if (!f->inRange(ins->getTargetAddress())) {
                       // get the function name
                       uint64_t callTgtAddr = ins->getTargetAddress();
-              //ELIZABETH TODO: replace callTgtName with HashCode!! get function on bb entry
                       char* callTgtName = INFO_UNKNOWN;
               if (!sanitize){
                           Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
@@ -1807,12 +1805,12 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
                         ASSERT(b->getType() == PebilClassType_BasicBlock);
                         BasicBlock* bb = (BasicBlock*)b;
                         Function* f = bb->getFunction();
-                    if (f->inRange(callTgtAddr)){
-                        callTgtName=f->getName();
+                        if (f->inRange(callTgtAddr)){
+                            callTgtName=f->getName();
                             break;    
                         
+                        }
                     }
-                }
               }
                       std::set<std::string> temp =
                         (std::set<std::string>)callTreeInfo.at(thisFuncName);

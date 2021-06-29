@@ -4,7 +4,6 @@ using namespace std;
 EncryptTool::EncryptTool(){
 }
 EncryptTool::~EncryptTool(){
-	fprintf(stderr,"destroying encryption tool");
 }
 void EncryptTool::setPassword(string pass){
     password=pass;
@@ -23,27 +22,20 @@ void EncryptTool::getPasswordFromUser(int encryptOrDecrypt){
 	    		return getPasswordFromUser(Encrypt);
     		} else {
 	    		setPassword(attempt1);
-			cout << "ELIZABETH TODO DELETE PASSWORD " << password <<"\n" <<endl;
     		}
 		break;
             case Decrypt :
 		cout << "Type in your password to decrypt this file\n" << endl;
 		cin >> attempt1;
-/*		if (password.compare(attempt1) ==0){
-			return password;
-		} else {
-			cerr << "WRONG PASSWORD!!\n" <<endl;
-			return getPasswordFromUser(Decrypt);
-		}
-*/
         setPassword(attempt1);
 		break;
             default :
-		cerr << "SHOULD NOT GET HERE ELIZABETH\n" <<endl;	
+		cerr << "SHOULD NOT GET HERE\n" <<endl;	
+        exit(1);
    }
 }
 bool EncryptTool::encryptFile(string filename){
-   fprintf(stderr,"HERE ELIZABETH\n");
+   fprintf(stderr,"HERE TODO\n");
 }
 bool EncryptTool::decryptFile(string filename){
    ifstream fd(filename);

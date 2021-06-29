@@ -115,7 +115,7 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--dfp <pattern/file>] : " DEPRECATED_MESSAGE "\n");
     fprintf(stderr,"\t\t[--dmp <off|on|nosim>] : " DEPRECATED_MESSAGE "\n");
     fprintf(stderr,"\t\t[--sanitize] : anonymize function names\n");
-    fprintf(stderr,"\t\t[--password] : anonymize function names and encrypt file\n");
+/*    fprintf(stderr,"\t\t[--password] : anonymize function names and encrypt file\n");*/ //TODO find good encryption API
     fprintf(stderr,"\t\t[--decrypt <encrypted_file>] : decrypt the file that translates anonymous functions to their function names\n");
     fprintf(stderr,"\n");
     exit(1);
@@ -223,7 +223,7 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(nosavezmm);
     DEFINE_FLAG(printinsnmaps);
     DEFINE_FLAG(sanitize);
-    DEFINE_FLAG(password);
+/*    DEFINE_FLAG(password);*/ //TODO
 
 #define DEFINE_ARG(__name) char* __name ## _arg = NULL
     DEFINE_ARG(typ); // char* typ_arg = NULL;
@@ -250,7 +250,7 @@ int main(int argc,char* argv[]){
         /* These options set a flag. */
         FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'),
         FLAG_OPTION(version, 'V'), FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), FLAG_OPTION(threaded, 'P'),
-        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'),FLAG_OPTION(sanitize,'a'), FLAG_OPTION(password,'A'),
+        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'),FLAG_OPTION(sanitize,'a'), //FLAG_OPTION(password,'A'),
 
         /* These options take an argument
            We distinguish them by their indices. */
@@ -407,7 +407,7 @@ int main(int argc,char* argv[]){
         functionBlackList = fbl_arg;
     }
     PRINT_INFOR("The function blacklist is taken from %s", functionBlackList);
-    bool sanitize=sanitize_flag || password_flag;
+    bool sanitize=sanitize_flag /* || password_flag*/; //TODO
     // --dmp: convert arg to dump code
     uint32_t dumpCode = dumpcode_off;
     if (dmp_arg){
@@ -606,8 +606,9 @@ int main(int argc,char* argv[]){
             
             ASSERT(functionBlackList);
             instTool->setInputFunctions(functionBlackList);
-	        if (sanitize_flag || password_flag){
-                instTool->setSanitize(password_flag);
+	        if (sanitize_flag /*|| password_flag*/){ //TODO
+                //instTool->setSanitize(password_flag);
+                instTool->setSanitize(false);
 	        }
             if (allowstatic_flag){
                 instTool->setAllowStatic();

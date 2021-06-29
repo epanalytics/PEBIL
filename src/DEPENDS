@@ -189,11 +189,9 @@ Instrumentation.o: Instrumentation.C ../include/Instrumentation.h \
  ../include/X86InstructionFactory.h
 
 EncryptTool.o: EncryptTool.C \
- ../external/lib/include/gpgme.h \
  ../include/EncryptTool.h \
  
 InstrumentationTool.o: InstrumentationTool.C \
- ../external/lib/include/gpgme.h \
  ../include/EncryptTool.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
  ../include/Base.h ../include/CStructuresElf.h \

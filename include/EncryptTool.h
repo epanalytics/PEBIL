@@ -22,7 +22,7 @@
 #ifndef _EncryptTool_h_
 #define _EncryptTool_h_
 
-#include <gpgme.h>
+//#include <gpgme.h> /* TODO find better encryption API */
 #include <iostream>
 #include <fstream>
 #include <string>
