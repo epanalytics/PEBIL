@@ -1176,10 +1176,9 @@ void InstrumentationTool::printSanitizeTranslationFile(std::map<char*,std::strin
     fprintf(fd,"Alias\tFunction Name\tFile Name\tLine No.\n");
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
         Function* f = getExposedFunction(i);
-        char* fakeName = f->getName();
-        Symbol* funcSym = f->getFunctionSymbol();
-        char* realName=funcSym->getSymbolName();
-        fprintf(fd,"%s\t%s\t%s\n",fakeName,realName,lineNoInfo[fakeName].c_str());
+        char* fakeName = f->getSanitizeName();
+        char* realName=f->getName();
+        fprintf(fd,"%s\t%s\t%s\n",fakeName,realName,lineNoInfo[realName].c_str());
     }
     fclose(fd);
     if (encrypt){
@@ -1335,11 +1334,12 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             fileName = INFO_UNKNOWN;
             lineNo = 0;
         }
+    uint32_t bufferPointer;
     if (sanitize){
         if (f->getBasicBlockAtAddress(f->getBaseAddress())->getHashCode().getValue()==bb->getHashCode().getValue()){
             for (uint32_t x; x<getNumberOfExposedFunctions();x++){
                 Function* temp = getExposedFunction(x);
-                if (temp->getName() == f->getName()){ //Hashcode bc sanitized, name will be unique
+                if (temp->getSanitizeName() == f->getSanitizeName()){ //Hashcode bc sanitized, name will be unique
                     std::string nm(fileName);
                     std::string res = nm+"\t"+std::to_string(lineNo);
                     functionLineNo.emplace(f->getName(),res);
@@ -1350,16 +1350,23 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
         }
         fileName=INFO_UNKNOWN;
         lineNo=0;
-    }
+        bufferPointer = sprintf(thisBuffer, "%d\t%lld\t%d\t%d\t%d\t%s"
+          ":%d\t%s\t# %#llx\t%#llx\n", (*allBlockIds)[i], 
+          bb->getHashCode().getValue(), 
+          bb->getNumberOfMemoryOps(), bb->getNumberOfFloatOps(), 
+          bb->getNumberOfInstructions(), fileName, lineNo, 
+          bb->getFunction()->getSanitizeName(), bb->getHashCode().getValue(), 
+          bb->getLeader()->getProgramAddress());
+    } else {
 
-        uint32_t bufferPointer = sprintf(thisBuffer, "%d\t%lld\t%d\t%d\t%d\t%s"
+          bufferPointer = sprintf(thisBuffer, "%d\t%lld\t%d\t%d\t%d\t%s"
           ":%d\t%s\t# %#llx\t%#llx\n", (*allBlockIds)[i], 
           bb->getHashCode().getValue(), 
           bb->getNumberOfMemoryOps(), bb->getNumberOfFloatOps(), 
           bb->getNumberOfInstructions(), fileName, lineNo, 
           bb->getFunction()->getName(), bb->getHashCode().getValue(), 
           bb->getLeader()->getProgramAddress());
-
+    }
         if (printDetail) {
             uint32_t loopLoc = 0;
             if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())) {
@@ -1764,8 +1771,12 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
     std::map<std::string,std::set<std::string>> callTreeInfo;
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
         Function* f = getExposedFunction(i);
-        std::string thisFuncName = f->getName();
-
+        std::string thisFuncName;
+        if (sanitize){
+            thisFuncName = f->getSanitizeName();
+        } else {
+            thisFuncName = f->getName();
+        }
         // initialize the calltree map
         if(!callTreeInfo.count(thisFuncName)) {
           std::set<std::string> temp;
@@ -1776,7 +1787,12 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
 #pragma omp parallel for ordered schedule(dynamic,1)
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
         Function* f = getExposedFunction(i);
-        std::string thisFuncName = f->getName();
+        std::string thisFuncName;
+        if (sanitize){
+            thisFuncName = f->getSanitizeName();
+        } else {
+            thisFuncName = f->getName();
+        }
 
         
         // get all the instructions for this function
@@ -1806,7 +1822,7 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
                         BasicBlock* bb = (BasicBlock*)b;
                         Function* f = bb->getFunction();
                         if (f->inRange(callTgtAddr)){
-                            callTgtName=f->getName();
+                            callTgtName=f->getSanitizeName();
                             break;    
                         
                         }
@@ -1964,10 +1980,17 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
       fileName = INFO_UNKNOWN;
       lineNo = 0;
     }
-    fprintf(staticFD, "%d\t%lld\t%d\t%d\t%d\t%s:%d\t%s\t# %#llx\t%#llx\n", 
-        (*allInstructionIds)[i], hashValue, (uint32_t)ins->isMemoryOperation(), (uint32_t)ins->isFloatPOperation(), 
-        1, fileName, lineNo, f->getName(),
-        hashValue, ins->getProgramAddress());
+    if (sanitize) {
+        fprintf(staticFD, "%d\t%lld\t%d\t%d\t%d\t%s:%d\t%s\t# %#llx\t%#llx\n", 
+            (*allInstructionIds)[i], hashValue, (uint32_t)ins->isMemoryOperation(), (uint32_t)ins->isFloatPOperation(), 
+            1, fileName, lineNo, f->getSanitizeName(),
+            hashValue, ins->getProgramAddress());
+    } else { 
+        fprintf(staticFD, "%d\t%lld\t%d\t%d\t%d\t%s:%d\t%s\t# %#llx\t%#llx\n", 
+            (*allInstructionIds)[i], hashValue, (uint32_t)ins->isMemoryOperation(), (uint32_t)ins->isFloatPOperation(), 
+            1, fileName, lineNo, f->getName(),
+            hashValue, ins->getProgramAddress());
+    }
     
     if (printDetail){
       

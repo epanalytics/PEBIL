@@ -54,16 +54,14 @@ uint32_t FreeText::getNumberOfInstructions(){
 }
 
 char* TextObject::getName(){
-    if (sanitizeName[0]=='\0'){
         if (symbol){
             return symbol->getSymbolName();
         }
         return symbol_without_name;
-    } else{
-        return sanitizeName;
-    }
 }
-
+char* TextObject::getSanitizeName(){
+    return sanitizeName;
+}
 uint32_t TextSection::printDisassembly(bool instructionDetail){
     ASSERT(elfFile && "Text section should be linked to its corresponding ElfFile object");
 
