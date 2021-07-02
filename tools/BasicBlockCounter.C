@@ -190,6 +190,7 @@ void BasicBlockCounter::instrument() {
     ctrs.Initialized = true;
     ctrs.PerInstruction = isPerInstruction();
     ctrs.Master = isMasterImage();
+    ctrs.sanitize = sanitize;
 
     // Get all the points we will instrument (Size)
     // Get all the loops we will instrument
@@ -337,7 +338,8 @@ void BasicBlockCounter::instrument() {
         // Lines and Files
         LineInfo* li = (*allBlockLineInfos)[i];
         // populate these only if we have the info
-        if (li) {
+        if (li and !sanitize) {
+            fprintf(stderr, "SANITIZE HERE ELIZABETH\n");
             uint32_t line = li->GET(lr_line);
             initializeReservedData(getInstDataAddress() + (uint64_t)ctrs.Lines 
               + sizeof(uint32_t)*i, sizeof(uint32_t), &line);
@@ -470,7 +472,7 @@ void BasicBlockCounter::instrument() {
 
         // Lines and Files
         LineInfo* li = NULL;
-        if (lineInfoFinder) {
+        if (lineInfoFinder and !sanitize) {
             li = lineInfoFinder->lookupLineInfo(head);
         }
         // populate these only if we have the info

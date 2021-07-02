@@ -1335,6 +1335,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             lineNo = 0;
         }
     if (sanitize){
+#pragma omp critical
         if (f->getBasicBlockAtAddress(f->getBaseAddress())->getHashCode().getValue()==bb->getHashCode().getValue()){
             for (uint32_t x; x<getNumberOfExposedFunctions();x++){
                 Function* temp = getExposedFunction(x);

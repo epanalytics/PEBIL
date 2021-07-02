@@ -40,6 +40,7 @@ typedef struct {
     char** Functions;
     char* Application;
     char* Extension;
+    bool sanitize;
 } CounterArray;
 
 #endif //_CounterFunctions_hpp_

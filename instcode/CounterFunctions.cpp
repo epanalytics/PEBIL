@@ -402,42 +402,64 @@ extern "C"
                     CounterArray* tc = it->second;
                     counter += tc->Counters[idx];
                 }
-
+                
                 if (counter >= PRINT_MINIMUM){
-                    if (c->Types[i] == CounterType_loop){
-                        BlockFile
-                            << "LPP"
-                            << TAB << hex << c->Hashes[i]
-                            << TAB << dec << imgseq
-                            << TAB << dec << counter
-                            << TAB << "# " << c->Files[i] << ":" << dec << c->Lines[i]
-                            << TAB << c->Functions[i]
-                            << TAB << hex << c->Addresses[i]
-                            << TAB << dec << c->BlockIds[i]
-                            << ENDL;
-                    } else {
-                        BlockFile
-                            << "BLK"
-                            << TAB << dec << i
-                            << TAB << hex << c->Hashes[i]
-                            << TAB << dec << imgseq
-                            << TAB << dec << counter
-                            << TAB << "# " << c->Files[i] << ":" << dec << c->Lines[i]
-                            << TAB << c->Functions[i]
-                            << TAB << hex << c->Addresses[i]
-                            << ENDL;
-                    }
-
-                    for(DataManager<CounterArray*>::iterator it = AllData->begin(*iit); it != AllData->end(*iit); ++it) {
-                        thread_key_t tid = it->first;
-                        CounterArray* tc = it->second;
-                        if( tc->Counters[idx] >= PRINT_MINIMUM) {
+                    if (!c->sanitize){
+                        if (c->Types[i] == CounterType_loop){
                             BlockFile
-                                << TAB << dec << AllData->GetThreadSequence(tid)
-                                << TAB << dec << tc->Counters[idx]
+                                << "LPP"
+                                << TAB << hex << c->Hashes[i]
+                                << TAB << dec << imgseq
+                                << TAB << dec << counter
+                                << TAB << "# " << c->Files[i] << ":" << dec << c->Lines[i]
+                                << TAB << c->Functions[i]
+                                << TAB << hex << c->Addresses[i]
+                                << TAB << dec << c->BlockIds[i]
+                                << ENDL;
+                        } else {
+                            BlockFile
+                                << "BLK"
+                                << TAB << dec << i
+                                << TAB << hex << c->Hashes[i]
+                                << TAB << dec << imgseq
+                                << TAB << dec << counter
+                                << TAB << "# " << c->Files[i] << ":" << dec << c->Lines[i]
+                                << TAB << c->Functions[i]
+                                << TAB << hex << c->Addresses[i]
                                 << ENDL;
                         }
+                    } else {
+                        if (c->Types[i] == CounterType_loop){
+                            BlockFile
+                                << "LPP"
+                                << TAB << hex << c->Hashes[i]
+                                << TAB << dec << imgseq
+                                << TAB << dec << counter
+                                << TAB << "#" << hex << c->Addresses[i]
+                                << TAB << dec << c->BlockIds[i]
+                                << ENDL;
+                        } else {
+                            BlockFile
+                                << "BLK"
+                                << TAB << dec << i
+                                << TAB << hex << c->Hashes[i]
+                                << TAB << dec << imgseq
+                                << TAB << dec << counter
+                                << TAB << "#" << hex << c->Addresses[i]
+                                << ENDL;
+                        }
+                        
                     }
+                   for(DataManager<CounterArray*>::iterator it = AllData->begin(*iit); it != AllData->end(*iit); ++it) {
+                       thread_key_t tid = it->first;
+                       CounterArray* tc = it->second;
+                       if( tc->Counters[idx] >= PRINT_MINIMUM) {
+                           BlockFile
+                               << TAB << dec << AllData->GetThreadSequence(tid)
+                               << TAB << dec << tc->Counters[idx]
+                               << ENDL;
+                       }
+                   }
                 }
             }
     
