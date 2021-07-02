@@ -99,6 +99,7 @@ void FunctionTimer::instrument(){
      */
 
     FunctionTimers funcInfo;
+    funcInfo.sanitize = sanitize;
     uint64_t functionInfoStruct = reserveDataOffset(sizeof(FunctionTimers));
 
     funcInfo.master = getElfFile()->isExecutable();
