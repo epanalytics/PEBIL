@@ -339,7 +339,6 @@ void BasicBlockCounter::instrument() {
         LineInfo* li = (*allBlockLineInfos)[i];
         // populate these only if we have the info
         if (li and !sanitize) {
-            fprintf(stderr, "SANITIZE HERE ELIZABETH\n");
             uint32_t line = li->GET(lr_line);
             initializeReservedData(getInstDataAddress() + (uint64_t)ctrs.Lines 
               + sizeof(uint32_t)*i, sizeof(uint32_t), &line);
