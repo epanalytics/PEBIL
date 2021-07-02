@@ -368,7 +368,7 @@ void ElfFileInst::compressInstrumentation(uint32_t textSize){
 bool ElfFileInst::isDisabledFunction(Function* func){
     bool white = (*disabledFunctions).size() && (*disabledFunctions)[0][0]=='*';
     for (uint32_t i = 0 + white; i < (*disabledFunctions).size(); i++){
-        if (!strcmp(func->getName(), (*disabledFunctions)[i])){
+        if (!strcmp(func->getRealName(), (*disabledFunctions)[i])){
             return true ^ white;
         }
     }
@@ -397,10 +397,10 @@ uint32_t ElfFileInst::initializeReservedPointer(uint64_t addr, uint64_t ptr){
 }
 
 bool ElfFileInst::isEligibleFunction(Function* func){
-    if (!strcmp("_start", func->getName())){
+    if (!strcmp("_start", func->getRealName())){
         return true;
     }
-    if (!strcmp("_fini", func->getName())){
+    if (!strcmp("_fini", func->getRealName())){
         return true;
     }
     if (!canRelocateFunction(func)){
@@ -700,7 +700,7 @@ uint32_t ElfFileInst::generateInstrumentation(){
         if (i % SWAP_MOD == SWAP_MOD_OFF || pt->getPriority() < InstPriority_regular){
             X86Instruction* ins = pt->getSourceObject();
 #ifdef SWAP_FUNCTION_ONLY
-            if (strstr(ins->getContainer()->getName(), SWAP_FUNCTION_ONLY)){
+            if (strstr(ins->getContainer()->getName(), SWAP_FUNCTION_ONLY)){ //ELIZABETH
 #endif
                 performSwap = true;
 #ifdef SWAP_FUNCTION_ONLY
@@ -1420,7 +1420,7 @@ InstrumentationFunction* ElfFileInst::declareFunction(char* funcName){
             for (uint32_t j = 0; j < elfFile->getTextSection(i)->getNumberOfTextObjects(); j++){
                 TextObject* tobj = elfFile->getTextSection(i)->getTextObject(j);
                 if (tobj->getType() == PebilClassType_Function &&
-                    !strcmp(((Function*)tobj)->getName(), funcName)){
+                    !strcmp(((Function*)tobj)->getRealName(), funcName)){
                     functionEntry = ((Function*)tobj)->getBaseAddress();
                     ((Function*)tobj)->setInstrumentationFunction();
                     PRINT_WARN(5, "Instrumentation function statically compiled into binary and found -- %s", ((Function*)tobj)->getName());

@@ -142,7 +142,6 @@ protected:
     uint64_t dynamicSize;
     bool isThreadedModeFlag;
     bool encrypt;
-    bool sanitize=false;
 
 public:
     InstrumentationTool(ElfFile* elf);
@@ -169,6 +168,7 @@ public:
     void setMasterImage(bool isMaster);
     bool setSanitize(bool);
     void printSanitizeTranslationFile(std::map<char*,std::string> lineInfo);
+    bool sanitize=false;
 };
 
 

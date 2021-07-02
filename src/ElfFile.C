@@ -1554,6 +1554,7 @@ uint32_t ElfFile::getFileSize() {
 void ElfFile::setLineInfoFinder(){
 }
 
+
 void ElfFile::findLoops(){
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
         textSections[i]->buildLoops();

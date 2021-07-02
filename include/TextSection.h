@@ -63,7 +63,7 @@ public:
  
     virtual void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset) { __SHOULD_NOT_ARRIVE; }
     virtual char* getName();
-    virtual char* getSanitizeName();
+    virtual char* getRealName();
     virtual uint32_t digest(Vector<AddressAnchor*>* addressAnchors) { __SHOULD_NOT_ARRIVE; }
     virtual void printDisassembly(bool instructionDetail) { __SHOULD_NOT_ARRIVE; }
     virtual void wedge(uint32_t shamt) { __SHOULD_NOT_ARRIVE; }

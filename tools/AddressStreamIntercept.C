@@ -1418,11 +1418,11 @@ void AddressStreamIntercept::initializeLineInfo(AddressStreamStats& stats,
         initializeReservedPointer(noData, (uint64_t)stats.Files + blockSeq * 
           sizeof(char*));
     }
-    uint64_t funcname = reserveDataOffset(strlen(func->getName()) + 1);
+    uint64_t funcname = reserveDataOffset(strlen(func->getRealName()) + 1);
     initializeReservedPointer(funcname, (uint64_t)stats.Functions + blockSeq * 
       sizeof(char*));
     initializeReservedData(getInstDataAddress() + funcname, strlen(
-      func->getName()) + 1, (void*)func->getName());
+      func->getRealName()) + 1, (void*)func->getRealName());
 }
 
 // TODO To be implemented later
