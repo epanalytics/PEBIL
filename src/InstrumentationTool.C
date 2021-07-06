@@ -1343,7 +1343,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                     std::string nm(fileName);
                     std::string res = nm+"\t"+std::to_string(lineNo);
                     functionLineNo.emplace(f->getRealName(),res);
-                    //fprintf(stderr,"!!! %s at name %s\n",functionLineNo[f->getName()].c_str(),f->getName());
+                    //fprintf(stderr,"ELIZABETH!!! %s at name %s %s\n",functionLineNo[f->getName()].c_str(),f->getRealName(),f->getName());
                     break;
                 }
             }

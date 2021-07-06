@@ -66,7 +66,7 @@ void BasicBlockCounter::setBlocksToInstrument() {
         if (isPerInstruction()) {
             X86Instruction* ins = getExposedInstruction(i);
 
-            if (lineInfoFinder and !sanitize){
+            if (lineInfoFinder){
                 li = lineInfoFinder->lookupLineInfo(ins);
             }
             f = (Function*)ins->getContainer();
@@ -100,7 +100,7 @@ void BasicBlockCounter::setBlocksToInstrument() {
 }
 
 void BasicBlockCounter::setLineInfoFinder() {
-    if (hasLineInformation() && !sanitize){
+    if (hasLineInformation()){
         lineInfoFinder = getLineInfoFinder();
     }
 }
@@ -338,7 +338,7 @@ void BasicBlockCounter::instrument() {
         // Lines and Files
         LineInfo* li = (*allBlockLineInfos)[i];
         // populate these only if we have the info
-        if (li and !sanitize) {
+        if (li) {
             uint32_t line = li->GET(lr_line);
             initializeReservedData(getInstDataAddress() + (uint64_t)ctrs.Lines 
               + sizeof(uint32_t)*i, sizeof(uint32_t), &line);
@@ -471,7 +471,7 @@ void BasicBlockCounter::instrument() {
 
         // Lines and Files
         LineInfo* li = NULL;
-        if (lineInfoFinder and !sanitize) {
+        if (lineInfoFinder) {
             li = lineInfoFinder->lookupLineInfo(head);
         }
         // populate these only if we have the info
