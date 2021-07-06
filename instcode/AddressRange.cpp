@@ -50,14 +50,15 @@ uint32_t AddressRangeTool::CreateHandlers(uint32_t index, StringParser* parser) 
 void AddressRangeTool::FinalizeTool(DataManager<AddressStreamStats*>* AllData,
   SamplingMethod* Sampler) {
     
-    AddressStreamStats* stats = AllData->GetData(pthread_self());
+    AddressStreamStats* stats = AllData->GetData(AllData->GetFirstImage(),
+      pthread_self());
 
     // Create the Address Range report
     ofstream RangeFile;
     string oFile;
     const char* fileName;
 
-    RangeFileName(stats,oFile);
+    RangeFileName(stats, oFile);
     fileName=oFile.c_str();
     inform << "Printing address range results to " << fileName << ENDL;
     TryOpen(RangeFile,fileName);

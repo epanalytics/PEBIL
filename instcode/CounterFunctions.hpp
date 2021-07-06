@@ -28,8 +28,8 @@ typedef struct {
     bool PerInstruction;
     bool Master;
     uint32_t Size;
-    pthread_t threadid;
-    pthread_key_t imageid;
+    thread_key_t threadid;
+    image_key_t imageid;
     uint64_t* Counters;
     CounterTypes* Types;
     uint64_t* Addresses;
@@ -42,5 +42,18 @@ typedef struct {
     char* Extension;
     bool sanitize;
 } CounterArray;
+
+CounterArray* GenerateCounterArray(CounterArray* ctrs, uint32_t typ,
+  image_key_t iid, thread_key_t tid, image_key_t firstimage);
+uint64_t RefCounterArray(CounterArray* ctrs);
+void DeleteCounterArray(CounterArray* ctrs);
+
+// For testing only
+class DynamicInstrumentation;
+template <class T> class DataManager;
+void InitializeAllData(DataManager<CounterArray*>* d);
+void InitializeDynamicInstrumentation(DynamicInstrumentation* p);
+DataManager<CounterArray*>* GetAllData();
+DynamicInstrumentation* GetDynamicInstrumentation();
 
 #endif //_CounterFunctions_hpp_

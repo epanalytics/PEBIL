@@ -109,7 +109,7 @@ class AddressStreamDriver {
     bool IsSpatialLocality() { return runSpatialLocality; }
     bool IsSpatialLocalityPerMemOp() { return runSpatialLocalityPerMemOp; }
 
-    void ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
+    uint64_t ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
 
@@ -120,8 +120,9 @@ class AddressStreamDriver {
     virtual void SetUpTools();
 
     void ShutOffInstrumentationInAllBlocks();
-    void ShutOffInstrumentationInBlock(uint32_t blockID);
-    void ShutOffInstrumentationInBlocks(std::set<uint32_t>& blocks);
+    void ShutOffInstrumentationInBlock(uint64_t blockID, uint64_t imageSeq);
+    void ShutOffInstrumentationInBlocks(std::set<uint64_t>& blocks, image_key_t 
+      iid);
     void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
 
     // For Testing Purposes
