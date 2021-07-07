@@ -95,7 +95,6 @@ private:
 
     bool allowStatic;
     bool threadedMode;
-    bool hybridOffloadMode;
     bool multipleImages;
     bool perInstruction;
     bool saveAll;
@@ -222,8 +221,6 @@ public:
     void setAllowStatic() { allowStatic = true; }
     void setThreadedMode() { threadedMode = true; ASSERT(is64Bit() && "Threading support not available for IA32"); }
     bool isThreadedMode() { return threadedMode; }
-    void setHybridOffloadMode() { hybridOffloadMode = true; }
-    bool isHybridOffloadMode() { return hybridOffloadMode; }
     void setMultipleImages() { multipleImages = true; ASSERT(is64Bit() && "Multi-image support not available for IA32"); }
     bool isMultiImage() { return multipleImages; }
     void setPerInstruction() { perInstruction = true; }

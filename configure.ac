@@ -1,5 +1,24 @@
 #
 # Process this file with autoconf to produce a configure script.
+#/* 
+# * This file is part of the pebil project.
+# * 
+# * Copyright (c) 2010, University of California Regents
+# * All rights reserved.
+# * 
+# * This program is free software: you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation, either version 3 of the License, or
+# * (at your option) any later version.
+# *
+# * This program is distributed in the hope that it will be useful,
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# * GNU General Public License for more details.
+# *
+# * You should have received a copy of the GNU General Public License
+# * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# */
 
 AC_PREREQ([2.63])
 AC_INIT([FULL-PACKAGE-NAME], [VERSION], [BUG-REPORT-ADDRESS])
@@ -178,9 +197,6 @@ AC_CHECK_FUNCS([bzero memset])
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  tools/Makefile
-                 testapps/Makefile
-                 testapps/apps/Makefile
-                 testapps/toys/Makefile
                  instcode/Makefile
                  scripts/blacklist.sh
                  cshrc
