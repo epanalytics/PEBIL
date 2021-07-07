@@ -80,7 +80,6 @@ private:
 
     InstrumentationTool* (*maker)(ElfFile*);
 
-    void instrumentEmbeddedElf();
     EncryptTool encryptTool;
 
 protected:
