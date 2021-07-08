@@ -1,5 +1,0 @@
-*/*.o
-*/npbparams.h
-bin/
-sys/setparams
-config/make.def

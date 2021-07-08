@@ -79,7 +79,6 @@ private:
 
     InstrumentationTool* (*maker)(ElfFile*);
 
-    void instrumentEmbeddedElf();
 protected:
     uint64_t imageKey;
     uint64_t threadHash;

@@ -20,7 +20,6 @@
 
 #include <Base.h>
 #include <InstrumentationTool.h>
-#include <HybridPhiElfFile.h>
 #include <Vector.h>
 #include <getopt.h>
 
@@ -212,7 +211,6 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(dtl);
     DEFINE_FLAG(doi);
     DEFINE_FLAG(threaded);
-    DEFINE_FLAG(hybrid);
     DEFINE_FLAG(images);
     DEFINE_FLAG(perinsn);
     DEFINE_FLAG(saveall);
@@ -243,7 +241,7 @@ int main(int argc,char* argv[]){
         /* These options set a flag. */
         FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'),
         FLAG_OPTION(version, 'V'), FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), FLAG_OPTION(threaded, 'P'),
-        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'),
+        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'),
 
         /* These options take an argument
            We distinguish them by their indices. */
@@ -491,11 +489,7 @@ int main(int argc,char* argv[]){
         /********************* Create elf file object *************************/
         ElfFile* elfFile;
 
-        if (hybrid_flag){
-            elfFile = new HybridPhiElfFile(execName, appName);
-        } else {
-            elfFile = new ElfFile(execName, appName);
-        }
+        elfFile = new ElfFile(execName, appName);
 
         instrumented.insert(execName);
 
@@ -597,11 +591,6 @@ int main(int argc,char* argv[]){
 
             if (threaded_flag){
                 instTool->setThreadedMode();
-            }
-
-            if (hybrid_flag){
-                instTool->setHybridOffloadMode();
-                instTool->setMaker(maker);
             }
 
             if (images_flag){
