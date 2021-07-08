@@ -165,7 +165,7 @@ public:
     virtual uint32_t requiresArgs() { return PEBIL_OPT_NON; }
     bool isMasterImage();
     void setMasterImage(bool isMaster);
-    bool setSanitize(bool);
+    void setSanitize(bool);
     void printSanitizeTranslationFile(std::map<char*,std::string> lineInfo);
     bool sanitize=false;
 };

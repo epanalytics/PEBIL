@@ -1061,10 +1061,11 @@ InstrumentationPoint* InstrumentationTool::insertBlockCounter(uint64_t counterOf
 
     return p;
 }
-bool InstrumentationTool::setSanitize(bool encryption){
+void InstrumentationTool::setSanitize(bool encryption){
     encrypt=encryption;
     sanitize=true;
-    return setElfInstSanitize(true);
+    setElfInstSanitize(true);
+    return;
 }
 void InstrumentationTool::printSanitizeTranslationFile(std::map<char*,std::string> lineNoInfo){
     char translationName[__MAX_STRING_SIZE];
