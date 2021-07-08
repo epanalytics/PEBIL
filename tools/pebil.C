@@ -622,7 +622,7 @@ int main(int argc,char* argv[]){
 
             if (printinsnmaps_flag) {
                 instTool->setTrackRelocatedInsns();
-            }
+            } 
             
             ASSERT(instTool);
             instTool->phasedInstrumentation();

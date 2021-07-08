@@ -20,11 +20,11 @@
 
 #ifndef _Debug_h_
 #define _Debug_h_
-
 #include <iostream>
-
 // debugging macros -- these can produce copious amounts of output
+#ifndef WARNING_SEVERITY
 #define WARNING_SEVERITY 7
+#endif
 
 //#define DEVELOPMENT
 //#define DEBUG_MEMTRACK

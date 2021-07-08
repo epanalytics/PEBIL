@@ -2347,8 +2347,7 @@ X86Instruction::X86Instruction(TextObject* cont, uint64_t baseAddr, char* buff, 
         PRINT_ERROR("Problem doing instruction disassembly");
     }
     if(ud_obj.error) {
-        fprintf(stderr, "Unable to disassemble %d bytes at address 0x%llx\n", sizeInBytes, baseAddr);
-        fprintf(stderr, "0x%llx\n", *buff);
+       PRINT_WARN(1,"Unable to disassemble %d bytes at address 0x%llx\n0x%llx\n", sizeInBytes, baseAddr,*buff);
     }
 
     if(sz != sizeInBytes) {
@@ -2415,8 +2414,7 @@ X86Instruction::X86Instruction(TextObject* cont, uint64_t baseAddr, char* buff, 
         PRINT_ERROR("Problem doing instruction disassembly");
     }
     if(ud_obj.error) {
-        fprintf(stderr, "Unable to disassemble %d bytes at address 0x%llx\n", sizeInBytes, baseAddr);
-        fprintf(stderr, "0x%llx\n", *buff);
+        PRINT_WARN(1,"Unable to disassemble %d bytes at address 0x%llx\n0x%llx\n", sizeInBytes, baseAddr,*buff);
     }
 
 

@@ -46,7 +46,6 @@
 #define pebil_map_type map
 #include <map>
 #endif
-
 typedef void (*fprintf_ftype)(FILE*, const char*, ...);
 extern FILE* pebilOutp;
 extern uint64_t warnCount;
@@ -96,18 +95,14 @@ extern uint64_t warnCount;
     fprintf(stderr,"\n");                                \
     ASSERT(0); \
     exit(-1);
-
 #define PRINT_INFOR(...) fprintf(pebilOutp,"[pebil-instr] "); \
     fprintf(pebilOutp,## __VA_ARGS__);                        \
     fprintf(pebilOutp,"\n");                                  \
     fflush(pebilOutp);
-
 #define PRINT_INFO() fprintf(pebilOutp,"[pebil-instr] "); \
     fflush(pebilOutp);
-
 #define PRINT_OUT(...) fprintf(pebilOutp,## __VA_ARGS__); \
     fflush(pebilOutp);
-
 #ifdef WARNING_SEVERITY
 #define WARN_FILE stdout
 #define PRINT_WARN(__severity,...)  if (__severity >= WARNING_SEVERITY){ \
