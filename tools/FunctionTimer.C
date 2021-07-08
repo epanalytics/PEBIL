@@ -235,8 +235,8 @@ void FunctionTimer::instrument(){
         Vector<BasicBlock*>* removedEntries = toInstrumentAsEntry.removeRep(
           compareBaseAddress);
         for (uint32_t j = 0; j < toInstrumentAsEntry.size(); j++) {
-            PRINT_INFOR("Instrumenting with entry - function %s at 0x%llx\n", 
-              f->getName(), toInstrumentAsEntry[j]->getBaseAddress());
+            //PRINT_INFOR("Instrumenting with entry - function %s at 0x%llx\n", 
+            //  f->getName(), toInstrumentAsEntry[j]->getBaseAddress());
             instrumentEntry(toInstrumentAsEntry[j], functionEntryIndexRegister, 
               i);
         }
@@ -253,8 +253,8 @@ void FunctionTimer::instrument(){
               !(*exitBlocks)[j]->getExitInstruction()->isUnconditionalBranch())
                 continue;
 
-            PRINT_INFOR("Instrumenting exit block for %s at 0x%llx\n", 
-              f->getName(), (*exitBlocks)[j]->getBaseAddress());
+            //PRINT_INFOR("Instrumenting exit block for %s at 0x%llx\n", 
+            //  f->getName(), (*exitBlocks)[j]->getBaseAddress());
             FlagsProtectionMethods prot = FlagsProtectionMethod_full;
             X86Instruction* bestinst = (*exitBlocks)[j]->getExitInstruction();
             InstLocations loc = InstLocation_prior;
