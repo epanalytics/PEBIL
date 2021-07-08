@@ -437,7 +437,9 @@ extern "C"
                                 << TAB << hex << c->Hashes[i]
                                 << TAB << dec << imgseq
                                 << TAB << dec << counter
-                                << TAB << "#" << hex << c->Addresses[i]
+                                << TAB << "# " << "__pebil_unknown__:0"
+                                << TAB << hex << c->Hashes[i] //function "name"
+                                << TAB << hex << c->Addresses[i]
                                 << TAB << dec << c->BlockIds[i]
                                 << ENDL;
                         } else {
@@ -447,7 +449,9 @@ extern "C"
                                 << TAB << hex << c->Hashes[i]
                                 << TAB << dec << imgseq
                                 << TAB << dec << counter
-                                << TAB << "#" << hex << c->Addresses[i]
+                                << TAB << "# " << "__pebil_unknown__:0"
+                                << TAB << hex << c->Hashes[i] //function "name"
+                                << TAB << hex << c->Addresses[i]
                                 << ENDL;
                         }
                         
