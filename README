@@ -1,0 +1,108 @@
+This document contains the basics for running and using the
+PEBIL binary instrumentation package. Direct any questions or
+comments to allysonc@epanalytics.com
+
+1. Installation - Please see /path/to/pebil/INSTALL
+
+2. Source PEBIL - Bring the PEBIL into your environment:
+
+      cd /path/to/pebil
+      source bashrc
+
+3. Compile the application to be instrumented. The application 
+   must be compiled with -g.
+
+4. Instrument the application:
+
+      pebil --tool <ChosenTool> --app <YourApplication> --saveall
+
+   See below for tool descriptions.
+
+   Other options to consider:
+
+      A. --threaded
+         Use this option if your application is compiled with 
+         OpenMP
+
+      B. --sanitize
+         Use this option if your application is sensitive and 
+         you would like to share PEBIL output with others
+
+      C. --fbl <file>
+         Use this option if you would like to blacklist or 
+         whitelist certain functions
+
+         For a blacklist, create a file with the functions 
+         you don't want instrumented, one on each line:
+
+             function1
+             function2
+             function3
+             ...
+
+        For a whitelist, create a file with the functions
+        you want instrumented, one on each line, and add
+        a * at the top of the file:
+
+             *
+             function1
+             function2
+             function3
+             ...
+
+5. Tune the tool using environment variables - Some tools 
+   have parameters that can be set through the environment.
+   For example, if you want the function timer tool to 
+   stop timing very short functions, you would set the 
+   following variable:
+
+        export FTIMER_SHUTOFF=1
+
+   More information about the possible environment variables 
+   is available below.
+
+6. Run the application. PEBIL will produce an instrumented 
+   binary, which usually has the name of the application 
+   followed by a special suffix (e.g. 
+   <YourApplication>.jbbinst). Replace your binary with 
+   this instrumented binary, but otherwise run it as normal!
+
+   For example, if you normally run your application like:
+
+        mpirun -np 32 ./theApp -x 4 -y 4 -z 2 < input.txt
+
+   You would run the instrumented application like: 
+
+        mpirun -np 32 ./theApp.jbbinst -x 4 -y 4 -z 2 < input.txt
+
+
+*********************************************************************
+
+PEBIL Tools
+
+
+1. Basic Block Counting
+   A low-impact tool that reports how often code was executed. 
+   Useful for determining where to start performance analysis.
+
+       pebil --tool BasicBlockCounter --app <APP> ...
+
+   Generates an instrumented binary called <APP>.jbbinst
+
+2. Function Timing
+   A tool for timing how long the application spends in each 
+   function. Useful for performing a hot-spot analysis
+
+      pebil --tool Function Timer --app <APP> --lnc libtimer.so ...
+
+   Generates an instrumented binary called <APP>.ftiminst
+
+   Consider setting the following environment variables:
+
+      A. FTIMER_CPU_FREQ=<FREQ>
+         Set the CPU frequency (in Hz).
+
+      B. FTIMER_SHUTOFF=1
+         Turn off small functions which may report skewed times 
+         due to the overhead of timing the function
+   

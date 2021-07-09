@@ -104,7 +104,7 @@ fi
 AC_SUBST(PEBIL_DEBUG)
 
 AC_ARG_ENABLE(static, AC_HELP_STRING([--enable-static], [Build a statically-linked pebil executable in addition to a dynamically-linked executable [yes]]), static_ok=$enableval)
-if test "$static_ok" != "no"; then
+if test "$static_ok" == "yes"; then
    PEBIL_STATIC_BUILD="yes"
 else
    PEBIL_STATIC_BUILD="no"

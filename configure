@@ -5862,7 +5862,7 @@ if test "${enable_static+set}" = set; then :
   enableval=$enable_static; static_ok=$enableval
 fi
 
-if test "$static_ok" != "no"; then
+if test "$static_ok" == "yes"; then
    PEBIL_STATIC_BUILD="yes"
 else
    PEBIL_STATIC_BUILD="no"
