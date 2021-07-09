@@ -16,11 +16,11 @@
 
 //#define PEBIL_DEBUG(...) fprintf(stdout, "PEBIL_DEBUG: "); fprintf(stdout, __VA_ARGS__); fprintf(stdout, "\n"); fflush(stdout);
 #define PEBIL_DEBUG(...)
-#define PEBIL_WARN(...) fprintf(stderr, __VA_ARGS__)
+//#define PEBIL_WARN(...) fprintf(stderr, __VA_ARGS__)
+#define PEBIL_WARN(...) PEBIL_DEBUG(__VA_ARGS__)
 
 /* The max number of prefixes to an instruction */
 #define MAX_PREFIXES    15
-
 static struct ud_itab_entry ie_invalid = { UD_Iinvalid, O_NONE, O_NONE, O_NONE, O_NONE, F_none, F_none, R_none, R_none, P_none };
 static struct ud_itab_entry ie_pause   = { UD_Ipause,   O_NONE, O_NONE, O_NONE, O_NONE, F_none, F_none, R_none, R_none, P_none };
 static struct ud_itab_entry ie_nop     = { UD_Inop,     O_NONE, O_NONE, O_NONE, O_NONE, F_none, F_none, R_none, R_none, P_none };
@@ -733,7 +733,8 @@ static int search_itab( struct ud * u )
             case 0x0300: tableid = ITAB__MVEX__0F__OP___3BYTE_3A__REG;              break;
 
             default:
-                PEBIL_WARN("Unkown mvex table 0x%hhx\n", (MVEX_M4(u->mvex[0]) << 8) | (u->pfx_avx));
+                PEBIL_WARN("Unknown mvex table 0x%hhx\n", (MVEX_M4(u->mvex[0]) 
+                  << 8) | (u->pfx_avx));
                 u->error = 1;
                 return -1;
         }

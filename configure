@@ -642,6 +642,7 @@ PEBIL_MPIFC_OPENMPI_LIB
 OPENMPI_IS_NEW
 PEBIL_CXX_BINDINGS
 PEBIL_STATIC_BUILD
+PEBIL_DEBUG
 MPICXX
 MPIFC
 MPILIBS
@@ -711,6 +712,7 @@ enable_mpiinit_check
 with_throttler_headers
 with_epa_tools
 enable_papi
+debug
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1361,6 +1363,7 @@ Optional Features:
   --enable-mpiinit-check  Disable output file printing in inst libraries
                           unless mpi_init is executed [no]
   --enable-papi           Build with PAPI hardware counter support [yes]
+  --debug                 Build with debug print statments
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -5865,6 +5868,16 @@ else
    PEBIL_STATIC_BUILD="no"
 fi
 
+if test "${enable_debug+set}" = set; then :
+  enableval=$enable_debug; debug_ok=$enableval
+fi
+
+if test "$debug_ok" != "yes"; then
+   PEBIL_DEBUG="-DWARNING_SEVERITY=20"
+else
+   PEBIL_DEBUG="-DINFORM "
+fi
+
 
 # Check whether --enable-mpicxxbind was given.
 if test "${enable_mpicxxbind+set}" = set; then :
@@ -6272,7 +6285,6 @@ if test "$enable_papi_ok" = "yes"; then
 else
   PEBIL_PAPI_BUILD="no"
 fi
-
 
 
 

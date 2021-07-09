@@ -94,6 +94,15 @@ if test "$ax_cv_cxx_unordered_map" = "yes"; then
    CXXFLAGS="$CXXFLAGS -DHAVE_UNORDERED_MAP"
 fi
 
+#Allow debug option
+AC_ARG_ENABLE(debug, AC_HELP_STRING([--debug], [Print debugging information [no]]),debug_ok=$enableval)
+if test "$debug_ok" !="yes"; then
+    PEBIL_DEBUG="-DWARNING_SEVERITY=20"
+else
+    PEBIL_DEBUG="-DINFORM"
+fi
+AC_SUBST(PEBIL_DEBUG)
+
 AC_ARG_ENABLE(static, AC_HELP_STRING([--enable-static], [Build a statically-linked pebil executable in addition to a dynamically-linked executable [yes]]), static_ok=$enableval)
 if test "$static_ok" == "yes"; then
    PEBIL_STATIC_BUILD="yes"

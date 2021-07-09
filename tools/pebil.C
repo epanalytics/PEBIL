@@ -97,7 +97,7 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--lnc <lib1.so,lib2.so>] : list of shared libraries to put in executable's dynamic table\n");
     fprintf(stderr,"\t\t[--help] : print help message and exit\n");
     fprintf(stderr,"\t\t[--version] : print version number and exit\n");
-    fprintf(stderr,"\t\t[--silent] : print nothing to stdout\n");
+    fprintf(stderr,"\t\t[--silent] : suppress inform statements\n");
     fprintf(stderr,"\t\t[--dry] : quit before processing any executables\n");
     fprintf(stderr,"\t\t[--threaded] : implement thread safety features and keep statistics per thread\n");
     fprintf(stderr,"\t\t[--images] : prepare for multiple images\n");
@@ -121,13 +121,13 @@ void printUsage(const char* msg = NULL){
 }
 
 void printSuccess(){
-    PRINT_INFOR("******** Instrumentation Successful ********");
+    PRINT_ALWAYS("******** Instrumentation Successful ********");
 }
 
 void printDone(){
-    PRINT_INFOR("");
-    PRINT_INFOR("******** DONE ******** SUCCESS ***** SUCCESS ***** SUCCESS ********");
-    PRINT_INFOR("");
+    PRINT_ALWAYS("");
+    PRINT_ALWAYS("******** DONE ******** SUCCESS ***** SUCCESS ***** SUCCESS ********");
+    PRINT_ALWAYS("");
 }
 
 typedef enum {
@@ -630,7 +630,7 @@ int main(int argc,char* argv[]){
 
             if (printinsnmaps_flag) {
                 instTool->setTrackRelocatedInsns();
-            }
+            } 
             
             ASSERT(instTool);
             instTool->phasedInstrumentation();

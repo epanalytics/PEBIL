@@ -24,7 +24,7 @@ endif
 endif
 
 CXX         = g++
-CXXFLAGS    = -g -O2 -std=gnu++0x -DHAVE_UNORDERED_MAP @MPI_FLAGS@ -w $(DEBUGFLAGS) @PEBIL_BUILD_FOR_AVX512@ -fopenmp
+CXXFLAGS    = -g -O2 -std=gnu++0x -DHAVE_UNORDERED_MAP @MPI_FLAGS@ -w $(DEBUGFLAGS) @PEBIL_BUILD_FOR_AVX512@ -fopenmp @PEBIL_DEBUG@
 
 AR          = ar cru
 EXTRA_FLAGS =

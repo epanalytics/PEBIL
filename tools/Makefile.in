@@ -21,7 +21,7 @@ include ../VERSION
 
 AR            = ar cru
 CXX           = @CXX@
-CXXFLAGS      = @CXXFLAGS@ @MPI_FLAGS@ -DPEBIL_VER="\"$(PEBIL_FULL_VER)\"" -w
+CXXFLAGS      = @CXXFLAGS@ @MPI_FLAGS@ -DPEBIL_VER="\"$(PEBIL_FULL_VER)\"" @PEBIL_DEBUG@ -w 
 SHARED_OPT    = -fPIC
 SHARED_LIB    = -shared
 STATIC_OPT    = -DSTATIC_BUILD
@@ -42,6 +42,7 @@ DLIBS = $(foreach var,$(TOOLS),lib$(var)Tool.so)
 SLIBS = $(foreach var,$(TOOLS),lib$(var)Tool.a)
 
 PEBIL_STATIC_BUILD = @PEBIL_STATIC_BUILD@
+
 ifeq ($(PEBIL_STATIC_BUILD),yes)
 	TARGETS  = pebil pebil.static
 	LIBS     = $(DLIBS) $(SLIBS)

@@ -32,6 +32,7 @@
 #include <SectionHeader.h>
 #include <TextSection.h>
 
+bool ERROR_ENCOUNTERED=false;
 
 X86Instruction* X86Instruction::getFallthroughInstruction() {
     uint32_t taddr = getBaseAddress() + getSizeInBytes();
@@ -2347,8 +2348,7 @@ X86Instruction::X86Instruction(TextObject* cont, uint64_t baseAddr, char* buff, 
         PRINT_ERROR("Problem doing instruction disassembly");
     }
     if(ud_obj.error) {
-        fprintf(stderr, "Unable to disassemble %d bytes at address 0x%llx\n", sizeInBytes, baseAddr);
-        fprintf(stderr, "0x%llx\n", *buff);
+       PRINT_WARN(1,"Unable to disassemble %d bytes at address 0x%llx\n0x%llx\n", sizeInBytes, baseAddr,*buff);
     }
 
     if(sz != sizeInBytes) {
@@ -2415,8 +2415,11 @@ X86Instruction::X86Instruction(TextObject* cont, uint64_t baseAddr, char* buff, 
         PRINT_ERROR("Problem doing instruction disassembly");
     }
     if(ud_obj.error) {
-        fprintf(stderr, "Unable to disassemble %d bytes at address 0x%llx\n", sizeInBytes, baseAddr);
-        fprintf(stderr, "0x%llx\n", *buff);
+        if (!ERROR_ENCOUNTERED){
+            ERROR_ENCOUNTERED=true;
+            PRINT_WARN(20,"Unable to disassemble at least one byte. This may be fault of an instruction. Investigate further if instrumented binary seg faults\n");
+        }
+        PRINT_WARN(10,"Unable to disassemble %d bytes at address 0x%llx\n", sizeInBytes, baseAddr);
     }
 
 
@@ -2502,7 +2505,7 @@ void X86Instruction::print(){
         sprintf(hexcode + (2*i), "%02hhx", GET(insn_bytes)[i]);
     }
 
-    PRINT_INFOR("%#llx:\t%16s\t%s\tflgs:[%10s]\t-> %#llx", getBaseAddress(), hexcode, GET(insn_buffer), flags, getTargetAddress());
+    //PRINT_INFOR("%#llx:\t%16s\t%s\tflgs:[%10s]\t-> %#llx", getBaseAddress(), hexcode, GET(insn_buffer), flags, getTargetAddress());
 
 #ifdef PRINT_INSTRUCTION_DETAIL
 #ifndef NO_REG_ANALYSIS
