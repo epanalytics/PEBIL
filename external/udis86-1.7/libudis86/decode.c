@@ -16,7 +16,8 @@
 
 //#define PEBIL_DEBUG(...) fprintf(stdout, "PEBIL_DEBUG: "); fprintf(stdout, __VA_ARGS__); fprintf(stdout, "\n"); fflush(stdout);
 #define PEBIL_DEBUG(...)
-#define PEBIL_WARN(...) fprintf(stderr, __VA_ARGS__)
+//#define PEBIL_WARN(...) fprintf(stderr, __VA_ARGS__)
+#define PEBIL_WARN(...) PEBIL_DEBUG(__VA_ARGS__)
 
 /* The max number of prefixes to an instruction */
 #define MAX_PREFIXES    15
@@ -668,13 +669,11 @@ static int search_itab( struct ud * u )
 
                 /* all other values are undefined */
                 default:
-#ifdef INFORM
                     PEBIL_WARN("invalid VEX.MMMMM/sse field found: %#hhx/%#hhx\n", VEX_M5(u->avx_vex[1]), u->pfx_avx);
                     PEBIL_WARN("combined: %x\n", (VEX_M5(u->avx_vex[1]) << 8) | (u->pfx_avx));
                     gen_hex(u);
                     PEBIL_WARN(" hex: %hhx %hhx %hhx %hhx ...\n", u->insn_bytes[0], u->insn_bytes[1], u->insn_bytes[2], u->insn_bytes[3]);
                     PEBIL_WARN(" should be located in table 0x0%x\n", (VEX_M5(u->avx_vex[1]) << 8) | (u->pfx_avx));
-#endif
                     u->error = 1;
                     return -1;
             }
@@ -734,7 +733,8 @@ static int search_itab( struct ud * u )
             case 0x0300: tableid = ITAB__MVEX__0F__OP___3BYTE_3A__REG;              break;
 
             default:
-                //PEBIL_WARN("Unknown mvex table 0x%hhx\n", (MVEX_M4(u->mvex[0]) << 8) | (u->pfx_avx));
+                PEBIL_WARN("Unknown mvex table 0x%hhx\n", (MVEX_M4(u->mvex[0]) 
+                  << 8) | (u->pfx_avx));
                 u->error = 1;
                 return -1;
         }
