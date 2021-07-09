@@ -99,7 +99,7 @@ AC_ARG_ENABLE(debug, AC_HELP_STRING([--debug], [Print debugging information [no]
 if test "$debug_ok" !="yes"; then
     PEBIL_DEBUG="-DWARNING_SEVERITY=20"
 else
-    PEBIL_DEBUG=""
+    PEBIL_DEBUG="-DINFORM"
 fi
 AC_SUBST(PEBIL_DEBUG)
 

@@ -95,7 +95,14 @@ extern uint64_t warnCount;
     fprintf(stderr,"\n");                                \
     ASSERT(0); \
     exit(-1);
-#define PRINT_INFOR(...) fprintf(pebilOutp,"[pebil-instr] "); \
+#define ALWAYS_FILE stdout
+#define PRINT_ALWAYS(...) fprintf(ALWAYS_FILE,"[pebil-instr]"); \
+    fprintf(ALWAYS_FILE,## __VA_ARGS__);                        \
+    fprintf(ALWAYS_FILE,"\n");                                  \
+    fflush(ALWAYS_FILE);
+
+#ifdef INFORM
+#define PRINT_INFOR(...) fprintf(pebilOutp,"[pebil-inform] "); \
     fprintf(pebilOutp,## __VA_ARGS__);                        \
     fprintf(pebilOutp,"\n");                                  \
     fflush(pebilOutp);
@@ -103,6 +110,13 @@ extern uint64_t warnCount;
     fflush(pebilOutp);
 #define PRINT_OUT(...) fprintf(pebilOutp,## __VA_ARGS__); \
     fflush(pebilOutp);
+#else
+#define PRINT_INFOR(...)
+#define PRINT_INFO()
+#define PRINT_OUT(...)
+#endif
+
+
 #ifdef WARNING_SEVERITY
 #define WARN_FILE stdout
 #define PRINT_WARN(__severity,...)  if (__severity >= WARNING_SEVERITY){ \

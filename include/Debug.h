@@ -23,7 +23,7 @@
 #include <iostream>
 // debugging macros -- these can produce copious amounts of output
 #ifndef WARNING_SEVERITY
-#define WARNING_SEVERITY 7
+#define WARNING_SEVERITY 1
 #endif
 
 //#define DEVELOPMENT
