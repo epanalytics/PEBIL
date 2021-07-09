@@ -54,6 +54,16 @@ uint32_t FreeText::getNumberOfInstructions(){
 }
 
 char* TextObject::getName(){
+    if (sanitizeName[0]=='\0'){
+        if (symbol){
+            return symbol->getSymbolName();
+        }
+        return symbol_without_name;
+    } else {
+        return sanitizeName;
+    }
+}
+char* TextObject::getRealName(){
     if (symbol){
         return symbol->getSymbolName();
     }
@@ -357,6 +367,7 @@ TextObject::TextObject(PebilClassTypes typ, TextSection* text, uint32_t idx, Sym
     index = idx;
     baseAddress = addr;
     sizeInBytes = sz;
+    sprintf(sanitizeName,"%s","");
 }
 
 
@@ -375,7 +386,7 @@ TextSection::TextSection(char* filePtr, uint64_t size, uint16_t scnIdx, uint32_t
     source = src;
 }
 
-uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile){
+uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile,bool sanitize){
     SectionHeader* sectionHeader = elfFile->getSectionHeader(getSectionIndex());
 
     Vector<Symbol*> textSymbols = discoverTextObjects();
@@ -392,7 +403,7 @@ uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile){
             }
 
             if (textSymbols[i]->isFunctionSymbol(this)){
-                sortedTextObjects.append(new Function(this, i, textSymbols[i], size));
+                sortedTextObjects.append(new Function(this, i, textSymbols[i], size,sanitize)); 
                 ASSERT(sortedTextObjects.back()->isFunction());
 #ifdef GENERATE_BLACKLIST
                 fprintf(stdout, "pebil_function_list %s\n", ((Function*)sortedTextObjects.back())->getName());
@@ -419,7 +430,7 @@ uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile){
             size = textSymbols[i]->GET(st_size);
         }
         if (textSymbols.back()->isFunctionSymbol(this)){
-            sortedTextObjects.append(new Function(this, i, textSymbols.back(), size));
+            sortedTextObjects.append(new Function(this, i, textSymbols.back(), size,sanitize));
         } else {
             sortedTextObjects.append(new FreeText(this, i, textSymbols.back(), textSymbols.back()->GET(st_value), size, false));
         }

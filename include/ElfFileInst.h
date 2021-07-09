@@ -100,6 +100,7 @@ private:
     bool saveAll;
     bool saveZmmRegs;
     bool trackRelocatedInsns; // Map relocated addresses to origin
+    bool sanitize;
 
     ProgramHeader* instSegment;
 
@@ -266,6 +267,7 @@ public:
     virtual void instrument() { __SHOULD_NOT_ARRIVE; }
     virtual const char* getExtension() { __SHOULD_NOT_ARRIVE; }
     virtual bool canRelocateFunction(Function* func) { return true; }
+    void setElfInstSanitize(bool input){ sanitize=input; }
 };
 
 

@@ -135,6 +135,7 @@ FunctionTimers* GenerateFunctionTimers(FunctionTimers* timers, uint32_t typ, ima
 
     retval->appTimeStart = timers->appTimeStart;
     retval->appTimeOfDayStart = timers->appTimeOfDayStart;
+    retval->sanitize = timers->sanitize;
 
     // read in key environment variables
     if (!ReadEnvUint32("FTIMER_SHUTOFF", &shutoffFunctionTimers)){
@@ -420,30 +421,51 @@ extern "C"
             char** functionNames = imageData->functionNames;
             uint64_t functionCount = imageData->functionCount;
             for (uint64_t funcIndex = 0; funcIndex < functionCount; ++funcIndex)            {
-                char* fname = functionNames[funcIndex];
-                fprintf(outFile, "\n%s:\t", fname);
-                for (set<thread_key_t>::iterator tit = 
-                  AllData->allthreads.begin(); tit != 
-                  AllData->allthreads.end(); ++tit) {
-                    FunctionTimers* timers = AllData->GetData(*iit, *tit);
+                if (timers->sanitize){
+                    fprintf(outFile, "\n0x%llx:\t", timers->functionHashes[funcIndex]);
+                    for (set<thread_key_t>::iterator tit = 
+                      AllData->allthreads.begin(); tit != 
+                      AllData->allthreads.end(); ++tit) {
+                        FunctionTimers* timers = AllData->GetData(*iit, *tit);
 
-                    if(timers->functionShutoff[funcIndex]==1) {
-                        fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
-                          "%lld\tHash: 0x%llx\tImage: %d\t*\t", 
-                          AllData->GetThreadSequence(*tit), 
-                          (double)(timers->functionTimerAccum[funcIndex])
-                          / timerCPUFreq, 
-                          timers->functionEntryCounts[funcIndex],
-                          timers->functionHashes[funcIndex],
-                          AllData->GetImageSequence(*iit));
-                    } else {
-                        fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
-                          "%lld\tHash: 0x%llx\tImage: %d\t", 
-                          AllData->GetThreadSequence(*tit), (double)(timers->
-                          functionTimerAccum[funcIndex]) / timerCPUFreq, 
-                          timers->functionEntryCounts[funcIndex],
-                          timers->functionHashes[funcIndex],
-                          AllData->GetImageSequence(*iit));
+                        if(timers->functionShutoff[funcIndex]==1) {
+                            fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
+                              "%lld\tImage: %d\t*", AllData->GetThreadSequence(*tit), (double)(timers->
+                              functionTimerAccum[funcIndex]) / timerCPUFreq, 
+                              timers->functionEntryCounts[funcIndex],
+                              AllData->GetImageSequence(*iit));
+                        } else {
+                            fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
+                              "%lld\tImage: %d\t", AllData->GetThreadSequence(*tit), (double)(timers->
+                              functionTimerAccum[funcIndex]) / timerCPUFreq, 
+                              timers->functionEntryCounts[funcIndex],
+                              AllData->GetImageSequence(*iit));
+                        }
+                    }
+                } else {
+                    char* fname; 
+                    fname = functionNames[funcIndex];//ELIZABETH REPLACE
+                    fprintf(outFile, "\n%s:\t", fname);
+                    for (set<thread_key_t>::iterator tit = 
+                      AllData->allthreads.begin(); tit != 
+                      AllData->allthreads.end(); ++tit) {
+                        FunctionTimers* timers = AllData->GetData(*iit, *tit);
+
+                        if(timers->functionShutoff[funcIndex]==1) {
+                            fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
+                              "%lld\tHash: 0x%llx\tImage: %d*\t", AllData->GetThreadSequence(*tit), (double)(timers->
+                              functionTimerAccum[funcIndex]) / timerCPUFreq, 
+                              timers->functionEntryCounts[funcIndex], timers->
+                              functionHashes[funcIndex],
+                              AllData->GetImageSequence(*iit));
+                        } else {
+                            fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
+                              "%lld\tHash: 0x%llx\tImage: %d\t", AllData->GetThreadSequence(*tit), (double)(timers->
+                              functionTimerAccum[funcIndex]) / timerCPUFreq, 
+                              timers->functionEntryCounts[funcIndex], timers->
+                              functionHashes[funcIndex],
+                              AllData->GetImageSequence(*iit));
+                        }
                     }
                 }
             }
