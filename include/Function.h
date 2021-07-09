@@ -58,7 +58,7 @@ protected:
 
     Vector<X86Instruction*>* digestRecursive();
 public:
-    Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz);
+    Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz, bool sanitize);
     ~Function();
 
     void wedge(uint32_t shamt);

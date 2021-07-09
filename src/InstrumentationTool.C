@@ -1061,7 +1061,32 @@ InstrumentationPoint* InstrumentationTool::insertBlockCounter(uint64_t counterOf
 
     return p;
 }
+void InstrumentationTool::setSanitize(bool encryption){
+    encrypt=encryption;
+    sanitize=true;
+    setElfInstSanitize(true);
+    return;
+}
+void InstrumentationTool::printSanitizeTranslationFile(std::map<char*,std::string> lineNoInfo){
+    char translationName[__MAX_STRING_SIZE];
+    sprintf(translationName,"%s%s",getApplicationName(),".translation");
+    FILE* fd = fopen(translationName,"w");
+    fprintf(fd,"Alias\tFunction Name\tFile Name\tLine No.\n");
+    for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+        Function* f = getExposedFunction(i);
+        char* realName = f->getRealName();
+        char* fakeName=f->getName();
+        fprintf(fd,"%s\t%s\t%s\n",fakeName,realName,lineNoInfo[realName].c_str());
+    }
+    fclose(fd);
+    if (encrypt){
+        encryptTool = EncryptTool();
+        encryptTool.getPasswordFromUser(Encrypt);
+    //sprintf(encryptComm,"$PEBIL_ROOT/scripts/encryptGPG.sh %s %s",sanitizePassword,translationName);
+    //system(encryptComm);
+    }
 
+}
 void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
   allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* 
   allBlockLineInfos, uint32_t bufferSize){
@@ -1163,6 +1188,8 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     // Parallelize creation output for each block
     // Store output in a map: basic blocks --> output
     std::map<uint32_t, std::string> staticAnalysisOutput;
+    std::map<char*,std::string> functionLineNo;
+
 #pragma omp parallel for schedule(dynamic,1)
     for (uint32_t i = 0; i < numberOfInstPoints; i++) {
         uint32_t noInst = 0;
@@ -1205,15 +1232,30 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             fileName = INFO_UNKNOWN;
             lineNo = 0;
         }
-
+    if (sanitize){
+#pragma omp critical
+        if (f->getBasicBlockAtAddress(f->getBaseAddress())->getHashCode().getValue()==bb->getHashCode().getValue()){
+            for (uint32_t x; x<getNumberOfExposedFunctions();x++){
+                Function* temp = getExposedFunction(x);
+                if (temp->getName() == f->getName()){ //Hashcode bc sanitized, name will be unique
+                    std::string nm(fileName);
+                    std::string res = nm+"\t"+std::to_string(lineNo);
+                    functionLineNo.emplace(f->getRealName(),res);
+                    //fprintf(stderr,"ELIZABETH!!! %s at name %s %s\n",functionLineNo[f->getName()].c_str(),f->getRealName(),f->getName());
+                    break;
+                }
+            }
+        }
+        fileName=INFO_UNKNOWN;
+        lineNo=0;
+    }
         uint32_t bufferPointer = sprintf(thisBuffer, "%d\t%lld\t%d\t%d\t%d\t%s"
-          ":%d\t%s\t# %#llx\t%#llx\n", (*allBlockIds)[i], 
-          bb->getHashCode().getValue(), 
-          bb->getNumberOfMemoryOps(), bb->getNumberOfFloatOps(), 
-          bb->getNumberOfInstructions(), fileName, lineNo, 
-          bb->getFunction()->getName(), bb->getHashCode().getValue(), 
-          bb->getLeader()->getProgramAddress());
-
+        ":%d\t%s\t# %#llx\t%#llx\n", (*allBlockIds)[i], 
+        bb->getHashCode().getValue(), 
+        bb->getNumberOfMemoryOps(), bb->getNumberOfFloatOps(), 
+        bb->getNumberOfInstructions(), fileName, lineNo, 
+        bb->getFunction()->getName(), bb->getHashCode().getValue(), 
+        bb->getLeader()->getProgramAddress());
         if (printDetail) {
             uint32_t loopLoc = 0;
             if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())) {
@@ -1482,12 +1524,12 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                 }
             }
             for(uint32_t elemSize = 0; elemSize < 16; ++elemSize) {
-	              uint32_t fpcnt = unknownFP[elemSize];
-	              uint32_t intcnt = unknownInt[elemSize];
-	              if(fpcnt > 0 || intcnt > 0) {
+                  uint32_t fpcnt = unknownFP[elemSize];
+                  uint32_t intcnt = unknownInt[elemSize];
+                  if(fpcnt > 0 || intcnt > 0) {
                     bufferPointer += sprintf(thisBuffer + bufferPointer, 
                       "\t???x%d:%d:%d", (elemSize+1) * 8, fpcnt, intcnt);
-	              }     
+                  }     
             }
             if(unkFP > 0 || unkInt > 0) {
                 bufferPointer += sprintf(thisBuffer + bufferPointer, 
@@ -1512,20 +1554,20 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                 }
             }
             for(uint32_t elemSize = 0; elemSize < 16; ++elemSize) {
-	              uint32_t fpcnt = unknownFP[elemSize];
-	              uint32_t intcnt = unknownInt[elemSize];
-	              uint32_t ldcnt = unknownLd[elemSize];
-	              uint32_t stcnt = unknownSt[elemSize];
-	              uint32_t dupcnt = unknownDup[elemSize];
-	              if(fpcnt > 0 || intcnt > 0 || ldcnt > 0 || stcnt > 0) {
+                  uint32_t fpcnt = unknownFP[elemSize];
+                  uint32_t intcnt = unknownInt[elemSize];
+                  uint32_t ldcnt = unknownLd[elemSize];
+                  uint32_t stcnt = unknownSt[elemSize];
+                  uint32_t dupcnt = unknownDup[elemSize];
+                  if(fpcnt > 0 || intcnt > 0 || ldcnt > 0 || stcnt > 0) {
                     bufferPointer += sprintf(thisBuffer + bufferPointer, 
-		                "\t???x%d:%d:%d:%d:%d:%d", (elemSize+1) * 8, fpcnt, intcnt,
+                        "\t???x%d:%d:%d:%d:%d:%d", (elemSize+1) * 8, fpcnt, intcnt,
                     ldcnt, stcnt, dupcnt);
-	              }     
+                  }     
             }
             if(unkFP > 0 || unkInt > 0 || unkLd > 0 || unkSt > 0) {
                 bufferPointer += sprintf(thisBuffer + bufferPointer, 
-	              "\t???x8:%d:%d:%d:%d:%d", unkFP, unkInt, unkLd, unkSt, unkDup);
+                  "\t???x8:%d:%d:%d:%d:%d", unkFP, unkInt, unkLd, unkSt, unkDup);
             }
             bufferPointer += sprintf(thisBuffer + bufferPointer, " # %#llx\n", 
               bb->getHashCode().getValue());
@@ -1546,6 +1588,9 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
 
     ASSERT(currentPhase == ElfInstPhase_user_reserve && 
       "Instrumentation phase order must be observed"); 
+    if (sanitize){
+        printSanitizeTranslationFile(functionLineNo);
+    }
 }
 
 
@@ -1616,7 +1661,6 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
         Function* f = getExposedFunction(i);
         std::string thisFuncName = f->getName();
-
         // initialize the calltree map
         if(!callTreeInfo.count(thisFuncName)) {
           std::set<std::string> temp;
@@ -1639,22 +1683,36 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
             X86Instruction* ins = finstructions[j];
             // only if the instruction is a call
             if (ins->isCall()) {
-	              // and the target address is not in the self
-	              if (!f->inRange(ins->getTargetAddress())) {
-	                  // get the function name
-	                  uint64_t callTgtAddr = ins->getTargetAddress();
-	                  Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
-                      callTgtAddr);
-	                  char* callTgtName = INFO_UNKNOWN;
-	                  if (functionSymbol && functionSymbol->getSymbolName()) {
-	                      callTgtName = functionSymbol->getSymbolName();
-	                  }
-	                  std::set<std::string> temp =
-	                    (std::set<std::string>)callTreeInfo.at(thisFuncName);
-	                  temp.insert(callTgtName);
+                  // and the target address is not in the self
+                  if (!f->inRange(ins->getTargetAddress())) {
+                      // get the function name
+                      uint64_t callTgtAddr = ins->getTargetAddress();
+                      char* callTgtName = INFO_UNKNOWN;
+              if (!sanitize){
+                          Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
+                          callTgtAddr);
+                          if (functionSymbol && functionSymbol->getSymbolName()) {
+                              callTgtName = functionSymbol->getSymbolName();
+                          }
+              } else {
+                    for (uint32_t i = 0; i < allBlocks->size(); i++){
+                        Base* b = (*allBlocks)[i];
+                        ASSERT(b->getType() == PebilClassType_BasicBlock);
+                        BasicBlock* bb = (BasicBlock*)b;
+                        Function* f = bb->getFunction();
+                        if (f->inRange(callTgtAddr)){
+                            callTgtName=f->getName();
+                            break;    
+                        
+                        }
+                    }
+              }
+                      std::set<std::string> temp =
+                        (std::set<std::string>)callTreeInfo.at(thisFuncName);
+                      temp.insert(callTgtName);
 #pragma omp critical(callTreeInfo)
-	                  callTreeInfo[thisFuncName] = temp;
-	              }	
+                      callTreeInfo[thisFuncName] = temp;
+                  }    
             }
         } 
     }
@@ -1802,50 +1860,50 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
       lineNo = 0;
     }
     fprintf(staticFD, "%d\t%lld\t%d\t%d\t%d\t%s:%d\t%s\t# %#llx\t%#llx\n", 
-	    (*allInstructionIds)[i], hashValue, (uint32_t)ins->isMemoryOperation(), (uint32_t)ins->isFloatPOperation(), 
-	    1, fileName, lineNo, f->getName(),
-	    hashValue, ins->getProgramAddress());
+        (*allInstructionIds)[i], hashValue, (uint32_t)ins->isMemoryOperation(), (uint32_t)ins->isFloatPOperation(), 
+        1, fileName, lineNo, f->getName(),
+        hashValue, ins->getProgramAddress());
     
     if (printDetail){
       
       uint32_t loopLoc = 0;
       if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())){
-	if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())->getHead()->getHashCode().getValue() == bb->getHashCode().getValue()){
-	  if (bb->getLeader()->getBaseAddress() == ins->getBaseAddress()){
-	    loopLoc = 1;
-	  }
-	} else if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())->getTail()->getHashCode().getValue() == bb->getHashCode().getValue()){
-	  if (bb->getExitInstruction()->getBaseAddress() == ins->getBaseAddress()){
-	    loopLoc = 2;
-	  }
-	}
+    if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())->getHead()->getHashCode().getValue() == bb->getHashCode().getValue()){
+      if (bb->getLeader()->getBaseAddress() == ins->getBaseAddress()){
+        loopLoc = 1;
+      }
+    } else if (bb->getFlowGraph()->getInnermostLoopForBlock(bb->getIndex())->getTail()->getHashCode().getValue() == bb->getHashCode().getValue()){
+      if (bb->getExitInstruction()->getBaseAddress() == ins->getBaseAddress()){
+        loopLoc = 2;
+      }
+    }
       }
       fprintf(staticFD, "\t+lpi\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", loopCount, 
         loopId, loopDepth, loopLoc, artificialLoopCount, artificialLoopId, 
         hashValue);
       fprintf(staticFD, "\t+cnt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d # %#llx\n", 
-	      (uint32_t)ins->isBranch(), (uint32_t)ins->isIntegerOperation(), (uint32_t)ins->isLogicOp(), (uint32_t)ins->isSpecialRegOp(),
-	      (uint32_t)ins->isSystemCall(), (uint32_t)ins->isSpecialRegOp(), (uint32_t)ins->isStringOperation(),
-	      (uint32_t)ins->isLoad(), (uint32_t)ins->isStore(), (uint32_t)ins->isMemoryOperation(), (uint32_t)ins->isSoftwarePrefetch(), (uint32_t)ins->isScatterGatherOp(), (uint32_t)ins->isVectorMaskOp(), (uint32_t)ins->isHelperMove(), hashValue);
+          (uint32_t)ins->isBranch(), (uint32_t)ins->isIntegerOperation(), (uint32_t)ins->isLogicOp(), (uint32_t)ins->isSpecialRegOp(),
+          (uint32_t)ins->isSystemCall(), (uint32_t)ins->isSpecialRegOp(), (uint32_t)ins->isStringOperation(),
+          (uint32_t)ins->isLoad(), (uint32_t)ins->isStore(), (uint32_t)ins->isMemoryOperation(), (uint32_t)ins->isSoftwarePrefetch(), (uint32_t)ins->isScatterGatherOp(), (uint32_t)ins->isVectorMaskOp(), (uint32_t)ins->isHelperMove(), hashValue);
       
       if (ins->isMemoryOperation()){
-	        ASSERT(ins->isLoad() || ins->isStore());
+            ASSERT(ins->isLoad() || ins->isStore());
       }
       
       memopavg = (float)ins->getNumberOfMemoryBytes();
       fprintf(staticFD, "\t+mem\t%d\t%d\t%.5f # %#llx\n", (uint32_t)ins->isMemoryOperation(), ins->getNumberOfMemoryBytes(),
-	      memopavg, hashValue);
+          memopavg, hashValue);
       
       uint64_t loopHead = 0;
       uint64_t parentHead = 0;
       if (loop){
-	        HashCode* headHash = loop->getHead()->getLeader()->generateHashCode(loop->getHead());
-	        HashCode* parentHash = f->getFlowGraph()->getParentLoop(loop->getIndex())->getHead()->getLeader()->generateHashCode(f->getFlowGraph()->getParentLoop(loop->getIndex())->getHead());
-	        loopHead = headHash->getValue();
-	        parentHead = parentHash->getValue();
-	
-	        delete headHash;
-	        delete parentHash;
+            HashCode* headHash = loop->getHead()->getLeader()->generateHashCode(loop->getHead());
+            HashCode* parentHash = f->getFlowGraph()->getParentLoop(loop->getIndex())->getHead()->getLeader()->generateHashCode(f->getFlowGraph()->getParentLoop(loop->getIndex())->getHead());
+            loopHead = headHash->getValue();
+            parentHead = parentHash->getValue();
+    
+            delete headHash;
+            delete parentHash;
       }
       fprintf(staticFD, "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, parentHead, hashValue);
       
@@ -1853,11 +1911,11 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
       fprintf(staticFD, "\t+dud");
       uint32_t currDist = ins->getDefUseDist();
       if (currDist){
-	        int intOp, fpOp, memOp;
-	        intOp = ins->isIntegerOperation();
-	        fpOp = ins->isFloatPOperation();
-	        memOp = ins->isMemoryOperation();
-	        fprintf(staticFD, "\t%d:%d:%d:%d", currDist, intOp, fpOp, memOp);
+            int intOp, fpOp, memOp;
+            intOp = ins->isIntegerOperation();
+            fpOp = ins->isFloatPOperation();
+            memOp = ins->isMemoryOperation();
+            fprintf(staticFD, "\t%d:%d:%d:%d", currDist, intOp, fpOp, memOp);
       }
       fprintf(staticFD, " # %#llx\n", hashValue);
       
@@ -1866,11 +1924,11 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
       uint64_t callTgtAddr = 0;
       char* callTgtName = INFO_UNKNOWN;
       if (ins->isCall()){
-	        callTgtAddr = ins->getTargetAddress();
-	        Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(callTgtAddr);
-	        if (functionSymbol && functionSymbol->getSymbolName()){
-	          callTgtName = functionSymbol->getSymbolName();
-	        }
+            callTgtAddr = ins->getTargetAddress();
+            Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(callTgtAddr);
+            if (functionSymbol && functionSymbol->getSymbolName()){
+              callTgtName = functionSymbol->getSymbolName();
+            }
       } else if (ins->isUnconditionalBranch()) {
           callTgtAddr = ins->getTargetAddress();
 
@@ -1894,20 +1952,20 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
       
       if(ins->isVectorInstruction()) {
           VectorInfo vecinf = ins->getVectorInfo();
-	        
-	        uint32_t bytesInElem = vecinf.elementSize;
-	        uint32_t nElements = vecinf.nElements;
-	        
-	        int fpcnt, intcnt, ldcnt, stcnt, dupcnt;
-	        fpcnt = intcnt = 0;
-	        ldcnt = stcnt = 0;
+            
+            uint32_t bytesInElem = vecinf.elementSize;
+            uint32_t nElements = vecinf.nElements;
+            
+            int fpcnt, intcnt, ldcnt, stcnt, dupcnt;
+            fpcnt = intcnt = 0;
+            ldcnt = stcnt = 0;
           dupcnt = 0;
-	        
-	        if(ins->isFloatPOperation()) {
-	            fpcnt = 1;
-	        } else if (ins->isIntegerOperation()) {
-	            intcnt = 1;
-	        }
+            
+            if(ins->isFloatPOperation()) {
+                fpcnt = 1;
+            } else if (ins->isIntegerOperation()) {
+                intcnt = 1;
+            }
 
           if (ins->isLoad()) {
               ldcnt = 1;
@@ -1924,31 +1982,31 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
                   dupcnt = 1;
               }
           }
-	        // Vector info known
-	        if(bytesInElem != 0 && vecinf.kval.confidence == Definitely) {
-	            fprintf(staticFD, "\t+vec\t%dx%d:%d:%d # %#llx\n", 
+            // Vector info known
+            if(bytesInElem != 0 && vecinf.kval.confidence == Definitely) {
+                fprintf(staticFD, "\t+vec\t%dx%d:%d:%d # %#llx\n", 
                 nElements, bytesInElem << 3, fpcnt, intcnt, hashValue);
-	            fprintf(staticFD, "\t+mvc\t%dx%d:%d:%d:%d:%d:%d # %#llx\n", 
+                fprintf(staticFD, "\t+mvc\t%dx%d:%d:%d:%d:%d:%d # %#llx\n", 
                 nElements, bytesInElem << 3, fpcnt, intcnt, ldcnt, stcnt, 
                 dupcnt, hashValue);
-	          // Instruction known
-	        } else if (bytesInElem != 0) {
-	            fprintf(staticFD, "\t+vec\t???x%d:%d:%d # %#llx\n", 
+              // Instruction known
+            } else if (bytesInElem != 0) {
+                fprintf(staticFD, "\t+vec\t???x%d:%d:%d # %#llx\n", 
                 bytesInElem << 3, fpcnt, intcnt, hashValue);
-	            fprintf(staticFD, "\t+mvc\t???x%d:%d:%d:%d:%d:%d # %#llx\n", 
+                fprintf(staticFD, "\t+mvc\t???x%d:%d:%d:%d:%d:%d # %#llx\n", 
                 bytesInElem << 3, fpcnt, intcnt, ldcnt, stcnt, dupcnt,
                 hashValue);
-	        } else {
-	            //ins->print();
-	            fprintf(staticFD, "\t+vec\t???x8:%d:%d # %llx\n", fpcnt, 
+            } else {
+                //ins->print();
+                fprintf(staticFD, "\t+vec\t???x8:%d:%d # %llx\n", fpcnt, 
                 intcnt, hashValue);
-	            fprintf(staticFD, "\t+mvc\t???x8:%d:%d:%d:%d:%d # %llx\n", fpcnt, 
+                fprintf(staticFD, "\t+mvc\t???x8:%d:%d:%d:%d:%d # %llx\n", fpcnt, 
                 intcnt, ldcnt, stcnt, dupcnt, hashValue);
-	        }
-	
+            }
+    
       } else {
-	        fprintf(staticFD, "\t+vec # %#llx\n", hashValue);
-	        fprintf(staticFD, "\t+mvc # %#llx\n", hashValue);
+            fprintf(staticFD, "\t+vec # %#llx\n", hashValue);
+            fprintf(staticFD, "\t+mvc # %#llx\n", hashValue);
       }
     }
     

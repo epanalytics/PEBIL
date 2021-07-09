@@ -102,6 +102,7 @@ void FunctionTimer::instrument(){
      */
 
     FunctionTimers funcInfo;
+    funcInfo.sanitize = sanitize;
     uint64_t functionInfoStruct = reserveDataOffset(sizeof(FunctionTimers));
 
     funcInfo.master = getElfFile()->isExecutable();
@@ -125,9 +126,9 @@ void FunctionTimer::instrument(){
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
         Function* f = getExposedFunction(i);
         
-        uint64_t funcname = reserveDataOffset(strlen(f->getName()) + 1);
+        uint64_t funcname = reserveDataOffset(strlen(f->getRealName()) + 1);
         initializeReservedPointer(funcname, funcNameArray + sizeof(char*) * i);
-        initializeReservedData(getInstDataAddress() + funcname, strlen(f->getName()) + 1, (void*)f->getName());
+        initializeReservedData(getInstDataAddress() + funcname, strlen(f->getRealName()) + 1, (void*)f->getRealName()); //elizabeth
 
     }
 
@@ -385,7 +386,8 @@ void ExternalFunctionTimer::instrument(){
                     assignStoragePrior(after, names.size(), getInstDataAddress() + siteIndexAddr, X86_REG_CX, getInstDataAddress() + getRegStorageOffset());
 
                     std::string c;
-                    c.append(functionSymbol->getSymbolName());
+                    //c.append(functionSymbol->getSymbolName());
+                    c.append(function->getName());
                     char faddr[__MAX_STRING_SIZE];
                     sprintf(faddr, "%#llx", x->getBaseAddress());
                     c.append(faddr);
