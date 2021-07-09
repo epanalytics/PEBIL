@@ -32,6 +32,7 @@
 #include <SectionHeader.h>
 #include <TextSection.h>
 
+bool ERROR_ENCOUNTERED=false;
 
 X86Instruction* X86Instruction::getFallthroughInstruction() {
     uint32_t taddr = getBaseAddress() + getSizeInBytes();
@@ -2414,7 +2415,11 @@ X86Instruction::X86Instruction(TextObject* cont, uint64_t baseAddr, char* buff, 
         PRINT_ERROR("Problem doing instruction disassembly");
     }
     if(ud_obj.error) {
-        PRINT_WARN(1,"Unable to disassemble %d bytes at address 0x%llx\n0x%llx\n", sizeInBytes, baseAddr,*buff);
+        if (!ERROR_ENCOUNTERED){
+            ERROR_ENCOUNTERED=true;
+            PRINT_WARN(20,"Unable to disassemble at least one byte. This may be fault of an instruction. Investigate further if instrumented binary seg faults\n");
+        }
+        PRINT_WARN(10,"Unable to disassemble %d bytes at address 0x%llx\n", sizeInBytes, baseAddr);
     }
 
 
