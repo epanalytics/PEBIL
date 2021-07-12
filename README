@@ -80,8 +80,23 @@ comments to allysonc@epanalytics.com
 
 PEBIL Tools
 
+1. Function Coverage
+   A simple tool that tracks function coverage.
+   Useful to narrow down the focus of performance analysis to just
+   the functions that are executed.
 
-1. Basic Block Counting
+      pebil --tool FunctionCoverage --app <APP> ...
+
+   Generates an instrumented binary called <APP>.fcinst
+   Running the instrumented binary will produce one output file per
+   MPI rank. The files are named <APP>.r<RANK_NUM>.t<TOTAL_RANKS>.fcinst.
+   RANK_NUM is represented as an eight digit decimal number with 0's 
+   padded; same is true for the TOTAL_RANKS.
+   If one desires to create a new whitelist:
+   cat <APP>.r0*fcinst | grep ^BLK | awk '{print $5}' | sort -u > whitelist.txt
+   DO NOT FORGET to add a "*" at the top of the "whitelist.txt" file. 
+
+2. Basic Block Counting
    A low-impact tool that reports how often code was executed. 
    Useful for determining where to start performance analysis.
 
@@ -89,11 +104,11 @@ PEBIL Tools
 
    Generates an instrumented binary called <APP>.jbbinst
 
-2. Function Timing
+3. Function Timing
    A tool for timing how long the application spends in each 
    function. Useful for performing a hot-spot analysis
 
-      pebil --tool Function Timer --app <APP> --lnc libtimer.so ...
+      pebil --tool FunctionTimer --app <APP> --lnc libtimer.so ...
 
    Generates an instrumented binary called <APP>.ftiminst
 
