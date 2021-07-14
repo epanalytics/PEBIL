@@ -1,6 +1,6 @@
 This document contains the basics for running and using the
-PEBIL binary instrumentation package. Direct any questions or
-comments to allysonc@epanalytics.com
+PEBIL binary instrumentation package with EP Analytics characterization
+tools.. Direct any questions or comments to allysonc@epanalytics.com
 
 1. Installation - Please see /path/to/pebil/INSTALL
 
@@ -9,63 +9,41 @@ comments to allysonc@epanalytics.com
       cd /path/to/pebil
       source bashrc
 
-3. Compile the application to be instrumented. The application 
-   must be compiled with -g.
+NOTE: To get line information the application must be compiled with -g, recompile
+       before instrumenting application.
 
-4. Instrument the application:
+3. Instrument the application:
 
       pebil --tool <ChosenTool> --app <YourApplication> --saveall
 
-   See below for tool descriptions.
+   See below for detailed tool descriptions but suggested initial instrumentation tools:
+        pebil --tool FunctionCoverage --app <APP> --saveall
+        pebil --tool BasicBlockCounter --app <APP> --saveall
+        pebil --tool FunctionTimer --app <APP> --lnc libtimer.so --saveall
+       
 
    Other options to consider:
 
-      A. --threaded
-         Use this option if your application is compiled with 
-         OpenMP
+     --threaded    required for OpenMP applications
 
-      B. --sanitize
-         Use this option if your application is sensitive and 
-         you would like to share PEBIL output with others
+     --sanitize    option to sanitize function names for sensitive apps
 
-      C. --fbl <file>
-         Use this option if you would like to blacklist or 
-         whitelist certain functions
+     --fbl <file>  option if you would like to blacklist or 
+                   whitelist certain functions 
+                   (See below details on how and when to use)
 
-         For a blacklist, create a file with the functions 
-         you don't want instrumented, one on each line:
-
-             function1
-             function2
-             function3
-             ...
-
-        For a whitelist, create a file with the functions
-        you want instrumented, one on each line, and add
-        a * at the top of the file:
-
-             *
-             function1
-             function2
-             function3
-             ...
-
-5. Tune the tool using environment variables - Some tools 
-   have parameters that can be set through the environment.
-   For example, if you want the function timer tool to 
-   stop timing very short functions, you would set the 
-   following variable:
+4. Set tool parameters through the environment.
+   For example, for function timer:
 
         export FTIMER_SHUTOFF=1
+        export FTIMER_CPU_FREQ=200000000 <---set this for CPU freq in Hz
 
-   More information about the possible environment variables 
+   More information about these environment variables 
    is available below.
 
-6. Run the application. PEBIL will produce an instrumented 
-   binary, which usually has the name of the application 
-   followed by a special suffix (e.g. 
-   <YourApplication>.jbbinst). Replace your binary with 
-   this instrumented binary, but otherwise run it as normal!
+5. Run the instrumented binary as you would the application. 
+   PEBIL will produce an instrumented binary which is the name of the application 
+   followed by a special suffix (e.g.  <YourApplication>.jbbinst). 
 
    For example, if you normally run your application like:
 
@@ -74,16 +52,49 @@ comments to allysonc@epanalytics.com
    You would run the instrumented application like: 
 
         mpirun -np 32 ./theApp.jbbinst -x 4 -y 4 -z 2 < input.txt
+        NOTE that pebil environment set by step 2 must be included in any run/batch script.
 
+*********************************************************************
+Blacklist or whitelist functions: 
+BLACKLIST:
+Often in performing detailed characterization of large binarys there will
+be functions that cause instrumentation issues, this is common for certain
+Intel compiler-inserted functions, for example. 
+To avoid these issues you can add these to a blacklist
+where they will not be instrumented.
+         For a blacklist, create a file with the functions
+         you don't want instrumented, one on each line:
+
+             function1
+             function2
+             function3
+             ...
+
+WHITELIST:
+Similar to the blacklist you can specify only those functions you want to instrument.
+This can be helpful to reduce the size of the instrumented binary for only user defined
+functions or only user defined functions that are utilized for a given input. 
+        For a whitelist, create a file with the functions
+        you want instrumented, one on each line, and add
+        a * at the top of the file:
+
+             *
+             function1
+             function2
+             function3
 
 *********************************************************************
 
-PEBIL Tools
+EP Analytics Characterization Tools for PEBIL
+
+Each tool creates an instrumented binary and *hiddenFunctions file. The 
+*hiddenFunctions file contains a list of functions that we not able to be
+instrumented with the current flags. 
 
 1. Function Coverage
    A simple tool that tracks function coverage.
    Useful to narrow down the focus of performance analysis to just
-   the functions that are executed.
+   the functions that are executed, this can reduce the instrumented binary size.
 
       pebil --tool FunctionCoverage --app <APP> ...
 
@@ -92,8 +103,10 @@ PEBIL Tools
    MPI rank. The files are named <APP>.r<RANK_NUM>.t<TOTAL_RANKS>.fcinst.
    RANK_NUM is represented as an eight digit decimal number with 0's 
    padded; same is true for the TOTAL_RANKS.
-   If one desires to create a new whitelist:
+
+   If one desires to create a whitelist of ONLY those functions that were executed:
    cat <APP>.r0*fcinst | grep ^BLK | awk '{print $5}' | sort -u > whitelist.txt
+
    DO NOT FORGET to add a "*" at the top of the "whitelist.txt" file. 
 
 2. Basic Block Counting
@@ -121,3 +134,4 @@ PEBIL Tools
          Turn off small functions which may report skewed times 
          due to the overhead of timing the function
    
+
