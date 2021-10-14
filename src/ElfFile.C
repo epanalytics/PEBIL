@@ -453,8 +453,8 @@ bool ElfFile::verify(){
                 dataSegmentIdx = i;
                 dataSegCount++;
             } else {
-                PRINT_ERROR("Segment(%d) with type PT_LOAD has attributes that are not consistent with text or data");
-                return false;
+                //PRINT_INFO("Segment(%d) with type PT_LOAD has attributes that are not consistent with text or data");
+                //return false;
             }
         }
     }
