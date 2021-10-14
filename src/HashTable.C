@@ -112,7 +112,7 @@ uint32_t GnuHashTable::findSymbol(const char* symbolName){
     h1 = elf_gnu_hash(symbolName);
     h2 = h1 >> shiftCount;
 
-    c = hashEntrySize * 8;
+    uint32_t c = hashEntrySize * 8;
     n = (h1 / c) & (numberOfBloomFilters - 1);
     // casting to uint64_t to prevent overflow errors
     bitmask = ((uint64_t)(1) << (h1 % c)) | ((uint64_t)(1) << (h2 % c));
