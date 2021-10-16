@@ -616,6 +616,18 @@ static int search_itab( struct ud * u )
                     table = ITAB__PFX_SSE66__0F__OP___3BYTE_3A__REG;
                 }
             }
+        } else if ( 0x1E == curr ) {
+            PEBIL_DEBUG("3byte opcode %hhx", curr);
+            curr  = inp_next(u);
+            PEBIL_DEBUG("\topcode %hhx", curr);
+            //if ( ud_itab_list[ ITAB__0F__OP_F3__3BYTE_1E__REG ][ curr ].mnemonic != UD_Iinvalid ) {
+            //    table = ITAB__0F__OP_F3__3BYTE_1E__REG;
+            //}
+            if ( 0xf3 == u->pfx_insn ) {
+                if ( ud_itab_list[ ITAB__PFX_SSEF3__0F__OP___3BYTE_1E__REG ][ curr ].mnemonic != UD_Iinvalid ) {
+                    table = ITAB__PFX_SSEF3__0F__OP___3BYTE_1E__REG;
+                }
+            }
         }
         /* end PEBIL */
 
@@ -1060,14 +1072,21 @@ static int resolve_mnemonic( struct ud* u )
           u->mnemonic == UD_Iscasb || u->mnemonic == UD_Iscasd ||
           u->mnemonic == UD_Iscasw || u->mnemonic == UD_Iret) {
             u->pfx_rep = 0x0;
+        // Unset rep/repe in the case of the endbr insns
+        } else if (u->mnemonic == UD_Iendbr32 || u->mnemonic == UD_Iendbr64) {
+            u->pfx_rep = 0x0;
+            u->pfx_repe = 0x0;
         } else {  // Only the above mnemonics can use these prefixes
             u->error = 1;
         }
 
-        // Rep and repe should be different, otherwise how did we get here?
+        // Rep and repe should be different, otherwise how did we get here
         if (u->pfx_rep == u->pfx_repe) {
-            u->error = 1;
+            // The endbr insns are the exception
+            if (!(u->mnemonic == UD_Iendbr32 || u->mnemonic == UD_Iendbr64))
+                u->error = 1;
         }
+
     }
 
   return 0;
