@@ -151,7 +151,7 @@ struct ud_operand
 {
   enum ud_type  type;
   uint16_t      size;       // Size of operand (e.g. 128)
-  uint8_t       position;   // byte position: modrm, imm, offset (start w/ 1)
+  uint8_t       position;   // byte position: imm, offset (start w/ 0)
   union {
       int8_t    sbyte;
       uint8_t   ubyte;
@@ -222,7 +222,7 @@ struct ud
   uint8_t                 default64;
   uint8_t		              opr_mode;
   uint8_t		              adr_mode;
-  uint8_t		              br_far;                 // branch far
+  uint8_t		              br_far;                 // branch far (for call/jmp)
   uint8_t		              br_near;                // branch near
   uint8_t		              implicit_addr;          // has implicit address
   uint8_t		              c1;

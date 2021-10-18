@@ -931,6 +931,16 @@ MAL MISSING PRE SSE?
     <opcode> ; 0f 77 ; ; ; </opcode>
   </instruction>
 
+  <instruction mnemonic="endbr32">
+    <opcode> ; ssef3 0f /3byte=1e fb ; ; ;
+    </opcode> 
+  </instruction>
+
+  <instruction mnemonic="endbr64">
+    <opcode> ; ssef3 0f /3byte=1e fa ; ; ;
+    </opcode> 
+  </instruction>
+
   <instruction mnemonic="enter">
     <opcode mode="def64 depM"> ; c8 ; Iw Ib ; ; u:bp u:sp d:bp d:sp </opcode>
   </instruction>
@@ -3239,10 +3249,10 @@ MAL MISSING PRE SSE?
  
   <instruction mnemonic="ret">
     <opcode> ; c2 ; Iw ; ;
-      u:ax u:bx u:dx u:sp u:bp u:12 u:13 u:14 u:15 u:mm0 u:mm1 u:st0 u:st1
+      u:ax u:bx u:dx u:sp u:bp u:12 u:13 u:14 u:15 u:mm0 u:mm1 u:st0 u:st1 d:sp
     </opcode>
     <opcode> ; c3 ; ; ;
-      u:ax u:bx u:dx u:sp u:bp u:12 u:13 u:14 u:15 u:mm0 u:mm1 u:st0 u:st1
+      u:ax u:bx u:dx u:sp u:bp u:12 u:13 u:14 u:15 u:mm0 u:mm1 u:st0 u:st1 d:sp
     </opcode> 
   </instruction>
 <!-- old retf uses
@@ -3250,8 +3260,8 @@ MAL MISSING PRE SSE?
 -->
  
   <instruction mnemonic="retf">
-    <opcode> ; ca ; Iw ; ; u:ax u:dx u:mm0 u:st0 u:bx u:bp u:sp u:12 u:13 u:14 u:15 u:8 u:9 u:di u:si u:dx u:cx </opcode>
-    <opcode> ; cb ; ; ; u:ax u:dx u:mm0 u:st0 u:bx u:bp u:sp u:12 u:13 u:14 u:15 u:8 u:9 u:di u:si u:dx u:cx </opcode>
+    <opcode> ; ca ; Iw ; ; u:ax u:dx u:mm0 u:st0 u:bx u:bp u:sp u:12 u:13 u:14 u:15 u:8 u:9 u:di u:si u:dx u:cx d:sp d:cs </opcode>
+    <opcode> ; cb ; ; ; u:ax u:dx u:mm0 u:st0 u:bx u:bp u:sp u:12 u:13 u:14 u:15 u:8 u:9 u:di u:si u:dx u:cx d:sp d:cs </opcode>
   </instruction>
 
   <instruction mnemonic="rsm">

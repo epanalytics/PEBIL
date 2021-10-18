@@ -618,6 +618,18 @@ static int search_itab( struct ud * u )
                     table = ITAB__PFX_SSE66__0F__OP___3BYTE_3A__REG;
                 }
             }
+        } else if ( 0x1E == curr ) {
+            PEBIL_DEBUG("3byte opcode %hhx", curr);
+            curr  = inp_next(u);
+            PEBIL_DEBUG("\topcode %hhx", curr);
+            //if ( ud_itab_list[ ITAB__0F__OP_F3__3BYTE_1E__REG ][ curr ].mnemonic != UD_Iinvalid ) {
+            //    table = ITAB__0F__OP_F3__3BYTE_1E__REG;
+            //}
+            if ( 0xf3 == u->pfx_insn ) {
+                if ( ud_itab_list[ ITAB__PFX_SSEF3__0F__OP___3BYTE_1E__REG ][ curr ].mnemonic != UD_Iinvalid ) {
+                    table = ITAB__PFX_SSEF3__0F__OP___3BYTE_1E__REG;
+                }
+            }
         }
         /* end PEBIL */
 
@@ -1055,19 +1067,28 @@ static int resolve_mnemonic( struct ud* u )
           u->mnemonic == UD_Istosd || u->mnemonic == UD_Istosq ||
           u->mnemonic == UD_Istosw) {
             u->pfx_repe = 0x0;
+        // ret is technically illegal, but GNU still generates it and things 
+        // apparently don't break: https://repzret.org/p/repzret/
         } else if (u->mnemonic == UD_Icmpsb || u->mnemonic == UD_Icmpsd || 
           u->mnemonic == UD_Icmpsq || u->mnemonic == UD_Icmpsw || 
           u->mnemonic == UD_Iscasb || u->mnemonic == UD_Iscasd ||
-          u->mnemonic == UD_Iscasw) {
+          u->mnemonic == UD_Iscasw || u->mnemonic == UD_Iret) {
             u->pfx_rep = 0x0;
+        // Unset rep/repe in the case of the endbr insns
+        } else if (u->mnemonic == UD_Iendbr32 || u->mnemonic == UD_Iendbr64) {
+            u->pfx_rep = 0x0;
+            u->pfx_repe = 0x0;
         } else {  // Only the above mnemonics can use these prefixes
             u->error = 1;
         }
 
-        // Rep and repe should be different, otherwise how did we get here?
+        // Rep and repe should be different, otherwise how did we get here
         if (u->pfx_rep == u->pfx_repe) {
-            u->error = 1;
+            // The endbr insns are the exception
+            if (!(u->mnemonic == UD_Iendbr32 || u->mnemonic == UD_Iendbr64))
+                u->error = 1;
         }
+
     }
 
   return 0;
@@ -1258,7 +1279,7 @@ static int clear_operand(register struct ud_operand* op){
 static void 
 decode_imm(struct ud* u, unsigned int s, struct ud_operand *op)
 {
-  op->position = ud_insn_len(u); /* PEBIL */
+  op->position = ud_insn_len(u);
 
   op->size = resolve_operand_size(u, s);
   op->type = UD_OP_IMM;
@@ -2183,23 +2204,26 @@ static int resolve_implied_usedefs( struct ud *u )
 {
     u->flags_use = u->itab_entry->flags_use;
     u->flags_def = u->itab_entry->flags_def;
-    if (u->flags_def != 0 || u->flags_use != 0){
+    if (u->flags_def != 0 || u->flags_use != 0) {
         PEBIL_DEBUG("flags used: %#x, def: %#x", u->flags_use, u->flags_def);
     }
 
     /* set use of ZF for rep prefixes here */
-    if (u->pfx_repe || u->pfx_repne){
+    // Handle the repz ret, which doesn't actually do a repz
+    if ((u->pfx_repe || u->pfx_repne) && u->mnemonic != UD_Iret) {
         u->flags_use |= F_ZF;
     }
 
     u->impreg_use = u->itab_entry->impreg_use;
     u->impreg_def = u->itab_entry->impreg_def;
-    if (u->impreg_def != 0 || u->impreg_use != 0){
-        PEBIL_DEBUG("implied regs used: %#llx, def: %#llx", u->impreg_use, u->impreg_def);
+    if (u->impreg_def != 0 || u->impreg_use != 0) {
+        PEBIL_DEBUG("implied regs used: %#llx, def: %#llx", u->impreg_use, 
+          u->impreg_def);
     }
 
     /* set use/def of cx for rep prefixes here */
-    if (u->pfx_rep || u->pfx_repe || u->pfx_repne){
+    // Handle the repz ret, which doesn't actually do a repz
+    if ((u->pfx_rep || u->pfx_repe || u->pfx_repne) && u->mnemonic != UD_Iret) {
         u->impreg_use |= R_CX;
         u->impreg_def |= R_CX;
     }
