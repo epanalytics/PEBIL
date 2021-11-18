@@ -368,6 +368,20 @@ ProgramHeader* ElfFile::getProgramHeaderPHDR(){
     return NULL;
 }
 
+ProgramHeader* ElfFile::getProgramHeaderINTERP(){
+    if (getProgramHeader(1)->GET(p_type) == PT_INTERP) {
+        return getProgramHeader(1);
+    }
+    return NULL;
+}
+
+uint16_t ElfFile::getInterpSegmentIdx(){
+    if (getProgramHeader(1)->GET(p_type) == PT_INTERP) {
+        return 1;
+    }
+    return (uint16_t)-1;
+}
+
 DataSection* ElfFile::getDotDataSection(){
     uint16_t dataSectionIndex = 0;
 
@@ -446,10 +460,15 @@ bool ElfFile::verify(){
                 return false;
         }
         if (phdr->GET(p_type) == PT_LOAD){
-            if (phdr->isReadable() && phdr->isExecutable()){
+            //EMMET
+            if (phdr->isReadable() && phdr->isExecutable() 
+              && (!phdr->isWritable())){
+
                 textSegmentIdx = i;
                 textSegCount++;
-            } else if (phdr->isReadable() && phdr->isWritable()){
+            } else if (phdr->isReadable() && phdr->isWritable() 
+              && (!phdr->isExecutable())){
+
                 dataSegmentIdx = i;
                 dataSegCount++;
             } else {
@@ -692,8 +711,10 @@ bool ElfFile::verifyDynamic(){
 
 }
 
-ProgramHeader* ElfFile::addSegment(uint16_t idx, uint32_t type, uint64_t offset, uint64_t vaddr, uint64_t paddr,
-                             uint32_t memsz, uint32_t filesz, uint32_t flags, uint32_t align){
+ProgramHeader* ElfFile::addSegment(uint16_t idx, uint32_t type, uint64_t offset, 
+  uint64_t vaddr, uint64_t paddr, uint32_t memsz, uint32_t filesz, 
+  uint32_t flags, uint32_t align){
+
     if (is64Bit()){
         programHeaders.insert(new ProgramHeader64(idx), idx);
     } else {
@@ -708,6 +729,7 @@ ProgramHeader* ElfFile::addSegment(uint16_t idx, uint32_t type, uint64_t offset,
     programHeaders[idx]->SET(p_filesz, filesz);
     programHeaders[idx]->SET(p_flags, flags);
     programHeaders[idx]->SET(p_align, align);
+    uint64_t emmetTempSize1 = programHeaders[idx]->GET(p_filesz);
 
     for (uint32_t i = 0; i < getNumberOfPrograms(); i++){
         programHeaders[i]->setIndex(i);
@@ -724,9 +746,10 @@ ProgramHeader* ElfFile::addSegment(uint16_t idx, uint32_t type, uint64_t offset,
     return programHeaders[idx];
 }
 
-uint64_t ElfFile::addSection(uint16_t idx, PebilClassTypes classtype, char* bytes, uint32_t name, uint32_t type, 
-                             uint64_t flags, uint64_t addr, uint64_t offset, uint64_t size, uint32_t link, 
-                             uint32_t info, uint64_t addralign, uint64_t entsize){
+uint64_t ElfFile::addSection(uint16_t idx, PebilClassTypes classtype, 
+  char* bytes, uint32_t name, uint32_t type, uint64_t flags, uint64_t addr, 
+  uint64_t offset, uint64_t size, uint32_t link, uint32_t info, 
+  uint64_t addralign, uint64_t entsize){
 
     if (is64Bit()){
         sectionHeaders.insert(new SectionHeader64(idx), idx);

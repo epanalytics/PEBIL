@@ -452,9 +452,10 @@ Vector<X86Instruction*>* Function::digestRecursive(){
         PRINT_DEBUG_CFG("recursive cfg: address %#llx with %d bytes", currentAddress, currentInstruction->getSizeInBytes());
 
         if ((currentInstruction->getInstructionType() == 
-          X86InstructionType_invalid) || 
+          X86InstructionType_invalid)) /* || 
           (currentInstruction->getInstructionType() == 
-          X86InstructionType_unknown)) {
+          X86InstructionType_unknown)) */{
+
             setBadInstruction(currentInstruction->getBaseAddress());
         }
 
