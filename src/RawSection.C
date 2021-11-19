@@ -45,40 +45,47 @@ void RawSection::wedge(uint32_t shamt){
     //or is it loop over 4th-2nd load segments
     //4th-2nd has same error as before, 2nd-4th has a new different error
     //EMMET TODO 3 and 5 grabbed pragmatically
-    for (int i=3;i<=5;i++) {
+    //TODO this hasn't been tested and will be left as is but will leave what I
+    //changed it to for future reference in the comments
+    /*for (int i=3;i<=5;i++) 
         ProgramHeader* dataSeg = elfFile->getProgramHeader(i);
         ASSERT(dataSeg);
 
-        SectionHeader* sec = elfFile->getSectionHeader(sectionIndex);
+        SectionHeader* sec = elfFile->getSectionHeader(sectionIndex);*/
 
-        // only wedge raw/data sections from the data segment
-        if (!dataSeg->inRange(sec->GET(sh_addr))){
-            return;
-        }
 
-        uint32_t intro = containsIntroString();
-        if (intro){
-            //PRINT_INFOR("INTRO STRING (%d) %s", intro, charStream());
-        }
-        //printBufferPretty(charStream(), getSizeInBytes(), getSectionHeader()->GET(sh_offset), 0, 0);
+    ProgramHeader* dataSeg = elfFile->getProgramHeader(elfFile->getDataSegmentIdx());
+    ASSERT(dataSeg);
 
-        if (elfFile->is64Bit()){
-            uint32_t inc = sizeof(uint64_t);
-            for (uint32_t current = intro; current+sizeof(uint64_t) <= getSizeInBytes(); current += inc){
-                uint64_t data;
-                char* cs = charStream();
-                memcpy(&data, cs + current, sizeof(uint64_t));
-                if (data && elfFile->isDataWedgeAddress(data + shamt)){
-                    data += shamt;
-                    memcpy(cs + current, &data, sizeof(uint64_t));
-                    //PRINT_INFOR("\t\tpatching @ %#lx: %#lx -> %#lx", getSectionHeader()->GET(sh_addr) + current, data - shamt, data);
-                }
+    SectionHeader* sec = elfFile->getSectionHeader(sectionIndex);
+
+    // only wedge raw/data sections from the data segment
+    if (!dataSeg->inRange(sec->GET(sh_addr))){
+        return;
+    }
+
+    uint32_t intro = containsIntroString();
+    if (intro){
+        //PRINT_INFOR("INTRO STRING (%d) %s", intro, charStream());
+    }
+    //printBufferPretty(charStream(), getSizeInBytes(), getSectionHeader()->GET(sh_offset), 0, 0);
+
+    if (elfFile->is64Bit()){
+        uint32_t inc = sizeof(uint64_t);
+        for (uint32_t current = intro; current+sizeof(uint64_t) <= getSizeInBytes(); current += inc){
+            uint64_t data;
+            char* cs = charStream();
+            memcpy(&data, cs + current, sizeof(uint64_t));
+            if (data && elfFile->isDataWedgeAddress(data + shamt)){
+                data += shamt;
+                memcpy(cs + current, &data, sizeof(uint64_t));
+                //PRINT_INFOR("\t\tpatching @ %#lx: %#lx -> %#lx", getSectionHeader()->GET(sh_addr) + current, data - shamt, data);
             }
         }
-
-        //PRINT_INFOR("Patched raw/data section %d", getSectionIndex());
-        //printBufferPretty(charStream(), getSizeInBytes(), getSectionHeader()->GET(sh_offset), 0, 0);
     }
+
+    //PRINT_INFOR("Patched raw/data section %d", getSectionIndex());
+    //printBufferPretty(charStream(), getSizeInBytes(), getSectionHeader()->GET(sh_offset), 0, 0);
 }
 
 void DataSection::printBytes(uint64_t offset, uint32_t bytesPerWord, uint32_t bytesPerLine){
