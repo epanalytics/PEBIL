@@ -384,15 +384,10 @@ uint16_t ElfFile::getInterpSegmentIdx(){
 
 void ElfFile::getLoadSegments(Vector<ProgramHeader*>* vec) {
     uint32_t numOfPH = getNumberOfPrograms();   
-    fprintf(stderr, "getNumberOfPrograms: %d\n", numOfPH);
-    fprintf(stderr, "\tPT_LOAD: %d\n", PT_LOAD);
     for(uint32_t i=0;i<numOfPH;i++) {
-        fprintf(stderr, "\ti: %d\n", i);
         ProgramHeader* ph = getProgramHeader(i);
-        fprintf(stderr, "\t\tp_type: %d\n", ph->GET(p_type));
         if (ph->GET(p_type) == PT_LOAD) {
             vec->append(ph);
-            fprintf(stderr, "\t\tvec.size: %d\n", vec->size());
         }
     }
 }
