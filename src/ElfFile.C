@@ -382,6 +382,31 @@ uint16_t ElfFile::getInterpSegmentIdx(){
     return (uint16_t)-1;
 }
 
+void ElfFile::getLoadSegments(Vector<ProgramHeader*>* vec) {
+    uint32_t numOfPH = getNumberOfPrograms();   
+    fprintf(stderr, "getNumberOfPrograms: %d\n", numOfPH);
+    fprintf(stderr, "\tPT_LOAD: %d\n", PT_LOAD);
+    for(uint32_t i=0;i<numOfPH;i++) {
+        fprintf(stderr, "\ti: %d\n", i);
+        ProgramHeader* ph = getProgramHeader(i);
+        fprintf(stderr, "\t\tp_type: %d\n", ph->GET(p_type));
+        if (ph->GET(p_type) == PT_LOAD) {
+            vec->append(ph);
+            fprintf(stderr, "\t\tvec.size: %d\n", vec->size());
+        }
+    }
+}
+
+uint16_t ElfFile::getELFSectionSegmentIdx(){
+    // We assume the the first LOAD segment is the 3rd segment overall
+    // if this assumption fails a nonsense value is returned that should 
+    // alert us if that doesn't happen
+    if (getProgramHeader(2)->GET(p_type) == PT_LOAD) {
+        return 2;
+    }
+    return (uint16_t)-1;
+}
+
 DataSection* ElfFile::getDotDataSection(){
     uint16_t dataSectionIndex = 0;
 

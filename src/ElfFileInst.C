@@ -1618,12 +1618,12 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
 
     ASSERT(!extraTextIdx && "Cannot extend the text segment more than once");
 
-    ProgramHeader* loadAfterInterp =
+    /*ProgramHeader* loadAfterInterp =
       elfFile->getProgramHeader(elfFile->getInterpSegmentIdx()+1);
     ProgramHeader* textHeader = 
       elfFile->getProgramHeader(elfFile->getTextSegmentIdx());
     ProgramHeader* dataHeader = 
-      elfFile->getProgramHeader(elfFile->getDataSegmentIdx());
+      elfFile->getProgramHeader(elfFile->getDataSegmentIdx());*/
 
     // first we will find the address of the first text section. we will be 
     // moving all elf control structures that occur prior to this address when 
@@ -1646,25 +1646,28 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     ASSERT(lowestTextSectionIdx != elfFile->getNumberOfSections() 
       && "Could not find any text sections in the file");
 
-    std::vector<ProgramHeader*> loadSegments;
-    for (uint32_t i = 0; i < elfFile->getNumberOfPrograms(); i++) {
-        ProgramHeader* subHeader = elfFile->getProgramHeader(i);
-        if (subHeader->GET(p_type) == PT_LOAD) {
-            loadSegments.push_back(subHeader);
-        }
-    }
-    ASSERT(loadSegments.size() == 4 && "does not have 4 load segments");
-    uint64_t minAddr = loadSegments[0]->GET(p_vaddr);
-    uint64_t maxAddr = loadSegments[0]->GET(p_vaddr) + loadSegments[0]->GET(p_filesz);
-    // TODO EMMET print p_vaddr and p_offset for Program Headers 2-5
-    // for each segment that is contained within the loadable text segment,
-    // update its address to reflect the new base address of the text segment
-    // EMMET offset updated here for RW LOAD Segment and Dynamic Segment
+    Vector<ProgramHeader*>* vec = new Vector<ProgramHeader*>();
+    elfFile->getLoadSegments(vec);
+    uint32_t numOfLoadSegments = vec->size();
+    //EMMET
+    fprintf(stderr, "numOfLoadSegments: %d\n", numOfLoadSegments);
+    uint32_t ELFSectionSegmentIdx = elfFile->getELFSectionSegmentIdx();
+    ProgramHeader* ELFSectionSegment = (*vec)[0];
+
+    uint64_t minAddr = ELFSectionSegment->GET(p_vaddr);
+    uint64_t maxAddr = ELFSectionSegment->GET(p_vaddr) 
+      + ELFSectionSegment->GET(p_filesz);
+
+    // for each segment that is contained within the ELF Section segment,               
+    // update its address to reflect the new base address of the ELF Section 
+    // segment
 
     for (uint32_t i = 0; i < elfFile->getNumberOfPrograms(); i++){
+
         ProgramHeader* subHeader = elfFile->getProgramHeader(i);
-        if (loadAfterInterp->inRange(subHeader->GET(p_vaddr))
-          && i != elfFile->getInterpSegmentIdx()+1 ) {
+
+        if (ELFSectionSegment->inRange(subHeader->GET(p_vaddr))
+          && i != elfFile->getELFSectionSegmentIdx() ) {
 
             if (subHeader->GET(p_vaddr) < totalSize){
                 PRINT_WARN(20, 
@@ -1685,9 +1688,9 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     // update its offset to reflect the the base address of the executable
     // (ie the base address of the text segment)
     // EMMET offset updated here for RW LOAD segment and dynamic section originally
-    // EMMET TODO 2nd load segment and last load segment
-    ProgramHeader* load2 = loadSegments[1];
-    ProgramHeader* load4 = loadSegments[3];
+    // When numOfLoadSegments is 2, load2 and load4 are the same segments
+    ProgramHeader* load2 = (*vec)[1];
+    ProgramHeader* load4 = (*vec)[numOfLoadSegments-1];
     uint64_t minAddr2 = load2->GET(p_vaddr);
     uint64_t maxAddr2 = load4->GET(p_vaddr) + load4->GET(p_filesz);
     for (uint32_t i = 0; i < elfFile->getNumberOfPrograms(); i++){
@@ -1721,10 +1724,10 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     textHeader->SET(p_paddr,textHeader->GET(p_paddr)-totalSize);
     textHeader->INCREMENT(p_memsz, totalSize);
     textHeader->INCREMENT(p_filesz, totalSize);*/
-    loadAfterInterp->SET(p_vaddr,loadAfterInterp->GET(p_vaddr) - totalSize);
-    loadAfterInterp->SET(p_paddr,loadAfterInterp->GET(p_paddr) - totalSize);
-    loadAfterInterp->INCREMENT(p_memsz, totalSize);
-    loadAfterInterp->INCREMENT(p_filesz, totalSize);
+    ELFSectionSegment->SET(p_vaddr,ELFSectionSegment->GET(p_vaddr) - totalSize);
+    ELFSectionSegment->SET(p_paddr,ELFSectionSegment->GET(p_paddr) - totalSize);
+    ELFSectionSegment->INCREMENT(p_memsz, totalSize);
+    ELFSectionSegment->INCREMENT(p_filesz, totalSize);
 
     // For any section that falls before the program's code, displace its 
     // address so that it is in the
