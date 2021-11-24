@@ -343,8 +343,18 @@ void ElfFileInst::buildInstrumentationSections(){
     ASSERT(usableAddress % dHdr->GET(p_align) == usableOffset % dHdr->GET(p_align));
 
     //why are we using this default_inst_segment
+    // We used to use DEFAULT_INST_SEGMENT here that had a value of 4, this
+    // value comes from the number of segments before the LOAD segments(2) and
+    // the number of LOAD segments(2) to get 4 (2+2) as the index of the new 
+    // LOAD segment we are creating. So we now get this value programatically
+    // using the number of LOAD segments
     //need to figure out the values we have at this point
-    instSegment = elfFile->addSegment(6, 
+    Vector<ProgramHeader*>* vec = new Vector<ProgramHeader*>();
+    elfFile->getLoadSegments(vec);
+    uint32_t numOfLoadSegments = vec->size();
+    delete vec;
+    uint32_t newSegmentIndex = 2 + numOfLoadSegments;
+    instSegment = elfFile->addSegment(newSegmentIndex, 
       dHdr->GET(p_type), usableOffset, usableAddress, usableAddress, 
       TEMP_SEGMENT_SIZE, TEMP_SEGMENT_SIZE, PF_R | PF_W | PF_X, 
       dHdr->GET(p_align));
@@ -1805,6 +1815,7 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     // move the shdr table into the reserved aread (phdr table is already there)
     fHdr->SET(e_shoff, fHdr->GET(e_phoff) + ((fHdr->GET(e_phnum) + 2) * fHdr->GET(e_phentsize)));
 
+    delete vec;
     verify();
 }
 
