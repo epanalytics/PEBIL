@@ -368,20 +368,6 @@ ProgramHeader* ElfFile::getProgramHeaderPHDR(){
     return NULL;
 }
 
-ProgramHeader* ElfFile::getProgramHeaderINTERP(){
-    if (getProgramHeader(1)->GET(p_type) == PT_INTERP) {
-        return getProgramHeader(1);
-    }
-    return NULL;
-}
-
-uint16_t ElfFile::getInterpSegmentIdx(){
-    if (getProgramHeader(1)->GET(p_type) == PT_INTERP) {
-        return 1;
-    }
-    return (uint16_t)-1;
-}
-
 void ElfFile::getLoadSegments(Vector<ProgramHeader*>* vec) {
     uint32_t numOfPH = getNumberOfPrograms();   
     for(uint32_t i=0;i<numOfPH;i++) {
@@ -749,7 +735,6 @@ ProgramHeader* ElfFile::addSegment(uint16_t idx, uint32_t type, uint64_t offset,
     programHeaders[idx]->SET(p_filesz, filesz);
     programHeaders[idx]->SET(p_flags, flags);
     programHeaders[idx]->SET(p_align, align);
-    uint64_t emmetTempSize1 = programHeaders[idx]->GET(p_filesz);
 
     for (uint32_t i = 0; i < getNumberOfPrograms(); i++){
         programHeaders[i]->setIndex(i);
