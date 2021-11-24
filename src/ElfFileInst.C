@@ -1628,13 +1628,6 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
 
     ASSERT(!extraTextIdx && "Cannot extend the text segment more than once");
 
-    /*ProgramHeader* loadAfterInterp =
-      elfFile->getProgramHeader(elfFile->getInterpSegmentIdx()+1);
-    ProgramHeader* textHeader = 
-      elfFile->getProgramHeader(elfFile->getTextSegmentIdx());
-    ProgramHeader* dataHeader = 
-      elfFile->getProgramHeader(elfFile->getDataSegmentIdx());*/
-
     // first we will find the address of the first text section. we will be 
     // moving all elf control structures that occur prior to this address when 
     // we extend the text segment (the interp and note.ABI-tag sections must be 
@@ -1659,16 +1652,10 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     Vector<ProgramHeader*>* vec = new Vector<ProgramHeader*>();
     elfFile->getLoadSegments(vec);
     uint32_t numOfLoadSegments = vec->size();
-    //EMMET
-    fprintf(stderr, "numOfLoadSegments: %d\n", numOfLoadSegments);
     uint32_t ELFSectionSegmentIdx = elfFile->getELFSectionSegmentIdx();
     ProgramHeader* ELFSectionSegment = (*vec)[0];
 
-    uint64_t minAddr = ELFSectionSegment->GET(p_vaddr);
-    uint64_t maxAddr = ELFSectionSegment->GET(p_vaddr) 
-      + ELFSectionSegment->GET(p_filesz);
-
-    // for each segment that is contained within the ELF Section segment,               
+    // for each segment that is contained within the ELF Section segment, 
     // update its address to reflect the new base address of the ELF Section 
     // segment
 
@@ -1682,8 +1669,7 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
             if (subHeader->GET(p_vaddr) < totalSize){
                 PRINT_WARN(20, 
                   "Unable to extend text section by 0x%llx bytes: the maximum size of a text extension for this binary is 0x%llx bytes", 
-                  totalSize, subHeader->GET(p_vaddr));
-                                                                                            
+                  totalSize, subHeader->GET(p_vaddr)); 
                 PRINT_WARN(20, "Try using the --wedge flag");
             }
             
@@ -1701,12 +1687,12 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     // When numOfLoadSegments is 2, load2 and load4 are the same segments
     ProgramHeader* load2 = (*vec)[1];
     ProgramHeader* load4 = (*vec)[numOfLoadSegments-1];
-    uint64_t minAddr2 = load2->GET(p_vaddr);
-    uint64_t maxAddr2 = load4->GET(p_vaddr) + load4->GET(p_filesz);
+    uint64_t minAddr = load2->GET(p_vaddr);
+    uint64_t maxAddr = load4->GET(p_vaddr) + load4->GET(p_filesz);
     for (uint32_t i = 0; i < elfFile->getNumberOfPrograms(); i++){
         ProgramHeader* subHeader = elfFile->getProgramHeader(i);
-        if ( subHeader->GET(p_vaddr) >= minAddr2 
-          && subHeader->GET(p_vaddr) < maxAddr2){
+        if ( subHeader->GET(p_vaddr) >= minAddr 
+          && subHeader->GET(p_vaddr) < maxAddr){
 
             subHeader->INCREMENT(p_offset,totalSize);
         }
@@ -1730,10 +1716,6 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     // modify the base address of the text segment and increase its size so it 
     // ends at the same address
     // EMMET vaddr is updated here for the R E LOAD segment
-    /*textHeader->SET(p_vaddr,textHeader->GET(p_vaddr)-totalSize);
-    textHeader->SET(p_paddr,textHeader->GET(p_paddr)-totalSize);
-    textHeader->INCREMENT(p_memsz, totalSize);
-    textHeader->INCREMENT(p_filesz, totalSize);*/
     ELFSectionSegment->SET(p_vaddr,ELFSectionSegment->GET(p_vaddr) - totalSize);
     ELFSectionSegment->SET(p_paddr,ELFSectionSegment->GET(p_paddr) - totalSize);
     ELFSectionSegment->INCREMENT(p_memsz, totalSize);
@@ -2031,7 +2013,6 @@ ElfFileInst::ElfFileInst(ElfFile* elf){
     instrumentationData = NULL;
     instrumentationDataSize = 0;
     instrumentationDataAddress = 0;
-    //TODO EMMET
     for (uint32_t i = 0; i < elfFile->getNumberOfSections(); i++){
         SectionHeader* sec = elfFile->getSectionHeader(i);
         if (sec->GET(sh_addr)){
