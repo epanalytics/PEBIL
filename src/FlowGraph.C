@@ -137,9 +137,9 @@ static bool mergeStates(struct RegisterStatePrediction* oldState, struct Registe
 }
 
 static RuntimeValue getValueOfOperand(OperandX86* src, RegisterStatePrediction* item) {
+    //TODO EMMET im not sure what this is supposed to look like
     if(src->getType() == UD_OP_IMM) {
-        ASSERT(src->getValue() >= 0);
-        return {Definitely, (uint64_t)src->getValue()};
+        return {Definitely, src->getValue()};
     }
     else if(src->getType() == UD_OP_REG) {
         if(item->state.find(getRegId(src->GET(base))) != item->state.end()) {
