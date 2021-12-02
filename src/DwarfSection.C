@@ -30,7 +30,7 @@ void DwarfLineInfoSection::wedge(uint32_t shamt){
     }
 }
 
-uint32_t DwarfLineInfoSection::read(BinaryInputFile* binaryInputFile){
+void DwarfLineInfoSection::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(rawDataPtr);
     setFileOffset(binaryInputFile->currentOffset());
 
@@ -46,7 +46,6 @@ uint32_t DwarfLineInfoSection::read(BinaryInputFile* binaryInputFile){
 
     ASSERT(currByte == sizeInBytes && "Number of bytes read from DwarfLineInfoSection does not match its size");
     verify();
-    return sizeInBytes;
 }
 
 DwarfLineInfoSection::~DwarfLineInfoSection(){

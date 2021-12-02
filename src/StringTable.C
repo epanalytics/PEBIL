@@ -33,10 +33,9 @@ char* StringTable::getString(uint32_t offset){
     return strings + offset; 
 }
 
-uint32_t StringTable::addString(const char* name){
+void StringTable::addString(const char* name){
 
     uint32_t stringSize = strlen(name);
-    uint32_t currentSize = sizeInBytes;
 
     ASSERT(strings && "strings array should be initialized");
 
@@ -48,8 +47,6 @@ uint32_t StringTable::addString(const char* name){
     delete[] strings;
     strings = newstrings;
     sizeInBytes += strlen(name) + 1;
-
-    return currentSize;
 }
 
 void StringTable::print() { 
@@ -67,14 +64,12 @@ void StringTable::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
     binaryOutputFile->copyBytes(strings, sizeInBytes, offset);
 }
 
-uint32_t StringTable::read(BinaryInputFile* binaryInputFile){
+void StringTable::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(getFilePointer());
     setFileOffset(binaryInputFile->currentOffset());
 
     strings = new char[sizeInBytes];
     binaryInputFile->copyBytesIterate(strings, sizeInBytes);
-
-    return sizeInBytes;
 }
 
 StringTable::~StringTable(){

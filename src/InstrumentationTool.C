@@ -145,6 +145,8 @@ uint32_t ThreadRegisterMap::getThreadRegister(BasicBlock* bb) {
             }
             return X86_REG_INVALID;
     }
+    __SHOULD_NOT_ARRIVE;
+    return X86_REG_INVALID;    
 }
 
 void ThreadRegisterMap::setThreadRegister(Loop* l, uint32_t reg) {
@@ -223,13 +225,14 @@ void InstrumentationTool::setThreadingRegister(uint32_t d, X86Instruction* ins, 
     delete inv;
 
     // pick out the register
-    uint32_t s;
+    uint32_t s = X86_64BIT_GPRS;
     for (uint32_t j = 0; j < X86_64BIT_GPRS; j++){
         if (deadRegs->contains(j)){
             s = j;
             break;
         }
     }
+    ASSERT(s != X86_64BIT_GPRS && "s did not get initialized");
     delete deadRegs;
 
     InstrumentationSnippet* snip = addInstrumentationSnippet();
@@ -772,7 +775,7 @@ void InstrumentationTool::instrumentEmbeddedElf(){
 
     // Redirect all references to the original header to point to the new header
     Vector<AddressAnchor*>* imgAnchors = elfFile->searchAddressAnchors(head->getBaseAddress());
-    for(int i = 0; i < imgAnchors->size(); ++i){
+    for(uint32_t i = 0; i < imgAnchors->size(); ++i){
         AddressAnchor* anchor = (*imgAnchors)[i];
         anchor->updateLink(dataref);
     }
@@ -845,7 +848,9 @@ void InstrumentationTool::instrument(){
         ASSERT((*mpiInitCalls)[i]->isFunctionCall());
         ASSERT((*mpiInitCalls)[i]->getSizeInBytes() == Size__uncond_jump);
         PRINT_INFOR("Adding MPI_Init wrapper @ %#llx", (*mpiInitCalls)[i]->getBaseAddress());
-        InstrumentationPoint* pt = addInstrumentationPoint((*mpiInitCalls)[i], initWrapperC, InstrumentationMode_tramp, InstLocation_replace);
+        // Don't need added instrumentation point
+        (void) addInstrumentationPoint((*mpiInitCalls)[i], initWrapperC, 
+          InstrumentationMode_tramp, InstLocation_replace);
         initFound++;
     }
     delete mpiInitCalls;
@@ -856,7 +861,8 @@ void InstrumentationTool::instrument(){
         ASSERT((*mpiInitCalls)[i]->isFunctionCall());
         ASSERT((*mpiInitCalls)[i]->getSizeInBytes() == Size__uncond_jump);
         PRINT_INFOR("Adding mpi_init_ wrapper @ %#llx", (*mpiInitCalls)[i]->getBaseAddress());
-        InstrumentationPoint* pt = addInstrumentationPoint((*mpiInitCalls)[i], initWrapperF, InstrumentationMode_tramp, InstLocation_replace);
+        (void) addInstrumentationPoint((*mpiInitCalls)[i], initWrapperF, 
+          InstrumentationMode_tramp, InstLocation_replace);
         initFound++;
     }
     delete mpiInitCalls;
@@ -868,7 +874,8 @@ void InstrumentationTool::instrument(){
         ASSERT((*mpiInitCalls)[i]->isFunctionCall());
         ASSERT((*mpiInitCalls)[i]->getSizeInBytes() == Size__uncond_jump);
         PRINT_INFOR("Adding MPI_Init_thread wrapper @ %#llx", (*mpiInitCalls)[i]->getBaseAddress());
-        InstrumentationPoint* pt = addInstrumentationPoint((*mpiInitCalls)[i], initTWrapperC, InstrumentationMode_tramp, InstLocation_replace);
+        (void) addInstrumentationPoint((*mpiInitCalls)[i], initTWrapperC, 
+          InstrumentationMode_tramp, InstLocation_replace);
         initFound++;
     }
     delete mpiInitCalls;
@@ -879,7 +886,8 @@ void InstrumentationTool::instrument(){
         ASSERT((*mpiInitCalls)[i]->isFunctionCall());
         ASSERT((*mpiInitCalls)[i]->getSizeInBytes() == Size__uncond_jump);
         PRINT_INFOR("Adding mpi_init_thread_ wrapper @ %#llx", (*mpiInitCalls)[i]->getBaseAddress());
-        InstrumentationPoint* pt = addInstrumentationPoint((*mpiInitCalls)[i], initTWrapperF, InstrumentationMode_tramp, InstLocation_replace);
+        (void) addInstrumentationPoint((*mpiInitCalls)[i], initTWrapperF, 
+          InstrumentationMode_tramp, InstLocation_replace);
         initFound++;
     }
     delete mpiInitCalls;
@@ -896,7 +904,9 @@ void InstrumentationTool::instrument(){
         ASSERT((*mpiInitCalls)[i]->isFunctionCall());
         ASSERT((*mpiInitCalls)[i]->getSizeInBytes() == Size__uncond_jump);
         PRINT_INFOR("Adding MPI_Init wrapper @ %#llx", (*mpiInitCalls)[i]->getBaseAddress());
-        InstrumentationPoint* pt = addInstrumentationPoint((*mpiInitCalls)[i], initWrapperC, InstrumentationMode_tramp, InstLocation_replace);
+        // Don't need added instrumentation point
+        (void) addInstrumentationPoint((*mpiInitCalls)[i], initWrapperC, 
+          InstrumentationMode_tramp, InstLocation_replace);
         initFound++;
     }
     delete mpiInitCalls;
@@ -907,7 +917,8 @@ void InstrumentationTool::instrument(){
         ASSERT((*mpiInitCalls)[i]->isFunctionCall());
         ASSERT((*mpiInitCalls)[i]->getSizeInBytes() == Size__uncond_jump);
         PRINT_INFOR("Adding mpi_init_ wrapper @ %#llx", (*mpiInitCalls)[i]->getBaseAddress());
-        InstrumentationPoint* pt = addInstrumentationPoint((*mpiInitCalls)[i], initWrapperF, InstrumentationMode_tramp, InstLocation_replace);
+        (void) addInstrumentationPoint((*mpiInitCalls)[i], initWrapperF, 
+          InstrumentationMode_tramp, InstLocation_replace);
         initFound++;
     }
     delete mpiInitCalls;
@@ -918,7 +929,8 @@ void InstrumentationTool::instrument(){
         ASSERT((*mpiInitCalls)[i]->isFunctionCall());
         ASSERT((*mpiInitCalls)[i]->getSizeInBytes() == Size__uncond_jump);
         PRINT_INFOR("Adding MPI_Init_thread wrapper @ %#llx", (*mpiInitCalls)[i]->getBaseAddress());
-        InstrumentationPoint* pt = addInstrumentationPoint((*mpiInitCalls)[i], initTWrapperC, InstrumentationMode_tramp, InstLocation_replace);
+        (void) addInstrumentationPoint((*mpiInitCalls)[i], initTWrapperC, 
+          InstrumentationMode_tramp, InstLocation_replace);
         initFound++;
     }
     delete mpiInitCalls;
@@ -929,7 +941,8 @@ void InstrumentationTool::instrument(){
         ASSERT((*mpiInitCalls)[i]->isFunctionCall());
         ASSERT((*mpiInitCalls)[i]->getSizeInBytes() == Size__uncond_jump);
         PRINT_INFOR("Adding mpi_init_ wrapper @ %#llx", (*mpiInitCalls)[i]->getBaseAddress());
-        InstrumentationPoint* pt = addInstrumentationPoint((*mpiInitCalls)[i], initTWrapperF, InstrumentationMode_tramp, InstLocation_replace);
+        (void) addInstrumentationPoint((*mpiInitCalls)[i], initTWrapperF, 
+          InstrumentationMode_tramp, InstLocation_replace);
         initFound++;
     }
     delete mpiInitCalls;
@@ -1044,7 +1057,7 @@ InstrumentationPoint* InstrumentationTool::insertInlinedTripCounter(uint64_t cou
         // any threaded
         if (isThreadedMode() || isMultiImage()){
             // load thread data base addr into %sr1
-            if (threadReg == X86_REG_INVALID){
+            if (threadReg == (uint32_t)X86_REG_INVALID) {
                 /*
                 uint32_t stackPatch = 0;
                 if (loc == InstLocation_prior && !bestinst->isRegDeadIn(sr1)){
@@ -1201,8 +1214,6 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     FILE* staticFD = fopen(staticFile, "w");
     delete[] staticFile;
 
-    TextSection* text = getDotTextSection();
-
     // Print header
     fprintf(staticFD, "# appname   = %s\n", getApplicationName());
     fprintf(staticFD, "# appsize   = %d\n", getApplicationSize());
@@ -1283,10 +1294,6 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     std::map<uint32_t, std::string> staticAnalysisOutput;
 #pragma omp parallel for schedule(dynamic,1)
     for (uint32_t i = 0; i < numberOfInstPoints; i++) {
-        uint32_t noInst = 0;
-        uint32_t fileNameSize = 1;
-        uint32_t trapCount = 0;
-        uint32_t jumpCount = 0;
         float memopavg = 0.0;
         std::stringstream thisStream;
         char thisBuffer[8192];
@@ -1381,11 +1388,9 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                   loop->getIndex())->getHead()->getHashCode().getValue();
             }
 
-            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, 
+            bufferPointer += sprintf(thisBuffer+bufferPointer, 
+              "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, 
               parentHead, bb->getHashCode().getValue());
-            uint32_t currINT = 0;
-            uint32_t currFP = 0;
-            uint32_t currDist = 1;
 
             bufferPointer += sprintf(thisBuffer + bufferPointer, "\t+dud");
 
@@ -1589,14 +1594,10 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
       (*allBlockLineInfos).size());
     ASSERT((*allBlocks).size() == (*allBlockIds).size());
     
-    uint32_t numberOfInstPoints = (*allBlocks).size();
-    
     char* staticFile = new char[__MAX_STRING_SIZE];
     sprintf(staticFile,"%s.%s.%s", getFullFileName(), extension, "callTree");
     FILE* staticFD = fopen(staticFile, "w");
     delete[] staticFile;
-    
-    TextSection* text = getDotTextSection();
     
     fprintf(staticFD, "# appname   = %s\n", getApplicationName());
     fprintf(staticFD, "# appsize   = %d\n", getApplicationSize());
@@ -1636,11 +1637,6 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
     fprintf(staticFD, "# fpops     = %d\n", fltopcnt);
     fprintf(staticFD, "# insns     = %d\n", insncnt);
     
-    uint32_t noInst = 0;
-    uint32_t fileNameSize = 1;
-    uint32_t trapCount = 0;
-    uint32_t jumpCount = 0;
-
     // construct the call tree info
     std::map<std::string,std::set<std::string>> callTreeInfo;
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
@@ -1731,8 +1727,6 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
   FILE* staticFD = fopen(staticFile, "w");
   delete[] staticFile;
   
-  TextSection* text = getDotTextSection();
-  
   fprintf(staticFD, "# appname   = %s\n", getApplicationName());
   fprintf(staticFD, "# appsize   = %d\n", getApplicationSize());
   fprintf(staticFD, "# extension = %s\n", getExtension());
@@ -1789,11 +1783,6 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
     fprintf(staticFD, "# +ipa <call_target_addr> <call_target_name>\n");
     fprintf(staticFD, "# +vec <#elem>x<elemSize>:<#fp>:<#int> ...\n");
   }
-  
-  uint32_t noInst = 0;
-  uint32_t fileNameSize = 1;
-  uint32_t trapCount = 0;
-  uint32_t jumpCount = 0;
   
   for (uint32_t i = 0; i < numberOfInstPoints; i++){
     Base* b = (*allInstructions)[i];

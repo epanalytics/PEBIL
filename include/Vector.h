@@ -177,7 +177,7 @@ public:
         return numberOfElements;
     }
 
-    uint32_t assign(T elt, uint32_t idx){
+    void assign(T elt, uint32_t idx){
         ASSERT(idx < numberOfElements);
         elements[idx] = elt;
     }

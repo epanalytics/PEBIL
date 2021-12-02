@@ -111,13 +111,12 @@ uint32_t GnuHashTable::findSymbol(const char* symbolName){
 
     n = (h1 / hashEntrySize) & (numberOfBloomFilters - 1);
     bitmask = (1 << (h1 % hashEntrySize)) | (1 << (h2 % hashEntrySize));
-    if (bloomFilters[n] & bitmask != bitmask){
+    if ((bloomFilters[n] & bitmask) != bitmask){
         PRINT_ERROR("The symbol being searched (%s) is non-existent (failed bloom filter)", symbolName);
         return -1;
     }
 
     uint32_t x = buckets[elf_gnu_hash(symbolName) % numberOfBuckets];
-    uint32_t entryVal;
 
     PRINT_DEBUG_HASH("Symbol with name %s has hash buckets[%d]=%d", symbolName, elf_sysv_hash(symbolName) % numberOfBuckets, x);
 
@@ -134,7 +133,6 @@ uint32_t GnuHashTable::findSymbol(const char* symbolName){
 
 void GnuHashTable::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
     uint32_t currByte = 0;
-    uint32_t tmpEntry;
 
     binaryOutputFile->copyBytes((char*)&numberOfBuckets, sizeof(uint32_t), offset + currByte);
     currByte += sizeof(uint32_t);
@@ -171,7 +169,7 @@ void GnuHashTable::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
 }
 
 
-uint32_t GnuHashTable::read(BinaryInputFile* binaryInputFile){
+void GnuHashTable::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(rawDataPtr);
     setFileOffset(binaryInputFile->currentOffset());
 
@@ -440,7 +438,6 @@ uint32_t SysvHashTable::findSymbol(const char* symbolName){
     SymbolTable* symTab = elfFile->getSymbolTable(symTabIdx);
 
     uint32_t x = buckets[elf_sysv_hash(symbolName) % numberOfBuckets];
-    uint32_t entryVal;
 
     PRINT_DEBUG_HASH("Symbol with name %s has hash buckets[%d]=%d", symbolName, elf_sysv_hash(symbolName) % numberOfBuckets, x);
 
@@ -515,7 +512,6 @@ bool SysvHashTable::verify(){
 
 void SysvHashTable::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
     uint32_t currByte = 0;
-    uint32_t tmpEntry;
 
     binaryOutputFile->copyBytes((char*)&numberOfBuckets,sizeof(uint32_t),offset+currByte);
     currByte += sizeof(uint32_t);
@@ -534,7 +530,7 @@ void SysvHashTable::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
     }
 }
 
-uint32_t SysvHashTable::read(BinaryInputFile* binaryInputFile){
+void SysvHashTable::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(rawDataPtr);
     setFileOffset(binaryInputFile->currentOffset());
 
@@ -563,8 +559,6 @@ uint32_t SysvHashTable::read(BinaryInputFile* binaryInputFile){
             PRINT_ERROR("Cannot read entry[%d] from Hash Table)", i);
         }
     }
-
-    return sizeInBytes;
 }
 
 void SysvHashTable::print(){

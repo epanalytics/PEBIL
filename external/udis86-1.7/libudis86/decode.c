@@ -31,6 +31,8 @@ struct modrm {
   char set;
 };
 
+extern unsigned int ud_insn_len(struct ud* u);
+
 static inline unsigned char get_modrm(struct ud* u, struct modrm* modrm)
 {
   if(!modrm->set) {
@@ -1639,14 +1641,12 @@ decode_modrm_reg(struct ud* u,
 {
   unsigned char modrm_byte = get_modrm(u, modrm);
 
-  unsigned char reg, mod, rm;
+  unsigned char reg;
 
   PEBIL_DEBUG("\tdecode_modrm_reg: reg_size = %d, reg_type = %u, modrm_byte = "
     "%#x", reg_size, reg_type, modrm_byte);
   PEBIL_DEBUG("\tdecode_modrm_reg: position = %d\n", op->position);
   reg = (REX_R(u->pfx_rex) << 3) | MODRM_REG(modrm_byte);
-  mod = MODRM_MOD(modrm_byte);
-  rm  = (REX_B(u->pfx_rex) << 3) | MODRM_RM(modrm_byte);
 
 
   if(P_MVEX(u->pfx_insn)) {
@@ -2061,19 +2061,19 @@ static int disasm_operands(register struct ud* u)
 
   int retval = 0;
 
-  if (u->itab_entry->operand1.type == UD_NONE) return retval;
+  if (u->itab_entry->operand1.type == OP_NONE) return retval;
   PEBIL_DEBUG("Operand 1:");
   retval |= disasm_operand(u, &modrm, &u->operand[0], u->itab_entry->operand1.type, u->itab_entry->operand1.size);
 
-  if( u->itab_entry->operand2.type == UD_NONE) return retval;
+  if( u->itab_entry->operand2.type == OP_NONE) return retval;
   PEBIL_DEBUG("Operand 2:");
   retval |= disasm_operand(u, &modrm, &u->operand[1], u->itab_entry->operand2.type, u->itab_entry->operand2.size);
 
-  if( u->itab_entry->operand3.type == UD_NONE) return retval;
+  if( u->itab_entry->operand3.type == OP_NONE) return retval;
   PEBIL_DEBUG("Operand 3:");
   retval |= disasm_operand(u, &modrm, &u->operand[2], u->itab_entry->operand3.type, u->itab_entry->operand3.size);
 
-  if( u->itab_entry->operand4.type == UD_NONE) return retval;;
+  if( u->itab_entry->operand4.type == OP_NONE) return retval;;
   PEBIL_DEBUG("Operand 4:");
   retval |= disasm_operand(u, &modrm, &u->operand[3], u->itab_entry->operand4.type, u->itab_entry->operand4.size);
 

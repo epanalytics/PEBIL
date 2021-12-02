@@ -69,7 +69,8 @@ uint64_t ElfFile::getProgramBaseAddress(){
         }
     }
 
-    ASSERT(segmentBase != -1 && "No loadable segments found (or their p_vaddr fields are incorrect)");
+    ASSERT(segmentBase != (uint64_t)-1 && "No loadable segments found (or "
+      "their p_vaddr fields are incorrect)");
     return segmentBase;
 }
 
@@ -398,7 +399,7 @@ RawSection* ElfFile::findDataSectionAtAddr(uint64_t addr){
     return dataSection;
 }
 
-uint16_t ElfFile::findSectionIdx(char* name){
+uint16_t ElfFile::findSectionIdx(const char* name){
     for (uint16_t i = 1; i < getNumberOfSections(); i++){
         if (name && sectionHeaders[i]->getSectionNamePtr()){
             if (!strcmp(sectionHeaders[i]->getSectionNamePtr(),name)){
@@ -566,7 +567,6 @@ bool ElfFile::verifyDynamic(){
     }
 
     uint64_t dynstrSectionAddress_DT = dynamicTable->getDynamicByType(DT_STRTAB,0)->GET_A(d_val,d_un);
-    uint64_t dynsymSectionAddress_DT = dynamicTable->getDynamicByType(DT_SYMTAB,0)->GET_A(d_val,d_un);
     if (dynamicTable->countDynamics(DT_REL) + dynamicTable->countDynamics(DT_RELA) != 1){
         PRINT_ERROR("Can only have one relocation table referenced by the dynamic table");
         return false;
@@ -583,10 +583,8 @@ bool ElfFile::verifyDynamic(){
     // The file must start with note and interp sections
     uint64_t gnuHashSectionAddress = 0;
     uint64_t sysvHashSectionAddress = 0;
-    uint64_t dynamicSectionAddress = 0;
     uint64_t dynstrSectionAddress = 0;
     uint64_t dynsymSectionAddress = 0;
-    uint64_t textSectionAddress = 0;
     uint64_t relocationSectionAddress = 0;
     uint64_t pltgotSectionAddress = 0;
     uint64_t versymSectionAddress = 0;
@@ -1245,19 +1243,16 @@ void ElfFile::findFunctions(){
 
 
 
-uint32_t ElfFile::printDisassembly(bool instructionDetail){
-    uint32_t numInstrs = 0;
-
+void ElfFile::printDisassembly(bool instructionDetail){
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
         if (textSections[i]){
             if (textSections[i]->getByteSource() != ByteSource_Instrumentation){
-                numInstrs += textSections[i]->printDisassembly(instructionDetail);
+                textSections[i]->printDisassembly(instructionDetail);
             } else {
                 PRINT_INFOR("Skipping print of section %hd because it is instrumentation code", textSections[i]->getSectionIndex());
             }
         }
     }
-    return numInstrs;
 }
 
 void ElfFile::dump(char* extension, bool isext){
@@ -1310,9 +1305,7 @@ void ElfFile::dump(BinaryOutputFile* binaryOutputFile){
 
 void ElfFile::parse(){
 
-    TIMER(double t1 = timer());	
-
-    char* endianCheck = "elfs\0";
+    const char* endianCheck = "elfs\0";
     uint32_t endianValue = getUInt32(endianCheck);
     if (endianValue != 0x73666c65){
         PRINT_ERROR("Platform must be little endian");
@@ -1888,7 +1881,7 @@ uint32_t ElfFile::anchorProgramElements(){
 
         // since there are no constraints on the alignment of stuff in the data sections we must check starting at EVERY byte
         // ^^^NO TO THE ABOVE STATEMENT^^^: we will check just word-aligned addresses since we were getting false positives
-        for (int32_t currByte = 0; currByte < sectionSize; currByte += sizeof(uint32_t)){
+        for (uint32_t currByte = 0; currByte < sectionSize; currByte += sizeof(uint32_t)){
             char* dataPtr = (char*)(dataRawSection->getFilePointer()+currByte);
             uint64_t extendedData;
             if (addrAlign == sizeof(uint64_t)){

@@ -30,7 +30,7 @@ protected:
     char*        inBuffer;
 public:
     BinaryInputFile() : inBufferPointer(NULL),inBufferSize(0),inBuffer(NULL) {}
-    ~BinaryInputFile();
+    virtual ~BinaryInputFile();
 
     virtual void readFileInMemory(char* f, bool inform=true);
 
@@ -58,7 +58,7 @@ public:
 class EmbeddedBinaryInputFile : public BinaryInputFile {
 public:
     EmbeddedBinaryInputFile(void* file_start, uint64_t size);
-    ~EmbeddedBinaryInputFile();
+    virtual ~EmbeddedBinaryInputFile();
     void readFileInMemory(char* f, bool inform=true) { /* Do Nothing */ }
 };
 
@@ -73,7 +73,7 @@ private:
 public:
 
     BinaryOutputFile();
-    ~BinaryOutputFile();
+    virtual ~BinaryOutputFile();
 
     virtual void open(char* flnm);
     virtual bool operator!();
@@ -92,7 +92,7 @@ private:
 
 public:
     EmbeddedBinaryOutputFile();
-    ~EmbeddedBinaryOutputFile();
+    virtual ~EmbeddedBinaryOutputFile();
 
     void open(char* flnm) { /* Do nothing */ }
     bool operator!() { return false; }
