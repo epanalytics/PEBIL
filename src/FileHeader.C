@@ -209,8 +209,6 @@ void FileHeader32::read(BinaryInputFile* binaryInputFile){
     initFilePointers(binaryInputFile);
 
     verify();
-
-    //return Size__32_bit_File_Header;
 }
 
 void FileHeader64::read(BinaryInputFile* binaryInputFile){
@@ -223,8 +221,6 @@ void FileHeader64::read(BinaryInputFile* binaryInputFile){
     initFilePointers(binaryInputFile);
 
     verify();
-
-    //return Size__64_bit_File_Header;
 }
 
 void FileHeader32::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){

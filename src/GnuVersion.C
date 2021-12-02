@@ -135,8 +135,8 @@ void GnuVerneedTable::read(BinaryInputFile* binaryInputFile){
         totalBytesRead += entrySize;
     }
 
-    ASSERT(totalBytesRead == sizeInBytes && "Size read from file does not match theoretical size");
-    //return totalBytesRead;
+    ASSERT(totalBytesRead == sizeInBytes && 
+      "Size read from file does not match theoretical size");
 }
 
 void GnuVersymTable::addSymbol(uint16_t val){
@@ -202,6 +202,4 @@ void GnuVersymTable::read(BinaryInputFile* binaryInputFile){
     }
     ASSERT(totalBytesRead == sizeInBytes && "Size read from file does not match theoretical size");
     ASSERT(sizeInBytes == versyms.size() * entrySize && "Section size does not match data size");
-
-//    return totalBytesRead;
 }

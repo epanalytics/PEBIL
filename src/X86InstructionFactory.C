@@ -870,7 +870,6 @@ Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Inst
 
         if (instruction->GET(pfx_seg)){
             uint32_t segIdx = instruction->GET(pfx_seg) - UD_R_ES;
-//            uint64_t imm = op->getValue();
             // FIXME ignores offsets
             (*compInstructions).append(emitMoveSegmentRegToReg(segIdx, dest));
         } else if (op->GET(base) == UD_R_RIP){
@@ -950,7 +949,6 @@ Vector<X86Instruction*>* X86InstructionFactory32::emitAddressComputation(X86Inst
 
         if (instruction->GET(pfx_seg)){
             uint32_t segIdx = instruction->GET(pfx_seg) - UD_R_ES;
-//            uint64_t imm = op->getValue();
 
             (*compInstructions).append(emitMoveSegmentRegToReg(segIdx, dest));
         } else if (op->GET(base) == UD_R_RIP){
@@ -2572,7 +2570,7 @@ X86Instruction* X86InstructionFactory::emitPopEflags(){
 
 Vector<X86Instruction*>* X86InstructionFactory::emitNopSeries(uint32_t len){
     Vector<X86Instruction*>* series = new Vector<X86Instruction*>();
-    for (int32_t i = 7; i >= 0; i--){
+    for (uint32_t i = 7; i >= 0; i--){
         while (len > i){
             (*series).append(emitNop(i+1));
             len -= (i+1);
