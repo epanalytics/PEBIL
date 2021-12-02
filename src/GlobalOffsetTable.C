@@ -66,8 +66,6 @@ void GlobalOffsetTable::read(BinaryInputFile* binaryInputFile){
             entries[i] = (uint64_t)tmpEntry;
         }
     }
-
-//    return sizeInBytes;
 }
 
 
@@ -77,7 +75,6 @@ void GlobalOffsetTable::print(){
     PRINT_INFOR("\tbase : %d",tableBaseIdx);
     PRINT_INFOR("\taddr : %#llx",baseAddress);
 
-//    char tmpStr[__MAX_STRING_SIZE+1];
     for (int32_t i = minIndex(); i < maxIndex(); i++){
         uint64_t val = getEntry(i);
         char* namestr = NULL;

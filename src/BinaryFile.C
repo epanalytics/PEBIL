@@ -237,7 +237,6 @@ void BinaryOutputFile::open(char* filenm) {
     fileName = new char[__MAX_STRING_SIZE];
     ASSERT(namelen < __MAX_STRING_SIZE);
     strncpy(fileName, filenm, namelen);
-    //fileName[namelen] = '\0';
     outFile = fopen(fileName,"w");
     ASSERT(outFile && "Cannot open output file");
 }

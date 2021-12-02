@@ -573,8 +573,6 @@ void DynamicTable::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(rawDataPtr);
     setFileOffset(binaryInputFile->currentOffset());
 
-   // uint32_t totalBytesRead = 0;
-
     uint32_t numberOfDynamics = sizeInBytes / dynamicSize;
     for (uint32_t i = 0; i < numberOfDynamics; i++){
         if (elfFile->is64Bit()){
@@ -584,10 +582,8 @@ void DynamicTable::read(BinaryInputFile* binaryInputFile){
         }
         dynamics[i]->read(binaryInputFile);
     }
-//    ASSERT(sizeInBytes == totalBytesRead && "size read from file does not match theorietical size of Dynamic Table");
 
     verify();
-    //return sizeInBytes;
 }
 
 void Dynamic32::read(BinaryInputFile* binaryInputFile){
@@ -597,8 +593,6 @@ void Dynamic32::read(BinaryInputFile* binaryInputFile){
     if (!binaryInputFile->copyBytesIterate(&entry,Size__32_bit_Dynamic_Entry)){
         PRINT_ERROR("Dynamic Entry (32) cannot be read");
     }
-
-    //return Size__32_bit_Dynamic_Entry;
 }
 
 void Dynamic64::read(BinaryInputFile* binaryInputFile){
@@ -608,8 +602,6 @@ void Dynamic64::read(BinaryInputFile* binaryInputFile){
     if (!binaryInputFile->copyBytesIterate(&entry,Size__64_bit_Dynamic_Entry)){
         PRINT_ERROR("Dynamic Entry (64) cannot be read");
     }
-    
-    //return Size__64_bit_Dynamic_Entry;
 }
 
 

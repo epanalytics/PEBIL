@@ -117,7 +117,6 @@ uint32_t GnuHashTable::findSymbol(const char* symbolName){
     }
 
     uint32_t x = buckets[elf_gnu_hash(symbolName) % numberOfBuckets];
-//    uint32_t entryVal;
 
     PRINT_DEBUG_HASH("Symbol with name %s has hash buckets[%d]=%d", symbolName, elf_sysv_hash(symbolName) % numberOfBuckets, x);
 
@@ -134,7 +133,6 @@ uint32_t GnuHashTable::findSymbol(const char* symbolName){
 
 void GnuHashTable::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
     uint32_t currByte = 0;
-//    uint32_t tmpEntry;
 
     binaryOutputFile->copyBytes((char*)&numberOfBuckets, sizeof(uint32_t), offset + currByte);
     currByte += sizeof(uint32_t);
@@ -440,7 +438,6 @@ uint32_t SysvHashTable::findSymbol(const char* symbolName){
     SymbolTable* symTab = elfFile->getSymbolTable(symTabIdx);
 
     uint32_t x = buckets[elf_sysv_hash(symbolName) % numberOfBuckets];
-//    uint32_t entryVal;
 
     PRINT_DEBUG_HASH("Symbol with name %s has hash buckets[%d]=%d", symbolName, elf_sysv_hash(symbolName) % numberOfBuckets, x);
 
@@ -515,7 +512,6 @@ bool SysvHashTable::verify(){
 
 void SysvHashTable::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
     uint32_t currByte = 0;
-//    uint32_t tmpEntry;
 
     binaryOutputFile->copyBytes((char*)&numberOfBuckets,sizeof(uint32_t),offset+currByte);
     currByte += sizeof(uint32_t);
@@ -563,8 +559,6 @@ void SysvHashTable::read(BinaryInputFile* binaryInputFile){
             PRINT_ERROR("Cannot read entry[%d] from Hash Table)", i);
         }
     }
-
-//    return sizeInBytes;
 }
 
 void SysvHashTable::print(){

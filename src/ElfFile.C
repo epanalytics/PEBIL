@@ -567,7 +567,6 @@ bool ElfFile::verifyDynamic(){
     }
 
     uint64_t dynstrSectionAddress_DT = dynamicTable->getDynamicByType(DT_STRTAB,0)->GET_A(d_val,d_un);
-//    uint64_t dynsymSectionAddress_DT = dynamicTable->getDynamicByType(DT_SYMTAB,0)->GET_A(d_val,d_un);
     if (dynamicTable->countDynamics(DT_REL) + dynamicTable->countDynamics(DT_RELA) != 1){
         PRINT_ERROR("Can only have one relocation table referenced by the dynamic table");
         return false;
@@ -584,10 +583,8 @@ bool ElfFile::verifyDynamic(){
     // The file must start with note and interp sections
     uint64_t gnuHashSectionAddress = 0;
     uint64_t sysvHashSectionAddress = 0;
-//    uint64_t dynamicSectionAddress = 0;
     uint64_t dynstrSectionAddress = 0;
     uint64_t dynsymSectionAddress = 0;
-//    uint64_t textSectionAddress = 0;
     uint64_t relocationSectionAddress = 0;
     uint64_t pltgotSectionAddress = 0;
     uint64_t versymSectionAddress = 0;
@@ -1247,8 +1244,6 @@ void ElfFile::findFunctions(){
 
 
 void ElfFile::printDisassembly(bool instructionDetail){
-//    uint32_t numInstrs = 0;
-
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
         if (textSections[i]){
             if (textSections[i]->getByteSource() != ByteSource_Instrumentation){
@@ -1258,7 +1253,6 @@ void ElfFile::printDisassembly(bool instructionDetail){
             }
         }
     }
-//    return numInstrs;
 }
 
 void ElfFile::dump(char* extension, bool isext){
@@ -1310,8 +1304,6 @@ void ElfFile::dump(BinaryOutputFile* binaryOutputFile){
 
 
 void ElfFile::parse(){
-
-//    TIMER(double t1 = timer());	
 
     const char* endianCheck = "elfs\0";
     uint32_t endianValue = getUInt32(endianCheck);

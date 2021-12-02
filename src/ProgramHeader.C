@@ -92,7 +92,6 @@ void ProgramHeader32::read(BinaryInputFile* binaryInputFile){
     if(!binaryInputFile->copyBytesIterate(&entry,Size__32_bit_Program_Header)){
         PRINT_ERROR("Program header (32) can not be read");
     }
-    //return Size__32_bit_Program_Header;
 }
 
 void ProgramHeader64::read(BinaryInputFile* binaryInputFile){
@@ -101,7 +100,6 @@ void ProgramHeader64::read(BinaryInputFile* binaryInputFile){
     if(!binaryInputFile->copyBytesIterate(&entry,Size__64_bit_Program_Header)){
         PRINT_ERROR("Program header (64) can not be read");
     }
-    //return Size__64_bit_Program_Header;
 }
 
 bool ProgramHeader::verify(){

@@ -182,13 +182,11 @@ ByteSources TextSection::getByteSource(){
 }
 
 void TextSection::buildLoops(){
-//    uint32_t numberOfLoops = 0;
     for (uint32_t i = 0; i < sortedTextObjects.size(); i++){
         if (sortedTextObjects[i]->isFunction()){
             ((Function*)sortedTextObjects[i])->getFlowGraph()->buildLoops();
         }
     }
-    //return numberOfLoops;
 }
 
 void FreeText::print(){
@@ -214,7 +212,6 @@ Vector<Symbol*> TextSection::discoverTextObjects(){
     ASSERT(!functionSymbols.size() && "This array should be empty since it is loaded by this function");
 
     // count the number of symbols for this text section
-//    uint32_t numberOfSymbols = 0;
     for (uint32_t i = 0; i < elfFile->getNumberOfSymbolTables(); i++){
         SymbolTable* symbolTable = elfFile->getSymbolTable(i);
         if (!symbolTable->isDynamic()){
@@ -257,15 +254,12 @@ Vector<X86Instruction*>* TextObject::digestLinear(){
     Vector<X86Instruction*>* allInstructions = new Vector<X86Instruction*>();
 
     uint32_t currByte = 0;
-//    uint32_t instructionLength = 0;
-//    uint64_t instructionAddress;
 
     PRINT_DEBUG_CFG("Digesting textobject linearly");
 
     uint32_t numberOfInstructions = 0;
     while (currByte < sizeInBytes){
 
-//        instructionAddress = (uint64_t)((uint64_t)charStream() + currByte);
         X86Instruction* newInstruction = new X86Instruction(this, getBaseAddress() + currByte, charStream() + currByte, ByteSource_Application_FreeText, numberOfInstructions++);
         PRINT_DEBUG_CFG("linear cfg: instruction at %#llx with %d bytes", newInstruction->getBaseAddress(), newInstruction->getSizeInBytes());
 

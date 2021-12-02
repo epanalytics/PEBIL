@@ -144,7 +144,6 @@ Vector<X86Instruction*>* ElfFileInst::findAllCalls(char* names){
     for (uint32_t i = 0; i < getNumberOfExposedInstructions(); i++){
         X86Instruction* instruction = getExposedInstruction(i);
         ASSERT(instruction->getContainer()->isFunction());
-//        Function* function = (Function*)instruction->getContainer();
 
         if (instruction->isFunctionCall()){
             Symbol* functionSymbol = elfFile->lookupFunctionSymbol(instruction->getTargetAddress());
@@ -258,7 +257,6 @@ void ElfFileInst::buildInstrumentationSections(){
     ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase order must be observed");
     verify();
 
-    //FileHeader* fileHeader = elfFile->getFileHeader();
     SectionHeader* finalHeader = elfFile->getSectionHeader(elfFile->getNumberOfSections() - 1);
 
     SectionHeader* genericDataHdr = elfFile->getSectionHeader(elfFile->findSectionIdx(".data"));
@@ -267,8 +265,6 @@ void ElfFileInst::buildInstrumentationSections(){
     uint64_t lowestTextAddress = -1;
     uint16_t lowestTextSectionIdx = -1;
 
-    //ProgramHeader* textHeader = elfFile->getProgramHeader(elfFile->getTextSegmentIdx());
-    
     // find the address of the first text section
     for (uint32_t i = 1; i < elfFile->getNumberOfSections(); i++){
         if (elfFile->getSectionHeader(i)->GET(sh_type) == SHT_PROGBITS &&
@@ -284,11 +280,6 @@ void ElfFileInst::buildInstrumentationSections(){
     ASSERT(lowestTextSectionIdx != elfFile->getNumberOfSections() && 
       "Could not find any text sections in the file");
 
-    //ProgramHeader* pHdr = elfFile->getProgramHeaderPHDR();
-    //uint32_t phdrAlign = 1;
-    //if (pHdr){
-    //    phdrAlign = pHdr->GET(p_align);
-    //}
     SectionHeader* genericTextHdr = elfFile->getSectionHeader(lowestTextSectionIdx);
     ProgramHeader* dHdr = elfFile->getProgramHeader(elfFile->getDataSegmentIdx());
     uint64_t usableAddress = dynamicTableReserved;
@@ -331,7 +322,6 @@ void ElfFileInst::buildInstrumentationSections(){
                         genericTextHdr->GET(sh_info), genericTextHdr->GET(sh_addralign), genericTextHdr->GET(sh_entsize));
 
     SectionHeader* instDataHeader = elfFile->getSectionHeader(extraDataIdx);
-//    SectionHeader* instTextHeader = elfFile->getSectionHeader(extraTextIdx);
     ASSERT(instDataHeader && elfFile->getRawSection(extraDataIdx)->getType() == PebilClassType_DataSection);
 
     uint32_t dataInc = 0;
@@ -432,7 +422,6 @@ bool ElfFileInst::isEligibleFunction(Function* func){
 uint32_t ElfFileInst::relocateAndBloatFunction(Function* operatedFunction, uint64_t offsetToRelocation, Vector<Vector<InstrumentationPoint*>*>* functionInstPoints){
     //    ASSERT(isEligibleFunction(operatedFunction) && operatedFunction->hasCompleteDisassembly());
 
-//    TextSection* extraText = (TextSection*)elfFile->getRawSection(extraTextIdx);
     TextSection* text = operatedFunction->getTextSection();
     uint64_t relocationAddress = elfFile->getSectionHeader(extraTextIdx)->GET(sh_addr) + offsetToRelocation;
     uint32_t functionSize = operatedFunction->getNumberOfBytes();
@@ -599,7 +588,6 @@ uint32_t ElfFileInst::generateInstrumentation(){
 
     ASSERT(currentPhase == ElfInstPhase_generate_instrumentation && "Instrumentation phase order must be observed");
 
-//    TextSection* textSection = getDotTextSection();
     TextSection* pltSection = getDotPltSection();
 
     uint64_t textBaseAddress = elfFile->getSectionHeader(extraTextIdx)->GET(sh_addr);
@@ -676,7 +664,6 @@ uint32_t ElfFileInst::generateInstrumentation(){
     codeOffset += snip->snippetSize();
 
     uint64_t returnOffset = 0;
-//    uint64_t chainOffset = 0;
 
     (*instrumentationPoints).sort(compareInstBaseAddress);
 
@@ -1775,20 +1762,6 @@ void ElfFileInst::print(){
 void ElfFileInst::print(uint32_t printCodes){
     elfFile->print(printCodes);
 
-    //if (HAS_PRINT_CODE(printCodes,Print_Code_Instrumentation)){
-    //    float ratio;
-    //    if (extraTextIdx){
-    //        SectionHeader* extendedText = elfFile->getSectionHeader(extraTextIdx);
-    //    }
-    //    if (extraDataIdx){
-    //        SectionHeader* extendedData = elfFile->getSectionHeader(extraDataIdx);
-    //    }
-    //    if (instrumentationSnippets[INST_SNIPPET_BOOTSTRAP_END]){
-    //        uint32_t bytesUsed = instrumentationSnippets[INST_SNIPPET_BOOTSTRAP_END]->snippetSize();
-    //    }
-
-    //}
-
     if (HAS_PRINT_CODE(printCodes,Print_Code_Disassemble)){
 
         PRINT_INFOR("Relocated Text Disassembly");
@@ -2066,8 +2039,6 @@ void ElfFileInst::addSymbolToDynamicSymbolTable(uint32_t name, uint64_t value, u
         dynamicTable->getDynamicByType(DT_RELA,0)->SET_A(d_ptr,d_un,elfFile->getSectionHeader(elfFile->getDynamicRelocationTable()->getSectionIndex())->GET(sh_addr));
     }
     dynamicTable->getDynamicByType(DT_JMPREL,0)->SET_A(d_ptr,d_un,elfFile->getSectionHeader(elfFile->getPLTRelocationTable()->getSectionIndex())->GET(sh_addr));
-   
-//    return symbolIndex;
 }
 
 uint32_t ElfFileInst::expandHashTable(uint32_t idx){
@@ -2109,7 +2080,6 @@ uint32_t ElfFileInst::addStringToDynamicStringTable(const char* str){
     ASSERT(currentPhase == ElfInstPhase_user_declare && "Instrumentation phase order must be observed");
 
     DynamicTable* dynamicTable = elfFile->getDynamicTable();
-//    uint32_t strSize = strlen(str) + 1;
 
     // find the string table we will be adding to
     uint64_t stringTableAddr = dynamicTable->getDynamicByType(DT_STRTAB,0)->GET_A(d_val,d_un);
