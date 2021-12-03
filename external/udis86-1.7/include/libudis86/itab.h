@@ -149,7 +149,6 @@ enum ud_itab_index {
   ITAB__PFX_SSEF3__0F,
   ITAB__PFX_SSEF3__0F__OP_C7__REG,
   ITAB__PFX_SSEF3__0F__OP_C7__REG__OP_07__VENDOR,
-  ITAB__PFX_SSEF3__0F__OP___3BYTE_1E__REG,
 };
 
 
