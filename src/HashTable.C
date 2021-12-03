@@ -106,7 +106,7 @@ uint32_t GnuHashTable::findSymbol(const char* symbolName){
     SymbolTable* symTab = elfFile->getSymbolTable(symTabIdx);
 
     uint32_t h1, h2, n;
-    //bit mask is now 64 bit due to overlfow errors with <<
+    //bitmask is now 64 bit due to overlfow errors with <<
     uint64_t bitmask;
 
     h1 = elf_gnu_hash(symbolName);

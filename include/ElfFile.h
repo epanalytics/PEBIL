@@ -171,6 +171,7 @@ public:
     FileHeader*  getFileHeader() { return fileHeader; }
     ProgramHeader* getProgramHeader(uint32_t idx) { return programHeaders[idx]; }
     ProgramHeader* getProgramHeaderPHDR();
+    // getLoadSegments takes in a Vector* to place all LOAD segments into
     void getLoadSegments(Vector<ProgramHeader*>* vec);
     SectionHeader* getSectionHeader(uint32_t idx) { return sectionHeaders[idx]; }
     RawSection* getRawSection(uint32_t idx) { return rawSections[idx]; }
@@ -207,7 +208,9 @@ public:
 
     uint64_t getDynamicSectionAddress() { return dynamicSectionAddress; }
     uint16_t getDynamicTableSectionIdx() { return dynamicTableSectionIdx; }
-    //EMMET uint16_t getInterpSegmentIdx();
+    // ELFSection is the first LOAD segment that has all the ELF information
+    // we use and move. We use this function instead of the getTextSegmentIdx
+    // and getDataSegmentIdx
     uint16_t getELFSectionSegmentIdx();
     uint16_t getTextSegmentIdx() { return textSegmentIdx; }
     uint16_t getDataSegmentIdx() { return dataSegmentIdx; }

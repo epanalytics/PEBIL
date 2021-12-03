@@ -41,16 +41,15 @@ uint32_t RawSection::containsIntroString(){
 // Find pointers to data in the data sections and advance them by shamt
 void RawSection::wedge(uint32_t shamt){
 
-    //loop here over 2-4th load segments
-    //or is it loop over 4th-2nd load segments
-    //4th-2nd has same error as before, 2nd-4th has a new different error
-    //EMMET TODO 3 and 5 grabbed pragmatically
-    //TODO this hasn't been tested and will be left as is but will leave what I
-    //changed it to for future reference in the comments
+    // The commented out code below can be used as a template for updating this
+    // function should the need ever arise. Currently, non of the files tested
+    // hit this function so it can't be tested for verification. However, on a
+    // run with a fortran compiled binary, this section was hit and the changes
+    // below helped the binary run to completion.
+
     /*for (int i=3;i<=5;i++) 
         ProgramHeader* dataSeg = elfFile->getProgramHeader(i);
         ASSERT(dataSeg);
-
         SectionHeader* sec = elfFile->getSectionHeader(sectionIndex);*/
 
 

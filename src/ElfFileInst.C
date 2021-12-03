@@ -42,7 +42,6 @@
 #include <StringTable.h>
 #include <SymbolTable.h>
 #include <TextSection.h>
-#include <vector>
 
 #ifdef BLOAT_MOD
 uint32_t bloatCount = 0;
@@ -168,25 +167,15 @@ void ElfFileInst::extendDynamicTable(){
     DynamicTable* dynamicTable = elfFile->getDynamicTable();
     uint32_t oldDynamicIdx = dynamicTable->getSectionIndex();
 
-    //dynamicTable is the segment
-    //dynTableHdr is the section
-
     uint32_t oldDynamicSize = dynamicTable->getSizeInBytes();
 
     SectionHeader* dynTableHdr = dynamicTable->getSectionHeader();
     uint64_t oldDynamicOffset = dynTableHdr->GET(sh_offset);
     uint64_t oldDynamicAddress = dynTableHdr->GET(sh_addr);
 
-    //finalHeader is .shstrtab
-    //dHdr data segment original 
-
     SectionHeader* finalHeader = elfFile->getSectionHeader(elfFile->getNumberOfSections() - 1);
     ProgramHeader* dHdr = elfFile->getProgramHeader(elfFile->getDataSegmentIdx());
 
-    // AAC why does finalHeader->GET(sh_offset) print 0x458e7 
-    //but read elf is showing 0x58e7
-    //why are we getting the offset and size, from a segment but getting the
-    //align from the .shstrtab section
     uint64_t usableOffset = nextAlignAddress(
       finalHeader->GET(sh_offset) + finalHeader->GET(sh_size), 
       dHdr->GET(p_align));
@@ -195,18 +184,10 @@ void ElfFileInst::extendDynamicTable(){
       dynamicTable->extendTable(instrumentationFunctions.size() + 5));
     ASSERT(dynamicTable->getSizeInBytes() <= 0x8000);
 
-    //need to figure out where dynamicTableReserved is coming from,
-    //looks like we are moving dynamic to the end so that the new load section
-    //can fit in here possibly? 405000 is after the last segment
     uint64_t newDynamicAddress = dynamicTableReserved;
     dynTableHdr->SET(sh_addr, newDynamicAddress);
     dynTableHdr->SET(sh_offset, usableOffset);
 
-    // readelf -a -D -z is printing different things for instrumented and non
-    // instrumented, you can get a print out of the symbol table for the 
-    // original but it isn't getting printed out in the instrumented which leads
-    // me to believe thier is also an issue their, the inner if gets hit 
-    // 2 times, i = 1, j=22 and j=49, why this specific addresses
     for (uint32_t i = 0; i < elfFile->getNumberOfSymbolTables(); i++){
         SymbolTable* symbolTable = elfFile->getSymbolTable(i);
         for (uint32_t j = 0; j < symbolTable->getNumberOfSymbols(); j++){
@@ -217,8 +198,6 @@ void ElfFileInst::extendDynamicTable(){
         }
     }
 
-    //we update dynamic section here, still not sure where we are getting
-    //vaddr, paddr, offset but we set them here
     for (uint32_t i = 0; i < elfFile->getNumberOfPrograms(); i++){
         ProgramHeader* programHeader = elfFile->getProgramHeader(i);
         if (programHeader->GET(p_type) == PT_DYNAMIC){
@@ -244,7 +223,6 @@ void ElfFileInst::extendDynamicTable(){
     ((DataSection*)elfFile->getRawSection(oldDynamicIdx))->extendSize(oldDynamicSize);
     elfFile->getSectionHeader(oldDynamicIdx)->SET(sh_size, oldDynamicSize);
 
-    //why is .data being labled DYNAMIC type in instrumented binary
     for (uint32_t i = 0; i < elfFile->getNumberOfSections(); i++){
         elfFile->getSectionHeader(i)->setIndex(i);
         if (elfFile->getSectionHeader(i)->GET(sh_link) == oldDynamicIdx){
@@ -288,7 +266,6 @@ void ElfFileInst::buildInstrumentationSections(){
 
     SectionHeader* finalHeader = elfFile->getSectionHeader(elfFile->getNumberOfSections() - 1);
 
-    int dataSectionIndex = elfFile->findSectionIdx(".data");
     SectionHeader* genericDataHdr = elfFile->getSectionHeader(elfFile->findSectionIdx(".data"));
     ASSERT(genericDataHdr);
 
@@ -330,18 +307,12 @@ void ElfFileInst::buildInstrumentationSections(){
     //    PRINT_INFOR("usable address %#llx, align %x", usableAddress, dHdr->GET(p_align));
     ASSERT(usableAddress % dHdr->GET(p_align) == usableOffset % dHdr->GET(p_align));
 
-    //why are we using this default_inst_segment
-    // We used to use DEFAULT_INST_SEGMENT here that had a value of 4, this
-    // value comes from the number of segments before the LOAD segments(2) and
-    // the number of LOAD segments(2) to get 4 (2+2) as the index of the new 
-    // LOAD segment we are creating. So we now get this value programatically
-    // using the number of LOAD segments
-    //need to figure out the values we have at this point
     Vector<ProgramHeader*>* vec = new Vector<ProgramHeader*>();
     elfFile->getLoadSegments(vec);
     uint32_t numOfLoadSegments = vec->size();
     delete vec;
     uint32_t newSegmentIndex = 2 + numOfLoadSegments;
+
     instSegment = elfFile->addSegment(newSegmentIndex, 
       dHdr->GET(p_type), usableOffset, usableAddress, usableAddress, 
       TEMP_SEGMENT_SIZE, TEMP_SEGMENT_SIZE, PF_R | PF_W | PF_X, 
@@ -1667,7 +1638,7 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     // for each segment that is (or is contained within) the data segment,
     // update its offset to reflect the the base address of the executable
     // (ie the base address of the text segment)
-    // EMMET offset updated here for RW LOAD segment and dynamic section originally
+    // offset updated here for RW LOAD segment and dynamic section originally
     // When numOfLoadSegments is 2, load2 and load4 are the same segments
     ProgramHeader* load2 = (*vec)[1];
     ProgramHeader* load4 = (*vec)[numOfLoadSegments-1];
@@ -1699,7 +1670,7 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     
     // modify the base address of the text segment and increase its size so it 
     // ends at the same address
-    // EMMET vaddr is updated here for the R E LOAD segment
+    // vaddr is updated here for the R E LOAD segment
     ELFSectionSegment->SET(p_vaddr,ELFSectionSegment->GET(p_vaddr) - totalSize);
     ELFSectionSegment->SET(p_paddr,ELFSectionSegment->GET(p_paddr) - totalSize);
     ELFSectionSegment->INCREMENT(p_memsz, totalSize);
@@ -1781,7 +1752,6 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     // move the shdr table into the reserved aread (phdr table is already there)
     fHdr->SET(e_shoff, fHdr->GET(e_phoff) + ((fHdr->GET(e_phnum) + 2) * fHdr->GET(e_phentsize)));
 
-    delete vec;
     verify();
 }
 
