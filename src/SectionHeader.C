@@ -49,8 +49,6 @@ SectionHeader64::SectionHeader64(uint16_t idx)
 // in general we cannot use section names in this function because they will
 // not be set yet
 void SectionHeader::setSectionType(){
-//    uint32_t type = GET(sh_type);
-
     switch (GET(sh_type)){
     case SHT_NULL:
         sectionType = PebilClassType_no_type;
@@ -342,8 +340,6 @@ void SectionHeader32::read(BinaryInputFile* binaryInputFile){
 
     setSectionType();
     verify();
-    
-   // return Size__32_bit_Section_Header;
 }
 
 void SectionHeader64::read(BinaryInputFile* binaryInputFile){
@@ -356,8 +352,6 @@ void SectionHeader64::read(BinaryInputFile* binaryInputFile){
 
     setSectionType();
     verify();
-
-   // return Size__64_bit_Section_Header;
 }
 
 void SectionHeader32::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){

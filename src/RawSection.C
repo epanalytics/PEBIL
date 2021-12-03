@@ -150,7 +150,6 @@ void DataSection::read(BinaryInputFile* b){
     }
 
     verify();
-    //return sizeInBytes;
 }
 
 void RawSection::read(BinaryInputFile* b){
@@ -158,7 +157,6 @@ void RawSection::read(BinaryInputFile* b){
     setFileOffset(b->currentOffset());
 
     verify();
-    //return sizeInBytes;
 }
 
 char* RawSection::getStreamAtAddress(uint64_t addr){

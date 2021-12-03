@@ -101,6 +101,7 @@ private:
     bool saveAll;
     bool saveZmmRegs;
     bool trackRelocatedInsns; // Map relocated addresses to origin
+    bool disableStatic;
 
     ProgramHeader* instSegment;
 
@@ -234,6 +235,8 @@ public:
     bool isSaveZmm() { return saveZmmRegs; }
     void setTrackRelocatedInsns() { trackRelocatedInsns = true; }
     bool isTrackRelocatedInsns() { return trackRelocatedInsns; }
+    void setDisableStatic() { disableStatic = true; }
+    bool getDisableStatic() { return disableStatic; }
 
     char* getApplicationName() { return elfFile->getAppName(); }
     uint32_t getApplicationSize() { return elfFile->getFileSize(); }

@@ -46,7 +46,6 @@ void DwarfLineInfoSection::read(BinaryInputFile* binaryInputFile){
 
     ASSERT(currByte == sizeInBytes && "Number of bytes read from DwarfLineInfoSection does not match its size");
     verify();
-    //return sizeInBytes;
 }
 
 DwarfLineInfoSection::~DwarfLineInfoSection(){

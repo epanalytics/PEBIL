@@ -104,7 +104,6 @@ X86Instruction* BasicBlock::findBestInstPoint(InstLocations* loc, BitSet<uint32_
         if (endsWithControl()){
             bestloc = InstLocation_prior;
         }
-        //X86Instruction* e = getInstruction(best);
     }
 
     X86Instruction* bestinsn = getInstruction(best);
@@ -217,8 +216,6 @@ uint32_t BasicBlock::bloat(Vector<InstrumentationPoint*>* instPoints,
         Function* pointsFunction = (Function*)(*instPoints)[i]->getSourceObject()->getContainer();
         ASSERT(pointsFunction->getHashCode().getValue() == flowGraph->getFunction()->getHashCode().getValue());
     }
-
-//    X86Instruction* firstInstruction = instructions[0];
 
     Vector<InstrumentationPoint*> expansions;
     Vector<uint32_t> expansionIndices;
@@ -775,7 +772,6 @@ uint32_t BasicBlock::getNumberOfBinUnknown(){
 }
 
 void RawBlock::printDisassembly(bool instructionDetail){
-//    uint32_t bytesPerWord = 1;
     uint32_t bytesPerLine = 8;
     
     uint32_t currByte = 0;

@@ -348,8 +348,6 @@ uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* ins
     }
 #endif // PROTECT_RAW_SNIPPETS
 
-//    uint64_t displacementDist = returnOffset - (offset + trampolineSize + numberOfBytes);
-
     if (doReloc){
         ASSERT(insts);
         if ((*insts).size()){

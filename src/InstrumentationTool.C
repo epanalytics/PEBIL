@@ -1195,6 +1195,9 @@ static bool isVectorInstruction(X86Instruction* ins) {
 void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
   allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* 
   allBlockLineInfos, uint32_t bufferSize){
+    if (getDisableStatic()) {
+        return;
+    }
     ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase"
       " order must be observed"); 
 
@@ -1210,8 +1213,6 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     sprintf(staticFile,"%s.%s.%s", getFullFileName(), extension, "static");
     FILE* staticFD = fopen(staticFile, "w");
     delete[] staticFile;
-
-//    TextSection* text = getDotTextSection();
 
     // Print header
     fprintf(staticFD, "# appname   = %s\n", getApplicationName());
@@ -1293,10 +1294,6 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     std::map<uint32_t, std::string> staticAnalysisOutput;
 #pragma omp parallel for schedule(dynamic,1)
     for (uint32_t i = 0; i < numberOfInstPoints; i++) {
-//        uint32_t noInst = 0;
-//        uint32_t fileNameSize = 1;
-//        uint32_t trapCount = 0;
-//        uint32_t jumpCount = 0;
         float memopavg = 0.0;
         std::stringstream thisStream;
         char thisBuffer[8192];
@@ -1391,11 +1388,9 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                   loop->getIndex())->getHead()->getHashCode().getValue();
             }
 
-            bufferPointer += sprintf(thisBuffer+bufferPointer, "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, 
+            bufferPointer += sprintf(thisBuffer+bufferPointer, 
+              "\t+lpc\t%lld\t%lld # %#llx\n", loopHead, 
               parentHead, bb->getHashCode().getValue());
-            //uint32_t currINT = 0;
-            //uint32_t currFP = 0;
-            //uint32_t currDist = 1;
 
             bufferPointer += sprintf(thisBuffer + bufferPointer, "\t+dud");
 
@@ -1599,14 +1594,10 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
       (*allBlockLineInfos).size());
     ASSERT((*allBlocks).size() == (*allBlockIds).size());
     
-//    uint32_t numberOfInstPoints = (*allBlocks).size();
-    
     char* staticFile = new char[__MAX_STRING_SIZE];
     sprintf(staticFile,"%s.%s.%s", getFullFileName(), extension, "callTree");
     FILE* staticFD = fopen(staticFile, "w");
     delete[] staticFile;
-    
-//    TextSection* text = getDotTextSection();
     
     fprintf(staticFD, "# appname   = %s\n", getApplicationName());
     fprintf(staticFD, "# appsize   = %d\n", getApplicationSize());
@@ -1646,11 +1637,6 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
     fprintf(staticFD, "# fpops     = %d\n", fltopcnt);
     fprintf(staticFD, "# insns     = %d\n", insncnt);
     
-//    uint32_t noInst = 0;
-//    uint32_t fileNameSize = 1;
-//    uint32_t trapCount = 0;
-//    uint32_t jumpCount = 0;
-
     // construct the call tree info
     std::map<std::string,std::set<std::string>> callTreeInfo;
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
@@ -1724,6 +1710,9 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
 
 
 void InstrumentationTool::printStaticFilePerInstruction(const char* extension, Vector<Base*>* allInstructions, Vector<uint32_t>* allInstructionIds, Vector<LineInfo*>* allInstructionLineInfos, uint32_t bufferSize){
+  if (getDisableStatic()) {
+    return;
+  }
   ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase order must be observed"); 
   
   ASSERT(!(*allInstructionLineInfos).size() || (*allInstructions).size() == (*allInstructionLineInfos).size());
@@ -1737,8 +1726,6 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
   sprintf(staticFile,"%s.%s.%s", getFullFileName(), extension, "static");
   FILE* staticFD = fopen(staticFile, "w");
   delete[] staticFile;
-  
-//  TextSection* text = getDotTextSection();
   
   fprintf(staticFD, "# appname   = %s\n", getApplicationName());
   fprintf(staticFD, "# appsize   = %d\n", getApplicationSize());
@@ -1796,11 +1783,6 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
     fprintf(staticFD, "# +ipa <call_target_addr> <call_target_name>\n");
     fprintf(staticFD, "# +vec <#elem>x<elemSize>:<#fp>:<#int> ...\n");
   }
-  
-//  uint32_t noInst = 0;
-//  uint32_t fileNameSize = 1;
-//  uint32_t trapCount = 0;
-//  uint32_t jumpCount = 0;
   
   for (uint32_t i = 0; i < numberOfInstPoints; i++){
     Base* b = (*allInstructions)[i];

@@ -336,7 +336,6 @@ void LineInfoTable::read(BinaryInputFile* binaryInputFile){
     ASSERT(currByte == sizeInBytes);
 
     verify();
-    //return sizeInBytes;
 }
 
 void LineInfoTable::appendRowToMatrix()

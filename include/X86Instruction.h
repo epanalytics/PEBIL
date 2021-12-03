@@ -140,14 +140,6 @@ class TextObject;
 #define __x86_flagset_alustd       (__bit_shift(X86_FLAG_CF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_AF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_OF))
 
 #define __flag_reserved "reserved"
-//const static char* flag_name_map[X86_FLAG_BITS] = { "carry", __flag_reserved, "parity", __flag_reserved, 
-//                           "adjust", __flag_reserved, "zero", "sign",
-//                           "trap", "interrupt", "direction", "overflow",
-//                           "iopl1", "iopl2", "nested_task", __flag_reserved,
-//                           "resume", "v8086", "alignchk", "vint",
-//                           "vint_pending", "ident", __flag_reserved, __flag_reserved,
-//                           __flag_reserved, __flag_reserved, __flag_reserved, __flag_reserved,
-//                           __flag_reserved, __flag_reserved, __flag_reserved, __flag_reserved };
 
 #define CONTAINS_FLAG(__val, __flg) (((__val >> __flg) & 0x1) == 1)
 

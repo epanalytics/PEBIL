@@ -335,7 +335,6 @@ void SymbolTable::addSymbol(uint32_t name, uint64_t value, uint64_t size, uint8_
 
     //    sortSymbols();
     verify();
-    //return symbols.size()-1;
 }
 
 
@@ -410,13 +409,7 @@ bool SymbolTable::verify(){
     // A file symbol has STB_LOCAL bindings, its section index is  SHN_ABS, and it precedes the other STB_LOCAL 
     // symbols of the file, if it is present.
 
-//    uint32_t fileSymbolIdx = symbols.size();
-//    uint32_t firstLocalSym = symbols.size();
     for (uint32_t i = 1; i < symbols.size(); i++){
-        //if (symbols[i]->getSymbolBinding() == STB_LOCAL && 
-        //  firstLocalSym == symbols.size()) {
-        //    firstLocalSym = i;
-        //}
         if (symbols[i]->getSymbolType() == STT_FILE){
             if (symbols[i]->GET(st_shndx) != SHN_ABS){
                 PRINT_ERROR("File symbols must use absolute addressing");
@@ -465,8 +458,6 @@ void Symbol32::read(BinaryInputFile* binaryInputFile){
     }
 
     verify(Size__32_bit_Symbol);
-
-    //return sizeInBytes;    
 }
 
 void Symbol64::read(BinaryInputFile* binaryInputFile){
@@ -478,16 +469,12 @@ void Symbol64::read(BinaryInputFile* binaryInputFile){
     }
 
     verify(Size__64_bit_Symbol);
-
-    //return sizeInBytes;    
 }
 
 void SymbolTable::read(BinaryInputFile* binaryInputFile){
     
     binaryInputFile->setInPointer(getFilePointer());
     setFileOffset(binaryInputFile->currentOffset());
-
-    //uint32_t totalBytesRead = 0;
 
     uint32_t numberOfSymbols = sizeInBytes / symbolSize;
     for (uint32_t i = 0; i < numberOfSymbols; i++){
@@ -498,9 +485,6 @@ void SymbolTable::read(BinaryInputFile* binaryInputFile){
         }
         symbols[i]->read(binaryInputFile);
     }
-
-    //ASSERT(sizeInBytes == totalBytesRead && "size read from file does not match theorietical size of Symbol Table");
-    //return sizeInBytes;
 }
 
 Symbol* SymbolTable::getSymbol(char* name){
@@ -527,7 +511,6 @@ char* SymbolTable::getSymbolName(uint32_t idx){
 }
 
 void SymbolTable::print(){
-//    char tmpstr[__MAX_STRING_SIZE];
     PRINT_INFOR("SymbolTable : %d aka sect %d with %d symbols",index,getSectionIndex(),symbols.size());
     PRINT_INFOR("\tdyn? : %s", isDynamic() ? "yes" : "no");
     for (uint32_t i = 0; i < symbols.size(); i++){

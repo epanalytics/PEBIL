@@ -137,9 +137,9 @@ static bool mergeStates(struct RegisterStatePrediction* oldState, struct Registe
 }
 
 static RuntimeValue getValueOfOperand(OperandX86* src, RegisterStatePrediction* item) {
+    //TODO EMMET im not sure what this is supposed to look like
     if(src->getType() == UD_OP_IMM) {
-        ASSERT(src->getValue() >= 0);
-        return {Definitely, (uint64_t)src->getValue()};
+        return {Definitely, src->getValue()};
     }
     else if(src->getType() == UD_OP_REG) {
         if(item->state.find(getRegId(src->GET(base))) != item->state.end()) {
@@ -1646,7 +1646,6 @@ void FlowGraph::buildLoops(){
 
     if(loops.size())
         return;
-    //    return loops.size();
 
     PRINT_DEBUG_LOOP("Considering flowgraph for function %d -- has %d blocks", function->getIndex(),  basicBlocks.size());
 
@@ -1667,7 +1666,6 @@ void FlowGraph::buildLoops(){
     if(backEdges.empty()){
         PRINT_DEBUG_LOOP("\t%d Contains %d loops (back edges) from %d", getIndex(),loops.size(),basicBlocks.size());
         return;
-        //return 0;
     }
 
     ASSERT(!(backEdges.size() % 2) && "Fatal: Back edge list should be multiple of 2, (from->to)");
@@ -1867,7 +1865,6 @@ void FlowGraph::getAllBlocks(uint32_t sz, BasicBlock** arr){
     ASSERT(sz == basicBlocks.size());
     for (uint32_t i = 0; i < basicBlocks.size(); i++)
         arr[i] = basicBlocks[i];
-   // return basicBlocks.size();
 }
 
 void FlowGraph::findMemoryFloatOps(){
