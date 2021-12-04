@@ -1604,11 +1604,11 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     ASSERT(lowestTextSectionIdx != elfFile->getNumberOfSections() 
       && "Could not find any text sections in the file");
 
-    Vector<ProgramHeader*>* vec = new Vector<ProgramHeader*>();
-    elfFile->getLoadSegments(vec);
-    uint32_t numOfLoadSegments = vec->size();
-    uint32_t ELFSectionSegmentIdx = elfFile->getELFSectionSegmentIdx();
-    ProgramHeader* ELFSectionSegment = (*vec)[0];
+    Vector<ProgramHeader*>* loadSegments = new Vector<ProgramHeader*>();
+    elfFile->getLoadSegments(loadSegments);
+    uint32_t numOfLoadSegments = loadSegments->size();
+    uint32_t ELFStructuresSegmentIdx = elfFile->getELFStructuresSegmentIdx();
+    ProgramHeader* ELFSectionSegment = (*loadSegments)[0];
 
     // for each segment that is contained within the ELF Section segment, 
     // update its address to reflect the new base address of the ELF Section 
@@ -1619,7 +1619,7 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
         ProgramHeader* subHeader = elfFile->getProgramHeader(i);
 
         if (ELFSectionSegment->inRange(subHeader->GET(p_vaddr))
-          && i != elfFile->getELFSectionSegmentIdx() ) {
+          && i != ELFStructuresSegmentIdx) {
 
             if (subHeader->GET(p_vaddr) < totalSize){
                 PRINT_WARN(20, 
@@ -1639,11 +1639,11 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     // update its offset to reflect the the base address of the executable
     // (ie the base address of the text segment)
     // offset updated here for RW LOAD segment and dynamic section originally
-    // When numOfLoadSegments is 2, load2 and load4 are the same segments
-    ProgramHeader* load2 = (*vec)[1];
-    ProgramHeader* load4 = (*vec)[numOfLoadSegments-1];
-    uint64_t minAddr = load2->GET(p_vaddr);
-    uint64_t maxAddr = load4->GET(p_vaddr) + load4->GET(p_filesz);
+    // When numOfLoadSegments is 2, secondLoad and lastLoad are the same segments
+    ProgramHeader* secondLoad = (*loadSegments)[1];
+    ProgramHeader* lastLoad = (*loadSegments)[numOfLoadSegments-1];
+    uint64_t minAddr = secondLoad->GET(p_vaddr);
+    uint64_t maxAddr = lastLoad->GET(p_vaddr) + lastLoad->GET(p_filesz);
     for (uint32_t i = 0; i < elfFile->getNumberOfPrograms(); i++){
         ProgramHeader* subHeader = elfFile->getProgramHeader(i);
         if ( subHeader->GET(p_vaddr) >= minAddr 

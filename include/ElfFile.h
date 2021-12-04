@@ -208,10 +208,10 @@ public:
 
     uint64_t getDynamicSectionAddress() { return dynamicSectionAddress; }
     uint16_t getDynamicTableSectionIdx() { return dynamicTableSectionIdx; }
-    // ELFSection is the first LOAD segment that has all the ELF information
+    // ELFStructures is the first LOAD segment that has all the ELF information
     // we use and move. We use this function instead of the getTextSegmentIdx
     // and getDataSegmentIdx
-    uint16_t getELFSectionSegmentIdx();
+    uint16_t getELFStructuresSegmentIdx();
     uint16_t getTextSegmentIdx() { return textSegmentIdx; }
     uint16_t getDataSegmentIdx() { return dataSegmentIdx; }
     uint32_t getDynamicSymtabIdx() { return dynamicSymtabIdx; }

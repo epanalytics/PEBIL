@@ -378,7 +378,7 @@ void ElfFile::getLoadSegments(Vector<ProgramHeader*>* vec) {
     }
 }
 
-uint16_t ElfFile::getELFSectionSegmentIdx(){
+uint16_t ElfFile::getELFStructuresSegmentIdx(){
     // We assume the the first LOAD segment is the 3rd segment overall
     // if this assumption fails a nonsense value is returned that should 
     // alert us if that doesn't happen
