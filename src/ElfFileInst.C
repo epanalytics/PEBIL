@@ -310,8 +310,9 @@ void ElfFileInst::buildInstrumentationSections(){
     Vector<ProgramHeader*>* vec = new Vector<ProgramHeader*>();
     elfFile->getLoadSegments(vec);
     uint32_t numOfLoadSegments = vec->size();
+    uint16_t loadSegmentsStart = elfFile->getELFStructuresSegmentIdx();
     delete vec;
-    uint32_t newSegmentIndex = 2 + numOfLoadSegments;
+    uint32_t newSegmentIndex = loadSegmentsStart + numOfLoadSegments;
 
     instSegment = elfFile->addSegment(newSegmentIndex, 
       dHdr->GET(p_type), usableOffset, usableAddress, usableAddress, 

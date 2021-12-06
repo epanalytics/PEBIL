@@ -137,7 +137,7 @@ static bool mergeStates(struct RegisterStatePrediction* oldState, struct Registe
 }
 
 static RuntimeValue getValueOfOperand(OperandX86* src, RegisterStatePrediction* item) {
-    //TODO EMMET im not sure what this is supposed to look like
+    //TODO im not sure what this is supposed to look like
     if(src->getType() == UD_OP_IMM) {
         return {Definitely, src->getValue()};
     }

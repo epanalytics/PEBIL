@@ -466,7 +466,6 @@ bool ElfFile::verify(){
                 return false;
         }
         if (phdr->GET(p_type) == PT_LOAD){
-            //EMMET
             if (phdr->isReadable() && phdr->isExecutable() 
               && (!phdr->isWritable())){
 
