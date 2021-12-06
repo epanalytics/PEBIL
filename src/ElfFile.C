@@ -466,19 +466,42 @@ bool ElfFile::verify(){
                 return false;
         }
         if (phdr->GET(p_type) == PT_LOAD){
-            if (phdr->isReadable() && phdr->isExecutable() 
-              && (!phdr->isWritable())){
-
+            if (phdr->isReadable() && phdr->isExecutable()){
                 textSegmentIdx = i;
                 textSegCount++;
-            } else if (phdr->isReadable() && phdr->isWritable() 
-              && (!phdr->isExecutable())){
-
+            } else if (phdr->isReadable() && phdr->isWritable()){
                 dataSegmentIdx = i;
                 dataSegCount++;
             } else {
                 //PRINT_INFO("Segment(%d) with type PT_LOAD has attributes that are not consistent with text or data");
                 //return false;
+            }
+        }
+    }
+
+    // flag for determining if all LOAD segments are continuous
+    bool flag = false;
+    for (uint32_t i = 0; i < getNumberOfPrograms(); i++) {
+        ProgramHeader* phdr = getProgramHeader(i);
+        if (i < 2 && phdr->GET(p_type) == PT_LOAD){
+            PRINT_ERROR("LOAD Segments do not start at index 2");
+            return false;
+        }
+        if (i == 2 && phdr->GET(p_type) != PT_LOAD) {
+            PRINT_ERROR("LOAD Segments do not start at index 2");
+            return false;
+        } else {
+            flag = true;
+        }
+        if (i > 2 && flag == true){
+            if (phdr->GET(p_type) != PT_LOAD){
+                flag = false;
+                continue;
+            }
+        }
+        if (i > 2 && flag == false) {
+            if (phdr->GET(p_type) == PT_LOAD) {
+                PRINT_ERROR("LOAD Segments not all continous");
             }
         }
     }
