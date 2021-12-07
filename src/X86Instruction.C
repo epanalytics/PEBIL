@@ -3040,6 +3040,8 @@ void X86InstructionClassifier::generateTable(){
     mkclass(            dppd,simdFloat,       0,   0,  128,    0,          64)
     mkclass(            dpps,simdFloat,       0,   0,  128,    0,          32)
     mkclass(            emms,  special,   other,   0,    0,    0,           0)
+    mkclass(         endbr32,  special,   other,   0,    0,    0,           0)
+    mkclass(         endbr64,  special,   other,   0,    0,    0,           0)
     mkclass(           enter,  special,   stack,   0,    0,    BinFrame,    0)
     mkclass(       extractps,     move,   float,   0,   32,    0,          32)
     mkclass(           f2xm1,    float,   float,   0, VRSZ,    0,           0)
