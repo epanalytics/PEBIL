@@ -83,6 +83,10 @@ bool ElfFile::isWedgeAddress(uint64_t addr){
 
 bool ElfFile::isDataWedgeAddress(uint64_t addr){
 
+    // The textSegmentIdx and dataSegmentIdx may have changed!
+    // See the verify function for more information
+    ASSERT(false);
+
     //PRINT_INFOR("Checking %lx", addr);
 
 #define IN_RANGE(__l, __h, __a) (((__a) >= (__l)) && ((__a) < (__h)))
@@ -457,6 +461,15 @@ bool ElfFile::verify(){
     }
     
     // verify that there is only 1 text and 1 data segment
+    // 12/07/2021: This is not really a good assumption anymore. Starting
+    // with gcc9, ELF files can have more than two LOAD segments. We have 
+    // changed it so that the LOAD section that gets extended is the 
+    // ELFStructuresSegment. The text segment is the segment with the text 
+    // section and the data segment is the one with the first data section.
+    //
+    // Leaving this code here because the wedge code uses the textSegmentIdx 
+    // and dataSegmentIdx and we don't have a good example that uses the 
+    // wedge code for testing purposes
     uint32_t textSegCount = 0;
     uint32_t dataSegCount = 0;
     for (uint32_t i = 0; i < getNumberOfPrograms(); i++){
@@ -480,6 +493,8 @@ bool ElfFile::verify(){
     }
 
     // flag for determining if all LOAD segments are continuous
+    // Assume that LOAD segments start at index 2 (see 
+    // getELFStructuresSegmentIdx)
     bool flag = false;
     for (uint32_t i = 0; i < getNumberOfPrograms(); i++) {
         ProgramHeader* phdr = getProgramHeader(i);
