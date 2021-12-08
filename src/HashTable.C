@@ -105,14 +105,21 @@ void GnuHashTable::buildTable(uint32_t numEntries, uint32_t numBuckets){
 uint32_t GnuHashTable::findSymbol(const char* symbolName){
     SymbolTable* symTab = elfFile->getSymbolTable(symTabIdx);
 
-    uint32_t h1, h2, n, bitmask;
+    uint32_t h1, h2, n;
+    //bitmask is now 64 bit due to overflow errors with <<
+    uint64_t bitmask;
+
     h1 = elf_gnu_hash(symbolName);
     h2 = h1 >> shiftCount;
 
-    n = (h1 / hashEntrySize) & (numberOfBloomFilters - 1);
-    bitmask = (1 << (h1 % hashEntrySize)) | (1 << (h2 % hashEntrySize));
+    uint32_t c = hashEntrySize * 8;
+    n = (h1 / c) & (numberOfBloomFilters - 1);
+    // casting to uint64_t to prevent overflow errors
+    bitmask = ((uint64_t)(1) << (h1 % c)) | ((uint64_t)(1) << (h2 % c));
+
     if ((bloomFilters[n] & bitmask) != bitmask){
-        PRINT_ERROR("The symbol being searched (%s) is non-existent (failed bloom filter)", symbolName);
+        PRINT_ERROR("The symbol being searched (%s) is non-existent (failed bloom filter)", 
+          symbolName);
         return -1;
     }
 

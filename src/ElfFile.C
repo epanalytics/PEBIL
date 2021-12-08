@@ -83,6 +83,10 @@ bool ElfFile::isWedgeAddress(uint64_t addr){
 
 bool ElfFile::isDataWedgeAddress(uint64_t addr){
 
+    // The textSegmentIdx and dataSegmentIdx may have changed!
+    // See the verify function for more information
+    ASSERT(false);
+
     //PRINT_INFOR("Checking %lx", addr);
 
 #define IN_RANGE(__l, __h, __a) (((__a) >= (__l)) && ((__a) < (__h)))
@@ -368,6 +372,26 @@ ProgramHeader* ElfFile::getProgramHeaderPHDR(){
     return NULL;
 }
 
+void ElfFile::getLoadSegments(Vector<ProgramHeader*>* vec) {
+    uint32_t numOfPH = getNumberOfPrograms();   
+    for(uint32_t i=0;i<numOfPH;i++) {
+        ProgramHeader* ph = getProgramHeader(i);
+        if (ph->GET(p_type) == PT_LOAD) {
+            vec->append(ph);
+        }
+    }
+}
+
+uint16_t ElfFile::getELFStructuresSegmentIdx(){
+    // We assume the the first LOAD segment is the 3rd segment overall
+    // if this assumption fails a nonsense value is returned that should 
+    // alert us if that doesn't happen
+    if (getProgramHeader(2)->GET(p_type) == PT_LOAD) {
+        return 2;
+    }
+    return (uint16_t)-1;
+}
+
 DataSection* ElfFile::getDotDataSection(){
     uint16_t dataSectionIndex = 0;
 
@@ -437,6 +461,15 @@ bool ElfFile::verify(){
     }
     
     // verify that there is only 1 text and 1 data segment
+    // 12/07/2021: This is not really a good assumption anymore. Starting
+    // with gcc9, ELF files can have more than two LOAD segments. We have 
+    // changed it so that the LOAD section that gets extended is the 
+    // ELFStructuresSegment. The text segment is the segment with the text 
+    // section and the data segment is the one with the first data section.
+    //
+    // Leaving this code here because the wedge code uses the textSegmentIdx 
+    // and dataSegmentIdx and we don't have a good example that uses the 
+    // wedge code for testing purposes
     uint32_t textSegCount = 0;
     uint32_t dataSegCount = 0;
     for (uint32_t i = 0; i < getNumberOfPrograms(); i++){
@@ -453,8 +486,37 @@ bool ElfFile::verify(){
                 dataSegmentIdx = i;
                 dataSegCount++;
             } else {
-                PRINT_ERROR("Segment(%d) with type PT_LOAD has attributes that are not consistent with text or data");
-                return false;
+                //PRINT_INFO("Segment(%d) with type PT_LOAD has attributes that are not consistent with text or data");
+                //return false;
+            }
+        }
+    }
+
+    // flag for determining if all LOAD segments are continuous
+    // Assume that LOAD segments start at index 2 (see 
+    // getELFStructuresSegmentIdx)
+    bool flag = false;
+    for (uint32_t i = 0; i < getNumberOfPrograms(); i++) {
+        ProgramHeader* phdr = getProgramHeader(i);
+        if (i < 2 && phdr->GET(p_type) == PT_LOAD){
+            PRINT_ERROR("LOAD Segments do not start at index 2");
+            return false;
+        }
+        if (i == 2 && phdr->GET(p_type) != PT_LOAD) {
+            PRINT_ERROR("LOAD Segments do not start at index 2");
+            return false;
+        } else {
+            flag = true;
+        }
+        if (i > 2 && flag == true){
+            if (phdr->GET(p_type) != PT_LOAD){
+                flag = false;
+                continue;
+            }
+        }
+        if (i > 2 && flag == false) {
+            if (phdr->GET(p_type) == PT_LOAD) {
+                PRINT_ERROR("LOAD Segments not all continous");
             }
         }
     }
@@ -689,8 +751,10 @@ bool ElfFile::verifyDynamic(){
 
 }
 
-ProgramHeader* ElfFile::addSegment(uint16_t idx, uint32_t type, uint64_t offset, uint64_t vaddr, uint64_t paddr,
-                             uint32_t memsz, uint32_t filesz, uint32_t flags, uint32_t align){
+ProgramHeader* ElfFile::addSegment(uint16_t idx, uint32_t type, uint64_t offset, 
+  uint64_t vaddr, uint64_t paddr, uint32_t memsz, uint32_t filesz, 
+  uint32_t flags, uint32_t align){
+
     if (is64Bit()){
         programHeaders.insert(new ProgramHeader64(idx), idx);
     } else {
@@ -721,9 +785,10 @@ ProgramHeader* ElfFile::addSegment(uint16_t idx, uint32_t type, uint64_t offset,
     return programHeaders[idx];
 }
 
-uint64_t ElfFile::addSection(uint16_t idx, PebilClassTypes classtype, char* bytes, uint32_t name, uint32_t type, 
-                             uint64_t flags, uint64_t addr, uint64_t offset, uint64_t size, uint32_t link, 
-                             uint32_t info, uint64_t addralign, uint64_t entsize){
+uint64_t ElfFile::addSection(uint16_t idx, PebilClassTypes classtype, 
+  char* bytes, uint32_t name, uint32_t type, uint64_t flags, uint64_t addr, 
+  uint64_t offset, uint64_t size, uint32_t link, uint32_t info, 
+  uint64_t addralign, uint64_t entsize){
 
     if (is64Bit()){
         sectionHeaders.insert(new SectionHeader64(idx), idx);

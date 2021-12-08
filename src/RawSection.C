@@ -41,6 +41,18 @@ uint32_t RawSection::containsIntroString(){
 // Find pointers to data in the data sections and advance them by shamt
 void RawSection::wedge(uint32_t shamt){
 
+    // The commented out code below can be used as a template for updating this
+    // function should the need ever arise. Currently, non of the files tested
+    // hit this function so it can't be tested for verification. However, on a
+    // run with a fortran compiled binary, this section was hit and the changes
+    // below helped the binary run to completion.
+
+    /*for (int i=3;i<=5;i++) 
+        ProgramHeader* dataSeg = elfFile->getProgramHeader(i);
+        ASSERT(dataSeg);
+        SectionHeader* sec = elfFile->getSectionHeader(sectionIndex);*/
+
+
     ProgramHeader* dataSeg = elfFile->getProgramHeader(elfFile->getDataSegmentIdx());
     ASSERT(dataSeg);
 
@@ -61,10 +73,11 @@ void RawSection::wedge(uint32_t shamt){
         uint32_t inc = sizeof(uint64_t);
         for (uint32_t current = intro; current+sizeof(uint64_t) <= getSizeInBytes(); current += inc){
             uint64_t data;
-            memcpy(&data, charStream() + current, sizeof(uint64_t));
+            char* cs = charStream();
+            memcpy(&data, cs + current, sizeof(uint64_t));
             if (data && elfFile->isDataWedgeAddress(data + shamt)){
                 data += shamt;
-                memcpy(charStream() + current, &data, sizeof(uint64_t));
+                memcpy(cs + current, &data, sizeof(uint64_t));
                 //PRINT_INFOR("\t\tpatching @ %#lx: %#lx -> %#lx", getSectionHeader()->GET(sh_addr) + current, data - shamt, data);
             }
         }
@@ -216,7 +229,6 @@ RawSection::RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size, u
     : Base(classType),rawDataPtr(rawPtr),sectionIndex(scnIdx),elfFile(elf)
 { 
     sizeInBytes = size; 
-
     hashCode = HashCode((uint32_t)sectionIndex);
     PRINT_DEBUG_HASHCODE("Section %d Hashcode: 0x%04llx", (uint32_t)sectionIndex, hashCode.getValue());
 

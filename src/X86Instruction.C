@@ -2860,11 +2860,12 @@ void X86Instruction::setFlags()
         }
     }
 
-    if (flags_usedef[__reg_use] && GET(flags_use) != flags_usedef[__reg_use]){
+    if ((flags_usedef[__reg_use] & GET(flags_use)) != flags_usedef[__reg_use]){
         print();
         PRINT_ERROR("NEW USE FLAGS (%#x) DONT MATCH OLD (%#x)", GET(flags_use), flags_usedef[__reg_use]);
     }
-    if (flags_usedef[__reg_def] && GET(flags_def) != flags_usedef[__reg_def]){
+
+    if ((flags_usedef[__reg_def] & GET(flags_def)) != flags_usedef[__reg_def]){
         print();
         PRINT_ERROR("NEW DEF FLAGS (%#x) DONT MATCH OLD (%#x)", GET(flags_def), flags_usedef[__reg_def]);
     }
@@ -3039,6 +3040,8 @@ void X86InstructionClassifier::generateTable(){
     mkclass(            dppd,simdFloat,       0,   0,  128,    0,          64)
     mkclass(            dpps,simdFloat,       0,   0,  128,    0,          32)
     mkclass(            emms,  special,   other,   0,    0,    0,           0)
+    mkclass(         endbr32,  special,   other,   0,    0,    0,           0)
+    mkclass(         endbr64,  special,   other,   0,    0,    0,           0)
     mkclass(           enter,  special,   stack,   0,    0,    BinFrame,    0)
     mkclass(       extractps,     move,   float,   0,   32,    0,          32)
     mkclass(           f2xm1,    float,   float,   0, VRSZ,    0,           0)

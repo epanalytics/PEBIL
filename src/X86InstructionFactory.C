@@ -2570,7 +2570,7 @@ X86Instruction* X86InstructionFactory::emitPopEflags(){
 
 Vector<X86Instruction*>* X86InstructionFactory::emitNopSeries(uint32_t len){
     Vector<X86Instruction*>* series = new Vector<X86Instruction*>();
-    for (uint32_t i = 7; i >= 0; i--){
+    for (int32_t i = 7; i >= 0; i--){
         while (len > i){
             (*series).append(emitNop(i+1));
             len -= (i+1);
