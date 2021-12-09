@@ -66,7 +66,7 @@ public:
     ~NoteSection();
 
     void print();
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
 
     uint32_t getNumberOfNotes() { return notes.size(); }
     Note* getNote(uint32_t idx) { return notes[idx]; }

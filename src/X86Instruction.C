@@ -580,6 +580,8 @@ bool X86Instruction::isScatterGatherOp(){
         case UD_Ivpscatterqd:
         case UD_Ivpscatterqq:
             return true;
+        default:
+            return false;
      }
      return false;
 }
@@ -664,6 +666,8 @@ bool X86Instruction::isVectorMaskOp(){
         case UD_Ikxorq:
         case UD_Ikxord:
             return true;
+        default:
+            return false;
     }
     return false;
 }
@@ -970,7 +974,7 @@ RegisterSet* X86Instruction::getUnusableRegisters(){
 
     // operand uses
     Vector<OperandX86*>* uses = getSourceOperands();
-    for(uint32_t i; i< uses->size(); ++i) {
+    for(uint32_t i = 0; i< uses->size(); ++i) {
         OperandX86* use = (*uses)[i];
 
         if(use->GET(base) && IS_ALU_REG(use->GET(base))){
@@ -1341,6 +1345,8 @@ int32_t OperandX86::getBaseRegister(){
     } else if (IS_ZMM_REG(GET(base))){
         return convertUdZMMReg(GET(base));
     }
+    __SHOULD_NOT_ARRIVE;
+    return 0;
 }
 uint32_t OperandX86::getIndexRegister(){
     ASSERT(GET(index));
@@ -1524,7 +1530,8 @@ bool X86Instruction::isExplicitMemoryOperation(){
             }
         }
     }
-    ASSERT(!memCount || memCount == 1 && "Shouldn't have found multiple memops in an instruction");
+    ASSERT((!memCount || (memCount == 1)) && "Shouldn't have found multiple "
+      "memops in an instruction");
     if (memCount){
         return true;
     }
@@ -1615,7 +1622,7 @@ uint32_t OperandX86::getBytesUsed(){
 
 uint32_t X86Instruction::getDstSizeInBytes(){
     OperandX86* op;
-    if(op = getOperand(0))
+    if((op = getOperand(0)))
         return op->GET(size) >> 3;
     else
         return 0;
@@ -1640,6 +1647,7 @@ int64_t OperandX86::getValue(){
     } else if (getBytesUsed() == sizeof(uint64_t) * 4){
         value = 0;
     } else if (getBytesUsed() == sizeof(uint64_t) * 8) {
+        value = 0;
     } else { 
         print();
         PRINT_INFOR("%s", instruction->GET(insn_buffer));
@@ -1929,7 +1937,7 @@ uint32_t X86Instruction::convertTo4ByteTargetOperand(){
 void X86Instruction::binutilsPrint(FILE* stream){
     fprintf(stream, "%llx: ", getBaseAddress());
 
-    for (int32_t i = 0; i < sizeInBytes; i++){
+    for (uint32_t i = 0; i < sizeInBytes; i++){
         fprintf(stream, "%02hhx ", GET(insn_bytes)[i]);
     }
 
@@ -2498,7 +2506,7 @@ void X86Instruction::print(){
     flags[10] = '\0';
 
     char hexcode[32];
-    for (int32_t i = 0; i < sizeInBytes; i++){
+    for (uint32_t i = 0; i < sizeInBytes; i++){
         sprintf(hexcode + (2*i), "%02hhx", GET(insn_bytes)[i]);
     }
 
@@ -2864,11 +2872,12 @@ void X86Instruction::setFlags()
         }
     }
 
-    if (flags_usedef[__reg_use] && GET(flags_use) != flags_usedef[__reg_use]){
+    if ((flags_usedef[__reg_use] & GET(flags_use)) != flags_usedef[__reg_use]){
         print();
         PRINT_ERROR("NEW USE FLAGS (%#x) DONT MATCH OLD (%#x)", GET(flags_use), flags_usedef[__reg_use]);
     }
-    if (flags_usedef[__reg_def] && GET(flags_def) != flags_usedef[__reg_def]){
+
+    if ((flags_usedef[__reg_def] & GET(flags_def)) != flags_usedef[__reg_def]){
         print();
         PRINT_ERROR("NEW DEF FLAGS (%#x) DONT MATCH OLD (%#x)", GET(flags_def), flags_usedef[__reg_def]);
     }
@@ -2900,8 +2909,6 @@ struct x86class {
 #define X86OperandFormat_0 X86OperandFormat_unknown
 #define MEM_SZ_VARIABLE (0xf)
 #define VRSZ (MEM_SZ_VARIABLE << 3)
-//#define mkclass(__mne, __typ, __bin, __fmt, __mem, __loc, __elem) \
-    { UD_I ## __mne, xtyp(__typ), xbin(__bin), xfmt(__fmt), xsiz(__mem), __loc >> 8, xsiz(__elem) },
 
 #define mkclass(__mne, __typ, __bin, __fmt, __mem, __loc, __elem) \
     classifications[UD_I ## __mne] = (struct x86class) { UD_I ## __mne, xtyp(__typ), xbin(__bin), xfmt(__fmt), xsiz(__mem), (__loc >> 8), xsiz(__elem)};
@@ -3045,6 +3052,8 @@ void X86InstructionClassifier::generateTable(){
     mkclass(            dppd,simdFloat,       0,   0,  128,    0,          64)
     mkclass(            dpps,simdFloat,       0,   0,  128,    0,          32)
     mkclass(            emms,  special,   other,   0,    0,    0,           0)
+    mkclass(         endbr32,  special,   other,   0,    0,    0,           0)
+    mkclass(         endbr64,  special,   other,   0,    0,    0,           0)
     mkclass(           enter,  special,   stack,   0,    0,    BinFrame,    0)
     mkclass(       extractps,     move,   float,   0,   32,    0,          32)
     mkclass(           f2xm1,    float,   float,   0, VRSZ,    0,           0)

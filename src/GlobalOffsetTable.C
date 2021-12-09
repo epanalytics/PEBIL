@@ -48,7 +48,7 @@ void GlobalOffsetTable::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset
 }
 
 
-uint32_t GlobalOffsetTable::read(BinaryInputFile* binaryInputFile){
+void GlobalOffsetTable::read(BinaryInputFile* binaryInputFile){
 
     binaryInputFile->setInPointer(rawDataPtr);
     setFileOffset(binaryInputFile->currentOffset());
@@ -66,8 +66,6 @@ uint32_t GlobalOffsetTable::read(BinaryInputFile* binaryInputFile){
             entries[i] = (uint64_t)tmpEntry;
         }
     }
-
-    return sizeInBytes;
 }
 
 
@@ -77,7 +75,6 @@ void GlobalOffsetTable::print(){
     PRINT_INFOR("\tbase : %d",tableBaseIdx);
     PRINT_INFOR("\taddr : %#llx",baseAddress);
 
-    char tmpStr[__MAX_STRING_SIZE+1];
     for (int32_t i = minIndex(); i < maxIndex(); i++){
         uint64_t val = getEntry(i);
         char* namestr = NULL;

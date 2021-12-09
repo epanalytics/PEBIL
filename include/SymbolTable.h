@@ -43,7 +43,8 @@ public:
     char* symbolPtr;
     SymbolTable* table;
 
-    Symbol(SymbolTable* tbl, char* symPtr, uint32_t idx) : Base(PebilClassType_Symbol),table(tbl),symbolPtr(symPtr),index(idx) {}
+    Symbol(SymbolTable* tbl, char* symPtr, uint32_t idx) : 
+      Base(PebilClassType_Symbol), index(idx), symbolPtr(symPtr), table(tbl) {}
         ~Symbol(){};
 
     SYMBOL_MACROS_BASIS("For the get_X/set_X field macros check the defines directory");
@@ -76,7 +77,7 @@ public:
 
     SYMBOL_MACROS_CLASS("For the get_X/set_X field macros check the defines directory");
 
-    uint32_t read(BinaryInputFile* binaryInputFile);
+    void read(BinaryInputFile* binaryInputFile);
     unsigned char getSymbolBinding();
     unsigned char getSymbolType();
 };
@@ -92,7 +93,7 @@ public:
 
     SYMBOL_MACROS_CLASS("For the get_X/set_X field macros check the defines directory");
 
-    uint32_t read(BinaryInputFile* binaryInputFile);
+    void read(BinaryInputFile* binaryInputFile);
     unsigned char getSymbolBinding();
     unsigned char getSymbolType();
 };
@@ -114,11 +115,11 @@ public:
     SymbolTable(char* rawPtr, uint64_t size, uint16_t scnIdx, uint32_t idx, ElfFile* elf);
     ~SymbolTable();
 
-    uint32_t addSymbol(uint32_t name, uint64_t value, uint64_t size, uint8_t bind, uint8_t type, uint32_t other, uint16_t shndx);
+    void addSymbol(uint32_t name, uint64_t value, uint64_t size, uint8_t bind, uint8_t type, uint32_t other, uint16_t shndx);
     uint32_t getNumberOfSymbols() { return symbols.size(); }
 
     void print();
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     bool verify();
     bool isDynamic() { return dynamic; }
 
