@@ -325,7 +325,8 @@ void LoopIntercept::instrument(){
             InstrumentationPoint* p = addInstrumentationPoint(f, programEntry, InstrumentationMode_tramp, InstLocation_prior);
             ASSERT(p);
 
-            dynamicPoint(p, getElfFile()->getUniqueId(), true);
+            dynamicPoint(p, GENERATE_KEY(getElfFile()->getUniqueId(), 
+              PointType_inits), true);
         }
     } else {
         InstrumentationPoint* p = addInstrumentationPoint(getProgramEntryBlock(), programEntry, InstrumentationMode_tramp);

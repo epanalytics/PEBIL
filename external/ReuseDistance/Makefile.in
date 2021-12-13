@@ -4,7 +4,6 @@ LINKSHARED = -lpthread -shared
 BUILDSHARED = -fPIC
 INCLUDE = -I.
 INSTALLTO = @prefix@
-EXTOBJ = tree234.o LRUDistanceAnalyzer.o
 
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@ -g
@@ -19,11 +18,11 @@ all: $(DYNTGT) test
 dynamic: $(DYNTGT)
 static: $(STATGT)
 
-$(DYNTGT): $(TGT).o $(EXTOBJ)
-	$(CXX) $(CXXFLAGS) $(LINKSHARED) -o $@ $< $(EXTOBJ)
+$(DYNTGT): $(TGT).o
+	$(CXX) $(CXXFLAGS) $(LINKSHARED) -o $@ $<
 
-$(STATGT): $(TGT).o $(EXTOBJ)
-	$(AR) cru $@ $< $(EXTOBJ)
+$(STATGT): $(TGT).o
+	$(AR) cru $@ $<
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDE) $(BUILDSHARED) -c -o $@ $<
@@ -38,7 +37,7 @@ check: all test
 	$(MAKE) -C test/ check
 
 clean:
-	rm -rf $(TGT).o $(DYNTGT) $(STATGT) $(EXTOBJ) *.ii *.s
+	rm -rf $(TGT).o $(DYNTGT) $(STATGT) *.ii *.s
 	$(MAKE) -C test/ clean
 
 install: all

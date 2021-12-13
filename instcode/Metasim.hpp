@@ -59,6 +59,7 @@ typedef enum {
     PointType_bufferfill,
     PointType_functionEntry,
     PointType_functionExit,
+    PointType_inits,
     PointType_total
 } PointTypes;
 
@@ -73,8 +74,14 @@ typedef struct DynamicInst_s {
     bool IsEnabled;
 } DynamicInst;
 
-#define GENERATE_KEY(__bid, __typ) ((__typ & 0xf) | (__bid << 4))
-#define GET_BLOCKID(__key) ((__key >> 4))
+#define GENERATE_UNIQUE_ID(__bid, __iid) ((__bid << 8) | ((__iid & 0xf) << 4))
+// Generate a key given a block sequence and an image sequence
+#define GENERATE_UNIQUE_KEY(__bid, __iid, __typ) ((__typ & 0xf) | GENERATE_UNIQUE_ID(__bid, __iid))
+// Generate a key given a unique id
+#define GENERATE_KEY(__id, __typ) ((__typ & 0xf) | (__id << 4))
+#define GET_UNIQUEID(__key) ((__key >> 4))
+#define GET_IMAGEID(__key) (((__key & 0xf0)>> 4))
+#define GET_BLOCKID(__key) ((__key >> 8))
 #define GET_TYPE(__key) ((__key & 0xf))
 
 #endif //_Metasim_hpp_

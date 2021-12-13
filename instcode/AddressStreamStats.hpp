@@ -1,6 +1,8 @@
 #ifndef _AddressStreamStats_hpp_
 #define _AddressStreamStats_hpp_
 
+//TODO see if below was actually needed
+//#include <Metasim.hpp>
 //#define debug(...) __VA_ARGS__
 #define debug(...)
 
@@ -52,6 +54,7 @@ typedef struct AddressStreamStats_s {
     // metadata
     thread_key_t threadid;
     image_key_t imageid;
+    bool FirstImage;    // Set to true if image is first image
     bool Initialized;   // Set to false when created by thread
     bool PerInstruction;
     bool LoopInclusion; // when terminating sampling for a block,

@@ -366,7 +366,7 @@ public:
     uint32_t getSizeInBytes() { return sizeInBytes; }
 
     virtual void print() { __SHOULD_NOT_ARRIVE; }
-    virtual uint32_t read(BinaryInputFile* b) { __SHOULD_NOT_ARRIVE; return 0; }
+    virtual void read(BinaryInputFile* b) { __SHOULD_NOT_ARRIVE; }
 
 
     uint32_t getFileOffset() { return fileOffset; }
@@ -485,9 +485,9 @@ extern int searchBasicBlockAddress(const void* arg1, const void* arg2);
 extern int searchBaseAddressExact(const void* arg1, const void* arg2);
 extern int searchBaseAddress(const void* arg1, const void* arg2);
 
-extern uint64_t getUInt64(char* buf);
-extern uint32_t getUInt32(char* buf);
-extern uint16_t getUInt16(char* buf);
+extern uint64_t getUInt64(const char* buf);
+extern uint32_t getUInt32(const char* buf);
+extern uint16_t getUInt16(const char* buf);
 extern int64_t absoluteValue(uint64_t d);
 
 extern int32_t scmp(const void *a, const void *b);

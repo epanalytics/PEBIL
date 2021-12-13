@@ -28,7 +28,7 @@ template <class T=uint32_t>
 class Stack {
 private:
     T* elements;
-    uint32_t maxSize;
+    int32_t maxSize;
     int32_t topIndex;
 
     void growStack(){
@@ -36,6 +36,7 @@ private:
         memcpy(newElts, elements, maxSize * sizeof(T));
         delete[] elements;
         maxSize *= STACK_GROWTH_FACTOR;
+        assert(maxSize == (uint32_t)maxSize);
         elements = newElts;
     }
 
