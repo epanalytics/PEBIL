@@ -368,7 +368,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                 continue;
             }
 
-            handler->Process((void*)ss, reference);
+            (void) handler->Process((void*)ss, reference);
       //      numProcessed++;
         }
     }
