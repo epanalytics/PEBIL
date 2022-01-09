@@ -107,7 +107,7 @@ void GnuVerneedTable::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
     ASSERT(currByte == sizeInBytes && "Size written to file does not match theoretical size");
 }
 
-uint32_t GnuVerneedTable::read(BinaryInputFile* binaryInputFile){
+void GnuVerneedTable::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(getFilePointer());
     uint32_t totalBytesRead = 0;
     uint32_t remainingAux = 0;
@@ -135,11 +135,11 @@ uint32_t GnuVerneedTable::read(BinaryInputFile* binaryInputFile){
         totalBytesRead += entrySize;
     }
 
-    ASSERT(totalBytesRead == sizeInBytes && "Size read from file does not match theoretical size");
-    return totalBytesRead;
+    ASSERT(totalBytesRead == sizeInBytes && 
+      "Size read from file does not match theoretical size");
 }
 
-uint32_t GnuVersymTable::addSymbol(uint16_t val){
+void GnuVersymTable::addSymbol(uint16_t val){
     versyms.append(val);
     sizeInBytes += entrySize;
 
@@ -189,7 +189,7 @@ void GnuVersymTable::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
     ASSERT(currByte == sizeInBytes && "Size written to file does not match theoretical size");
 }
 
-uint32_t GnuVersymTable::read(BinaryInputFile* binaryInputFile){
+void GnuVersymTable::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(getFilePointer());
     uint32_t totalBytesRead = 0;
 
@@ -202,6 +202,4 @@ uint32_t GnuVersymTable::read(BinaryInputFile* binaryInputFile){
     }
     ASSERT(totalBytesRead == sizeInBytes && "Size read from file does not match theoretical size");
     ASSERT(sizeInBytes == versyms.size() * entrySize && "Section size does not match data size");
-
-    return totalBytesRead;
 }

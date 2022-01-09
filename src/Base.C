@@ -164,7 +164,6 @@ FileList::~FileList(){
 }
 
 bool regexMatch(char *string, char* reg){
-    regmatch_t match;
     regex_t regex;
     int err;
     char err_msg[__MAX_STRING_SIZE];
@@ -218,7 +217,6 @@ void FileList::print(){
 char* sha1sum(char* buffer, uint32_t size, uint64_t* first64){
     unsigned char* allbytes = new unsigned char[size];
     int end = size;
-    char *line;
     char* hexstring = new char[2*SHA1SUM_BYTES + 1];
     unsigned char hash[SHA1SUM_BYTES];
 
@@ -383,19 +381,19 @@ int64_t absoluteValue(uint64_t d){
     return a;
 }
 
-uint64_t getUInt64(char* buf){
+uint64_t getUInt64(const char* buf){
     uint64_t data;
     memcpy(&data,buf,sizeof(uint64_t));
     return data;
 }
 
-uint32_t getUInt32(char* buf){
+uint32_t getUInt32(const char* buf){
     uint32_t data;
     memcpy(&data,buf,sizeof(uint32_t));
     return data;
 }
 
-uint16_t getUInt16(char* buf){
+uint16_t getUInt16(const char* buf){
     uint16_t data;
     memcpy(&data,buf,sizeof(uint16_t));
     return data;

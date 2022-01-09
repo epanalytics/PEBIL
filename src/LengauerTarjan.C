@@ -268,7 +268,7 @@ void LengauerTarjan::immediateDominators(){
             PRINT_DEBUG("Reachable : Immediate Dominator of %d is Entry",bb->getIndex());
         }
     }
-    for(int32_t i=nodeCount;i>reachableCount;i--){
+    for(uint32_t i=nodeCount;i>reachableCount;i--){
         BasicBlock* bb = locToBasicBlock[i];
         ASSERT(bb->isUnreachable());
         BasicBlock* immDom = locToBasicBlock[rootLoc];

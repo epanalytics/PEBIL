@@ -88,7 +88,7 @@ public:
     uint32_t getLoopDepth(uint32_t idx);
     uint32_t getNumberOfLoops() { return loops.size(); }
     uint32_t getNumberOfArtificialLoops() { return artificialLoops.size(); }
-    uint32_t buildLoops();
+    void buildLoops();
     void printInnerLoops();
     void printLoops();
     bool isBlockInLoop(uint32_t idx);
@@ -102,7 +102,7 @@ public:
     void addBlock(Block* block);    
     
     BasicBlock** getAllBlocks();
-    uint32_t getAllBlocks(uint32_t sz, BasicBlock** arr);
+    void getAllBlocks(uint32_t sz, BasicBlock** arr);
     
     void depthFirstSearch(BasicBlock* root,BitSet<BasicBlock*>* visitedSet,bool set,
                           BitSet<BasicBlock*>* completedSet=NULL,LinkedList<BasicBlock*>* backEdges=NULL);

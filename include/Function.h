@@ -104,12 +104,13 @@ public:
     uint32_t bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* 
       instPoints, Vector<Vector<uint64_t>*>* oldInsnAddresses, 
       Vector<uint64_t>* oldInsns, Vector<uint64_t>* newInsns);
-    uint32_t addSafetyJump(X86Instruction* tgtInstruction);
+    void addSafetyJump(X86Instruction* tgtInstruction);
 
     void setBaseAddress(uint64_t newBaseAddress);
 
     Symbol* getFunctionSymbol() { return symbol; }
-    uint32_t generateCFG(Vector<X86Instruction*>* instructions, Vector<AddressAnchor*>* addressAnchors);
+    void generateCFG(Vector<X86Instruction*>* instructions, 
+      Vector<AddressAnchor*>* addressAnchors);
 
     FlowGraph* getFlowGraph() { return flowGraph; }
     uint32_t getNumberOfBasicBlocks();

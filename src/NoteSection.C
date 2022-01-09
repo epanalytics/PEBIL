@@ -128,7 +128,7 @@ NoteSection::~NoteSection(){
 }
 
 
-uint32_t NoteSection::read(BinaryInputFile* binaryInputFile){
+void NoteSection::read(BinaryInputFile* binaryInputFile){
 
     binaryInputFile->setInPointer(rawDataPtr);
     setFileOffset(binaryInputFile->currentOffset());
@@ -160,7 +160,6 @@ uint32_t NoteSection::read(BinaryInputFile* binaryInputFile){
     ASSERT(currWord * Size__32_bit_Note_Section_Entry == sizeInBytes && "Number of bytes read from note section is not the same as section size");
 
     delete[] rawData;
-    return sizeInBytes;
 }
 
 void NoteSection::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){

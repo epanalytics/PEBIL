@@ -931,6 +931,16 @@ MAL MISSING PRE SSE?
     <opcode> ; 0f 77 ; ; ; </opcode>
   </instruction>
 
+  <instruction mnemonic="endbr32">
+    <opcode> ; ssef3 0f /3byte=1e fb ; ; ;
+    </opcode> 
+  </instruction>
+
+  <instruction mnemonic="endbr64">
+    <opcode> ; ssef3 0f /3byte=1e fa ; ; ;
+    </opcode> 
+  </instruction>
+
   <instruction mnemonic="enter">
     <opcode mode="def64 depM"> ; c8 ; Iw Ib ; ; u:bp u:sp d:bp d:sp </opcode>
   </instruction>

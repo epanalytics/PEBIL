@@ -1046,7 +1046,6 @@ Vector<X86Instruction*>* X86InstructionFactory32::emitAddressComputation(X86Inst
 
         if (instruction->GET(pfx_seg)){
             uint32_t segIdx = instruction->GET(pfx_seg) - UD_R_ES;
-            uint64_t imm = op->getValue();
 
             (*compInstructions).append(emitMoveSegmentRegToReg(segIdx, dest));
         } else if (op->GET(base) == UD_R_RIP){

@@ -304,13 +304,13 @@ void AddressRangeHandler::Print(ofstream& f){
 
 uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
 
-    if(access->type == MEM_ENTRY) {
+    if (access->type == MEM_ENTRY) {
         uint32_t memid = (uint32_t)access->memseq;
         uint64_t addr = access->address;
         RangeStats* rs = (RangeStats*)stats;
         rs->Update(memid, addr);
         return 0;
-    } else if(access->type == VECTOR_ENTRY) {
+    } else if (access->type == VECTOR_ENTRY) {
         uint64_t currAddr;
         uint32_t memid = (uint32_t)access->memseq;
         uint16_t mask = (access->vectorAddress).mask;
@@ -326,7 +326,7 @@ uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
             mask = (mask >> 1);
         }
         return 0;
-    } 
+    }
     // TODO To be implemented later
     /*} else if(access->type == PREFETCH_ENTRY) {
         uint32_t memid = (uint32_t)access->memseq;
@@ -337,5 +337,6 @@ uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
         }
         return 0;
    }*/
+   return 0;
 }
                 
