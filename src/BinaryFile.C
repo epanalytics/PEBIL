@@ -233,10 +233,10 @@ void BinaryOutputFile::copyBytes(char* bytes, uint32_t size, uint32_t offset) {
 //}
 
 void BinaryOutputFile::open(char* filenm) { 
-    uint32_t namelen = strlen(filenm);
+    uint32_t namelen = strlen(filenm) + 1;  // get \0
     fileName = new char[__MAX_STRING_SIZE];
+    ASSERT(namelen < __MAX_STRING_SIZE);
     strncpy(fileName, filenm, namelen);
-    fileName[namelen] = '\0';
     outFile = fopen(fileName,"w");
     ASSERT(outFile && "Cannot open output file");
 }
@@ -261,8 +261,7 @@ BinaryOutputFile::~BinaryOutputFile(){
 
 /********************* EmbeddedBinaryOutputFile *****************************/
 EmbeddedBinaryOutputFile::EmbeddedBinaryOutputFile()
-    : written_size(0), buffer_size(INITIAL_BUFFER_SIZE)
-{
+  : buffer_size(INITIAL_BUFFER_SIZE), written_size(0) {
     this->buffer = new char[INITIAL_BUFFER_SIZE];
 }
 

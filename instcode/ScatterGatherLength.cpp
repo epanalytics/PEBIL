@@ -60,7 +60,8 @@ uint32_t ScatterGatherLengthTool::CreateHandlers(uint32_t index, StringParser* p
 
 void ScatterGatherLengthTool::FinalizeTool(DataManager<AddressStreamStats*>* 
   AllData, SamplingMethod* Sampler) {
-    AddressStreamStats* stats = AllData->GetData(pthread_self());
+    AddressStreamStats* stats = AllData->GetData(AllData->GetFirstImage(), 
+      pthread_self());
 
     // Create the Scatter Gather Vector Length report 
     ofstream LengthFile;
@@ -380,5 +381,6 @@ uint32_t VectorLengthHandler::Process(void* stats, BufferEntry* access){
         }
         return 0;
    }*/
+    return 0;
 }
                 

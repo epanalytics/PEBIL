@@ -38,11 +38,11 @@ public:
     ~StringTable();
 
     void print();
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
 
     char* getString(uint32_t offset);
-    uint32_t addString(const char* name);
+    void addString(const char* name);
     uint32_t getIndex() { return index; }
     void wedge(uint32_t shamt);
 };

@@ -17,7 +17,8 @@ typedef pthread_t thread_key_t;
 
 enum EntryType: uint8_t {
   MEM_ENTRY = 0,
-  VECTOR_ENTRY
+  VECTOR_ENTRY,
+  EntryType_Total
 };
 
 struct VectorAddress {
@@ -54,6 +55,7 @@ typedef struct AddressStreamStats_s {
     // metadata
     thread_key_t threadid;
     image_key_t imageid;
+    bool FirstImage;    // Set to true if image is first image
     bool Initialized;   // Set to false when created by thread
     bool PerInstruction;
     bool LoopInclusion; // when terminating sampling for a block,

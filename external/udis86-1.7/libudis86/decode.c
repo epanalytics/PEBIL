@@ -31,6 +31,8 @@ struct modrm {
   char set;
 };
 
+extern unsigned int ud_insn_len(struct ud* u);
+
 static inline unsigned char get_modrm(struct ud* u, struct modrm* modrm)
 {
   if(!modrm->set) {
@@ -616,6 +618,18 @@ static int search_itab( struct ud * u )
                     table = ITAB__PFX_SSE66__0F__OP___3BYTE_3A__REG;
                 }
             }
+        } else if ( 0x1E == curr ) {
+            PEBIL_DEBUG("3byte opcode %hhx", curr);
+            curr  = inp_next(u);
+            PEBIL_DEBUG("\topcode %hhx", curr);
+            //if ( ud_itab_list[ ITAB__0F__OP_F3__3BYTE_1E__REG ][ curr ].mnemonic != UD_Iinvalid ) {
+            //    table = ITAB__0F__OP_F3__3BYTE_1E__REG;
+            //}
+            if ( 0xf3 == u->pfx_insn ) {
+                if ( ud_itab_list[ ITAB__PFX_SSEF3__0F__OP___3BYTE_1E__REG ][ curr ].mnemonic != UD_Iinvalid ) {
+                    table = ITAB__PFX_SSEF3__0F__OP___3BYTE_1E__REG;
+                }
+            }
         }
         /* end PEBIL */
 
@@ -1013,7 +1027,7 @@ static int resolve_mnemonic( struct ud* u )
     /* far/near flags */
     u->br_far = 0;
     u->br_near = 0;
-    /* readjust operand sizes for call/jmp instrcutions */
+    /* readjust operand sizes and prefixes for call/jmp instrcutions */
     if ( u->mnemonic == UD_Icall || u->mnemonic == UD_Ijmp ) {
         /* WP: 16bit pointer */
         if ( u->operand[ 0 ].size == SZ_WP ) {
@@ -1029,6 +1043,12 @@ static int resolve_mnemonic( struct ud* u )
             u->br_far = 0;
             u->br_near= 1;
         }
+        
+        /* If segment was set, then the prefix 3E (no track) was set) */
+        if (u->pfx_seg == UD_R_DS) {
+            u->pfx_seg = UD_NONE;
+        }
+
     /* resolve 3dnow weirdness. */
     } else if ( u->mnemonic == UD_I3dnow ) {
         u->mnemonic = ud_itab_list[ ITAB__3DNOW ][ inp_curr( u )  ].mnemonic;
@@ -1060,14 +1080,21 @@ static int resolve_mnemonic( struct ud* u )
           u->mnemonic == UD_Iscasb || u->mnemonic == UD_Iscasd ||
           u->mnemonic == UD_Iscasw || u->mnemonic == UD_Iret) {
             u->pfx_rep = 0x0;
+        // Unset rep/repe in the case of the endbr insns
+        } else if (u->mnemonic == UD_Iendbr32 || u->mnemonic == UD_Iendbr64) {
+            u->pfx_rep = 0x0;
+            u->pfx_repe = 0x0;
         } else {  // Only the above mnemonics can use these prefixes
             u->error = 1;
         }
 
-        // Rep and repe should be different, otherwise how did we get here?
+        // Rep and repe should be different, otherwise how did we get here
         if (u->pfx_rep == u->pfx_repe) {
-            u->error = 1;
+            // The endbr insns are the exception
+            if (!(u->mnemonic == UD_Iendbr32 || u->mnemonic == UD_Iendbr64))
+                u->error = 1;
         }
+
     }
 
   return 0;
@@ -1639,14 +1666,12 @@ decode_modrm_reg(struct ud* u,
 {
   unsigned char modrm_byte = get_modrm(u, modrm);
 
-  unsigned char reg, mod, rm;
+  unsigned char reg;
 
   PEBIL_DEBUG("\tdecode_modrm_reg: reg_size = %d, reg_type = %u, modrm_byte = "
     "%#x", reg_size, reg_type, modrm_byte);
   PEBIL_DEBUG("\tdecode_modrm_reg: position = %d\n", op->position);
   reg = (REX_R(u->pfx_rex) << 3) | MODRM_REG(modrm_byte);
-  mod = MODRM_MOD(modrm_byte);
-  rm  = (REX_B(u->pfx_rex) << 3) | MODRM_RM(modrm_byte);
 
 
   if(P_MVEX(u->pfx_insn)) {
@@ -2061,19 +2086,19 @@ static int disasm_operands(register struct ud* u)
 
   int retval = 0;
 
-  if (u->itab_entry->operand1.type == UD_NONE) return retval;
+  if (u->itab_entry->operand1.type == OP_NONE) return retval;
   PEBIL_DEBUG("Operand 1:");
   retval |= disasm_operand(u, &modrm, &u->operand[0], u->itab_entry->operand1.type, u->itab_entry->operand1.size);
 
-  if( u->itab_entry->operand2.type == UD_NONE) return retval;
+  if( u->itab_entry->operand2.type == OP_NONE) return retval;
   PEBIL_DEBUG("Operand 2:");
   retval |= disasm_operand(u, &modrm, &u->operand[1], u->itab_entry->operand2.type, u->itab_entry->operand2.size);
 
-  if( u->itab_entry->operand3.type == UD_NONE) return retval;
+  if( u->itab_entry->operand3.type == OP_NONE) return retval;
   PEBIL_DEBUG("Operand 3:");
   retval |= disasm_operand(u, &modrm, &u->operand[2], u->itab_entry->operand3.type, u->itab_entry->operand3.size);
 
-  if( u->itab_entry->operand4.type == UD_NONE) return retval;;
+  if( u->itab_entry->operand4.type == OP_NONE) return retval;;
   PEBIL_DEBUG("Operand 4:");
   retval |= disasm_operand(u, &modrm, &u->operand[3], u->itab_entry->operand4.type, u->itab_entry->operand4.size);
 
