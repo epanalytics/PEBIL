@@ -323,7 +323,7 @@
 static void* _backtraceArray[BACKTRACE_SIZE];
 static size_t _backtraceSize;
 static char** _backtraceStrings;
-static int _arrayBacktraceIterator;
+static long unsigned int _arrayBacktraceIterator;
 
 #define ASSERT(__str) \
     if (!(__str)){ _backtraceSize = backtrace(_backtraceArray, BACKTRACE_SIZE); _backtraceStrings = backtrace_symbols(_backtraceArray, _backtraceSize); \

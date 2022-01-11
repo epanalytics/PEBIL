@@ -1310,6 +1310,7 @@ else if(access->type == PREFETCH_ENTRY) {
         return 0;
       }
    } */
+    return 0;
 }
 
 bool CacheStructureHandler::Verify(){

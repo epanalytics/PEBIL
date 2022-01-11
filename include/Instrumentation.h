@@ -163,8 +163,10 @@ typedef enum {
 
 typedef struct {
     uint32_t type;
-    uint32_t reg;
-    uint64_t offset;
+    union {
+        uint32_t reg;
+        uint64_t offset;
+    };
 } Argument;
 
 class InstrumentationFunction : public Instrumentation {
@@ -214,7 +216,7 @@ public:
     void addPLTHook(X86Instruction* hook) { pltHooks.append(hook); }
 
     virtual uint32_t bootstrapReservedSize() { __SHOULD_NOT_ARRIVE; }
-    virtual uint32_t procedureLinkReservedSize() { Size__32_bit_procedure_link; }
+    virtual uint32_t procedureLinkReservedSize() { return Size__32_bit_procedure_link; }
     virtual uint32_t wrapperReservedSize() { __SHOULD_NOT_ARRIVE; }
 
     char* getFunctionName() { return functionName; }

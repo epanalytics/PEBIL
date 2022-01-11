@@ -39,9 +39,9 @@ protected:
     uint16_t index;
 protected:
     SectionHeader() : Base(PebilClassType_SectionHeader),
-        relocationPtr(NULL), lineInfoPointer(NULL),
-        numOfRelocations(0),numOfLineInfo(0),
-        index(0),sectionNamePtr(NULL),sectionType(PebilClassType_no_type) {}
+      relocationPtr(NULL), lineInfoPointer(NULL), numOfRelocations(0),
+      numOfLineInfo(0), sectionNamePtr(NULL), 
+      sectionType(PebilClassType_no_type), index(0) {}
 
 public:
     bool verify();
@@ -88,7 +88,7 @@ public:
 
     SectionHeader32(uint16_t idx);
     ~SectionHeader32() {}
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     bool hasBitsInFile() { return (GET(sh_type) != SHT_NOBITS); }
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
     char* charStream() { return (char*)&entry; }
@@ -105,7 +105,7 @@ public:
 
     SectionHeader64(uint16_t idx);
     ~SectionHeader64() {}
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     bool hasBitsInFile() { return (GET(sh_type) != SHT_NOBITS); }
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
     char* charStream() { return (char*)&entry; }

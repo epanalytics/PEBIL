@@ -49,15 +49,6 @@ void RelocationTable::wedge(uint32_t shamt){
             if (elfFile->is64Bit()){
                 RelocationAddend64* r = (RelocationAddend64*)relocations[i];
 
-                uint64_t addr;
-                uint32_t typ = ELF64_R_TYPE(relocations[i]->GET(r_info));
-                if (typ == R_X86_64_64){
-                    addr = 0;
-                } else if (typ == R_X86_64_RELATIVE){
-                    addr = r->GET(r_addend) + elfFile->getProgramBaseAddress();
-                } else {
-                    addr = r->GET(r_addend);
-                }
                 if (elfFile->isWedgeAddress(r->GET(r_addend))){
                     r->INCREMENT(r_addend, shamt);
                 }
@@ -128,9 +119,10 @@ uint32_t RelocationTable::addRelocation(uint64_t offset, uint64_t info){
 }
 
 
-RelocationTable::RelocationTable(char* rawPtr, uint64_t size, uint16_t scnIdx, uint32_t idx, ElfFile* elf)
-    : RawSection(PebilClassType_RelocationTable,rawPtr,size,scnIdx,elf),index(idx),symbolTable(NULL),relocationSection(NULL)
-{
+RelocationTable::RelocationTable(char* rawPtr, uint64_t size, uint16_t scnIdx, 
+  uint32_t idx, ElfFile* elf) : RawSection(PebilClassType_RelocationTable, 
+  rawPtr, size, scnIdx, elf), symbolTable(NULL), relocationSection(NULL), 
+  index(idx) {
     ASSERT(elfFile);
     ASSERT(elfFile->getSectionHeader(sectionIndex));
 
@@ -264,7 +256,7 @@ void RelocationAddend64::print(char* str){
                 ELF64_R_TYPE(GET(r_info)) <= R_386_NUM ? RTypeNames[ELF64_R_TYPE(GET(r_info))] : "UNK",str);
 }
 
-uint32_t Relocation32::read(BinaryInputFile* binaryInputFile){
+void Relocation32::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(relocationPtr);
 
     if(!binaryInputFile->copyBytesIterate(&entry,Size__32_bit_Relocation)){
@@ -272,11 +264,9 @@ uint32_t Relocation32::read(BinaryInputFile* binaryInputFile){
     }
 
     verify();
-
-    return Size__32_bit_Relocation;
 }
 
-uint32_t Relocation64::read(BinaryInputFile* binaryInputFile){
+void Relocation64::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(relocationPtr);
 
     if(!binaryInputFile->copyBytesIterate(&entry,Size__64_bit_Relocation)){
@@ -284,11 +274,9 @@ uint32_t Relocation64::read(BinaryInputFile* binaryInputFile){
     }
 
     verify();
-
-    return Size__64_bit_Relocation;
 }
 
-uint32_t RelocationAddend32::read(BinaryInputFile* binaryInputFile){
+void RelocationAddend32::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(relocationPtr);
 
     if(!binaryInputFile->copyBytesIterate(&entry,Size__32_bit_Relocation_Addend)){
@@ -296,11 +284,9 @@ uint32_t RelocationAddend32::read(BinaryInputFile* binaryInputFile){
     }
 
     verify();
-    
-    return Size__32_bit_Relocation_Addend;
 }
 
-uint32_t RelocationAddend64::read(BinaryInputFile* binaryInputFile){
+void RelocationAddend64::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(relocationPtr);
 
     if(!binaryInputFile->copyBytesIterate(&entry,Size__64_bit_Relocation_Addend)){
@@ -308,11 +294,9 @@ uint32_t RelocationAddend64::read(BinaryInputFile* binaryInputFile){
     }
 
     verify();
-
-    return Size__64_bit_Relocation_Addend;
 }
 
-uint32_t RelocationTable::read(BinaryInputFile* binaryInputFile){
+void RelocationTable::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(getFilePointer());
 
     uint32_t numberOfRelocations = sizeInBytes / relocationSize;
@@ -334,6 +318,4 @@ uint32_t RelocationTable::read(BinaryInputFile* binaryInputFile){
     ASSERT(relocations.size() == numberOfRelocations);
 
     verify();
-
-    return sizeInBytes;
 }
