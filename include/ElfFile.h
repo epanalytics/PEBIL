@@ -171,6 +171,8 @@ public:
     FileHeader*  getFileHeader() { return fileHeader; }
     ProgramHeader* getProgramHeader(uint32_t idx) { return programHeaders[idx]; }
     ProgramHeader* getProgramHeaderPHDR();
+    // getLoadSegments takes in a Vector* to place all LOAD segments into
+    void getLoadSegments(Vector<ProgramHeader*>* vec);
     SectionHeader* getSectionHeader(uint32_t idx) { return sectionHeaders[idx]; }
     RawSection* getRawSection(uint32_t idx) { return rawSections[idx]; }
     StringTable* getStringTable(uint32_t idx) { return stringTables[idx]; }
@@ -206,6 +208,10 @@ public:
 
     uint64_t getDynamicSectionAddress() { return dynamicSectionAddress; }
     uint16_t getDynamicTableSectionIdx() { return dynamicTableSectionIdx; }
+    // ELFStructures is the first LOAD segment that has all the ELF information
+    // we use and move. We use this function instead of the getTextSegmentIdx
+    // and getDataSegmentIdx
+    uint16_t getELFStructuresSegmentIdx();
     uint16_t getTextSegmentIdx() { return textSegmentIdx; }
     uint16_t getDataSegmentIdx() { return dataSegmentIdx; }
     uint32_t getDynamicSymtabIdx() { return dynamicSymtabIdx; }
@@ -224,7 +230,7 @@ public:
 
     void setLineInfoFinder();
     void findLoops();
-    uint32_t printDisassembly(bool instructionDetail);
+    void printDisassembly(bool instructionDetail);
     
 
     ProgramHeader* addSegment(uint16_t idx, uint32_t type, uint64_t offset, uint64_t vaddr, uint64_t paddr,
@@ -233,7 +239,7 @@ public:
                         uint64_t size, uint32_t link, uint32_t info, uint64_t addralign, uint64_t entsize);
 
     uint16_t findSectionIdx(uint64_t addr);
-    uint16_t findSectionIdx(char* name);
+    uint16_t findSectionIdx(const char* name);
     RawSection* findDataSectionAtAddr(uint64_t addr);
     void testBitSet();
 

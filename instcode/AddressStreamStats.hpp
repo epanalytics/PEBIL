@@ -37,7 +37,8 @@ typedef pthread_t thread_key_t;
 
 enum EntryType: uint8_t {
   MEM_ENTRY = 0,
-  VECTOR_ENTRY
+  VECTOR_ENTRY,
+  EntryType_Total
 };
 
 struct VectorAddress {

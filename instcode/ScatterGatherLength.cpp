@@ -381,5 +381,6 @@ uint32_t VectorLengthHandler::Process(void* stats, BufferEntry* access){
         }
         return 0;
    }*/
+    return 0;
 }
                 

@@ -113,13 +113,13 @@ public:
 
     ByteSources getByteSource();
     void setByteSource(ByteSources src) { source = src; }
-    uint32_t setSizeInBytes(uint32_t sz) { sizeInBytes = sz; }
+    void setSizeInBytes(uint32_t sz) { sizeInBytes = sz; }
     uint32_t readNoFile();
     uint32_t getIndex() { return index; }
     uint32_t disassemble();
-    uint32_t generateCFGs(Vector<AddressAnchor*>* addressAnchors);
-    uint32_t printDisassembly(bool instructionDetail);
-    uint32_t read(BinaryInputFile* b);
+    void generateCFGs(Vector<AddressAnchor*>* addressAnchors);
+    void printDisassembly(bool instructionDetail);
+    void read(BinaryInputFile* b);
     uint32_t disassemble(BinaryInputFile* b,bool sanitize);
 
     uint64_t findInstrumentationPoint(uint64_t addr, uint32_t size, InstLocations loc);
@@ -148,7 +148,7 @@ public:
     Vector<X86Instruction*>* swapInstructions(uint64_t addr, Vector<X86Instruction*>* replacements);
 
     void printLoops();
-    uint32_t buildLoops();
+    void buildLoops();
 };
 
 

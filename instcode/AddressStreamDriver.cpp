@@ -199,7 +199,7 @@ void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
     inform << "CXXX - Address Stream Library - Memops simulated per "
       << "second: " << (m/t) << ENDL;
     RESTORE_STREAM_FLAGS(cout);
-
+    return NULL;
 }
 
 // Should only be called once per driver
@@ -368,7 +368,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                 continue;
             }
 
-            handler->Process((void*)ss, reference);
+            (void) handler->Process((void*)ss, reference);
       //      numProcessed++;
         }
     }
