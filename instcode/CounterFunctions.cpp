@@ -146,6 +146,8 @@ void DeleteCounterArray(CounterArray* ctrs){
 
 void* tool_thread_init(thread_key_t tid){
     SAVE_STREAM_FLAGS(cout);
+    // Each thread needs the signal handlers initialized
+    init_signal_handlers(true);
     if (AllData){
         if(DynamicPoints->IsThreadedMode())
             AllData->AddThread(tid);

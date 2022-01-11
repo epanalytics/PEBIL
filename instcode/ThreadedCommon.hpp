@@ -47,7 +47,7 @@ extern "C" {
       context);
     void print_backtrace();
     static void segfault_handler(int signo, siginfo_t* siginf, void* context);
-    void init_signal_handlers();
+    void init_signal_handlers(bool debug = false);
 };
 
 #endif //_ThreadedCommon_hpp_
