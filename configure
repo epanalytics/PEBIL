@@ -629,8 +629,11 @@ LIBOBJS
 CPUFREQ_FLAGS
 PAPI_PATH
 PEBIL_PAPI_BUILD
+PEBIL_ENV_EPA_TOOLS_PATH
+PEBIL_SUBDIR_EPA_TOOLS_PATH
 PEBIL_EPA_TOOLS_PATH
 PEBIL_EPA_TOOLS_AVAILABLE
+PEBIL_BUILD_EPA_TOOLS
 THROTTLER_FLAGS
 MPI_CXXFLAGS
 MPI_FLAGS
@@ -705,6 +708,7 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 enable_mpi
+enable_debug
 enable_static
 enable_mpicxxbind
 enable_adamant
@@ -712,7 +716,6 @@ enable_mpiinit_check
 with_throttler_headers
 with_epa_tools
 enable_papi
-debug
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1356,6 +1359,7 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-mpi            Use mpi compiler when building instrumentation
                           libraries [yes]
+  --debug                 Print debugging information [no]
   --enable-static         Build a statically-linked pebil executable in
                           addition to a dynamically-linked executable [yes]
   --enable-mpicxxbind     Assume C++ bindings during build [yes]
@@ -1363,7 +1367,6 @@ Optional Features:
   --enable-mpiinit-check  Disable output file printing in inst libraries
                           unless mpi_init is executed [no]
   --enable-papi           Build with PAPI hardware counter support [yes]
-  --debug                 Build with debug print statments
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -5857,6 +5860,19 @@ if test "$ax_cv_cxx_unordered_map" = "yes"; then
    CXXFLAGS="$CXXFLAGS -DHAVE_UNORDERED_MAP"
 fi
 
+#Allow debug option
+# Check whether --enable-debug was given.
+if test "${enable_debug+set}" = set; then :
+  enableval=$enable_debug; debug_ok=$enableval
+fi
+
+if test "$debug_ok" !="yes"; then
+    PEBIL_DEBUG="-DWARNING_SEVERITY=20"
+else
+    PEBIL_DEBUG="-DINFORM"
+fi
+
+
 # Check whether --enable-static was given.
 if test "${enable_static+set}" = set; then :
   enableval=$enable_static; static_ok=$enableval
@@ -5866,16 +5882,6 @@ if test "$static_ok" == "yes"; then
    PEBIL_STATIC_BUILD="yes"
 else
    PEBIL_STATIC_BUILD="no"
-fi
-
-if test "${enable_debug+set}" = set; then :
-  enableval=$enable_debug; debug_ok=$enableval
-fi
-
-if test "$debug_ok" != "yes"; then
-   PEBIL_DEBUG="-DWARNING_SEVERITY=20"
-else
-   PEBIL_DEBUG="-DINFORM "
 fi
 
 
@@ -6257,20 +6263,43 @@ fi
 
 
 
+#AC_ARG_ENABLE(epa_tools, [AC_HELP_STRING([--disable-epa-tools],
+#  [do not use/compile EP Analytics tools [default=yes]])],
+#  epa_tools_ok=$enableval, epa_tools_ok=yes)
+
 
 # Check whether --with-epa_tools was given.
 if test "${with_epa_tools+set}" = set; then :
   withval=$with_epa_tools; epa_tools=$withval
 else
-  epa_tools=no
+  epa_tools=default
 fi
 
-if test x"$epa_tools" = x"no"; then
-    PEBIL_EPA_TOOLS_AVAILABLE="no"
-    PEBIL_EPA_TOOLS_PATH=""
+
+if test "x$epa_tools" != "xno"; then
+        PEBIL_EPA_TOOLS_AVAILABLE="yes"
+    if test "x$epa_tools" = "xdefault"; then
+        PEBIL_BUILD_EPA_TOOLS="yes"
+        PEBIL_EPA_TOOLS_PATH="external/epa-pebil-tools"
+    else
+        PEBIL_BUILD_EPA_TOOLS="no"
+        PEBIL_EPA_TOOLS_PATH="$epa_tools"
+    fi
 else
-    PEBIL_EPA_TOOLS_AVAILABLE="yes"
-    PEBIL_EPA_TOOLS_PATH="$epa_tools"
+   PEBIL_BUILD_EPA_TOOLS="no"
+   PEBIL_EPA_TOOLS_AVAILABLE="no"
+   PEBIL_EPA_TOOLS_PATH=""
+fi
+
+
+
+
+if test "x$epa_tools" = "xdefault"; then
+    PEBIL_SUBDIR_EPA_TOOLS_PATH="../${PEBIL_EPA_TOOLS_PATH}"
+    PEBIL_ENV_EPA_TOOLS_PATH="\${pebildir}/${PEBIL_EPA_TOOLS_PATH}"
+else
+    PEBIL_SUBDIR_EPA_TOOLS_PATH="${PEBIL_EPA_TOOLS_PATH}"
+    PEBIL_ENV_EPA_TOOLS_PATH="${PEBIL_EPA_TOOLS_PATH}"
 fi
 
 
@@ -6285,6 +6314,7 @@ if test "$enable_papi_ok" = "yes"; then
 else
   PEBIL_PAPI_BUILD="no"
 fi
+
 
 
 

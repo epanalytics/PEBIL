@@ -160,17 +160,40 @@ AC_ARG_WITH(throttler_headers,
             [throttler_headers=no])
 AC_SUBST(THROTTLER_FLAGS)
 
-AC_ARG_WITH(epa_tools, [AS_HELP_STRING([--with-epa-tools=<path>],[specify path to epa tools])],
-            [epa_tools=$withval], [epa_tools=no])
-if test x"$epa_tools" = x"no"; then
-    PEBIL_EPA_TOOLS_AVAILABLE="no"
-    PEBIL_EPA_TOOLS_PATH=""
+#AC_ARG_ENABLE(epa_tools, [AC_HELP_STRING([--disable-epa-tools], 
+#  [do not use/compile EP Analytics tools @<:@default=yes@:>@])], 
+#  epa_tools_ok=$enableval, epa_tools_ok=yes)
+
+AC_ARG_WITH(epa_tools, [AS_HELP_STRING([--with-epa-tools=<path>],
+  [specify path to epa tools])], [epa_tools=$withval], [epa_tools=default])
+
+if test "x$epa_tools" != "xno"; then
+        PEBIL_EPA_TOOLS_AVAILABLE="yes"
+    if test "x$epa_tools" = "xdefault"; then
+        PEBIL_BUILD_EPA_TOOLS="yes"
+        PEBIL_EPA_TOOLS_PATH="external/epa-pebil-tools"
+    else
+        PEBIL_BUILD_EPA_TOOLS="no"
+        PEBIL_EPA_TOOLS_PATH="$epa_tools"
+    fi
 else
-    PEBIL_EPA_TOOLS_AVAILABLE="yes"
-    PEBIL_EPA_TOOLS_PATH="$epa_tools"
+   PEBIL_BUILD_EPA_TOOLS="no"
+   PEBIL_EPA_TOOLS_AVAILABLE="no"
+   PEBIL_EPA_TOOLS_PATH=""
 fi
+AC_SUBST(PEBIL_BUILD_EPA_TOOLS)
 AC_SUBST(PEBIL_EPA_TOOLS_AVAILABLE)
 AC_SUBST(PEBIL_EPA_TOOLS_PATH)
+
+if test "x$epa_tools" = "xdefault"; then 
+    PEBIL_SUBDIR_EPA_TOOLS_PATH="../${PEBIL_EPA_TOOLS_PATH}"
+    PEBIL_ENV_EPA_TOOLS_PATH="\${pebildir}/${PEBIL_EPA_TOOLS_PATH}"
+else
+    PEBIL_SUBDIR_EPA_TOOLS_PATH="${PEBIL_EPA_TOOLS_PATH}"
+    PEBIL_ENV_EPA_TOOLS_PATH="${PEBIL_EPA_TOOLS_PATH}"
+fi
+AC_SUBST(PEBIL_SUBDIR_EPA_TOOLS_PATH)
+AC_SUBST(PEBIL_ENV_EPA_TOOLS_PATH)
 
 AC_ARG_ENABLE(papi, AC_HELP_STRING([--enable-papi], [Build with PAPI hardware counter support [yes]]), enable_papi_ok=$enableval)
 if test "$enable_papi_ok" = "yes"; then
