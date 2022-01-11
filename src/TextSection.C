@@ -375,6 +375,20 @@ uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile){
     Vector<Symbol*> textSymbols = discoverTextObjects();
 
     if (textSymbols.size()){
+        // In every compiler, the _init and _fini symbols have size 0 in the
+        // symbol table EXCEPT for cray's fortran compiler, which sets the 
+        // size of _fini to 16. Since this is larger than the actual function
+        // size, pebil gets confused during instrumentation.
+        // Here, we hardcode _fini's symbol size to 0 to avoid the issue
+        Symbol* lastSymbol = textSymbols.back();
+        char* lastSymbolName = lastSymbol->getSymbolName();
+        const char* finiName = "_fini";
+        if (!(strncmp(lastSymbolName, finiName, strlen(finiName)))) {
+              if (strlen(lastSymbolName) == strlen(finiName)) {
+                  lastSymbol->SET(st_size, 0);
+              }
+        }
+
         uint32_t i;
 
         for (i = 0; i < textSymbols.size()-1; i++){
