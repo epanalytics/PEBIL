@@ -1027,7 +1027,7 @@ static int resolve_mnemonic( struct ud* u )
     /* far/near flags */
     u->br_far = 0;
     u->br_near = 0;
-    /* readjust operand sizes for call/jmp instrcutions */
+    /* readjust operand sizes and prefixes for call/jmp instrcutions */
     if ( u->mnemonic == UD_Icall || u->mnemonic == UD_Ijmp ) {
         /* WP: 16bit pointer */
         if ( u->operand[ 0 ].size == SZ_WP ) {
@@ -1043,6 +1043,12 @@ static int resolve_mnemonic( struct ud* u )
             u->br_far = 0;
             u->br_near= 1;
         }
+        
+        /* If segment was set, then the prefix 3E (no track) was set) */
+        if (u->pfx_seg == UD_R_DS) {
+            u->pfx_seg = UD_NONE;
+        }
+
     /* resolve 3dnow weirdness. */
     } else if ( u->mnemonic == UD_I3dnow ) {
         u->mnemonic = ud_itab_list[ ITAB__3DNOW ][ inp_curr( u )  ].mnemonic;
