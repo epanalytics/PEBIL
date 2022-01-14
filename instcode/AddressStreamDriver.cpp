@@ -240,7 +240,7 @@ void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
         ProcessThreadBuffer(iid, (*it));
     }
 
-    AddressStreamStats* statss = allData->GetData(pthread_self());
+    AddressStreamStats* statss = allData->GetData(iid, pthread_self());
     string fileName = "";
     fileName.append(statss->Application);
     PRINT_DATA_STRUCTURE_REPORT(dataStructureModule, fileName);
