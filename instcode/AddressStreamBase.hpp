@@ -52,6 +52,7 @@ class StreamStats {
   public:
     virtual uint64_t GetAccessCount(uint32_t memid) = 0;
     virtual bool Verify() = 0;
+    bool isCodeCentric = true;
 };
 
 // Note: User required to check if limit is hit
