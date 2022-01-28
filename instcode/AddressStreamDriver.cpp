@@ -77,8 +77,8 @@ using namespace std;
   #define GET_NUM_DATA_STRUCTURES(m) m->GetNumberOfDataStructures()
   #define DELETE_MODULE(m) delete m
   #define PAUSE_MODULE(m) if(runDataCentric) m->PauseMemoryWrappers()
-  #define PRINT_DATA_STRUCTURE_REPORT(m) if(runDataCentric) \
-    m->PrintDataStructureReport()
+  #define PRINT_DATA_STRUCTURE_REPORT(m, s) if(runDataCentric) \
+    m->PrintDataStructureReport(s)
   #define UNPAUSE_MODULE(m) if(runDataCentric) m->UnpauseMemoryWrappers()
 #else
   #define GENERATE_DATA_TOOL 0
@@ -240,7 +240,10 @@ void* AddressStreamDriver::FinalizeImage(image_key_t* key) {
         ProcessThreadBuffer(iid, (*it));
     }
 
-    PRINT_DATA_STRUCTURE_REPORT(dataStructureModule);
+    AddressStreamStats* statss = allData->GetData(iid, pthread_self());
+    string fileName = "";
+    fileName.append(statss->Application);
+    PRINT_DATA_STRUCTURE_REPORT(dataStructureModule, fileName);
     
     // Create the reports 
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
