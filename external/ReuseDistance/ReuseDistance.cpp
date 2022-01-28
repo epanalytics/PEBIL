@@ -557,7 +557,7 @@ void SpatialLocality::Print(ostream& f, bool annotate){
         ReuseStats* r = (ReuseStats*)stats[id];
 
         f << TAB << Describe() << "ID"
-          << TAB << hex << id << dec
+          << TAB << dec << id 
           << TAB << r->GetAccessCount()
           << TAB << r->GetMissCount()
           << ENDL;

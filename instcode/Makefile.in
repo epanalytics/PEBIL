@@ -61,6 +61,7 @@ ifeq ($(EPA_TOOLS_AVAILABLE),yes)
   # If the Data Structure Module is available
   ifneq ($(wildcard $(EPA_TOOLS_PATH)/instcode/libdatastructuremodule.so), "")
     ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricAddressRange.o
+    ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricSpatialLocality.o
     ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricCacheSimulation.o
     EXTRA_FLAGS += -DHAS_DATA_STRUCTURE_MODULE
     ASL_LIBS = -L$(EPA_TOOLS_PATH)/instcode -ldatastructuremodule
