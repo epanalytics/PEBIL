@@ -87,7 +87,7 @@ using namespace std;
   #define GET_NUM_DATA_STRUCTURES(m) 0
   #define DELETE_MODULE(m) 0
   #define PAUSE_MODULE(m) 0
-  #define PRINT_DATA_STRUCTURE_REPORT(m) 0
+  #define PRINT_DATA_STRUCTURE_REPORT(m, s) 0
   #define UNPAUSE_MODULE(m) 0
 #endif
 
