@@ -130,8 +130,8 @@ class CacheSimulationTool : public AddressStreamTool {
       threadid);
     virtual void PrintPerBlockData(DataManager<AddressStreamStats*>* AllData, 
       image_key_t imageid, thread_key_t threadid, CacheStats** aggregatedStats, 
-      uint32_t bbid);
-    virtual void PrintReportHeaders();
+      uint32_t bbid, bool isCodeCentric);
+    virtual void PrintReportHeaders(bool isCodeCentric);
     virtual void PrintSysIdHeader(uint32_t sysid, image_key_t imageid);
     void PrintThreadidInfo(std::ofstream& file, thread_key_t thread, 
       DataManager<AddressStreamStats*>* AllData);
