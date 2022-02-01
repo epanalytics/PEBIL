@@ -158,7 +158,7 @@ void ReuseDistanceHandler::Print(ofstream& f) {
 uint32_t ReuseDistanceHandler::Process(void* stats, BufferEntry* access) {
     ReuseStreamStats* s = (ReuseStreamStats*)stats;
     ReuseEntry entry = ReuseEntry();
-    if (s->isCodeCentric) {
+    if (s->GetIsCodeCentric()) {
         entry.id = s->GetBlock(access->memseq);
     } else {
         entry.id = access->memseq;

@@ -49,10 +49,13 @@ class AddressStreamTool {
 };
 
 class StreamStats {
+  protected:
+    bool isCodeCentric = true;
   public:
     virtual uint64_t GetAccessCount(uint32_t memid) = 0;
     virtual bool Verify() = 0;
-    bool isCodeCentric = true;
+    bool GetIsCodeCentric() { return isCodeCentric; }
+    void SetIsCodeCentric(bool codeCentric) { isCodeCentric = codeCentric; }
 };
 
 // Note: User required to check if limit is hit

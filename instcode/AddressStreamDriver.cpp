@@ -481,7 +481,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                   reference->address);
             }
             if (handlerIndex >= numCodeCentricMemoryHandlers) {
-                ss->isCodeCentric = false;
+                ss->SetIsCodeCentric(false);
             }
 
             (void) handler->Process((void*)ss, reference);
