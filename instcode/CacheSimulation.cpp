@@ -211,7 +211,6 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     idx = st->Counters[bbid];
                 }
 
-                //EEO TODO is bbid below supposed to be idx?
                 PrintPerBlockData(AllData, *iit, st->threadid, aggstats, bbid,
                   true);
             } // for each block
