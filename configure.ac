@@ -172,6 +172,7 @@ if test "x$epa_tools" != "xno"; then
     if test "x$epa_tools" = "xdefault"; then
         PEBIL_BUILD_EPA_TOOLS="yes"
         PEBIL_EPA_TOOLS_PATH="external/epa-pebil-tools"
+        AC_CONFIG_SUBDIRS([external/epa-pebil-tools])
     else
         PEBIL_BUILD_EPA_TOOLS="no"
         PEBIL_EPA_TOOLS_PATH="$epa_tools"
