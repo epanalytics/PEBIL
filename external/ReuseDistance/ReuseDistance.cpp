@@ -135,8 +135,8 @@ void ReuseDistance::Print(ostream& f, bool annotate){
         uint64_t id = (*it);
         ReuseStats* r= (ReuseStats*)stats[id];
         f << TAB << Describe() << "ID"
-          << TAB << dec << id
-          << TAB << r->GetAccessCount()
+          << TAB << hex << id
+          << TAB << dec << r->GetAccessCount()
           << TAB << r->GetMissCount()
           << ENDL;
 
