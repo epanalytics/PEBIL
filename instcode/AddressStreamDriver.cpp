@@ -35,6 +35,7 @@
 #ifdef HAS_EPA_TOOLS
 #include <DataCentricAddressRange.hpp>
 #include <DataCentricCacheSimulation.hpp>
+#include <DataCentricReuseDistance.hpp>
 #include <PrefetchSimulation.hpp>
 #include <SpatialLocalityPerMemOp.hpp>
 #endif
@@ -479,6 +480,9 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                 reference->memseq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
                   reference->address);
             }
+            if (handlerIndex >= numCodeCentricMemoryHandlers) {
+                ss->SetIsCodeCentric(false);
+            }
 
             (void) handler->Process((void*)ss, reference);
       //      numProcessed++;
@@ -676,7 +680,7 @@ void AddressStreamDriver::SetUpTools() {
         }
     }
 
-    if (runReuseDistance) {
+    if (runReuseDistance && runCodeCentric) {
         tools->push_back(new ReuseDistanceTool());
     }
 
@@ -714,6 +718,10 @@ void AddressStreamDriver::SetUpTools() {
 
     if (runCacheSimulation && runDataCentric) {
         tools->push_back(GENERATE_DATA_TOOL(DataCentricCacheSimulationTool));
+    }
+
+    if (runReuseDistance && runDataCentric) {
+        tools->push_back(GENERATE_DATA_TOOL(DataCentricReuseDistanceTool));
     }
 
     uint32_t toolIndex = 0;
