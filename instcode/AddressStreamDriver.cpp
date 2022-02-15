@@ -34,6 +34,7 @@
 
 #ifdef HAS_EPA_TOOLS
 #include <DataCentricAddressRange.hpp>
+#include <DataCentricSpatialLocality.hpp>
 #include <DataCentricCacheSimulation.hpp>
 #include <DataCentricReuseDistance.hpp>
 #include <PrefetchSimulation.hpp>
@@ -688,7 +689,7 @@ void AddressStreamDriver::SetUpTools() {
         tools->push_back(new ScatterGatherLengthTool());
     }
 
-    if (runSpatialLocality) {
+    if (runSpatialLocality && runCodeCentric) {
         tools->push_back(new SpatialLocalityTool());
     }
 
@@ -714,6 +715,10 @@ void AddressStreamDriver::SetUpTools() {
 
     if (runAddressRange && runDataCentric) {
         tools->push_back(GENERATE_DATA_TOOL(DataCentricAddressRangeTool));
+    }
+
+    if (runSpatialLocality && runDataCentric) {
+        tools->push_back(GENERATE_DATA_TOOL(DataCentricSpatialLocalityTool));
     }
 
     if (runCacheSimulation && runDataCentric) {
