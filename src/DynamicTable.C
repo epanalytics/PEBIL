@@ -325,21 +325,7 @@ bool DynamicTable::verify(){
     }
 
     // enforce an order on the addresses of certain sections
-    if (gnuHashTableAddress >= symbolTableAddress){
-        PRINT_ERROR("The dynamic table indicates that sections are in a different order than we expect");
-        return false;
-    }
-    /* libpthread.so fails this
-    if (sysvHashTableAddress >= symbolTableAddress){
-        PRINT_ERROR("The dynamic table indicates that sections are in a different order than we expect");
-        return false;
-    }
-    */
     if (symbolTableAddress >= stringTableAddress){
-        PRINT_ERROR("The dynamic table indicates that sections are in a different order than we expect");
-        return false;
-    }
-    if (stringTableAddress >= versymAddress){
         PRINT_ERROR("The dynamic table indicates that sections are in a different order than we expect");
         return false;
     }
@@ -372,18 +358,26 @@ bool DynamicTable::verify(){
     }
 
     for (uint32_t i = 0; i < elfFile->getNumberOfHashTables(); i++){
-        if (elfFile->getHashTable(i)->getSectionHeader()->GET(sh_type) == SHT_HASH){
+        if (elfFile->getHashTable(i)->getSectionHeader()->GET(sh_type) == 
+          SHT_HASH){
             uint16_t scnIdx = elfFile->getHashTable(i)->getSectionIndex();
-            if (sysvHashTableAddress != elfFile->getSectionHeader(scnIdx)->GET(sh_addr)){
-                PRINT_ERROR("(Sysv) Hash table address in the dynamic table is inconsistent with the hash table address found in the section header");
+            if (sysvHashTableAddress != elfFile->getSectionHeader(scnIdx)->
+              GET(sh_addr)){
+                PRINT_ERROR("(Sysv) Hash table address in the dynamic table "
+                  "is inconsistent with the hash table address found in the "
+                  "section header");
                 return false;
             }
         }
 
-        if (elfFile->getHashTable(i)->getSectionHeader()->GET(sh_type) == SHT_GNU_HASH){
+        if (elfFile->getHashTable(i)->getSectionHeader()->GET(sh_type) == 
+          SHT_GNU_HASH){
             uint16_t scnIdx = elfFile->getHashTable(i)->getSectionIndex();
-            if (gnuHashTableAddress != elfFile->getSectionHeader(scnIdx)->GET(sh_addr)){
-                PRINT_ERROR("(Gnu) Hash table address in the dynamic table is inconsistent with the hash table address found in the section header");
+            if (gnuHashTableAddress != elfFile->getSectionHeader(scnIdx)->
+              GET(sh_addr)){
+                PRINT_ERROR("(Gnu) Hash table address in the dynamic table "
+                  "is inconsistent with the hash table address found in the "
+                  "section header");
                 return false;
             }
         }
