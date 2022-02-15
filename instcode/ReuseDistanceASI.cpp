@@ -156,7 +156,7 @@ uint32_t ReuseDistanceHandler::Process(void* stats, BufferEntry* access) {
     ReuseStreamStats* s = (ReuseStreamStats*)stats;
     ReuseEntry entry = ReuseEntry();
     if (s->isCodeCentric) {
-        entry.id = s->GetBlock(access->memseq);
+        entry.id = s->GetHash(access->memseq);
     } else {
         entry.id = access->memseq;
     }
