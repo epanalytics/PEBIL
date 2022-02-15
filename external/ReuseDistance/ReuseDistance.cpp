@@ -135,8 +135,8 @@ void ReuseDistance::Print(ostream& f, bool annotate){
         uint64_t id = (*it);
         ReuseStats* r= (ReuseStats*)stats[id];
         f << TAB << Describe() << "ID"
-          << TAB << dec << id
-          << TAB << r->GetAccessCount()
+          << TAB << hex << id
+          << TAB << dec << r->GetAccessCount()
           << TAB << r->GetMissCount()
           << ENDL;
 
@@ -371,7 +371,8 @@ void ReuseStats::Print(ostream& f,  bool annotate){
         ReuseStats::PrintFormat(f);
     }
     int iter_count=0;
-    for (vector<uint64_t>::const_iterator it = keys.begin(); it != keys.end(); it++,iter_count++){
+    for (vector<uint64_t>::const_iterator it = keys.begin(); it != keys.end(); 
+      it++,iter_count++){
 
         uint64_t d = *it;
         if (d == invalid) 
@@ -406,7 +407,9 @@ void ReuseStats::PrintFormat(ostream& f){
 
 void ReuseStats::GetSortedDistances(vector<uint64_t>& dkeys){
     assert(dkeys.size() == 0 && "dkeys must be an empty vector");
-    for (reuse_map_type<uint64_t, uint64_t>::const_iterator it = distcounts.begin(); it != distcounts.end(); it++){
+    for (reuse_map_type<uint64_t, uint64_t>::const_iterator 
+      it = distcounts.begin(); it != distcounts.end(); it++){
+
         uint64_t d = it->first;
         dkeys.push_back(d);
     }

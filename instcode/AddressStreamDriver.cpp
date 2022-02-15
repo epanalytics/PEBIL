@@ -36,6 +36,7 @@
 #include <DataCentricAddressRange.hpp>
 #include <DataCentricSpatialLocality.hpp>
 #include <DataCentricCacheSimulation.hpp>
+#include <DataCentricReuseDistance.hpp>
 #include <PrefetchSimulation.hpp>
 #include <SpatialLocalityPerMemOp.hpp>
 #endif
@@ -82,13 +83,13 @@ using namespace std;
     m->PrintDataStructureReport(s)
   #define UNPAUSE_MODULE(m) if(runDataCentric) m->UnpauseMemoryWrappers()
 #else
-  #define GENERATE_DATA_TOOL 0
+  #define GENERATE_DATA_TOOL(m) 0
   #define GENERATE_MODULE(m) 0
   #define GET_DATA_STRUCTURE_ID(m, a) 0
   #define GET_NUM_DATA_STRUCTURES(m) 0
   #define DELETE_MODULE(m) 0
   #define PAUSE_MODULE(m) 0
-  #define PRINT_DATA_STRUCTURE_REPORT(m) 0
+  #define PRINT_DATA_STRUCTURE_REPORT(m, s) 0
   #define UNPAUSE_MODULE(m) 0
 #endif
 
@@ -481,7 +482,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                   reference->address);
             }
             if (handlerIndex >= numCodeCentricMemoryHandlers) {
-                ss->isCodeCentric = false;
+                ss->SetIsCodeCentric(false);
             }
 
             (void) handler->Process((void*)ss, reference);
@@ -603,6 +604,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 }
 
 void AddressStreamDriver::SetUpDataStructureModule() {
+#ifdef HAS_DATA_STRUCTURE_MODULE
     int32_t stackDepth;
     bool setDepth = parser->ReadEnvInt32("METASIM_UNWIND_DEPTH", &stackDepth);
     dataStructureModule->CreateContainer();
@@ -612,6 +614,7 @@ void AddressStreamDriver::SetUpDataStructureModule() {
     dataStructureModule->CreateDynamicTool();
     if (setDepth)
         dataStructureModule->SetStackDepth(stackDepth);
+#endif
 }
 
 void AddressStreamDriver::SetUpTools() {
@@ -678,7 +681,7 @@ void AddressStreamDriver::SetUpTools() {
         }
     }
 
-    if (runReuseDistance) {
+    if (runReuseDistance && runCodeCentric) {
         tools->push_back(new ReuseDistanceTool());
     }
 
@@ -720,6 +723,10 @@ void AddressStreamDriver::SetUpTools() {
 
     if (runCacheSimulation && runDataCentric) {
         tools->push_back(GENERATE_DATA_TOOL(DataCentricCacheSimulationTool));
+    }
+
+    if (runReuseDistance && runDataCentric) {
+        tools->push_back(GENERATE_DATA_TOOL(DataCentricReuseDistanceTool));
     }
 
     uint32_t toolIndex = 0;
