@@ -45,7 +45,6 @@ const uint64_t ReuseDistance::DefaultBinIndividual = 32;
 void ReuseDistance::Init(uint64_t w, uint64_t b){
     capacity = w;
     binindividual = b;
-    maxtracking = capacity;
     initialWarning = false;
 
     sequence = 1;
@@ -123,7 +122,6 @@ void ReuseDistance::Print(ostream& f, bool annotate){
     f << Describe() << "STATS"
       << TAB << dec << capacity
       << TAB << binindividual
-      << TAB << maxtracking
       << TAB << keys.size()
       << TAB << tot 
       << TAB << mis
@@ -155,7 +153,6 @@ void ReuseDistance::PrintFormat(ostream& f){
       << Describe() << "STATS"
       << TAB << "<window_size>"
       << TAB << "<bin_indiv>"
-      << TAB << "<max_track>"
       << TAB << "<id_count>"
       << TAB << "<tot_access>"
       << TAB << "<tot_miss>"
@@ -420,20 +417,21 @@ uint64_t ReuseStats::GetAccessCount(){
 const uint64_t SpatialLocality::Invalid = INVALID_SPATIAL;
 const uint64_t SpatialLocality::DefaultWindowSize = 64;
 
-void SpatialLocality::Init(uint64_t size, uint64_t bin, uint64_t max){
+void SpatialLocality::Init(uint64_t size, uint64_t bin){
     sequence = 1;
     capacity = size;
     binindividual = bin;
-    maxtracking = max;
 
-    assert(capacity > 0 && capacity != ReuseDistance::Infinity && "window size must be a finite, positive value");
-    assert((maxtracking == INFINITY_REUSE || maxtracking >= binindividual) && "max tracking must be at least as large as individual binning");
+    assert(capacity > 0 && capacity != ReuseDistance::Infinity 
+      && "window size must be a finite, positive value");
+    assert((capacity >= binindividual) 
+      && "window size must be at least as large as individual binning");
 }
 
 ReuseStats* SpatialLocality::GetStats(uint64_t id, bool gen){
     ReuseStats* s = stats[id];
     if (s == NULL && gen){
-        s = new ReuseStats(id, binindividual, maxtracking, SpatialLocality::Invalid);
+        s = new ReuseStats(id, binindividual, capacity, SpatialLocality::Invalid);
         stats[id] = s;
     }
     return s;
@@ -546,7 +544,6 @@ void SpatialLocality::Print(ostream& f, bool annotate){
     f << Describe() << "STATS"
       << TAB << dec << capacity
       << TAB << binindividual
-      << TAB << maxtracking
       << TAB << keys.size()
       << TAB << tot
       << TAB << mis
