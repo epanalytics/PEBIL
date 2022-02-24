@@ -48,7 +48,7 @@ class SpatialStreamStats : public ReuseStreamStats {
 // Very similar to Reuse Distance Handler but built a little differently
 class SpatialLocalityHandler : public ReuseDistanceHandler {
   public:
-    SpatialLocalityHandler(uint64_t w, uint64_t b, uint64_t n);
+    SpatialLocalityHandler(uint64_t w, uint64_t b);
     SpatialLocalityHandler(SpatialLocalityHandler &h);
 
 };

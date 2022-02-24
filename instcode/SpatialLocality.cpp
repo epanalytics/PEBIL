@@ -47,20 +47,14 @@ uint32_t SpatialLocalityTool::CreateHandlers(uint32_t index, StringParser* parse
 
     uint32_t spatialWindow;
     uint32_t spatialBin;
-    uint32_t spatialNMAX;
     if (!(parser->ReadEnvUint32("METASIM_SPATIAL_WINDOW", &spatialWindow))) {
         spatialWindow = 1;
     }
     if (!(parser->ReadEnvUint32("METASIM_SPATIAL_BIN", &spatialBin))) {
         spatialBin = 1;
     }
-    if (!(parser->ReadEnvUint32("METASIM_SPATIAL_NMAX", &spatialNMAX))) {
-        spatialNMAX = ReuseDistance::Infinity;
-    }
 
-    handlers.push_back(new SpatialLocalityHandler(spatialWindow, spatialBin,
-      spatialNMAX));
-
+    handlers.push_back(new SpatialLocalityHandler(spatialWindow, spatialBin));
     return handlers.size();
 }
 
@@ -107,10 +101,10 @@ void SpatialLocalityTool::SpatialLocalityFileName(AddressStreamStats* stats,
     oFile.append(".spatial");
 }
 
-SpatialLocalityHandler::SpatialLocalityHandler(uint64_t w, uint64_t b, uint64_t
-  n) : ReuseDistanceHandler(0, 0) {
+SpatialLocalityHandler::SpatialLocalityHandler(uint64_t w, uint64_t b) 
+  : ReuseDistanceHandler(0, 0) {
     delete internalHandler;
-    internalHandler = new SpatialLocality(w, b, n);
+    internalHandler = new SpatialLocality(w, b);
 }
 
 SpatialLocalityHandler::SpatialLocalityHandler(SpatialLocalityHandler& h) :

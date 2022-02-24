@@ -120,13 +120,12 @@ protected:
     // store all stats keyed by memop
     reuse_map_type<uint64_t, ReuseStats*> stats;
     
+    // used in spatial locality to determine the largest bin we will track
+    // anything over capacity will be reported as ReuseDistance::Infinity
     uint64_t capacity; // the max size of our window
     uint64_t sequence; // the number of address we have visited + 1
     // the maximum distance that we keep track of for individual distances
     uint64_t binindividual; 
-    // used in spatial locality to determine the largest bin we will track
-    // anything over max tracking will bet reported as ReuseDistance::Infinity
-    uint64_t maxtracking; 
     bool initialWarning = false;
 
     void Init(uint64_t w, uint64_t b);
@@ -142,7 +141,6 @@ public:
     // TESTING ONLY METHODS
     uint64_t TestGetCapacity() { return capacity; }
     uint64_t TestGetBinIndividual() { return binindividual; }
-    uint64_t TestGetNMax() { return maxtracking; }
     // END OF TESTING METHODS
     static const uint64_t DefaultBinIndividual;
     static const uint64_t Infinity;
@@ -427,7 +425,7 @@ protected:
     // list of the addresses in the window, ordered by sequence id
     std::list<uint64_t> swindow;
 
-    void Init(uint64_t size, uint64_t bin, uint64_t max);
+    void Init(uint64_t size, uint64_t bin);
 
     virtual ReuseStats* GetStats(uint64_t id, bool gen);
     virtual const std::string Describe() { return "SPATIAL"; }
@@ -443,48 +441,38 @@ public:
      *
      * @param w  The maximum window size, which is the maximum number of 
      * addresses that will be searched for spatial locality. 
-     * w != ReuseDistance::Infinity is enforced at runtime.
+     * w != ReuseDistance::Infinity is enforced at runtime. All distances 
+     * greater than w will be counted as infinite. w >= b is enforced 
+     * at runtime.
      * @param b  All distances not greater than b will be tracked individually. 
      * All distances are tracked individually if b == ReuseDistance::Infinity. 
      * Beyond individual tracking, distances are tracked in bins whose 
      * boundaries are the powers of two greater than b and not greater than n.
-     * @param n  All distances greater than n will be counted as infinite. Use 
-     * n == ReuseDistance::Infinity for no limit. n >= b is enforced at runtime.
-     *
      */
-    SpatialLocality(uint64_t w, uint64_t b, uint64_t n) : 
-      ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, b, n); }
-
+    SpatialLocality(uint64_t w, uint64_t b) : 
+      ReuseDistance((uint64_t)0) { SpatialLocality::Init(w, b); }
+    
     /**
      * Constructs a SpatialLocality object. Equivalent to calling the other 
-     * 3-argument constructor with n == ReuseDistance::Infinity
-     */
-    SpatialLocality(uint64_t w, uint64_t b) : ReuseDistance((uint64_t)0) { 
-        SpatialLocality::Init(w, b, INVALID_SPATIAL); }
-
-    /**
-     * Constructs a SpatialLocality object. Equivalent to calling the other 
-     * 3-argument constructor with w == b and n == ReuseDistance::Infinity
+     * 2-argument constructor with w == b 
      */
     SpatialLocality(uint64_t w) : ReuseDistance((uint64_t)0) { 
-      SpatialLocality::Init(w, w, INVALID_SPATIAL); }
+      SpatialLocality::Init(w, w); }
  
     /**
      * Constructs a SpatialLocality object. Equivalent to calling the other 
-     * 3-argument constructor with 
-     * w == b == SpatialLocality::DefaultWindowSize and 
-     * n == ReuseDistance::Infinity
+     * 2-argument constructor with 
+     * w == b == SpatialLocality::DefaultWindowSize 
      */
     SpatialLocality() : ReuseDistance((uint64_t)0) { 
-      SpatialLocality::Init(DefaultWindowSize, DefaultWindowSize, 
-      INVALID_SPATIAL); }
+      SpatialLocality::Init(DefaultWindowSize, DefaultWindowSize); }
  
     /**
      * Constructs a SpatialLocality object equivalent to the given 
      * SpatialLocality object
      */
     SpatialLocality(SpatialLocality* s) : ReuseDistance((uint64_t)0) {
-      SpatialLocality::Init(s->capacity, s->binindividual, s->maxtracking); }
+      SpatialLocality::Init(s->capacity, s->binindividual); }
 
     /**
      * Destroys a SpatialLocality object.
