@@ -279,10 +279,11 @@ void* AddressStreamDriver::InitializeNewImage(image_key_t* iid,
 
     // Remove initialization instrumentation points for this image
     dynamicPoints->SetDynamicPoint(GENERATE_KEY(*iid, PointType_inits), false);
+    return NULL;
 }
 
 void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
-    SAVE_STREAM_FLAGS(cout);
+    SAVE_STREAM_FLAGS(cout); 
     if (allData){
         if(dynamicPoints->IsThreadedMode())
             allData->AddThread(tid);

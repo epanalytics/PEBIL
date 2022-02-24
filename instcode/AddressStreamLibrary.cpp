@@ -77,6 +77,7 @@ extern "C" {
         SAVE_STREAM_FLAGS(cout);
         inform << "Destroying thread " << hex << tid << ENDL;
         RESTORE_STREAM_FLAGS(cout);
+        return NULL;
     }
 
     // initializes an image
@@ -102,7 +103,7 @@ extern "C" {
         }
         assert(Driver);
 
-        Driver->InitializeNewImage(key, stats, td);
+        (void) Driver->InitializeNewImage(key, stats, td);
 
         pthread_rwlock_unlock(&dynamic_init_rwlock);
 
@@ -119,6 +120,7 @@ extern "C" {
         Driver->ProcessThreadBuffer(iid, pthread_self());
 
         RESTORE_STREAM_FLAGS(cout);
+        return NULL;
     }
 
     // Called when the application exits. Collect the rest of the addresses in
@@ -133,6 +135,7 @@ extern "C" {
         Driver->FinalizeImage(key);
         Driver->DeleteAllData();
         delete Driver;
+        return NULL;
     }
 
 };
