@@ -123,7 +123,7 @@ private:
 
     uint32_t addStringToDynamicStringTable(const char* str);
     void addSymbolToDynamicSymbolTable(uint32_t name, uint64_t value, uint64_t size, uint8_t bind, uint8_t type, uint32_t other, uint16_t scnidx);
-    uint32_t expandHashTable(uint32_t idx);
+    uint32_t expandHashTable(HashTable* hashTable);
 
     void initializeDisabledFunctions(char* inputFuncList);
 

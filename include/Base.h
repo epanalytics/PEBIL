@@ -530,6 +530,6 @@ char* sha1sum(char* buffer, uint32_t size, uint64_t* first64);
 
 extern double timer();
 
-#define WEDGE_SHAMT 0x400000
+#define WEDGE_SHAMT 0x180000
 
 #endif
