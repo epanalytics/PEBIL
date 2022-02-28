@@ -46,9 +46,9 @@ int main(int argc, char* argv[]){
     r1 = new ReuseDistance(ReuseDistance::Infinity);\
     r2 = new ReuseDistance(__size * 2);\
     r3 = new ReuseDistance(__size / 2);\
-    s1 = new SpatialLocality(1024, __size * 2, ReuseDistance::Infinity);\
-    s2 = new SpatialLocality(64, 1, 32);\
-    s3 = new SpatialLocality(128, __size / 2, ReuseDistance::Infinity);\
+    s1 = new SpatialLocality(1024, __size * 2);\
+    s2 = new SpatialLocality(64, 1);\
+    s3 = new SpatialLocality(128, __size / 2);\
     entry.id = 0;\
     for (i = 0; i < __oiter; i++){\
         for (j = __inbegin; j < __initer; j += __ininc){\
