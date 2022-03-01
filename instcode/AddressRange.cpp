@@ -261,6 +261,10 @@ RangeStats::~RangeStats(){
 }
 
 bool RangeStats::HasMemId(uint32_t memid){
+    if (memid < Capacity) {
+        fprintf(stderr, "memid not found, if this issues is causing an error"
+          + "try setting METASIM_DS_SIZE bigger than %d\n", Capacity);
+    }
     return (memid < Capacity);
 }
 
