@@ -405,15 +405,24 @@ void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
     uint32_t originalAllocCount = stats->AllocCount;
 
     uint32_t toolIndex = 0;
+    int32_t dataStructureSize;
+    bool readDataStructuresSize = parser->ReadEnvInt32("METASIM_DS_SIZE", 
+      &dataStructureSize);
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
       tools->end(); it++) {
           // For Data-Centric tools, set AllocCount to number of data
-          // structures
-          if (toolIndex == numCodeCentricTools)
-              stats->AllocCount = GET_NUM_DATA_STRUCTURES(dataStructureModule);
-          toolIndex++;
-          AddressStreamTool* currentTool = (*it);
-          currentTool->AddNewStreamStats(stats);
+          // structures if no METASIM_DS_SIZE is set, else use the set
+          // METASIM_DS_SIZE
+        if (toolIndex == numCodeCentricTools) {
+            if (!readDataStructuresSize) {
+                stats->AllocCount = GET_NUM_DATA_STRUCTURES(dataStructureModule);
+            } else {
+                stats->AllocCount = dataStructureSize;
+            }
+        }
+        toolIndex++;
+        AddressStreamTool* currentTool = (*it);
+        currentTool->AddNewStreamStats(stats);
     }
 
     // Reset AllocCount
