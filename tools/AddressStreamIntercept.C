@@ -32,16 +32,10 @@
 #define ENTRY_FUNCTION "tool_image_init"
 #define SIM_FUNCTION "process_buffer"
 #define EXIT_FUNCTION "tool_image_fini"
-#define INST_LIB_NAME "libaddrrange.so"
+#define INST_LIB_NAME "libaddressstream.so"
 
 #define NOSTRING "__pebil_no_string__"
 #define BUFFER_ENTRIES 0x10000
-
-#define LOAD 1
-#define STORE 0
-
-#define NORMAL 0
-#define SWPF   1
 
 extern "C" {
     InstrumentationTool* AddressStreamInterceptMaker(ElfFile* elf){
@@ -110,7 +104,8 @@ void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction*
     InstrumentationPoint* pt = addInstrumentationPoint(memop, snip, 
       InstrumentationMode_trampinline, InstLocation_prior);
     pt->setPriority(InstPriority_low);
-    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_bufferfill), true);
+    dynamicPoint(pt, GENERATE_UNIQUE_KEY(blockSeq, 0, PointType_bufferfill), 
+      true);
 
     // Then we fill the snippet with instructions
     // Code requires three scratch registers so grab 3
@@ -175,6 +170,9 @@ void AddressStreamIntercept::declare(){
     ASSERT(exitFunc && "Cannot find exit function, are you sure it was declared?");
     entryFunc = declareFunction(ENTRY_FUNCTION);
     ASSERT(entryFunc && "Cannot find entry function, are you sure it was declared?");
+
+    declareLibrary(INST_LIB_NAME);
+
 }
 
 uint64_t AddressStreamIntercept::getNullLineInfoValue() {
@@ -890,7 +888,8 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
     InstrumentationPoint* pt = addInstrumentationPoint(inst, memBufferFunc, 
       InstrumentationMode_tramp, loc);
     pt->setPriority(InstPriority_userinit);
-    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_buffercheck), true);
+    dynamicPoint(pt, GENERATE_UNIQUE_KEY(blockSeq, 0, PointType_buffercheck), 
+      true);
 
     // Create instructions that will determine if we dump the buffer and call
     // the runtime function
@@ -943,7 +942,8 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
     InstrumentationSnippet* snip = addInstrumentationSnippet();
     pt = addInstrumentationPoint(inst, snip, InstrumentationMode_inline, loc);
     pt->setPriority(InstPriority_regular);
-    dynamicPoint(pt, GENERATE_KEY(blockSeq, PointType_bufferinc), true);
+    dynamicPoint(pt, GENERATE_UNIQUE_KEY(blockSeq, 0, PointType_bufferinc), 
+      true);
 
     // sr1 = stats
     if (threadReg == X86_REG_INVALID && usePIC()){
@@ -1088,7 +1088,7 @@ void AddressStreamIntercept::instrument(){
               func->getBaseAddress()];
             threadReg = threadMap->getThreadRegister(bb);
         }
-        if (isSaveAll() && isThreadedMode()) threadReg = X86_REG_INVALID;
+        if (isSaveAll() && usePIC()) threadReg = X86_REG_INVALID;
 
         // Check if block is part of gather-scatter loop
         // KNC only
@@ -1160,8 +1160,8 @@ void AddressStreamIntercept::instrumentEntryPoint() {
                 PRINT_ERROR("Cannot find an instrumentation point at the entry "
                   "function");
             }            
-
-            dynamicPoint(point, getElfFile()->getUniqueId(), true);
+            dynamicPoint(point, GENERATE_KEY(getElfFile()->getUniqueId(), 
+              PointType_inits), true);
         }
     } else {
         InstrumentationPoint* point = addInstrumentationPoint(
@@ -1289,7 +1289,6 @@ void AddressStreamIntercept::setSr2ToBufferEntry(AddressStreamStats& stats,
     // sr3 holds the offset (in bytes) of the access
     snip->addSnippetInstruction(X86InstructionFactory64::emitRegImmMultReg(sr3,
       sizeof(BufferEntry), sr3)); 
-
 
     // sr2 = pointer to memop's buffer entry
     snip->addSnippetInstruction(X86InstructionFactory64::
@@ -1422,11 +1421,11 @@ void AddressStreamIntercept::initializeLineInfo(AddressStreamStats& stats,
         initializeReservedPointer(noData, (uint64_t)stats.Files + blockSeq * 
           sizeof(char*));
     }
-    uint64_t funcname = reserveDataOffset(strlen(func->getName()) + 1);
+    uint64_t funcname = reserveDataOffset(strlen(func->getRealName()) + 1);
     initializeReservedPointer(funcname, (uint64_t)stats.Functions + blockSeq * 
       sizeof(char*));
     initializeReservedData(getInstDataAddress() + funcname, strlen(
-      func->getName()) + 1, (void*)func->getName());
+      func->getRealName()) + 1, (void*)func->getRealName());
 }
 
 // TODO To be implemented later
@@ -1439,7 +1438,8 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
     InstrumentationPoint* point = addInstrumentationPoint(
         vectorIns, snip, InstrumentationMode_trampinline, InstLocation_prior);
     point->setPriority(InstPriority_low);
-    dynamicPoint(point, GENERATE_KEY(blockSeq, PointType_bufferfill), true);
+    dynamicPoint(point, GENERATE_UNIQUE_KEY(blockSeq, 0, PointType_bufferfill),
+      true);
 
     uint32_t sr1 = X86_REG_INVALID, sr2 = X86_REG_INVALID, sr3 = X86_REG_INVALID;
     if(threadReg != X86_REG_INVALID)
@@ -1549,23 +1549,21 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
     // write mask
     // for regular vector entry:
     //   kmov k, sr3
-    //   store sr3
     if(maskOp == NULL) {
         snip->addSnippetInstruction(X86InstructionFactory64::
           emitMoveKToReg(kreg, sr3));
-        snip->addSnippetInstruction(X86InstructionFactory64::
-          emitMoveRegToRegaddrImm(sr3, sr2, 
-          offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
-          true));
     } else {  
         // If mask is a separate operand
-	// then just move that register to sr2
+	      // then just move that register to sr3
         snip->addSnippetInstruction(X86InstructionFactory64::
-          emitMoveRegToRegaddrImm(kreg, sr2, 
-          offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
-          true));
+          emitVMovMask(sr3, kreg, numIndices, elementSize));
     }
 
+    //   store sr3
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveRegToRegaddrImm(sr3, sr2, 
+      offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
+      true));
     // write index vector
     snip->addSnippetInstruction(X86InstructionFactory64::
       emitMoveZmmToUnalignedRegaddrImm(zmmReg, X86_REG_K0, sr2, 

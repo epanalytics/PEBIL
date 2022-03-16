@@ -94,6 +94,7 @@ public:
     static X86Instruction* emitMoveRegToRegaddrImm2Byte(int32_t src, int32_t base, uint32_t off);
     static X86Instruction* emitMoveKToReg(uint32_t kreg, uint32_t gpr);
     static X86Instruction* emitMoveRegToK(uint32_t gpr, uint32_t kreg);
+    static X86Instruction* emitVMovMask(uint32_t reg_out, uint32_t reg_in, uint32_t numIndices, uint32_t elementSize);
     static Vector<X86Instruction*>* emitUnalignedPackstoreRegaddrImm(uint32_t,uint32_t,uint32_t,uint32_t);
     static X86Instruction* emitMoveAlignedStackToZmmx(uint8_t reg, uint8_t disp);
     static X86Instruction* emitMoveZmmxToAlignedStack(uint8_t reg, uint8_t disp);
@@ -105,7 +106,9 @@ public:
     static X86Instruction* emitFxSaveReg(uint8_t reg);
     static X86Instruction* emitFxRstorReg(uint8_t reg);
 
+    static X86Instruction* emitAddTLSOffsetToReg(uint32_t imm, uint8_t dest);
     static X86Instruction* emitMoveTLSOffsetToReg(uint32_t imm, uint8_t dest);
+    static X86Instruction* emitAddThreadIdToReg(uint8_t dest);
     static X86Instruction* emitMoveThreadIdToReg(uint8_t dest);
     static X86Instruction* emitCompareImmReg(uint64_t imm, uint8_t reg);
 
@@ -147,6 +150,8 @@ public:
     static X86Instruction* emitLoadRipImmReg(uint64_t imm, uint8_t dest);
 
     static Vector<X86Instruction*>* emitAddressComputation(X86Instruction* instruction, uint32_t dest, uint32_t impAddrFlag);
+    static X86Instruction* emitLoadEffectiveAddress(OperandX86* op, uint32_t 
+      dest, bool ignoreSeg);
     static X86Instruction* emitLoadEffectiveAddress(OperandX86* op, uint32_t 
       dest);
     static X86Instruction* emitLoadEffectiveAddress(uint32_t baseReg, uint32_t 

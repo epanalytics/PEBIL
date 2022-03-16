@@ -32,6 +32,7 @@
 #include <SectionHeader.h>
 #include <TextSection.h>
 
+bool ERROR_ENCOUNTERED=false;
 
 X86Instruction* X86Instruction::getFallthroughInstruction() {
     uint32_t taddr = getBaseAddress() + getSizeInBytes();
@@ -584,6 +585,20 @@ bool X86Instruction::isScatterGatherOp(){
             return false;
      }
      return false;
+}
+
+bool X86Instruction::isVectorInstruction(){
+    X86InstructionType typ = getInstructionType();
+    switch(typ) {
+        case X86InstructionType_simdFloat:
+        case X86InstructionType_simdInt:
+        case X86InstructionType_simdMove:
+        case X86InstructionType_aes:
+            break;
+        default:
+            return false;
+    }
+    return true;
 }
 
 bool X86Instruction::isVectorMaskOp(){
@@ -1543,6 +1558,8 @@ bool X86Instruction::isMoveOperation(){
 bool X86Instruction::isIntegerOperation(){
     if (getInstructionType() == X86InstructionType_int){
         return true;
+    } else if (getInstructionType() == X86InstructionType_simdInt) {
+        return true;
     }
     return false;
 }
@@ -2339,8 +2356,7 @@ X86Instruction::X86Instruction(TextObject* cont, uint64_t baseAddr, char* buff, 
         PRINT_ERROR("Problem doing instruction disassembly");
     }
     if(ud_obj.error) {
-        fprintf(stderr, "Unable to disassemble %d bytes at address 0x%llx\n", sizeInBytes, baseAddr);
-        fprintf(stderr, "0x%llx\n", *buff);
+       PRINT_WARN(1,"Unable to disassemble %d bytes at address 0x%llx\n0x%llx\n", sizeInBytes, baseAddr,*buff);
     }
 
     if(sz != sizeInBytes) {
@@ -2407,8 +2423,11 @@ X86Instruction::X86Instruction(TextObject* cont, uint64_t baseAddr, char* buff, 
         PRINT_ERROR("Problem doing instruction disassembly");
     }
     if(ud_obj.error) {
-        fprintf(stderr, "Unable to disassemble %d bytes at address 0x%llx\n", sizeInBytes, baseAddr);
-        fprintf(stderr, "0x%llx\n", *buff);
+        if (!ERROR_ENCOUNTERED){
+            ERROR_ENCOUNTERED=true;
+            PRINT_WARN(20,"Unable to disassemble at least one byte. This may be fault of an instruction. Investigate further if instrumented binary seg faults\n");
+        }
+        PRINT_WARN(10,"Unable to disassemble %d bytes at address 0x%llx\n", sizeInBytes, baseAddr);
     }
 
 
@@ -2494,7 +2513,7 @@ void X86Instruction::print(){
         sprintf(hexcode + (2*i), "%02hhx", GET(insn_bytes)[i]);
     }
 
-    PRINT_INFOR("%#llx:\t%16s\t%s\tflgs:[%10s]\t-> %#llx", getBaseAddress(), hexcode, GET(insn_buffer), flags, getTargetAddress());
+    //PRINT_INFOR("%#llx:\t%16s\t%s\tflgs:[%10s]\t-> %#llx", getBaseAddress(), hexcode, GET(insn_buffer), flags, getTargetAddress());
 
 #ifdef PRINT_INSTRUCTION_DETAIL
 #ifndef NO_REG_ANALYSIS
@@ -2846,10 +2865,6 @@ void X86Instruction::setFlags()
     __reg_define(flags_usedef, UD_Iverw, 0, __bit_shift(X86_FLAG_ZF));
     __reg_define(flags_usedef, UD_Ixadd, 0, __x86_flagset_alustd);
     __reg_define(flags_usedef, UD_Ixor, 0, __x86_flagset_alustd);
-    __reg_define(flags_usedef, UD_Iscasb, __bit_shift(X86_FLAG_DF), 0);
-    __reg_define(flags_usedef, UD_Iscasw, __bit_shift(X86_FLAG_DF), 0);
-    __reg_define(flags_usedef, UD_Iscasq, __bit_shift(X86_FLAG_DF), 0);
-    __reg_define(flags_usedef, UD_Iscasd, __bit_shift(X86_FLAG_DF), 0);
     __reg_define(flags_usedef, UD_Itest, 0, __x86_flagset_alustd);
 
     // these instructions have 2 versions: 1 is a string instruction that implicitly uses DF, the other is an SSE instruction
@@ -3323,8 +3338,8 @@ void X86InstructionClassifier::generateTable(){
     mkclass(           movsw,   string,  string, dsi,   16,    0,          16)
     mkclass(           movsx,     move,    move,   0, VRSZ,    0,          0)
     mkclass(          movsxd,     move,    move,   0, VRSZ,    0,          0)
-    mkclass(          movupd, simdMove,    move,   0, VRSZ,    0,          64)
-    mkclass(          movups, simdMove,    move,   0, VRSZ,    0,          32)
+    mkclass(          movupd, simdMove,  floatv,   0, VRSZ,    0,          64)
+    mkclass(          movups, simdMove,  floatv,   0, VRSZ,    0,          32)
     mkclass(           movzx,     move,    move,   0, VRSZ,    0,          0)
     mkclass(         mpsadbw,     simdInt,    0,   0,    0,    0,          0) // TODO
     mkclass(             mul,      int,     int,   0, VRSZ,    0,          0)
@@ -3585,10 +3600,10 @@ void X86InstructionClassifier::generateTable(){
     mkclass(            stgi,  special,   other,   0,    0,    0,          0)
     mkclass(             sti,  special,   other,   0,    0,    0,          0)
     mkclass(         stmxcsr,     move,   other,   0,    0,    0,          0)
-    mkclass(           stosb,   string,    move, dsi,    8,    0,          0)
-    mkclass(           stosd,   string,    move, dsi,   32,    0,          0)
-    mkclass(           stosq,   string,    move, dsi,   64,    0,          0)
-    mkclass(           stosw,   string,    move, dsi,   16,    0,          0)
+    mkclass(           stosb,   string,    move,  di,    8,    0,          0)
+    mkclass(           stosd,   string,    move,  di,   32,    0,          0)
+    mkclass(           stosq,   string,    move,  di,   64,    0,          0)
+    mkclass(           stosw,   string,    move,  di,   16,    0,          0)
     mkclass(             str,     move,    move,   0, VRSZ,    0,          0)
     mkclass(             sub,      int,     int,   0, VRSZ,    0,          0)
     mkclass(           subpd,simdFloat,  floatv,   0,  128,    0,          64)

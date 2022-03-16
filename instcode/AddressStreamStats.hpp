@@ -1,12 +1,44 @@
+/* 
+ * This file is part of the pebil project.
+ * 
+ * Copyright (c) 2010, University of California Regents
+ * All rights reserved.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #ifndef _AddressStreamStats_hpp_
 #define _AddressStreamStats_hpp_
 
+//TODO see if below was actually needed
+//#include <Metasim.hpp>
 //#define debug(...) __VA_ARGS__
 #define debug(...)
 
+#define LOAD 1
+#define STORE 0
+
+#define NORMAL 0
+#define SWPF   1
+
+typedef uint64_t image_key_t;
+typedef pthread_t thread_key_t;
+
 enum EntryType: uint8_t {
   MEM_ENTRY = 0,
-  VECTOR_ENTRY
+  VECTOR_ENTRY,
+  EntryType_Total
 };
 
 struct VectorAddress {
@@ -17,7 +49,7 @@ struct VectorAddress {
     uint32_t  numIndices;
 };
 
-typedef struct {
+typedef struct BufferEntry_s {
     enum EntryType  type;
     uint8_t         swprefetchflag;  // Is a software prefetch op
     uint8_t         loadstoreflag;   // Dirty Caching
@@ -36,19 +68,20 @@ class StreamStats;
 class MemoryStreamHandler;
 class ReuseDistance;
 
-typedef struct {
+typedef struct AddressStreamStats_s {
     // memory buffer
     BufferEntry* Buffer;
 
     // metadata
     thread_key_t threadid;
     image_key_t imageid;
-    bool Initialized;
+    bool FirstImage;    // Set to true if image is first image
+    bool Initialized;   // Set to false when created by thread
     bool PerInstruction;
     bool LoopInclusion; // when terminating sampling for a block,
                         // do this for all blocks within the loop
                         // Note: includes all other blocks in the loop
-    bool Master;
+    bool Master;        // Master image?
     uint32_t Phase;
     uint32_t AllocCount;
     uint32_t BlockCount;
@@ -61,7 +94,7 @@ typedef struct {
     uint64_t* BlockIds;   // Indices into per-block data, like counter
 
     // per-block data
-    CounterTypes* Types; // ??
+    CounterTypes* Types; // If Counter is a count or index to a count
     uint64_t* Counters;
     uint32_t* MemopsPerBlock;
     // True for blocks where dynamic memops cannot be determinied at runtime

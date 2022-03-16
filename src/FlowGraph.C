@@ -138,7 +138,6 @@ static bool mergeStates(struct RegisterStatePrediction* oldState, struct Registe
 
 static RuntimeValue getValueOfOperand(OperandX86* src, RegisterStatePrediction* item) {
     if(src->getType() == UD_OP_IMM) {
-        ASSERT(src->getValue() >= 0);
         return {Definitely, (uint64_t)src->getValue()};
     }
     else if(src->getType() == UD_OP_REG) {

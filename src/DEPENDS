@@ -109,7 +109,7 @@ ElfFileInst.o: ElfFileInst.C ../include/ElfFileInst.h ../include/Base.h \
  ../include/defines/LineInformation.d ../include/Loop.h \
  ../include/RelocationTable.h ../include/defines/RelocationTable.d \
  ../include/SectionHeader.h ../include/defines/SectionHeader.d \
- ../include/StringTable.h
+ ../include/StringTable.h ../instcode/Metasim.hpp
 FileHeader.o: FileHeader.C ../include/FileHeader.h ../include/Base.h \
  ../include/CStructuresElf.h ../include/CStructuresDwarf.h \
  ../include/Debug.h ../include/Vector.h ../include/defines/FileHeader.d \
@@ -201,11 +201,11 @@ InstrumentationTool.o: InstrumentationTool.C \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/BasicBlock.h ../include/FlowGraph.h \
- ../include/Function.h ../include/TextSection.h ../include/SymbolTable.h \
- ../include/defines/SymbolTable.d ../include/LineInformation.h \
- ../include/defines/LineInformation.d ../include/Loop.h \
- ../include/X86InstructionFactory.h
+ ../instcode/Metasim.hpp ../include/EncryptTool.h ../include/BasicBlock.h \
+ ../include/FlowGraph.h ../include/Function.h ../include/TextSection.h \
+ ../include/SymbolTable.h ../include/defines/SymbolTable.d \
+ ../include/LineInformation.h ../include/defines/LineInformation.d \
+ ../include/Loop.h ../include/X86InstructionFactory.h
 LengauerTarjan.o: LengauerTarjan.C ../include/LengauerTarjan.h \
  ../include/LinkedList.h ../include/Base.h ../include/CStructuresElf.h \
  ../include/CStructuresDwarf.h ../include/Debug.h ../include/Vector.h \
@@ -352,7 +352,8 @@ X86Instruction.o: X86Instruction.C ../include/X86Instruction.h \
  ../include/SectionHeader.h ../include/defines/SectionHeader.d
 X86InstructionFactory.o: X86InstructionFactory.C ../include/Base.h \
  ../include/CStructuresElf.h ../include/CStructuresDwarf.h \
- ../include/Debug.h ../include/Vector.h \
+ ../include/Debug.h ../include/Vector.h ../include/BinaryFile.h \
+ ../include/FileHeader.h ../include/defines/FileHeader.d \
  ../include/X86InstructionFactory.h ../include/X86Instruction.h \
  ../include/AddressAnchor.h ../include/BitSet.h ../include/LinkedList.h \
  ../include/RawSection.h ../external/udis86-1.7/libudis86/syn.h \
@@ -362,3 +363,4 @@ X86InstructionFactory.o: X86InstructionFactory.C ../include/Base.h \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d
+EncryptTool.o: EncryptTool.C ../include/EncryptTool.h

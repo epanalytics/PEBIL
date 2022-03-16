@@ -154,7 +154,7 @@ public:
     TextSection* getDotPltSection();
 
     void parse();
-    void initSectionFilePointers();
+    void initSectionFilePointers(bool sanitize);
     void dump(char* extension, bool isext=true);
     void dump(BinaryOutputFile* binaryOutputFile);
     void generateCFGs();
@@ -237,6 +237,8 @@ public:
                         uint32_t memsz, uint32_t filesz, uint32_t flags, uint32_t align);
     uint64_t addSection(uint16_t idx, PebilClassTypes classtype, char* bytes, uint32_t name, uint32_t type, uint64_t flags, uint64_t addr, uint64_t offset, 
                         uint64_t size, uint32_t link, uint32_t info, uint64_t addralign, uint64_t entsize);
+
+    uint16_t findInitialTextSectionIdx();
 
     uint16_t findSectionIdx(uint64_t addr);
     uint16_t findSectionIdx(const char* name);

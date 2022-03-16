@@ -95,12 +95,12 @@ private:
 
     bool allowStatic;
     bool threadedMode;
-    bool hybridOffloadMode;
     bool multipleImages;
     bool perInstruction;
     bool saveAll;
     bool saveZmmRegs;
     bool trackRelocatedInsns; // Map relocated addresses to origin
+    bool sanitize;
     bool disableStatic;
 
     ProgramHeader* instSegment;
@@ -123,7 +123,7 @@ private:
 
     uint32_t addStringToDynamicStringTable(const char* str);
     void addSymbolToDynamicSymbolTable(uint32_t name, uint64_t value, uint64_t size, uint8_t bind, uint8_t type, uint32_t other, uint16_t scnidx);
-    uint32_t expandHashTable(uint32_t idx);
+    uint32_t expandHashTable(HashTable* hashTable);
 
     void initializeDisabledFunctions(char* inputFuncList);
 
@@ -223,8 +223,6 @@ public:
     void setAllowStatic() { allowStatic = true; }
     void setThreadedMode() { threadedMode = true; ASSERT(is64Bit() && "Threading support not available for IA32"); }
     bool isThreadedMode() { return threadedMode; }
-    void setHybridOffloadMode() { hybridOffloadMode = true; }
-    bool isHybridOffloadMode() { return hybridOffloadMode; }
     void setMultipleImages() { multipleImages = true; ASSERT(is64Bit() && "Multi-image support not available for IA32"); }
     bool isMultiImage() { return multipleImages; }
     void setPerInstruction() { perInstruction = true; }
@@ -272,6 +270,7 @@ public:
     virtual void instrument() { __SHOULD_NOT_ARRIVE; }
     virtual const char* getExtension() { __SHOULD_NOT_ARRIVE; }
     virtual bool canRelocateFunction(Function* func) { return true; }
+    void setElfInstSanitize(bool input){ sanitize=input; }
 };
 
 

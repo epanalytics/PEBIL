@@ -1,3 +1,22 @@
+/* 
+ * This file is part of the pebil project.
+ * 
+ * Copyright (c) 2010, University of California Regents
+ * All rights reserved.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 /*
  * PAPI Loop Instrumentation
@@ -32,6 +51,10 @@
  */
 
 #include <InstrumentationCommon.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <Metasim.hpp>
+#include <ThreadedCommon.hpp>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,6 +69,8 @@
 #include <sstream>
 
 #include <PAPIInst.hpp>
+
+using namespace std;
 
 // mandel's CPU Frequency: you can either hard-code the frequency here
 // or use the PEBIL_TIMER_CPU_FREQ env var.
@@ -66,12 +91,14 @@ inline uint64_t read_timestamp_counter(){
 
 DataManager<PAPIInst*>* AllData = NULL;
 
+DynamicInstrumentation* DynamicPoints = NULL;
+
 PAPIInst* GeneratePAPIInst(PAPIInst* counters, uint32_t typ, image_key_t iid,
 			   thread_key_t tid, image_key_t firstimage) {
 
   PAPIInst* retval;
   retval = new PAPIInst();
-  retval->master = counters->master && typ == AllData->ImageType;
+  retval->master = counters->master && typ == DataManagerType_Image;
   retval->application = counters->application;
   retval->extension = counters->extension;
   retval->loopCount = counters->loopCount;
@@ -288,10 +315,16 @@ extern "C"
     return 0;
   }
 
+  static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
   void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* isThreadedModeFlag) {
-    InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
-    //InitializeDynamicInstrumentation(count, dyn);
-    return NULL;
+      pthread_mutex_lock(&dynamic_init_mutex);
+      if (DynamicPoints == NULL)
+          DynamicPoints = new DynamicInstrumentation();
+
+      DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+        isThreadedModeFlag);
+      pthread_mutex_unlock(&dynamic_init_mutex);
+      return NULL;
   }
 
   void* tool_mpi_init() {
@@ -300,7 +333,7 @@ extern "C"
 
   void* tool_thread_init(thread_key_t tid) {
     if (AllData){
-      if(isThreadedMode())	
+      if(DynamicPoints->IsThreadedMode())	
 	AllData->AddThread(tid);
     } else {
       ErrorExit("Calling PEBIL thread initialization library for thread " <<
@@ -314,13 +347,11 @@ extern "C"
     return NULL;
   }
 
+  static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
   void* tool_image_init(void* args, image_key_t* key, ThreadData* td) {
 
+    pthread_mutex_lock(&image_init_mutex);
     PAPIInst* counters = (PAPIInst*)args;
-
-    set<uint64_t> inits;
-    inits.insert(*key);
-    SetDynamicPoints(inits, false);
 
     if (AllData == NULL){
       AllData = new DataManager<PAPIInst*>(GeneratePAPIInst, DeletePAPIInst, ReferencePAPIInst);
@@ -334,6 +365,12 @@ extern "C"
       fprintf(stderr,"PAPI initialization failed");
       return NULL;
     }
+
+    set<uint64_t> inits;
+    inits.insert(GENERATE_KEY(*key, PointType_inits));
+    DynamicPoints->SetDynamicPoints(inits, false);
+
+    pthread_mutex_lock(&image_init_mutex);
     
     return NULL;
   }
@@ -341,6 +378,16 @@ extern "C"
   void* tool_image_fini(image_key_t* key)
   {
     image_key_t iid = *key;
+
+    static bool finalized = false;
+    if (finalized)
+        return NULL;
+
+    finalized = true;
+
+    if (DynamicPoints != NULL) {
+        delete DynamicPoints;
+    }
 
     if (AllData == NULL){
       ErrorExit("data manager does not exist. no images were intialized", MetasimError_NoImage);

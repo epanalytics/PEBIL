@@ -20,9 +20,9 @@
 
 #include <Base.h>
 #include <InstrumentationTool.h>
-#include <HybridPhiElfFile.h>
 #include <Vector.h>
 #include <getopt.h>
+#include <EncryptTool.h>
 
 #ifdef STATIC_BUILD
 #define DECLARE_INST_CLASS(__class) extern InstrumentationTool* __class ## Maker(ElfFile*)
@@ -97,7 +97,7 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--lnc <lib1.so,lib2.so>] : list of shared libraries to put in executable's dynamic table\n");
     fprintf(stderr,"\t\t[--help] : print help message and exit\n");
     fprintf(stderr,"\t\t[--version] : print version number and exit\n");
-    fprintf(stderr,"\t\t[--silent] : print nothing to stdout\n");
+    fprintf(stderr,"\t\t[--silent] : suppress inform statements\n");
     fprintf(stderr,"\t\t[--dry] : quit before processing any executables\n");
     fprintf(stderr,"\t\t[--threaded] : implement thread safety features and keep statistics per thread\n");
     fprintf(stderr,"\t\t[--images] : prepare for multiple images\n");
@@ -114,18 +114,21 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--phs <phase_no>] : " DEPRECATED_MESSAGE " (if given, must be == 1)\n");
     fprintf(stderr,"\t\t[--dfp <pattern/file>] : " DEPRECATED_MESSAGE "\n");
     fprintf(stderr,"\t\t[--dmp <off|on|nosim>] : " DEPRECATED_MESSAGE "\n");
+    fprintf(stderr,"\t\t[--sanitize] : anonymize function names\n");
+/*    fprintf(stderr,"\t\t[--password] : anonymize function names and encrypt file\n");*/ //TODO find good encryption API
+    fprintf(stderr,"\t\t[--decrypt <encrypted_file>] : decrypt the file that translates anonymous functions to their function names\n");
     fprintf(stderr,"\n");
     exit(1);
 }
 
 void printSuccess(){
-    PRINT_INFOR("******** Instrumentation Successful ********");
+    PRINT_ALWAYS("******** Instrumentation Successful ********");
 }
 
 void printDone(){
-    PRINT_INFOR("");
-    PRINT_INFOR("******** DONE ******** SUCCESS ***** SUCCESS ***** SUCCESS ********");
-    PRINT_INFOR("");
+    PRINT_ALWAYS("");
+    PRINT_ALWAYS("******** DONE ******** SUCCESS ***** SUCCESS ***** SUCCESS ********");
+    PRINT_ALWAYS("");
 }
 
 typedef enum {
@@ -213,13 +216,14 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(dtl);
     DEFINE_FLAG(doi);
     DEFINE_FLAG(threaded);
-    DEFINE_FLAG(hybrid);
     DEFINE_FLAG(images);
     DEFINE_FLAG(perinsn);
     DEFINE_FLAG(saveall);
     DEFINE_FLAG(nosavezmm);
     DEFINE_FLAG(printinsnmaps);
     DEFINE_FLAG(disablestatic);
+    DEFINE_FLAG(sanitize);
+/*    DEFINE_FLAG(password);*/ //TODO
 
 #define DEFINE_ARG(__name) char* __name ## _arg = NULL
     DEFINE_ARG(typ); // char* typ_arg = NULL;
@@ -238,6 +242,7 @@ int main(int argc,char* argv[]){
     DEFINE_ARG(dfp);
     DEFINE_ARG(out);
     DEFINE_ARG(inv);
+    DEFINE_ARG(decrypt);
 
 #define FLAG_OPTION(__name, __char) {#__name, no_argument, &__name ## _flag, __char}
 #define ARG_OPTION(__name, __char) {#__name, required_argument, 0, __char}
@@ -245,14 +250,14 @@ int main(int argc,char* argv[]){
         /* These options set a flag. */
         FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'),
         FLAG_OPTION(version, 'V'), FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), FLAG_OPTION(threaded, 'P'),
-        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(hybrid, 'H'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'), FLAG_OPTION(disablestatic, 'D'),
+        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'), FLAG_OPTION(disablestatic, 'D'), FLAG_OPTION(sanitize,'a'), //FLAG_OPTION(password,'A'),
 
         /* These options take an argument
            We distinguish them by their indices. */
         ARG_OPTION(typ, 'y'), ARG_OPTION(tool, 't'), ARG_OPTION(tlib, 'O'), ARG_OPTION(inp, 'p'), ARG_OPTION(trk, 'k'), 
         ARG_OPTION(lnc, 'n'), ARG_OPTION(inf, 'z'), ARG_OPTION(app, 'a'), ARG_OPTION(lib, 'l'),
         ARG_OPTION(ext, 'x'), ARG_OPTION(fbl, 'b'), ARG_OPTION(dmp, 'm'), ARG_OPTION(phs, 'f'), ARG_OPTION(dfp, 'g'),
-        ARG_OPTION(out, 'o'), ARG_OPTION(inv, 'i'),
+        ARG_OPTION(out, 'o'), ARG_OPTION(inv, 'i'), ARG_OPTION(decrypt,'d'), 
         {0,              0,                 0,              0},
     };
 
@@ -294,6 +299,7 @@ int main(int argc,char* argv[]){
         SET_ARGPTR(dfp, 'g')
         SET_ARGPTR(out, 'o')
         SET_ARGPTR(inv, 'i')
+	    SET_ARGPTR(decrypt,'d')
 
         /* this shouldn't happen, but handle it anyway */
         else {
@@ -304,6 +310,14 @@ int main(int argc,char* argv[]){
     // --version: print version number and exit
     if (version_flag){
         fprintf(stdout, "pebil %s\n", PEBIL_VER);
+        return 0;
+    }
+    // --decrypt filename: decrypt encrypted file
+    if (decrypt_arg){
+        EncryptTool encryptTool = EncryptTool();
+        encryptTool.getPasswordFromUser(Decrypt);
+        std::string decryptFile(decrypt_arg); 
+        encryptTool.decryptFile(decryptFile);
         return 0;
     }
 
@@ -358,8 +372,8 @@ int main(int argc,char* argv[]){
 
     // --tool: make sure --tool or --typ was passed
     if (!tool_arg){
-        printUsage("one of the following options is required: --typ, --tool");
-        __SHOULD_NOT_ARRIVE;
+       printUsage("one of the following options is required: --typ, --tool");
+       __SHOULD_NOT_ARRIVE;
     }
         
     // --app: use the argument as the application name
@@ -394,7 +408,7 @@ int main(int argc,char* argv[]){
         functionBlackList = fbl_arg;
     }
     PRINT_INFOR("The function blacklist is taken from %s", functionBlackList);
-
+    bool sanitize=sanitize_flag /* || password_flag*/; //TODO
     // --dmp: convert arg to dump code
     uint32_t dumpCode = dumpcode_off;
     if (dmp_arg){
@@ -405,7 +419,7 @@ int main(int argc,char* argv[]){
         __SHOULD_NOT_ARRIVE;
     }
 
-    // --dry: stop doing stuff and exit!
+    // --dry: stop doing stuff and !
     if (dry_flag){
         PRINT_INFOR("--dry option was used, exiting before file processing");
         return 0;
@@ -494,17 +508,13 @@ int main(int argc,char* argv[]){
         /********************* Create elf file object *************************/
         ElfFile* elfFile;
 
-        if (hybrid_flag){
-            elfFile = new HybridPhiElfFile(execName, appName);
-        } else {
-            elfFile = new ElfFile(execName, appName);
-        }
+        elfFile = new ElfFile(execName, appName);
 
         instrumented.insert(execName);
 
         TIMER(t1 = timer(); tapp = t1);
         elfFile->parse();
-        elfFile->initSectionFilePointers();
+        elfFile->initSectionFilePointers(sanitize);
         TIMER(t2 = timer();PRINT_INFOR("___timer: Step %d Parse  : %.2f seconds",++stepNumber,t2-t1);t1=t2);
 
         elfFile->generateCFGs();
@@ -593,18 +603,16 @@ int main(int argc,char* argv[]){
             
             ASSERT(functionBlackList);
             instTool->setInputFunctions(functionBlackList);
-            
+	        if (sanitize_flag /*|| password_flag*/){ //TODO
+                //instTool->setSanitize(password_flag);
+                instTool->setSanitize(false);
+	        }
             if (allowstatic_flag){
                 instTool->setAllowStatic();
             }
 
             if (threaded_flag){
                 instTool->setThreadedMode();
-            }
-
-            if (hybrid_flag){
-                instTool->setHybridOffloadMode();
-                instTool->setMaker(maker);
             }
 
             if (images_flag){

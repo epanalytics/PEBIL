@@ -1,3 +1,23 @@
+/* 
+ * This file is part of the pebil project.
+ * 
+ * Copyright (c) 2010, University of California Regents
+ * All rights reserved.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 /*
  * PAPI Function Instrumentation
  * The instrumentation reads the env var FPAPI_HWC0, FPAPI_HWC1, ... up to 
@@ -35,6 +55,10 @@
  */
 
 #include <InstrumentationCommon.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <Metasim.hpp>
+#include <ThreadedCommon.hpp>
 #include <PAPIFunc.hpp>
 
 #include <stdio.h>
@@ -50,10 +74,14 @@
 #include <sstream>
 #include <omp.h>
 
+using namespace std;
+
 // mandel's CPU Frequency: you can either hard-code the frequency here
 // or use the FPAPI_CPU_FREQ env var.
 #define CLOCK_RATE_HZ 3200000000
 static uint32_t timerCPUFreq = CLOCK_RATE_HZ;
+
+DynamicInstrumentation* DynamicPoints = NULL;
 
 static uint32_t hwcSetNumber = 0;
 
@@ -82,7 +110,7 @@ FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ,
 
     FunctionPAPI* retval;
     retval = new FunctionPAPI();
-    retval->master = counters->master && typ == AllData->ImageType;
+    retval->master = counters->master && typ == DataManagerType_Image;
     retval->application = counters->application;
     retval->extension = counters->extension;
     retval->functionCount = counters->functionCount;
@@ -362,16 +390,17 @@ extern "C"
                 / timerCPUFreq;
 
               if (timePerVisit < (((double)timingThreshold) / 1000000.0)) {
+                  uint64_t imageSeq = AllData->GetImageSequence(*key);
                   AllData->WriteLock();
-                  uint64_t this_key = GENERATE_KEY(funcIndex,
+                  uint64_t this_key = GENERATE_UNIQUE_KEY(funcIndex, imageSeq,
                     PointType_functionExit);
-                  uint64_t corresponding_entry_key = GENERATE_KEY(funcIndex,
-                    PointType_functionEntry);
+                  uint64_t corresponding_entry_key = GENERATE_UNIQUE_KEY(
+                    funcIndex, imageSeq, PointType_functionEntry);
   
                   set<uint64_t> inits;
                   inits.insert(this_key);
                   inits.insert(corresponding_entry_key);
-                  SetDynamicPoints(inits, false);
+                  DynamicPoints->SetDynamicPoints(inits, false);
                   counters->functionShutoff[funcIndex] = 1;
                   AllData->UnLock();
               }
@@ -381,9 +410,16 @@ extern "C"
       return 0;
   }
   
+  static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;  
   void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
     isThreadedModeFlag) {
-      InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
+      pthread_mutex_lock(&dynamic_init_mutex);
+      if (DynamicPoints == NULL) {
+          DynamicPoints = new DynamicInstrumentation();
+      }
+      DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+        isThreadedModeFlag);
+      pthread_mutex_unlock(&dynamic_init_mutex);
       return NULL;
   }
   
@@ -393,7 +429,7 @@ extern "C"
   
   void* tool_thread_init(thread_key_t tid) {
       if (AllData) {
-          if (isThreadedMode()) {
+          if (DynamicPoints->IsThreadedMode()) {
               AllData->AddThread(tid);
           }
       } else {
@@ -407,14 +443,12 @@ extern "C"
   void* tool_thread_fini(thread_key_t tid) {
       return NULL;
   }
-  
+
+  static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;  
   void* tool_image_init(void* args, image_key_t* key, ThreadData* td) {
   
+      pthread_mutex_lock(&image_init_mutex);
       FunctionPAPI* counters = (FunctionPAPI*)args;
-    
-      set<uint64_t> inits;
-      inits.insert(*key);
-      SetDynamicPoints(inits, false);
     
       if (AllData == NULL) {
           AllData = new DataManager<FunctionPAPI*>(GenerateFunctionPAPI, 
@@ -429,12 +463,28 @@ extern "C"
           fprintf(stderr, "PAPI initialization failed");
           return NULL;
       }
+
+      set<uint64_t> inits;
+      inits.insert(GENERATE_KEY(*key, PointType_inits));
+      DynamicPoints->SetDynamicPoints(inits, false);
+ 
+      pthread_mutex_unlock(&image_init_mutex);
     
       return NULL;
   }
   
   void* tool_image_fini(image_key_t* key) {
       image_key_t iid = *key;
+
+      static bool finalized = false;
+      if (finalized)
+          return NULL;
+
+      finalized = true;
+
+      if (DynamicPoints != NULL) {
+          delete DynamicPoints;
+      }
   
       if (AllData == NULL) {
           ErrorExit("data manager does not exist. no images were intialized", 

@@ -191,7 +191,7 @@ X86Instruction* X86InstructionFactory64::emitImmAndReg(uint32_t imm, uint8_t des
 }
 X86Instruction* X86InstructionFactory64::emitImmOrReg(uint32_t imm, uint8_t dest){
     ASSERT(dest < X86_64BIT_GPRS);
-    
+
     uint32_t len = 7;
     char* buff = new char[len];
 
@@ -201,12 +201,35 @@ X86Instruction* X86InstructionFactory64::emitImmOrReg(uint32_t imm, uint8_t dest
     }
     buff[1] = 0x81;
     buff[2] = 0xc8 + (0x01 * (dest % X86_32BIT_GPRS));
-        
+
     uint32_t imm32 = (uint32_t)imm;
     ASSERT(imm32 == (uint32_t)imm && "Cannot use more than 32 bits for the address");
     memcpy(buff+3,&imm32,sizeof(uint32_t));
 
-    return emitInstructionBase(len,buff);    
+    return emitInstructionBase(len,buff);
+}
+
+X86Instruction* X86InstructionFactory64::emitAddTLSOffsetToReg(uint32_t imm, 
+  uint8_t dest){
+    ASSERT(dest < X86_64BIT_GPRS);
+
+    uint32_t len = 9;
+    char* buff = new char[len];
+
+    buff[0] = 0x64;
+    buff[1] = 0x48;
+    if (dest >= X86_32BIT_GPRS){
+        buff[1] += 0x04;
+    }
+    buff[2] = 0x03;
+    buff[3] = 0x04 + (0x08 * (dest % X86_32BIT_GPRS));
+    buff[4] = 0x25;
+
+    uint32_t imm32 = (uint32_t)imm;
+    ASSERT(imm32 == (uint32_t)imm && "Cannot use more than 32 bits for the address");
+    memcpy(buff+5,&imm32,sizeof(uint32_t));
+
+    return emitInstructionBase(len,buff);
 }
 
 X86Instruction* X86InstructionFactory64::emitMoveTLSOffsetToReg(uint32_t imm, uint8_t dest){
@@ -229,6 +252,10 @@ X86Instruction* X86InstructionFactory64::emitMoveTLSOffsetToReg(uint32_t imm, ui
     memcpy(buff+5,&imm32,sizeof(uint32_t));
 
     return emitInstructionBase(len,buff);    
+}
+
+X86Instruction* X86InstructionFactory64::emitAddThreadIdToReg(uint8_t dest){
+    return emitAddTLSOffsetToReg(0x10, dest);
 }
 
 X86Instruction* X86InstructionFactory64::emitMoveThreadIdToReg(uint8_t dest){
@@ -320,6 +347,73 @@ X86Instruction* X86InstructionFactory64::emitMoveRegToK(uint32_t gpr_in, uint32_
     buff[3] = modrm;
 
     return emitInstructionBase(len, buff);
+}
+
+/*
+ * vmovmskps rax, xmm0
+ */
+X86Instruction* X86InstructionFactory64::emitVMovMask(
+    uint32_t reg_out, uint32_t reg_in,
+    uint32_t numIndices, uint32_t elementSize)
+{
+    //Asserts go here
+    assert(reg_out >= X86_REG_AX && reg_out <= X86_REG_R15);
+    assert(reg_in >= X86_FPREG_XMM0 && reg_in <= X86_FPREG_XMM15);
+    assert(elementSize == 32 || elementSize == 64);
+
+    uint32_t length = 5;
+    char* buff = new char[length];
+
+    buff[0] = 0xc4;
+
+    // !(reg_out)
+    uint8_t vexR = ((reg_out & 0x08)==0)?1:0;
+    // !(reg_in)
+    uint8_t vexB = (((reg_in-X86_64BIT_GPRS) & 0x8)==0)?1:0;
+    uint8_t vexX = 1;
+    uint8_t temp = 0;
+    //m-mmmm
+    uint8_t mapSelect = 1;
+    temp = vexR << 7;
+    temp = temp | vexX << 6;
+    temp = temp | vexB << 5;
+    temp = temp | mapSelect;
+    buff[1] = temp;
+
+    uint8_t vvvv = 0xf;
+    uint8_t l = 0;
+    if( (numIndices == 4 && elementSize == 64)
+      ||(numIndices == 8 && elementSize == 32) ){
+        l = 1;
+    }
+    uint8_t pp = 0;
+    if (elementSize == 64) {
+        pp = 1;
+    }
+    //we is ignored
+    uint8_t we = 0;
+    temp = 0;
+    temp = we << 7;
+    temp = temp | (vvvv << 3);
+    temp = temp | (l << 2);
+    temp = temp | pp;
+    buff[2] = temp;
+
+    buff[3] = 0x50;
+
+    uint8_t modrmbyte = 0xc0;
+    uint8_t reg;
+    if (reg_out>=8){
+        reg = reg_out - 8; //r8-8==0 and r15-8==7
+    } else {
+        reg = (uint8_t)reg_out;
+    }
+
+    uint8_t rm = (reg_in-X86_64BIT_GPRS) & 0x7;
+    modrmbyte = modrmbyte | (reg << 3) | rm;
+    buff[4] = modrmbyte;
+
+    return emitInstructionBase(length, buff);
 }
 
 /*
@@ -868,10 +962,13 @@ Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Inst
 
         op = instruction->getMemoryOperand();
 
-        if (instruction->GET(pfx_seg)){
-            uint32_t segIdx = instruction->GET(pfx_seg) - UD_R_ES;
-            // FIXME ignores offsets
-            (*compInstructions).append(emitMoveSegmentRegToReg(segIdx, dest));
+        if (instruction->GET(pfx_seg) == UD_R_FS) {
+            // The fs register is set to 0, for some reason, even when using 
+            // lea. It is equivalent to the thread id, so lea the address
+            // and then add the thread id
+            (*compInstructions).append(emitLoadEffectiveAddress(op, dest, 
+              true));
+            (*compInstructions).append(emitAddThreadIdToReg(dest));
         } else if (op->GET(base) == UD_R_RIP){
             PRINT_DEBUG_LOADADDR("making lea: mov rip imm");
             uint64_t addr = op->getInstruction()->getProgramAddress() + 
@@ -906,7 +1003,7 @@ Vector<X86Instruction*>* X86InstructionFactory64::emitAddressComputation(X86Inst
                 (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_SI,
                   0, 1, 0, dest, UD_R_DS, true, false, true));
             } else if ((X86InstructionClassifier::getInstructionFormat(
-              instruction) == X86OperandFormat_si || X86InstructionClassifier::
+              instruction) == X86OperandFormat_di || X86InstructionClassifier::
               getInstructionFormat(instruction) == X86OperandFormat_dsi) &&
               impAddrFlag == 0) {
                 (*compInstructions).append(emitLoadEffectiveAddress(X86_REG_DI,
@@ -1010,7 +1107,10 @@ Vector<X86Instruction*>* X86InstructionFactory32::emitAddressComputation(X86Inst
     return compInstructions;
 }
 
-X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(OperandX86* op, uint32_t dest){
+// ignore -- if you want to ignore the segment register (like in the case when 
+// the segment register is FS)
+X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(OperandX86* 
+  op, uint32_t dest, bool ignoreSeg) {
     ASSERT(dest < X86_64BIT_GPRS && "Illegal register index given");
     ASSERT(op);
 
@@ -1035,13 +1135,25 @@ X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(OperandX86* op
     }
 
     bool hasSeg = false;
-    if (op->getInstruction()->GET(pfx_seg)) {
+    if (op->getInstruction()->GET(pfx_seg) && !ignoreSeg) {
         hasSeg = true;
         segReg = op->getInstruction()->GET(pfx_seg);
     }
 
     X86Instruction* lea = emitLoadEffectiveAddress(baseReg, indexReg, scale, 
       value, dest, segReg, hasBase, hasIndex, hasSeg);
+    if (!lea || !op || !lea->getOperand(SRC1_OPERAND)){
+        fprintf(stderr, "emitLoadEffectiveAddress:\n");
+        lea->print();
+    }
+    ASSERT(lea && op && lea->getOperand(SRC1_OPERAND));
+    ASSERT(op->isSameOperand(lea->getOperand(SRC1_OPERAND)) && "The emitted LEA operand does not match the operand given");
+
+    return lea;
+}
+
+X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(OperandX86* op, uint32_t dest){
+    X86Instruction* lea = emitLoadEffectiveAddress(op, dest, false); 
     if (!lea || !op || !lea->getOperand(SRC1_OPERAND)){
         fprintf(stderr, "emitLoadEffectiveAddress:\n");
         lea->print();
@@ -1314,22 +1426,54 @@ X86Instruction* X86InstructionFactory64::emitLoadEffectiveAddress(uint32_t
 
     // constant
     else {
-        PRINT_DEBUG_LOADADDR("making lea: const");
+        if (!hasSeg) {
+            PRINT_DEBUG_LOADADDR("making lea: const");
 
-        len = 8;
-        buff = new char[len];
-        if (dest < X86_32BIT_GPRS){
-            buff[0] = 0x48;
+            len = 8;
+            buff = new char[len];
+            if (dest < X86_32BIT_GPRS){
+                buff[0] = 0x48;
+            } else {
+                buff[0] = 0x4c;
+            }
+            buff[1] = 0x8d;
+            buff[2] = 0x04 + 8 * (dest % X86_32BIT_GPRS);
+            buff[3] = 0x25;
+
+            uint32_t addr32 = value;
+            memcpy(buff + 4, &addr32, sizeof(uint32_t));
+            lea = emitInstructionBase(len,buff);
         } else {
-            buff[0] = 0x4c;
-        }
-        buff[1] = 0x8d;
-        buff[2] = 0x04 + 8 * (dest % X86_32BIT_GPRS);
-        buff[3] = 0x25;
+            PRINT_DEBUG_LOADADDR("making lea: const + seg");
+            len = 9;
+            buff = new char[len];
+            if (segReg == UD_R_ES) {
+                buff[0] = 0x26;
+            } else if (segReg == UD_R_CS) {
+                buff[0] = 0x2e;
+            } else if (segReg == UD_R_DS) {
+                buff[0] = 0x3e;
+            } else if (segReg == UD_R_FS) {
+                // Instead of lea-ing the fs segment, lea the address and then 
+                // add to value from emitMoveThreadIdToReg
+                assert(false && "lea will not load fs segment correctly");
+            } else {
+                // Not yet implemented
+                __SHOULD_NOT_ARRIVE;
+            }
+            if (dest < X86_32BIT_GPRS){
+                buff[1] = 0x48;
+            } else {
+                buff[1] = 0x4c;
+            }
+            buff[2] = 0x8d;
+            buff[3] = 0x04 + 8 * (dest % X86_32BIT_GPRS);
+            buff[4] = 0x25;
 
-        uint32_t addr32 = value;
-        memcpy(buff + 4, &addr32, sizeof(uint32_t));
-        lea = emitInstructionBase(len,buff);
+            uint32_t addr32 = value;
+            memcpy(buff + 5, &addr32, sizeof(uint32_t));
+            lea = emitInstructionBase(len,buff);
+        }
     }
 
     ASSERT(lea);
@@ -2059,20 +2203,19 @@ X86Instruction* X86InstructionFactory64::emitMoveImmToRegaddrImm(
     uint8_t rm = base & 0x7;
     uint8_t modrm = mod | reg | rm;
 
-    int len = 5 + sizeof(off) + mem_size;
+    int len = 4 + sizeof(off) + mem_size;
     char* buff = new char[len];
-    buff[0] = 0x67;
-    buff[1] = rex;
-    buff[2] = opcode;
-    buff[3] = modrm;
+    buff[0] = rex;
+    buff[1] = opcode;
+    buff[2] = modrm;
 
     char* offStart = NULL;
     if(base % X86_32BIT_GPRS == X86_REG_SP) {
-        buff[4] = 0x24; // SIB byte
-        offStart = buff+5;
+        buff[3] = 0x24; // SIB byte
+        offStart = buff+4;
     } else {
         --len;
-        offStart = buff+4;
+        offStart = buff+3;
     }
 
     memcpy(offStart, &off, sizeof(off));
@@ -2083,24 +2226,23 @@ X86Instruction* X86InstructionFactory64::emitMoveImmToRegaddrImm(
 
 X86Instruction* X86InstructionFactory64::emitMoveImmToRegaddrImm(uint64_t val, uint32_t idx, uint64_t off){
     ASSERT(idx < X86_64BIT_GPRS && "Illegal register index given");
-    uint32_t len = 12;
-    uint32_t immoff = 4;
+    uint32_t len = 11;
+    uint32_t immoff = 3;
     if (idx % X86_32BIT_GPRS == X86_REG_SP){
         len++;
         immoff++;
     }
     char* buff = new char[len];
     // set opcode
-    buff[0] = 0x67; // address override prefix
-    buff[1] = 0x48; // rex prefix 0x4WRXB
+    buff[0] = 0x48; // rex prefix 0x4WRXB
     if (idx >= X86_32BIT_GPRS){
-        buff[1]++;
+        buff[0]++;
     }
-    buff[2] = 0xc7; // opcode
-    buff[3] = 0x80 + (char)(idx % X86_32BIT_GPRS); // modrm?
+    buff[1] = 0xc7; // opcode
+    buff[2] = 0x80 + (char)(idx % X86_32BIT_GPRS); // modrm?
 
 
-    buff[4] = 0x24; // N/A?
+    buff[3] = 0x24; // N/A?
 
     uint32_t off32 = (uint32_t)off;
     ASSERT(off32 == (uint32_t)off && "Cannot use more than 32 bits for the immediate");
