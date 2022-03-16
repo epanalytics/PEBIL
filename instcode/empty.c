@@ -27,7 +27,11 @@ void ep_pebil_start() {
     return;
 }
 
+void ep_pebil_start_() { ep_pebil_start(); return; }
+
 void ep_pebil_pause() {
     fprintf(stderr, "In EMPTY ep_pebil_pause\n");
     return;
 }
+
+void ep_pebil_pause_() { ep_pebil_pause(); return; }
