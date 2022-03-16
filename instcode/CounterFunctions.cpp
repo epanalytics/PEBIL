@@ -39,6 +39,7 @@ using namespace std;
 
 static DataManager<CounterArray*>* AllData = NULL;
 static DynamicInstrumentation* DynamicPoints = NULL;
+static std::set<uint64_t> BlockCountKeys;
 
 void print_loop_array(FILE* stream, CounterArray* ctrs){
     if (ctrs == NULL){
@@ -164,6 +165,24 @@ void* tool_thread_fini(thread_key_t tid){
 
 extern "C"
 {
+    void ep_pebil_start() {
+        fprintf(stderr, "In ep_pebil_start\n");
+        for (auto it = BlockCountKeys.begin(); it != BlockCountKeys.end(); 
+          it++) {
+            DynamicPoints->SetDynamicPoint((*it), true);
+        }
+        return;
+    }
+
+    void ep_pebil_pause() {
+        fprintf(stderr, "In ep_pebil_pause\n");
+        for (auto it = BlockCountKeys.begin(); it != BlockCountKeys.end(); 
+          it++) {
+            DynamicPoints->SetDynamicPoint((*it), false);
+        }
+        return;
+    }
+
     static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
       isThreadedModeFlag){
@@ -225,8 +244,27 @@ extern "C"
             inits.insert(GENERATE_KEY(*key, PointType_inits));
             inform << "Removing init points for image " << hex << (*key)<< ENDL;
             DynamicPoints->SetDynamicPoints(inits, false);
+
+            // Get all blockcount instrumentation points so that the user can 
+            // turn them on/off
+            std::set<uint64_t> keys;
+            DynamicPoints->GetAllDynamicKeys(keys);
+            assert(BlockCountKeys.empty());
+            for (auto it = keys.begin(); it != keys.end(); it++) {
+                uint64_t k = (*it);
+                if (GET_TYPE(k) == PointType_blockcount) {
+                    BlockCountKeys.insert(k);
+                }
+            }
+
+            // TODO: For now we'll start with off. See what happens
+            for (auto it = BlockCountKeys.begin(); it != BlockCountKeys.end();
+              it++) {
+                DynamicPoints->SetDynamicPoint((*it), false);
+            }
         }
         assert(AllData->allimages.count(*key) == 1);
+
 
         pthread_mutex_unlock(&image_init_mutex);
 

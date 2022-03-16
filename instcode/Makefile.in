@@ -31,7 +31,7 @@ ifeq ($(STATIC_INST_LIB),yes)
 		PEBIL_LIBS += libpapiinst.a libpapifunc.a
 	endif
 else
-	PEBIL_LIBS = libpebilruntime.so libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libaddressstream.so
+	PEBIL_LIBS = libpebilruntime.so libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libaddressstream.so libempty.so
 	ifeq ($(PEBIL_PAPI_BUILD),yes)
 		PEBIL_LIBS += libpapiinst.so libpapifunc.so
 	endif
@@ -96,6 +96,9 @@ $(LIBDIR)/%.O: %.cpp
 
 $(LIBDIR)/libpebilruntime.so : $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
+
+$(LIBDIR)/libempty.so : $(LIBDIR)/empty.o
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(CXXFLAGS)
 
 $(LIBDIR)/libcounter.so : $(LIBDIR)/CounterFunctions.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
