@@ -77,7 +77,7 @@ typedef struct DynamicInst_s {
 #define GENERATE_UNIQUE_ID(__bid, __iid) ((__bid << 8) | ((__iid & 0xf) << 4))
 // Generate a key given a block sequence and an image sequence
 #define GENERATE_UNIQUE_KEY(__bid, __iid, __typ) ((__typ & 0xf) | GENERATE_UNIQUE_ID(__bid, __iid))
-// Generate a key given a unique id
+// Generate a key given a unique id (Unique ID must include image sequence!)
 #define GENERATE_KEY(__id, __typ) ((__typ & 0xf) | (__id << 4))
 #define GET_UNIQUEID(__key) ((__key >> 4))
 #define GET_IMAGEID(__key) (((__key & 0xf0)>> 4))

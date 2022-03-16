@@ -430,8 +430,8 @@ void BasicBlockCounter::instrument() {
         InstrumentationPoint* blockInstPoint = 
           InstrumentationTool::insertBlockCounter(counterOffset, bb, true, 
           threadReg);
-        dynamicPoint(blockInstPoint, GENERATE_KEY(i, PointType_blockcount),
-          true);
+        dynamicPoint(blockInstPoint, GENERATE_UNIQUE_KEY(i, 0,
+          PointType_blockcount), true);
     }
 
     // Next, instrument loops. If "isInstrumentingLoops" is false, then 
