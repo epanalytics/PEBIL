@@ -167,21 +167,19 @@ extern "C"
 {
     void ep_pebil_start() {
         fprintf(stderr, "In ep_pebil_start\n");
-        for (auto it = BlockCountKeys.begin(); it != BlockCountKeys.end(); 
-          it++) {
-            DynamicPoints->SetDynamicPoint((*it), true);
-        }
+        DynamicPoints->SetDynamicPoints(BlockCountKeys, true);
         return;
     }
 
+    void ep_pebil_start_() { ep_pebil_start(); return; }
+
     void ep_pebil_pause() {
         fprintf(stderr, "In ep_pebil_pause\n");
-        for (auto it = BlockCountKeys.begin(); it != BlockCountKeys.end(); 
-          it++) {
-            DynamicPoints->SetDynamicPoint((*it), false);
-        }
+        DynamicPoints->SetDynamicPoints(BlockCountKeys, false);
         return;
     }
+
+    void ep_pebil_pause_() { ep_pebil_pause(); return; }
 
     static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
@@ -258,10 +256,7 @@ extern "C"
             }
 
             // TODO: For now we'll start with off. See what happens
-            for (auto it = BlockCountKeys.begin(); it != BlockCountKeys.end();
-              it++) {
-                DynamicPoints->SetDynamicPoint((*it), false);
-            }
+            DynamicPoints->SetDynamicPoints(BlockCountKeys, false);
         }
         assert(AllData->allimages.count(*key) == 1);
 

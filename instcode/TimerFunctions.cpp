@@ -50,8 +50,8 @@
 using namespace std;
 
 DataManager<FunctionTimers*>* AllData = NULL;
-
 DynamicInstrumentation* DynamicPoints = NULL;
+static std::set<uint64_t> EntryExitKeys;
 
 // by default, do not shut off function timing instrumentation.
 // please set FTIMER_SHUTOFF to something other than zero to enable
@@ -190,6 +190,22 @@ uint64_t ReferenceFunctionTimers(FunctionTimers* timers){
 
 extern "C"
 {
+
+    void ep_pebil_start() {
+        fprintf(stderr, "In ep_pebil_start\n");
+        DynamicPoints->SetDynamicPoints(EntryExitKeys, true);
+        return;
+    }
+
+    void ep_pebil_start_() { ep_pebil_start(); return; }
+
+    void ep_pebil_pause() {
+        fprintf(stderr, "In ep_pebil_pause\n");
+        DynamicPoints->SetDynamicPoints(EntryExitKeys, false);
+        return;
+    }
+
+    void ep_pebil_pause_() { ep_pebil_pause(); return; }
 
     // start timer
     int32_t function_entry(uint32_t funcIndex, image_key_t* key) {
@@ -353,6 +369,23 @@ extern "C"
         set<uint64_t> inits;
         inits.insert(GENERATE_KEY(*key, PointType_inits));
         DynamicPoints->SetDynamicPoints(inits, false);
+
+        // Get all func entry and func exit instrumentation points so that the 
+        // user can turn them on/off
+        std::set<uint64_t> keys;
+        DynamicPoints->GetAllDynamicKeys(keys);
+        assert(EntryExitKeys.empty());
+        for (auto it = keys.begin(); it != keys.end(); it++) {
+            uint64_t k = (*it);
+            if (GET_TYPE(k) == PointType_functionEntry || 
+              GET_TYPE(k) == PointType_functionExit) {
+                EntryExitKeys.insert(k);
+            }
+        }
+
+        // TODO: For now we'll start with off. See what happens
+        DynamicPoints->SetDynamicPoints(EntryExitKeys, false);
+
 
         pthread_mutex_unlock(&image_init_mutex);
         return NULL;
