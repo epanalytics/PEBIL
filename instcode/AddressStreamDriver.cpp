@@ -363,7 +363,6 @@ void* AddressStreamDriver::InitializeNewImage(image_key_t* iid,
 
 void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
     SAVE_STREAM_FLAGS(cout);
-    PauseApplicationWrappers();
     if (allData){
         if(dynamicPoints->IsThreadedMode())
             allData->AddThread(tid);
@@ -378,7 +377,6 @@ void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
           MetasimError_NoThread);
     }
 
-    UnpauseApplicationWrappers();
     RESTORE_STREAM_FLAGS(cout);
     return NULL;
 }
