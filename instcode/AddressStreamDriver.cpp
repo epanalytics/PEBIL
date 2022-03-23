@@ -76,7 +76,7 @@ using namespace std;
   #define GENERATE_DATA_TOOL(m) new m()
   #define GENERATE_MODULE(m) m = new DataStructureModule()
   #define GET_DATA_STRUCTURE_ID(m, a) m->GetDataStructureID(a)
-  #define GET_NUM_DATA_STRUCTURES(m) m->GetNumberOfDataStructures()
+  #define GET_NUM_DATA_STRUCTURES(m, parser) m->GetNumberOfDataStructures(parser)
   #define DELETE_MODULE(m) delete m
   #define PAUSE_MODULE(m) if(runDataCentric) m->PauseMemoryWrappers()
   #define PRINT_DATA_STRUCTURE_REPORT(m, s) if(runDataCentric) \
@@ -86,7 +86,7 @@ using namespace std;
   #define GENERATE_DATA_TOOL(m) 0
   #define GENERATE_MODULE(m) 0
   #define GET_DATA_STRUCTURE_ID(m, a) 0
-  #define GET_NUM_DATA_STRUCTURES(m) 0
+  #define GET_NUM_DATA_STRUCTURES(m, parser) 0
   #define DELETE_MODULE(m) 0
   #define PAUSE_MODULE(m) 0
   #define PRINT_DATA_STRUCTURE_REPORT(m, s) 0
@@ -408,12 +408,14 @@ void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it !=
       tools->end(); it++) {
           // For Data-Centric tools, set AllocCount to number of data
-          // structures
-          if (toolIndex == numCodeCentricTools)
-              stats->AllocCount = GET_NUM_DATA_STRUCTURES(dataStructureModule);
-          toolIndex++;
-          AddressStreamTool* currentTool = (*it);
-          currentTool->AddNewStreamStats(stats);
+          // structures if no METASIM_DS_SIZE is set, else use the set
+          // METASIM_DS_SIZE
+        if (toolIndex == numCodeCentricTools) {
+            stats->AllocCount = GET_NUM_DATA_STRUCTURES(dataStructureModule, parser);
+        }
+        toolIndex++;
+        AddressStreamTool* currentTool = (*it);
+        currentTool->AddNewStreamStats(stats);
     }
 
     // Reset AllocCount
