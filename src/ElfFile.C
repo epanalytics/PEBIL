@@ -423,6 +423,21 @@ RawSection* ElfFile::findDataSectionAtAddr(uint64_t addr){
     return dataSection;
 }
 
+uint16_t ElfFile::findInitialTextSectionIdx() {
+    // Possible first text sections: .init, .rodata
+    uint16_t initIdx = findSectionIdx(".init");
+    uint16_t rodataIdx = findSectionIdx(".rodata");
+    ASSERT((initIdx > 0 || rodataIdx > 0) && 
+      "Could not find an initial text section")
+    if (rodataIdx == 0)
+        return initIdx - 1;
+    if (initIdx == 0)
+        return rodataIdx - 1;
+    if (rodataIdx < initIdx)
+        return rodataIdx - 1;
+    return initIdx - 1;
+}
+
 uint16_t ElfFile::findSectionIdx(const char* name){
     for (uint16_t i = 1; i < getNumberOfSections(); i++){
         if (name && sectionHeaders[i]->getSectionNamePtr()){
@@ -618,13 +633,6 @@ bool ElfFile::verifyDynamic(){
                 return false;
             }
             sysvHashSectionAddress_DT = dynamicTable->getDynamicByType(DT_HASH,0)->GET_A(d_val,d_un);
-        }
-    }
-    // if both types are present, we assume the sysv style version comes first
-    if (getNumberOfHashTables() == 2){
-        if (gnuHashSectionAddress_DT <= sysvHashSectionAddress_DT){
-            PRINT_ERROR("Sysv hash table should come before gnu hash table");
-            return false;
         }
     }
 
@@ -871,7 +879,7 @@ void ElfFile::sortSectionHeaders(){
 }
 
 
-void ElfFile::initSectionFilePointers(){
+void ElfFile::initSectionFilePointers(bool sanitize){
 
     char* stringTablePtr = ((StringTable*)rawSections[fileHeader->GET(e_shstrndx)])->getFilePointer();
 
@@ -927,7 +935,7 @@ void ElfFile::initSectionFilePointers(){
     }
     X86Instruction::initBlankUd(is64Bit());
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
-        textSections[i]->disassemble(binaryInputFile);
+        textSections[i]->disassemble(binaryInputFile,sanitize);
     }
 
 }
@@ -1611,6 +1619,7 @@ uint32_t ElfFile::getFileSize() {
 
 void ElfFile::setLineInfoFinder(){
 }
+
 
 void ElfFile::findLoops(){
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){

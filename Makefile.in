@@ -1,7 +1,41 @@
+#/* 
+# * This file is part of the pebil project.
+# * 
+# * Copyright (c) 2010, University of California Regents
+# * All rights reserved.
+# * 
+# * This program is free software: you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation, either version 3 of the License, or
+# * (at your option) any later version.
+# *
+# * This program is distributed in the hope that it will be useful,
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# * GNU General Public License for more details.
+# *
+# * You should have received a copy of the GNU General Public License
+# * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# */
+
+BUILD_EPA_TOOLS=@PEBIL_BUILD_EPA_TOOLS@
+PEBIL_TOOLS_PATH=@PEBIL_EPA_TOOLS_PATH@
+CLEANS = clean-subdirs
+DEPENDS = depend-subdirs
+
 ## change the following variables to fit your system:
 DOXYGEN = doxygen
 
+# order here matters
+PREREQ = .CLEAN .DEPEND
+
 SUBDIRS = external/udis86-1.7 external/ReuseDistance instcode src tools
+ifeq ($(BUILD_EPA_TOOLS),yes)
+    SUBDIRS += $(PEBIL_TOOLS_PATH)
+    CLEANS += clean-pebil-tools
+    PREREQ += pebil-tools-deps
+endif
+
 COPY_LIBS = cp external/ReuseDistance/libReuseDistance.so lib
 
 BLACKLIST = scripts/inputlist/autogen-system.func
@@ -9,15 +43,11 @@ BLACKLIST = scripts/inputlist/autogen-system.func
 include VERSION
 DISTDIR = PEBIL-$(PEBIL_FULL_VER)
 
-.PHONY: subdirs $(SUBDIRS) clean all install blacklist depend check docs
-
-# order here matters
-PREREQ = .CLEAN .DEPEND
+.PHONY: subdirs $(SUBDIRS) clean all install blacklist depend docs
 
 # specify some explicit dependencies to order operations
 tools: src external/udis86-1.7 external/ReuseDistance
 install: instcode tools blacklist
-check: install
 
 ifneq (,$(findstring clean,$(MAKECMDGOALS)))
 .CLEAN: clean
@@ -30,18 +60,27 @@ else
 .DEPEND:
 endif
 
-clean:
+clean-pebil-tools:
+	$(MAKE) -C $(PEBIL_TOOLS_PATH) clean
+
+clean-subdirs:
 	$(MAKE) -C external/udis86-1.7 clean
 	$(MAKE) -C external/ReuseDistance clean
 	$(MAKE) -C src clean
-	$(MAKE) -C testapps clean
 	$(MAKE) -C instcode clean
 	$(MAKE) -C tools clean
+
+clean: $(CLEANS)
 	rm -rf $(BLACKLIST)
 
-depend: .CLEAN
+depend-subdirs: .CLEAN
 	$(MAKE) -C src depend
 	$(MAKE) -C tools depend
+
+depend: .CLEAN $(DEPENDS)
+
+pebil-tools-deps:
+	$(MAKE) -C $(PEBIL_TOOLS_PATH) pebil-deps
 
 all: $(PREREQ) subdirs blacklist
 subdirs: $(SUBDIRS)
@@ -56,9 +95,6 @@ install: $(PREREQ)
 	$(MAKE) -C tools install
 	$(MAKE) -C instcode install
 	$(COPY_LIBS)
-
-check: $(PREREQ)
-	$(MAKE) -C testapps check
 
 docs: $(PREREQ)
 	doxygen

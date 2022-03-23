@@ -41,7 +41,7 @@ void FunctionCounter::setBlocksToInstrument() {
         BasicBlock* bb = f->getFlowGraph()->getEntryBlock();
 
         LineInfo* li = NULL;
-        if (lineInfoFinder) {
+        if (lineInfoFinder && !sanitize) {
             li = lineInfoFinder->lookupLineInfo(bb);
         }
 

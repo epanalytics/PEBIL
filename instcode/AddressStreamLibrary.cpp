@@ -88,6 +88,7 @@ extern "C" {
     }
 
     void* tool_thread_init(thread_key_t tid){
+        init_signal_handlers(true);
         if(Driver != NULL)
             Driver->InitializeNewThread(tid);
         return NULL;
@@ -97,6 +98,7 @@ extern "C" {
         SAVE_STREAM_FLAGS(cout);
         inform << "Destroying thread " << hex << tid << ENDL;
         RESTORE_STREAM_FLAGS(cout);
+        return NULL;
     }
 
     // initializes an image
@@ -114,7 +116,7 @@ extern "C" {
 
         // initialize AllData once per address space
         if (Driver->GetAllData() == NULL){
-            init_signal_handlers();
+            init_signal_handlers(true);
             DataManager<AddressStreamStats*>* AllData;
             AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats, 
               DeleteStreamStats, ReferenceStreamStats);
@@ -123,7 +125,7 @@ extern "C" {
         assert(Driver);
 
         Driver->PauseApplicationWrappers();
-        Driver->InitializeNewImage(key, stats, td);
+        (void) Driver->InitializeNewImage(key, stats, td);
         Driver->UnpauseApplicationWrappers();
 
         pthread_rwlock_unlock(&dynamic_init_rwlock);
@@ -143,24 +145,23 @@ extern "C" {
         Driver->UnpauseApplicationWrappers();
 
         RESTORE_STREAM_FLAGS(cout);
+        return NULL;
     }
 
     // Called when the application exits. Collect the rest of the addresses in
     // the buffer and create the reports
     void* tool_image_fini(image_key_t* key){
-//<<<<<<< HEAD
         Driver->PauseApplicationWrappers();
-//=======
         // Only finalize images once
         static bool finalized = false;
         if (finalized)
             return NULL;
 
         finalized = true;
-//>>>>>>> MemInsight
-        Driver->FinalizeImage(key);
+        (void) Driver->FinalizeImage(key);
         Driver->DeleteAllData();
         delete Driver;
+        return NULL;
     }
 
 };

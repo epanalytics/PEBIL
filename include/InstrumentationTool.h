@@ -27,6 +27,7 @@
 #include <map>
 
 #include <Metasim.hpp>
+#include <EncryptTool.h>
 
 class InstrumentationPoint;
 
@@ -79,7 +80,8 @@ private:
 
     InstrumentationTool* (*maker)(ElfFile*);
 
-    void instrumentEmbeddedElf();
+    EncryptTool encryptTool;
+
 protected:
     uint64_t imageKey;
     uint64_t threadHash;
@@ -140,6 +142,7 @@ protected:
     uint64_t dynamicPointArray;
     uint64_t dynamicSize;
     bool isThreadedModeFlag;
+    bool encrypt;
 
 public:
     InstrumentationTool(ElfFile* elf);
@@ -164,6 +167,9 @@ public:
     virtual uint32_t requiresArgs() { return PEBIL_OPT_NON; }
     bool isMasterImage();
     void setMasterImage(bool isMaster);
+    void setSanitize(bool);
+    void printSanitizeTranslationFile(std::map<char*,std::string> lineInfo);
+    bool sanitize=false;
 };
 
 

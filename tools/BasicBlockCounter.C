@@ -190,6 +190,7 @@ void BasicBlockCounter::instrument() {
     ctrs.Initialized = true;
     ctrs.PerInstruction = isPerInstruction();
     ctrs.Master = isMasterImage();
+    ctrs.sanitize = sanitize;
 
     // Get all the points we will instrument (Size)
     // Get all the loops we will instrument
@@ -367,11 +368,11 @@ void BasicBlockCounter::instrument() {
           sizeof(uint32_t)*i, sizeof(uint32_t), &i);
 
         // Functions
-        uint64_t funcname = reserveDataOffset(strlen(f->getName()) + 1);
+        uint64_t funcname = reserveDataOffset(strlen(f->getRealName()) + 1);
         initializeReservedPointer(funcname, (uint64_t)ctrs.Functions + 
           i*sizeof(char*));
         initializeReservedData(getInstDataAddress() + funcname, 
-          strlen(f->getName()) + 1, (void*)f->getName());
+          strlen(f->getRealName()) + 1, (void*)f->getRealName());
 
         // Counters and Types
         // For insns, they get type instruction. Blocks (and first insn in 
@@ -502,11 +503,11 @@ void BasicBlockCounter::instrument() {
           sizeof(uint32_t)*i, sizeof(uint32_t), &loopId);
 
         // Functions
-        uint64_t funcname = reserveDataOffset(strlen(f->getName()) + 1);
+        uint64_t funcname = reserveDataOffset(strlen(f->getRealName()) + 1);
         initializeReservedPointer(funcname, (uint64_t)ctrs.Functions + 
           i*sizeof(char*));
         initializeReservedData(getInstDataAddress() + funcname, 
-          strlen(f->getName()) + 1, (void*)f->getName());
+          strlen(f->getRealName()) + 1, (void*)f->getRealName());
 
         // Counters and Types
         uint64_t counterOffset =  (uint64_t)ctrs.Counters + (i * 

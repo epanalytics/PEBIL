@@ -1,9 +1,27 @@
+#/* 
+# * This file is part of the pebil project.
+# * 
+# * Copyright (c) 2010, University of California Regents
+# * All rights reserved.
+# * 
+# * This program is free software: you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation, either version 3 of the License, or
+# * (at your option) any later version.
+# *
+# * This program is distributed in the hope that it will be useful,
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# * GNU General Public License for more details.
+# *
+# * You should have received a copy of the GNU General Public License
+# * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# */
+
 STATIC_INST_LIB  = @PEBIL_STATIC_BUILD@
 ADAMANT_LIBS_BUILD = @ADAMANT_LIBS_BUILD@
 EPA_TOOLS_AVAILABLE = @PEBIL_EPA_TOOLS_AVAILABLE@
-EPA_TOOLS_PATH = @PEBIL_EPA_TOOLS_PATH@
-MEMORY_CONTAINER_AVAILABLE = @EPA_MEMORY_CONTAINER_AVAILABLE@
-MEMORY_CONTAINER_PATH = @EPA_MEMORY_CONTAINER_PATH@
+EPA_TOOLS_PATH = @PEBIL_SUBDIR_EPA_TOOLS_PATH@
 PEBIL_PAPI_BUILD = @PEBIL_PAPI_BUILD@
 PAPI_PATH = @PAPI_PATH@
 PEBIL_LIBS = 
@@ -25,8 +43,8 @@ BINDIR      = ../bin
 LIB_TARGETS = $(foreach pebil_lib,$(PEBIL_LIBS),$(LIBDIR)/$(pebil_lib))
 MPICC       = @MPICC@
 MPICXX      = @MPICXX@
-CFLAGS      = @CFLAGS@ @MPI_FLAGS@ @CPUFREQ_FLAGS@ @ADAMANT_HEADER_FLAGS@  @THROTTLER_FLAGS@ -w
-CXXFLAGS    = @CXXFLAGS@ @MPI_CXXFLAGS@ @MPI_FLAGS@ @CPUFREQ_FLAGS@ @ADAMANT_HEADER_FLAGS@  @THROTTLER_FLAGS@ -w
+CFLAGS      = @CFLAGS@ @MPI_FLAGS@ @CPUFREQ_FLAGS@ @ADAMANT_HEADER_FLAGS@  @THROTTLER_FLAGS@ @PEBIL_DEBUG@ -w
+CXXFLAGS    = @CXXFLAGS@ @MPI_CXXFLAGS@ @MPI_FLAGS@ @CPUFREQ_FLAGS@ @ADAMANT_HEADER_FLAGS@  @THROTTLER_FLAGS@ @PEBIL_DEBUG@ -w
 
 ALL_TARGETS	=	$(LIB_TARGETS)
 
@@ -59,7 +77,7 @@ ifeq ($(EPA_TOOLS_AVAILABLE),yes)
   EXTRA_FLAGS += -DHAS_EPA_TOOLS
   EXTRA_INC += -I$(EPA_TOOLS_PATH)/instcode
   # If the Data Structure Module is available
-  ifneq ($(wildcard $(EPA_TOOLS_PATH)/instcode/libdatastructuremodule.so), "")
+  ifneq ("$(wildcard $(EPA_TOOLS_PATH)/instcode/libdatastructuremodule.so)", "")
     ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricAddressRange.o
     ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricSpatialLocality.o
     ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricCacheSimulation.o

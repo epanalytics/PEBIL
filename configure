@@ -624,13 +624,16 @@ ac_includes_default="\
 
 enable_option_checking=no
 ac_subst_vars='LTLIBOBJS
-subdirs
 LIBOBJS
 CPUFREQ_FLAGS
 PAPI_PATH
 PEBIL_PAPI_BUILD
+PEBIL_ENV_EPA_TOOLS_PATH
+PEBIL_SUBDIR_EPA_TOOLS_PATH
 PEBIL_EPA_TOOLS_PATH
 PEBIL_EPA_TOOLS_AVAILABLE
+PEBIL_BUILD_EPA_TOOLS
+subdirs
 THROTTLER_FLAGS
 MPI_CXXFLAGS
 MPI_FLAGS
@@ -642,6 +645,7 @@ PEBIL_MPIFC_OPENMPI_LIB
 OPENMPI_IS_NEW
 PEBIL_CXX_BINDINGS
 PEBIL_STATIC_BUILD
+PEBIL_DEBUG
 MPICXX
 MPIFC
 MPILIBS
@@ -704,6 +708,7 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 enable_mpi
+enable_debug
 enable_static
 enable_mpicxxbind
 enable_adamant
@@ -730,7 +735,8 @@ MPICC
 MPIFC
 MPICXX
 PAPI_PATH'
-ac_subdirs_all='external/udis86-1.7
+ac_subdirs_all='external/epa-pebil-tools
+external/udis86-1.7
 external/ReuseDistance'
 
 # Initialize some variables set by options.
@@ -1354,6 +1360,7 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-mpi            Use mpi compiler when building instrumentation
                           libraries [yes]
+  --debug                 Print debugging information [no]
   --enable-static         Build a statically-linked pebil executable in
                           addition to a dynamically-linked executable [yes]
   --enable-mpicxxbind     Assume C++ bindings during build [yes]
@@ -5854,12 +5861,25 @@ if test "$ax_cv_cxx_unordered_map" = "yes"; then
    CXXFLAGS="$CXXFLAGS -DHAVE_UNORDERED_MAP"
 fi
 
+#Allow debug option
+# Check whether --enable-debug was given.
+if test "${enable_debug+set}" = set; then :
+  enableval=$enable_debug; debug_ok=$enableval
+fi
+
+if test "$debug_ok" !="yes"; then
+    PEBIL_DEBUG="-DWARNING_SEVERITY=20"
+else
+    PEBIL_DEBUG="-DINFORM"
+fi
+
+
 # Check whether --enable-static was given.
 if test "${enable_static+set}" = set; then :
   enableval=$enable_static; static_ok=$enableval
 fi
 
-if test "$static_ok" != "no"; then
+if test "$static_ok" == "yes"; then
    PEBIL_STATIC_BUILD="yes"
 else
    PEBIL_STATIC_BUILD="no"
@@ -6244,20 +6264,76 @@ fi
 
 
 
+#AC_ARG_ENABLE(epa_tools, [AC_HELP_STRING([--disable-epa-tools],
+#  [do not use/compile EP Analytics tools [default=yes]])],
+#  epa_tools_ok=$enableval, epa_tools_ok=yes)
+
 
 # Check whether --with-epa_tools was given.
 if test "${with_epa_tools+set}" = set; then :
   withval=$with_epa_tools; epa_tools=$withval
 else
-  epa_tools=no
+  epa_tools=default
 fi
 
-if test x"$epa_tools" = x"no"; then
-    PEBIL_EPA_TOOLS_AVAILABLE="no"
-    PEBIL_EPA_TOOLS_PATH=""
+
+if test "x$epa_tools" != "xno"; then
+        PEBIL_EPA_TOOLS_AVAILABLE="yes"
+    if test "x$epa_tools" = "xdefault"; then
+        PEBIL_BUILD_EPA_TOOLS="yes"
+        PEBIL_EPA_TOOLS_PATH="external/epa-pebil-tools"
+        ac_aux_dir=
+for ac_dir in "$srcdir" "$srcdir/.." "$srcdir/../.."; do
+  if test -f "$ac_dir/install-sh"; then
+    ac_aux_dir=$ac_dir
+    ac_install_sh="$ac_aux_dir/install-sh -c"
+    break
+  elif test -f "$ac_dir/install.sh"; then
+    ac_aux_dir=$ac_dir
+    ac_install_sh="$ac_aux_dir/install.sh -c"
+    break
+  elif test -f "$ac_dir/shtool"; then
+    ac_aux_dir=$ac_dir
+    ac_install_sh="$ac_aux_dir/shtool install -c"
+    break
+  fi
+done
+if test -z "$ac_aux_dir"; then
+  as_fn_error $? "cannot find install-sh, install.sh, or shtool in \"$srcdir\" \"$srcdir/..\" \"$srcdir/../..\"" "$LINENO" 5
+fi
+
+# These three variables are undocumented and unsupported,
+# and are intended to be withdrawn in a future Autoconf release.
+# They can cause serious problems if a builder's source tree is in a directory
+# whose full name contains unusual characters.
+ac_config_guess="$SHELL $ac_aux_dir/config.guess"  # Please don't use this var.
+ac_config_sub="$SHELL $ac_aux_dir/config.sub"  # Please don't use this var.
+ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
+
+
+
+
+subdirs="$subdirs external/epa-pebil-tools"
+
+    else
+        PEBIL_BUILD_EPA_TOOLS="no"
+        PEBIL_EPA_TOOLS_PATH="$epa_tools"
+    fi
 else
-    PEBIL_EPA_TOOLS_AVAILABLE="yes"
-    PEBIL_EPA_TOOLS_PATH="$epa_tools"
+   PEBIL_BUILD_EPA_TOOLS="no"
+   PEBIL_EPA_TOOLS_AVAILABLE="no"
+   PEBIL_EPA_TOOLS_PATH=""
+fi
+
+
+
+
+if test "x$epa_tools" = "xdefault"; then
+    PEBIL_SUBDIR_EPA_TOOLS_PATH="../${PEBIL_EPA_TOOLS_PATH}"
+    PEBIL_ENV_EPA_TOOLS_PATH="\${pebildir}/${PEBIL_EPA_TOOLS_PATH}"
+else
+    PEBIL_SUBDIR_EPA_TOOLS_PATH="${PEBIL_EPA_TOOLS_PATH}"
+    PEBIL_ENV_EPA_TOOLS_PATH="${PEBIL_EPA_TOOLS_PATH}"
 fi
 
 
@@ -6609,38 +6685,7 @@ fi
 done
 
 
-ac_config_files="$ac_config_files Makefile src/Makefile tools/Makefile testapps/Makefile testapps/apps/Makefile testapps/toys/Makefile instcode/Makefile scripts/blacklist.sh cshrc bashrc"
-
-ac_aux_dir=
-for ac_dir in "$srcdir" "$srcdir/.." "$srcdir/../.."; do
-  if test -f "$ac_dir/install-sh"; then
-    ac_aux_dir=$ac_dir
-    ac_install_sh="$ac_aux_dir/install-sh -c"
-    break
-  elif test -f "$ac_dir/install.sh"; then
-    ac_aux_dir=$ac_dir
-    ac_install_sh="$ac_aux_dir/install.sh -c"
-    break
-  elif test -f "$ac_dir/shtool"; then
-    ac_aux_dir=$ac_dir
-    ac_install_sh="$ac_aux_dir/shtool install -c"
-    break
-  fi
-done
-if test -z "$ac_aux_dir"; then
-  as_fn_error $? "cannot find install-sh, install.sh, or shtool in \"$srcdir\" \"$srcdir/..\" \"$srcdir/../..\"" "$LINENO" 5
-fi
-
-# These three variables are undocumented and unsupported,
-# and are intended to be withdrawn in a future Autoconf release.
-# They can cause serious problems if a builder's source tree is in a directory
-# whose full name contains unusual characters.
-ac_config_guess="$SHELL $ac_aux_dir/config.guess"  # Please don't use this var.
-ac_config_sub="$SHELL $ac_aux_dir/config.sub"  # Please don't use this var.
-ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
-
-
-
+ac_config_files="$ac_config_files Makefile src/Makefile tools/Makefile instcode/Makefile scripts/blacklist.sh cshrc bashrc"
 
 subdirs="$subdirs external/udis86-1.7"
 
@@ -7354,9 +7399,6 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "tools/Makefile") CONFIG_FILES="$CONFIG_FILES tools/Makefile" ;;
-    "testapps/Makefile") CONFIG_FILES="$CONFIG_FILES testapps/Makefile" ;;
-    "testapps/apps/Makefile") CONFIG_FILES="$CONFIG_FILES testapps/apps/Makefile" ;;
-    "testapps/toys/Makefile") CONFIG_FILES="$CONFIG_FILES testapps/toys/Makefile" ;;
     "instcode/Makefile") CONFIG_FILES="$CONFIG_FILES instcode/Makefile" ;;
     "scripts/blacklist.sh") CONFIG_FILES="$CONFIG_FILES scripts/blacklist.sh" ;;
     "cshrc") CONFIG_FILES="$CONFIG_FILES cshrc" ;;
