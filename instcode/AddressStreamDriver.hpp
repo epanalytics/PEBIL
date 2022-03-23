@@ -159,6 +159,12 @@ class AddressStreamDriver {
     void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
 
     void UnpauseApplicationWrappers();
+    void UnLockDSM();
+    void WriteLockDSM();
+    void SetInitThread();
+    void UnsetInitThread();
+    bool IsInitThreads();
+    bool isInitThread;
 
     // For Testing Purposes
     void AddTool(AddressStreamTool* t) { tools->push_back(t); }

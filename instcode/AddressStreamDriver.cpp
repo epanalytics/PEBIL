@@ -82,6 +82,8 @@ using namespace std;
   #define PRINT_DATA_STRUCTURE_REPORT(m, s) if(runDataCentric) \
     m->PrintDataStructureReport(s)
   #define UNPAUSE_MODULE(m) if(runDataCentric) m->UnpauseMemoryWrappers()
+  #define UNLOCK(m) if(runDataCentric) m->UnLock()
+  #define WRITELOCK(m) if(runDataCentric) m->WriteLock()
 #else
   #define GENERATE_DATA_TOOL(m) 0
   #define GENERATE_MODULE(m) 0
@@ -363,7 +365,11 @@ void* AddressStreamDriver::InitializeNewImage(image_key_t* iid,
 }
 
 void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
-    SAVE_STREAM_FLAGS(cout); 
+    SAVE_STREAM_FLAGS(cout);
+    WriteLockDSM();
+    //fprintf(stderr, "ASD::InitNewThread write lock\n");
+    SetInitThread();
+    PauseApplicationWrappers();
     if (allData){
         if(dynamicPoints->IsThreadedMode())
             allData->AddThread(tid);
@@ -378,8 +384,24 @@ void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
           MetasimError_NoThread);
     }
 
+    UnpauseApplicationWrappers();
+    UnsetInitThread();
+    //fprintf(stderr, "ASD::InitNewThread unlock\n");
+    UnLockDSM();
     RESTORE_STREAM_FLAGS(cout);
     return NULL;
+}
+
+void AddressStreamDriver::SetInitThread() {
+    isInitThread = true;
+}
+
+void AddressStreamDriver::UnsetInitThread() {
+    isInitThread = false;
+}
+
+bool AddressStreamDriver::IsInitThreads() {
+    return isInitThread;
 }
 
 void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats* 
@@ -857,6 +879,14 @@ void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid,
 
 void AddressStreamDriver::UnpauseApplicationWrappers() {
     UNPAUSE_MODULE(dataStructureModule);
+}
+
+void AddressStreamDriver::UnLockDSM() {
+    UNLOCK(dataStructureModule);
+}
+
+void AddressStreamDriver::WriteLockDSM() {
+    WRITELOCK(dataStructureModule);
 }
 
 // For testing
