@@ -229,9 +229,6 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
         exit(1);
     }
     DataManager<AddressStreamStats*>* allData = Driver->GetAllData();
-
-//    // Make sure that the write lock was held
-//    assert(allData->IsWriteLockHeld());
     
     // every thread and image gets its own statistics
 

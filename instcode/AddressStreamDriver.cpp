@@ -399,6 +399,7 @@ void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
     return NULL;
 }
 
+// Not thread-safe: a write lock must be held before using
 void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats* 
   stats) {
     assert(GetNumMemoryHandlers() > 0);
@@ -413,6 +414,7 @@ void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats*
     }
 }
 
+// Not thread-safe: a write lock must be held before using
 void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
   stats) {
     assert(GetNumMemoryHandlers() > 0);
@@ -466,6 +468,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
     AddressStreamStats** faststats = fastData->GetBufferStats(tid);
     assert(faststats != NULL);
     uint32_t elementIndex = 0; 
+    dataStructureModule->ReadLock();
     for (elementIndex = 0; elementIndex < numElementsInBuffer; 
       elementIndex++){
         debug(assert(faststats[elementIndex]));
@@ -509,7 +512,8 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
       //      numProcessed++;
         }
     }
-
+  
+    dataStructureModule->UnLock();
     return numSkipped;
 }
 
