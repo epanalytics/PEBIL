@@ -73,6 +73,8 @@ using namespace std;
 #endif
 
 #ifdef HAS_DATA_STRUCTURE_MODULE
+  #define ENTER_TOOL(m) if(runDataCentric) m->EnterTool()
+  #define EXIT_TOOL(m) if(runDataCentric) m->ExitTool()
   #define GENERATE_DATA_TOOL(m) new m()
   #define GENERATE_MODULE(m) m = new DataStructureModule()
   #define GET_DATA_STRUCTURE_ID(m, a) m->GetDataStructureID(a)
@@ -85,6 +87,8 @@ using namespace std;
   #define UNLOCK(m) if(runDataCentric) m->UnLock()
   #define WRITELOCK(m) if(runDataCentric) m->WriteLock()
 #else
+  #define ENTER_TOOL(m) 0
+  #define EXIT_TOOL(m) 0
   #define GENERATE_DATA_TOOL(m) 0
   #define GENERATE_MODULE(m) 0
   #define GET_DATA_STRUCTURE_ID(m, a) 0
@@ -192,6 +196,14 @@ void AddressStreamDriver::CreateSamplingMethod() {
 
 void AddressStreamDriver::DeleteAllData() {
     delete allData;
+}
+
+void AddressStreamDriver::EnterTool() {
+    ENTER_TOOL(dataStructureModule);
+}
+
+void AddressStreamDriver::ExitTool() {
+    EXIT_TOOL(dataStructureModule);
 }
 
 bool AddressStreamDriver::HasLiveInstrumentationPoints() {
@@ -365,11 +377,9 @@ void* AddressStreamDriver::InitializeNewImage(image_key_t* iid,
 }
 
 void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
+    dataStructureModule->RegisterThreadInDynamicTool();
+    dataStructureModule->EnterTool();
     SAVE_STREAM_FLAGS(cout);
-    WriteLockDSM();
-    //fprintf(stderr, "ASD::InitNewThread write lock\n");
-    SetInitThread();
-    PauseApplicationWrappers();
     if (allData){
         if(dynamicPoints->IsThreadedMode())
             allData->AddThread(tid);
@@ -384,24 +394,9 @@ void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
           MetasimError_NoThread);
     }
 
-    UnpauseApplicationWrappers();
-    UnsetInitThread();
-    //fprintf(stderr, "ASD::InitNewThread unlock\n");
-    UnLockDSM();
     RESTORE_STREAM_FLAGS(cout);
+    dataStructureModule->ExitTool();
     return NULL;
-}
-
-void AddressStreamDriver::SetInitThread() {
-    isInitThread = true;
-}
-
-void AddressStreamDriver::UnsetInitThread() {
-    isInitThread = false;
-}
-
-bool AddressStreamDriver::IsInitThreads() {
-    return isInitThread;
 }
 
 void AddressStreamDriver::InitializeStatsWithNewHandlers(AddressStreamStats* 
@@ -632,6 +627,7 @@ void AddressStreamDriver::SetUpDataStructureModule() {
 #ifdef HAS_DATA_STRUCTURE_MODULE
     int32_t stackDepth;
     bool setDepth = parser->ReadEnvInt32("METASIM_UNWIND_DEPTH", &stackDepth);
+    dataStructureModule->WriteLock();
     dataStructureModule->CreateContainer();
     dataStructureModule->SetDriver(this);
     dataStructureModule->SetVariableNameFile(variableNameFile);
@@ -639,6 +635,7 @@ void AddressStreamDriver::SetUpDataStructureModule() {
     dataStructureModule->CreateDynamicTool();
     if (setDepth)
         dataStructureModule->SetStackDepth(stackDepth);
+    dataStructureModule->UnLock();
 #endif
 }
 

@@ -140,9 +140,9 @@ extern "C" {
         SAVE_STREAM_FLAGS(cout);
 
         image_key_t iid = *key;
-        Driver->PauseApplicationWrappers();
+        Driver->EnterTool();
         Driver->ProcessThreadBuffer(iid, pthread_self());
-        Driver->UnpauseApplicationWrappers();
+        Driver->ExitTool();
 
         RESTORE_STREAM_FLAGS(cout);
         return NULL;

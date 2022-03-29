@@ -99,6 +99,9 @@ class AddressStreamDriver {
 
     void DeleteAllData();
 
+    void EnterTool();
+    void ExitTool();
+
     void* FinalizeImage(image_key_t*);
 
     DataManager<AddressStreamStats*>* GetAllData() { return allData; }
