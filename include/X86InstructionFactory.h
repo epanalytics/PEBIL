@@ -100,7 +100,12 @@ public:
     static X86Instruction* emitMoveZmmxToAlignedStack(uint8_t reg, uint8_t disp);
     static X86Instruction* emitMoveAlignedRegaddrToZmm(uint32_t zmm, uint32_t kreg, uint32_t base, uint32_t imm);
     static X86Instruction* emitMoveZmmToAlignedRegaddrImm(uint32_t zmm, uint32_t kreg, uint32_t base, uint32_t imm);
-    static X86Instruction* emitMoveZmmToUnalignedRegaddrImm(uint32_t zmm, uint32_t kreg, uint32_t base, uint32_t imm);
+    static X86Instruction* emitMoveYmmToUnalignedRegaddrImm(uint32_t ymm, 
+      uint32_t base, uint32_t imm);
+    static X86Instruction* emitMoveZmmToUnalignedRegaddrImm(uint32_t zmm, 
+      uint32_t kreg, uint32_t base, uint32_t imm, uint32_t zmm_size);
+    static X86Instruction* emitMoveZmmToUnalignedRegaddrImm(uint32_t zmm, 
+      uint32_t kreg, uint32_t base, uint32_t imm);
     static X86Instruction* emitFxSave(uint64_t addr);
     static X86Instruction* emitFxRstor(uint64_t addr);
     static X86Instruction* emitFxSaveReg(uint8_t reg);

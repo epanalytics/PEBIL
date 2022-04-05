@@ -1565,9 +1565,15 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
       offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
       true));
     // write index vector
-    snip->addSnippetInstruction(X86InstructionFactory64::
-      emitMoveZmmToUnalignedRegaddrImm(zmmReg, X86_REG_K0, sr2, 
-      offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, 
-      indexVector)));
+    if (vectorOp->isIndexRegZMM())
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveZmmToUnalignedRegaddrImm(zmmReg, X86_REG_K0, sr2, 
+          offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, 
+          indexVector), 512));
+    else
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveZmmToUnalignedRegaddrImm(zmmReg, X86_REG_K0, sr2, 
+          offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, 
+          indexVector), 256));
 
 } 
