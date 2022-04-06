@@ -218,13 +218,31 @@ uint64_t AddressStreamIntercept::getNumberOfGroups() {
 uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(){
 
     uint64_t numMemops = 0;
+    bool collectMax;
+    if (maxMemops == 0){
+        collectMax = true;
+    }
     for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
         BasicBlock* bb = blocksToInst[blockInd];
         ASSERT(blocksToInstHash.get(bb->getHashCode().getValue()));
-        numMemops += getNumberOfMemopsToInstrument(bb);
+        uint64_t curMemops = getNumberOfMemopsToInstrument(bb);
+        numMemops += curMemops;
+        if (collectMax){
+            if (curMemops > maxMemops) {
+                maxMemops = curMemops;
+            }
+        }
     }
 
     return numMemops;
+}
+
+// Get maximum number of memops in a single bb 
+uint64_t AddressStreamIntercept::getMaxMemopsInBasicBlock() {
+    if (maxMemops == 0){
+        getNumberOfMemopsToInstrument();
+    }
+    return maxMemops;
 }
 
 // Get the number of memops to instrument in a block
@@ -441,7 +459,7 @@ void AddressStreamIntercept::initializeBlocksToInst(){
 // Initialize special buffer entry
 void AddressStreamIntercept::initializeFirstBufferEntry(BufferEntry& intro){
     intro.__buf_current = 0;
-    intro.__buf_capacity = BUFFER_ENTRIES;
+    intro.__buf_capacity = GetBufferEntries();
 }
 
 // Initialize groups for sampling (blocks that are turned on and off together)
@@ -740,7 +758,7 @@ void AddressStreamIntercept::initializeAddressStreamStats(AddressStreamStats&
     BufferEntry intro;
     initializeFirstBufferEntry(intro);
     stats.Buffer = (BufferEntry*)reserveDataOffset((sizeof(BufferEntry) * 
-      (BUFFER_ENTRIES + 1)));
+      (GetBufferEntries() + 1)));
     initializeReservedData(getInstDataAddress() + (uint64_t)stats.Buffer,
                            sizeof(BufferEntry),
                            &intro);
@@ -920,8 +938,9 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
     bufferDumpInstructions->append(X86InstructionFactory64::
       emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_current), sr2));                            
     // compare current buffer+blockMemops to buffer max
+    uint64_t bufEnts = GetBufferEntries();
     bufferDumpInstructions->append(X86InstructionFactory64::emitCompareImmReg(
-      BUFFER_ENTRIES - numMemops, sr2));
+      bufEnts - numMemops, sr2));
 
     // jump to non-buffer-jump code
     bufferDumpInstructions->append(X86InstructionFactory::emitBranchJL(
@@ -1142,6 +1161,15 @@ void AddressStreamIntercept::instrument(){
     }
     writeStaticFile();
     ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase order must be observed"); 
+}
+
+uint64_t AddressStreamIntercept::GetBufferEntries() {
+    if (isThreadedMode()) {
+        uint64_t retVal = getMaxMemopsInBasicBlock();
+        return retVal;
+    } else {
+        return BUFFER_ENTRIES;
+    }
 }
 
 // Instrument the program entry with a function to initialize the Address 

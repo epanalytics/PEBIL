@@ -50,6 +50,7 @@ private:
     // Helpful variables for initializing data structures
     uint64_t nullLineInfoValue = 0;
     uint64_t simulationStatsOffset = 0;
+    uint64_t maxMemops = 0;
 
     // Functions to allocate space in the instrumented binary
     void allocateNullLineInfoValue();
@@ -61,6 +62,7 @@ private:
     void collectVectorEntry(BasicBlock*, X86Instruction*, uint32_t,
       AddressStreamStats&, uint32_t, uint32_t, uint32_t, uint8_t);
 
+    uint64_t getMaxMemopsInBasicBlock();
     uint64_t getNullLineInfoValue();
     uint32_t getNumberOfBlocksToInstrument();
     uint64_t getNumberOfGroups();
@@ -117,6 +119,7 @@ public:
     void declare();
     void instrument();
 
+    uint64_t GetBufferEntries();
     const char* briefName() { return "AddressStreamIntercept"; }
     const char* defaultExtension() { return "addstrinst"; }
     uint32_t allowsArgs() { return PEBIL_OPT_LPI | PEBIL_OPT_DTL | PEBIL_OPT_PHS | PEBIL_OPT_DFP; }
