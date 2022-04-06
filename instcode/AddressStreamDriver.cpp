@@ -83,6 +83,8 @@ using namespace std;
   #define PAUSE_MODULE(m) if(runDataCentric) m->PauseMemoryWrappers()
   #define PRINT_DATA_STRUCTURE_REPORT(m, s) if(runDataCentric) \
     m->PrintDataStructureReport(s)
+  #define READLOCK(m) if(runDataCentric) m->ReadLock()
+  #define REGISTER_TOOL(m) if (runDataCentric) m->RegisterThreadInDynamicTool()
   #define UNPAUSE_MODULE(m) if(runDataCentric) m->UnpauseMemoryWrappers()
   #define UNLOCK(m) if(runDataCentric) m->UnLock()
   #define WRITELOCK(m) if(runDataCentric) m->WriteLock()
@@ -96,7 +98,11 @@ using namespace std;
   #define DELETE_MODULE(m) 0
   #define PAUSE_MODULE(m) 0
   #define PRINT_DATA_STRUCTURE_REPORT(m, s) 0
+  #define READLOCK(m) 0
+  #define REGISTER_TOOL(m) 0
   #define UNPAUSE_MODULE(m) 0
+  #define UNLOCK(m) 0
+  #define WRITELOCK(m) 0
 #endif
 
 // Default Constructor
@@ -377,8 +383,8 @@ void* AddressStreamDriver::InitializeNewImage(image_key_t* iid,
 }
 
 void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
-    dataStructureModule->RegisterThreadInDynamicTool();
-    dataStructureModule->EnterTool();
+    RegisterThreadInDynamicTool();
+    EnterTool();
     SAVE_STREAM_FLAGS(cout);
     if (allData){
         if(dynamicPoints->IsThreadedMode())
@@ -395,7 +401,7 @@ void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
     }
 
     RESTORE_STREAM_FLAGS(cout);
-    dataStructureModule->ExitTool();
+    ExitTool();
     return NULL;
 }
 
@@ -468,7 +474,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
     AddressStreamStats** faststats = fastData->GetBufferStats(tid);
     assert(faststats != NULL);
     uint32_t elementIndex = 0; 
-    dataStructureModule->ReadLock();
+    ReadLockDSM();
     for (elementIndex = 0; elementIndex < numElementsInBuffer; 
       elementIndex++){
         debug(assert(faststats[elementIndex]));
@@ -513,7 +519,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
         }
     }
   
-    dataStructureModule->UnLock();
+    UnLockDSM();
     return numSkipped;
 }
 
@@ -625,6 +631,14 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     sampler->IncrementAccessCount(numElements);
 
     DONE_WITH_BUFFER();
+}
+
+void AddressStreamDriver::ReadLockDSM() {
+    READLOCK(dataStructureModule);
+}
+
+void AddressStreamDriver::RegisterThreadInDynamicTool() {
+    REGISTER_TOOL(dataStructureModule);
 }
 
 void AddressStreamDriver::SetUpDataStructureModule() {
