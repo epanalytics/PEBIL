@@ -161,6 +161,8 @@ class AddressStreamDriver {
       iid);
     void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
 
+    void ReadLockDSM();
+    void RegisterThreadInDynamicTool();
     void UnpauseApplicationWrappers();
     void UnLockDSM();
     void WriteLockDSM();
