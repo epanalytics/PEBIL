@@ -33,6 +33,10 @@
 #include <dlfcn.h>
 #include <signal.h>
 
+#include <iostream>
+#include <sstream>
+#include <string>
+
 #define PRINT_MINIMUM 1
 
 using namespace std;
@@ -165,21 +169,21 @@ void* tool_thread_fini(thread_key_t tid){
 
 extern "C"
 {
-    void ep_pebil_start() {
-        fprintf(stderr, "In ep_pebil_start\n");
+    void epa_pebil_start() {
+        fprintf(stderr, "In epa_pebil_start\n");
         DynamicPoints->SetDynamicPoints(BlockCountKeys, true);
         return;
     }
 
-    void ep_pebil_start_() { ep_pebil_start(); return; }
+    void epa_pebil_start_() { epa_pebil_start(); return; }
 
-    void ep_pebil_pause() {
-        fprintf(stderr, "In ep_pebil_pause\n");
+    void epa_pebil_pause() {
+        fprintf(stderr, "In epa_pebil_pause\n");
         DynamicPoints->SetDynamicPoints(BlockCountKeys, false);
         return;
     }
 
-    void ep_pebil_pause_() { ep_pebil_pause(); return; }
+    void epa_pebil_pause_() { epa_pebil_pause(); return; }
 
     static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
@@ -255,8 +259,11 @@ extern "C"
                 }
             }
 
-            // TODO: For now we'll start with off. See what happens
-            DynamicPoints->SetDynamicPoints(BlockCountKeys, false);
+            // If EPA_SLICER_START_OFF is set, then turn inst off
+            uint32_t startOff = 0;
+            (void) ReadEnvUint32("EPA_SLICER_START_OFF", &startOff);
+            if (startOff != 0)
+                DynamicPoints->SetDynamicPoints(BlockCountKeys, false);
         }
         assert(AllData->allimages.count(*key) == 1);
 
@@ -512,6 +519,18 @@ extern "C"
         return NULL;
     }
 };
+
+bool ReadEnvUint32(string name, uint32_t* var) {
+    char* e = getenv(name.c_str());
+    if (e == NULL)
+        return false;
+    istringstream stream(e);
+    int32_t val;
+    stream >> val;
+    *var = val;
+    return true;
+}
+    
 
 // For testing only
 void InitializeAllData(DataManager<CounterArray*>* d){

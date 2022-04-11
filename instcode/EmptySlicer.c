@@ -22,16 +22,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void ep_pebil_start() {
+void epa_pebil_start() {
     fprintf(stderr, "In EMPTY ep_pebil_start\n");
     return;
 }
 
-void ep_pebil_start_() { ep_pebil_start(); return; }
+void epa_pebil_start_() { epa_pebil_start(); return; }
 
-void ep_pebil_pause() {
-    fprintf(stderr, "In EMPTY ep_pebil_pause\n");
+void epa_pebil_pause() {
+    fprintf(stderr, "In EMPTY epa_pebil_pause\n");
     return;
 }
 
-void ep_pebil_pause_() { ep_pebil_pause(); return; }
+void epa_pebil_pause_() { epa_pebil_pause(); return; }

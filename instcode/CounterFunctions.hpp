@@ -48,6 +48,8 @@ CounterArray* GenerateCounterArray(CounterArray* ctrs, uint32_t typ,
 uint64_t RefCounterArray(CounterArray* ctrs);
 void DeleteCounterArray(CounterArray* ctrs);
 
+static bool ReadEnvUint32(std::string name, uint32_t* var);
+
 // For testing only
 class DynamicInstrumentation;
 template <class T> class DataManager;

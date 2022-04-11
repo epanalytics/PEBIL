@@ -191,21 +191,21 @@ uint64_t ReferenceFunctionTimers(FunctionTimers* timers){
 extern "C"
 {
 
-    void ep_pebil_start() {
-        fprintf(stderr, "In ep_pebil_start\n");
+    void epa_pebil_start() {
+        fprintf(stderr, "In epa_pebil_start\n");
         DynamicPoints->SetDynamicPoints(EntryExitKeys, true);
         return;
     }
 
-    void ep_pebil_start_() { ep_pebil_start(); return; }
+    void epa_pebil_start_() { epa_pebil_start(); return; }
 
-    void ep_pebil_pause() {
-        fprintf(stderr, "In ep_pebil_pause\n");
+    void epa_pebil_pause() {
+        fprintf(stderr, "In epa_pebil_pause\n");
         DynamicPoints->SetDynamicPoints(EntryExitKeys, false);
         return;
     }
 
-    void ep_pebil_pause_() { ep_pebil_pause(); return; }
+    void epa_pebil_pause_() { epa_pebil_pause(); return; }
 
     // start timer
     int32_t function_entry(uint32_t funcIndex, image_key_t* key) {
@@ -383,8 +383,11 @@ extern "C"
             }
         }
 
-        // TODO: For now we'll start with off. See what happens
-        DynamicPoints->SetDynamicPoints(EntryExitKeys, false);
+        // If EPA_SLICER_START_OFF is set, then turn inst off
+        uint32_t startOff = 0;
+        (void) ReadEnvUint32("EPA_SLICER_START_OFF", &startOff);
+        if (startOff != 0)
+            DynamicPoints->SetDynamicPoints(EntryExitKeys, false);
 
 
         pthread_mutex_unlock(&image_init_mutex);
