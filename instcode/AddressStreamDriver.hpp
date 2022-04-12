@@ -158,7 +158,7 @@ class AddressStreamDriver {
     void ShutOffInstrumentationInAllBlocks();
     void ShutOffInstrumentationInBlock(uint64_t blockID, uint64_t imageSeq);
     void ShutOffInstrumentationInBlocks(std::set<uint64_t>& blocks, image_key_t 
-      iid);
+      iid, bool suspend = true);
     void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
 
     void ReadLockDSM();
