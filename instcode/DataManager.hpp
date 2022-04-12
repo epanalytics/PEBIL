@@ -255,20 +255,20 @@ public:
         return firstimage;
     }
 
-    virtual uint32_t GetThreadSequence(thread_key_t tid){
-        ReadLock();
+    virtual uint32_t GetThreadSequence(thread_key_t tid, bool lock=true){
+        ReadLock(lock);
         if (threadseq.count(tid) != 1){
             inform << "Thread not available!?! " << std::hex << tid << ENDL;
         }
         assert(threadseq.count(tid) == 1 && 
           "thread must be added with AddThread method");
         uint32_t ret = threadseq[tid];
-        UnLock();
+        UnLock(lock);
         return ret;
     }
 
-    virtual image_key_t GetImageId(uint32_t imageSequence) {
-        ReadLock();
+    virtual image_key_t GetImageId(uint32_t imageSequence, bool lock=true) {
+        ReadLock(lock);
         image_key_t ret = firstimage;
         for (std::set<image_key_t>::iterator iit = allimages.begin(); iit !=
           allimages.end(); iit++){
@@ -278,7 +278,7 @@ public:
             }
         }
 
-        UnLock();
+        UnLock(lock);
         return ret;
     }
 
@@ -478,8 +478,8 @@ public:
     // The image must have been initialized
     // The thread might have escaped initialization if it was created before
     // this library was loaded
-    virtual T GetData(image_key_t iid, thread_key_t tid){
-        ReadLock();
+    virtual T GetData(image_key_t iid, thread_key_t tid, bool lock=true){
+        ReadLock(lock);
         if (datamap.count(iid) != 1){
             inform << "About to fail iid " << std::hex << iid << " check with "
               << std::dec << datamap.count(iid) << ENDL;
@@ -488,25 +488,22 @@ public:
           "Attempting to look up data for uninitialized image");
 
         if(datamap[iid].count(tid) != 1) {
-            UnLock();
+            UnLock(lock);
             AddThread(tid);
-            ReadLock();
+            ReadLock(lock);
         }
         T retVal = datamap[iid][tid];
-        UnLock();
+        UnLock(lock);
         return retVal;
     }
 
-    virtual uint32_t CountThreads(){
-        ReadLock();
+    virtual uint32_t CountThreads(bool lock=true){
+        ReadLock(lock);
         uint32_t ret = allthreads.size();
-        UnLock();
+        UnLock(lock);
         return ret;
     }
-    virtual uint32_t CountThreadsNoLock(){
-        uint32_t ret = allthreads.size();
-        return ret;
-    }
+
     virtual uint32_t CountImages(){
         ReadLock();
         uint32_t ret = allimages.size();
@@ -654,12 +651,13 @@ public:
 
     // synchronize this threads entry in stats with first num ids taken from
     // buffer using dataid
-    virtual void Refresh(V buffer, uint32_t num, thread_key_t tid){
+    virtual void Refresh(V buffer, uint32_t num, thread_key_t tid, bool
+      allDataLock){
         debug(assert(imagecount > 0));
         debug(assert(threadcount > 0));
         debug(assert(num <= capacity));
 
-        uint32_t threadseq = alldata->GetThreadSequence(tid);
+        uint32_t threadseq = alldata->GetThreadSequence(tid, allDataLock);
         if(threadseq >= threadcount) {
             AddThread(tid);
         }
@@ -684,7 +682,7 @@ public:
             dataid(buffer, &i);
 
             if (i == 0){
-                if (alldata->CountThreads() > 1){
+                if (alldata->CountThreads(allDataLock) > 1){
                     stats[threadseq][j] = NULL;
                     continue;
                 }
@@ -694,7 +692,7 @@ public:
             // If not the same image as last entry, look up the data
             if (i != ci){
                 ci = i;
-                di = alldata->GetData(i, tid);
+                di = alldata->GetData(i, tid, allDataLock);
             }
             stats[threadseq][j] = di;
 
@@ -703,11 +701,11 @@ public:
         UnLock();
     };
 
-    virtual T* GetBufferStats(thread_key_t tid){
+    virtual T* GetBufferStats(thread_key_t tid, bool allDataLock){
         assert(imagecount > 0);
         assert(threadcount > 0);
 
-        uint32_t threadseq = alldata->GetThreadSequence(tid);
+        uint32_t threadseq = alldata->GetThreadSequence(tid, allDataLock);
         assert(threadseq < threadcount);
 
         return stats[threadseq];

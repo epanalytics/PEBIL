@@ -145,7 +145,7 @@ class AddressStreamDriver {
     void PauseApplicationWrappers();
     void ProcessAllBuffers();
     uint64_t ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
-      uint32_t numElementsInBuffer);
+      uint32_t numElementsInBuffer, bool lock);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid, bool suspend =
       true);
 
@@ -162,11 +162,11 @@ class AddressStreamDriver {
       iid, bool suspend = true);
     void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
 
-    void ReadLockDSM();
+    void ReadLockDSM(bool lock=true);
     void RegisterThreadInDynamicTool();
     void UnpauseApplicationWrappers();
-    void UnLockDSM();
-    void WriteLockDSM();
+    void UnLockDSM(bool lock=true);
+    void WriteLockDSM(bool lock=true);
     void SetInitThread();
     void UnsetInitThread();
     bool IsInitThreads();

@@ -77,32 +77,32 @@ using namespace std;
   #define EXIT_TOOL(m) if(runDataCentric) m->ExitTool()
   #define GENERATE_DATA_TOOL(m) new m()
   #define GENERATE_MODULE(m) m = new DataStructureModule()
-  #define GET_DATA_STRUCTURE_ID(m, a) m->GetDataStructureID(a)
+  #define GET_DATA_STRUCTURE_ID(m, a, l) m->GetDataStructureID(a, l)
   #define GET_NUM_DATA_STRUCTURES(m, parser) m->GetNumberOfDataStructures(parser)
   #define DELETE_MODULE(m) delete m
   #define PAUSE_MODULE(m) if(runDataCentric) m->PauseMemoryWrappers()
   #define PRINT_DATA_STRUCTURE_REPORT(m, s) if(runDataCentric) \
     m->PrintDataStructureReport(s)
-  #define READLOCK(m) if(runDataCentric) m->ReadLock()
+  #define READLOCK(m, l) if(runDataCentric) m->ReadLock(l)
   #define REGISTER_TOOL(m) if (runDataCentric) m->RegisterThreadInDynamicTool()
   #define UNPAUSE_MODULE(m) if(runDataCentric) m->UnpauseMemoryWrappers()
-  #define UNLOCK(m) if(runDataCentric) m->UnLock()
-  #define WRITELOCK(m) if(runDataCentric) m->WriteLock()
+  #define UNLOCK(m, l) if(runDataCentric) m->UnLock(l)
+  #define WRITELOCK(m, l) if(runDataCentric) m->WriteLock(l)
 #else
   #define ENTER_TOOL(m) 0
   #define EXIT_TOOL(m) 0
   #define GENERATE_DATA_TOOL(m) 0
   #define GENERATE_MODULE(m) 0
-  #define GET_DATA_STRUCTURE_ID(m, a) 0
+  #define GET_DATA_STRUCTURE_ID(m, a, l) 0
   #define GET_NUM_DATA_STRUCTURES(m, parser) 0
   #define DELETE_MODULE(m) 0
   #define PAUSE_MODULE(m) 0
   #define PRINT_DATA_STRUCTURE_REPORT(m, s) 0
-  #define READLOCK(m) 0
+  #define READLOCK(m, l) 0
   #define REGISTER_TOOL(m) 0
   #define UNPAUSE_MODULE(m) 0
-  #define UNLOCK(m) 0
-  #define WRITELOCK(m) 0
+  #define UNLOCK(m, l) 0
+  #define WRITELOCK(m, l) 0
 #endif
 
 // Default Constructor
@@ -456,19 +456,12 @@ void AddressStreamDriver::PauseApplicationWrappers() {
 
 void AddressStreamDriver::ProcessAllBuffers() {
 
-    // Grab DM lock
-    allData->WriteLock();
-
-    // grab DSM lock
-    WriteLockDSM();
-
     //Suspend all threads
-    SuspendAllThreads(allData->CountThreadsNoLock(), 
+    EnterTool();
+    allData->WriteLock();
+    WriteLockDSM();
+    SuspendAllThreads(allData->CountThreads(false), 
       allData->allthreads.begin(), allData->allthreads.end());
-
-    // release both locks
-    UnLockDSM();
-    allData->UnLock();
 
     // Go through each image and thread and process their buffers
     for (set<image_key_t>::iterator iit = allData->allimages.begin();
@@ -481,20 +474,23 @@ void AddressStreamDriver::ProcessAllBuffers() {
 
     // resume all threads
     ResumeAllThreads();
+    UnLockDSM();
+    allData->UnLock();
+    ExitTool();
 }
 
 // Thread-safe function
 // Returns number of elements skipped
 uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid, 
-  thread_key_t tid, uint32_t numElementsInBuffer) {
+  thread_key_t tid, uint32_t numElementsInBuffer, bool lock) {
 
     //uint32_t threadSeq = allData->GetThreadSequence(tid);
     //uint32_t numProcessed = 0;
     uint64_t numSkipped = 0;
-    AddressStreamStats** faststats = fastData->GetBufferStats(tid);
+    AddressStreamStats** faststats = fastData->GetBufferStats(tid, lock);
     assert(faststats != NULL);
     uint32_t elementIndex = 0; 
-    ReadLockDSM();
+    ReadLockDSM(lock);
     for (elementIndex = 0; elementIndex < numElementsInBuffer; 
       elementIndex++){
         debug(assert(faststats[elementIndex]));
@@ -519,7 +515,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
 
             if (reference->imageid == 0){
-                debug(assert(AllData->CountThreads() > 1));
+                debug(assert(AllData->CountThreads(lock) > 1));
                 continue;
             }
 
@@ -528,7 +524,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             if (handlerIndex == numCodeCentricMemoryHandlers) {
                 // TODO: change to correct address
                 reference->memseq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
-                  reference->address);
+                  reference->address, lock);
             }
             if (handlerIndex >= numCodeCentricMemoryHandlers) {
                 ss->SetIsCodeCentric(false);
@@ -539,7 +535,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
         }
     }
   
-    UnLockDSM();
+    UnLockDSM(lock);
     return numSkipped;
 }
 
@@ -558,6 +554,9 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
 //   * Switch sampling on/off depending on sampler settings
 void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t 
   tid, bool suspend) {
+
+    // If we don't need to suspend, then we already have locks
+    bool lock = suspend;
 
 #define DONE_WITH_BUFFER(...) BUFFER_CURRENT(stats) = 0;  return NULL;
 
@@ -579,7 +578,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
     // Thread-safe call
     AddressStreamStats* stats = (AddressStreamStats*)allData->GetData(iid, 
-      tid);
+      tid, lock);
 
     // Thread-safe: Each thread has its own stats
     if (stats == NULL){
@@ -593,7 +592,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     uint64_t capacity = BUFFER_CAPACITY(stats);
 
     // Thread-safe call
-    uint32_t threadSeq = allData->GetThreadSequence(tid);
+    uint32_t threadSeq = allData->GetThreadSequence(tid, lock);
 
     debug(inform << "Thread " << hex << tid << TAB << "Image " << hex 
       << iid << TAB << "Counter " << dec << numElements << TAB 
@@ -610,12 +609,12 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
         // Refresh FastStats so it can be used
         // Thread-safe call
         BufferEntry* buffer = &(stats->Buffer[1]);
-        fastData->Refresh(buffer, numElements, tid);
+        fastData->Refresh(buffer, numElements, tid, lock);
 
         // Process the buffer for each memory handler
         // Thread-safe call
         uint64_t numSkipped = ProcessBufferForEachHandler(iid, tid, 
-          numElements);
+          numElements, lock);
         if (numSkipped > 0) {
             for (uint32_t i = 0; i < GetNumMemoryHandlers(); i++) {
                 MemoryStreamHandler* m = stats->Handlers[i];
@@ -641,13 +640,15 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     // Turn sampling on/off
     // Sampler is thread-safe
     if (sampler->SwitchesMode(numElements) && suspend){
+        allData->WriteLock();
         sampler->WriteLock();
-        SuspendAllThreads(allData->CountThreads(), 
+        SuspendAllThreads(allData->CountThreads(false), 
           allData->allthreads.begin(), allData->allthreads.end());
         dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys,
           !(isSampling));
-        sampler->UnLock();
         ResumeAllThreads();
+        sampler->UnLock();
+        allData->UnLock();
     }
 
     // Thread-safe
@@ -656,8 +657,8 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     DONE_WITH_BUFFER();
 }
 
-void AddressStreamDriver::ReadLockDSM() {
-    READLOCK(dataStructureModule);
+void AddressStreamDriver::ReadLockDSM(bool lock) {
+    READLOCK(dataStructureModule, lock);
 }
 
 void AddressStreamDriver::RegisterThreadInDynamicTool() {
@@ -861,7 +862,7 @@ void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint64_t>& blocks,
     if (suspend) {
         allData->WriteLock();
         sampler->WriteLock();
-        SuspendAllThreads(allData->CountThreadsNoLock(), 
+        SuspendAllThreads(allData->CountThreads(false), 
           allData->allthreads.begin(), allData->allthreads.end());
     }
 
@@ -903,30 +904,22 @@ void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid,
     // Can't combine this with above because a later block could cause 
     // group to exceed max
     set<uint64_t> blocksToRemove;
-   // AddressStreamStats* imageStats;
-   // bool checkNextKey = true;
-   // set<uint64_t>::iterator kit;
     allData->WriteLock();
     sampler->WriteLock();
-    SuspendAllThreads(allData->CountThreadsNoLock(), 
+    SuspendAllThreads(allData->CountThreads(false), 
       allData->allthreads.begin(), allData->allthreads.end());
-    //kit = liveMemoryAccessInstPointKyes->begin();
-    //checkNextKey = (kit != liveMemoryAccessInstPointKeys->end());
     
     for (set<uint64_t>::iterator it = liveMemoryAccessInstPointKeys->begin();
       it != liveMemoryAccessInstPointKeys->end(); it++) {
         uint64_t blockID = GET_BLOCKID(*it);
-        //image_key_t imageID = allData->GetImageId(GET_IMAGEID(*it));
-        // Don't touch keys in other images for now, since we would 
-        // need to get a data manager lock for that.
-        //if (imageID != iid)
-        //    continue;
-        //imageStats = (AddressStreamStats*)allData->GetData(imageID, tid);
+        image_key_t imageID = allData->GetImageId(GET_IMAGEID(*it), false);
+        // Only shut off for current image
+        if (imageID != iid)
+            continue;
         // If max count is reached, we will remove this block
         uint64_t blocksGroupId = stats->GroupIds[blockID]; 
-        bool removeBlock = sampler->ExceedsAccessLimit(stats->GroupCounters[
-          blocksGroupId], false);
-        if (removeBlock)
+        if (sampler->ExceedsAccessLimit(stats->GroupCounters[blocksGroupId], 
+          false))
             blocksToRemove.insert(blockID);            
     }
 
@@ -944,12 +937,12 @@ void AddressStreamDriver::UnpauseApplicationWrappers() {
     UNPAUSE_MODULE(dataStructureModule);
 }
 
-void AddressStreamDriver::UnLockDSM() {
-    UNLOCK(dataStructureModule);
+void AddressStreamDriver::UnLockDSM(bool lock) {
+    UNLOCK(dataStructureModule, lock);
 }
 
-void AddressStreamDriver::WriteLockDSM() {
-    WRITELOCK(dataStructureModule);
+void AddressStreamDriver::WriteLockDSM(bool lock) {
+    WRITELOCK(dataStructureModule, lock);
 }
 
 // For testing
