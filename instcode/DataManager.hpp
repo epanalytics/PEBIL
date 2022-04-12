@@ -229,17 +229,14 @@ public:
     //}
 
     void ReadLock(){
-        fprintf(stderr, "EEO AllData ReadLock: 0x%llx\n", pthread_self());
         (void) pthread_rwlock_rdlock(&rwlock);
     }
 
     void UnLock(){
-        fprintf(stderr, "EEO AllData UnLock: 0x%llx\n", pthread_self());
         (void) pthread_rwlock_unlock(&rwlock);
     }
 
     void WriteLock(){
-        fprintf(stderr, "EEO AllData WriteLock: 0x%llx\n", pthread_self());
         (void) pthread_rwlock_wrlock(&rwlock);
     }
 
@@ -543,12 +540,8 @@ private:
     // should suffice
     pthread_mutex_t lock;
 
-    void Lock(){ 
-        fprintf(stderr, "FastData Lock: 0x%llx\n", pthread_self());
-        pthread_mutex_lock(&lock); }
-    void UnLock(){ 
-        fprintf(stderr, "FastData UnLock: 0x%llx\n", pthread_self());
-        pthread_mutex_unlock(&lock); }
+    void Lock() { pthread_mutex_lock(&lock); }
+    void UnLock() { pthread_mutex_unlock(&lock); }
 
 public:
     // Must be called while allData has been initialized with only a single

@@ -142,14 +142,12 @@ class AddressStreamDriver {
     bool IsCodeCentric() { return runCodeCentric; }
     bool IsDataCentric() { return runDataCentric; }
 
-    // Used for threading purposes
-    bool threadsAreSuspended;
-
     void PauseApplicationWrappers();
     void ProcessAllBuffers();
     uint64_t ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer);
-    void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
+    void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid, bool suspend =
+      true);
 
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
@@ -161,7 +159,7 @@ class AddressStreamDriver {
     void ShutOffInstrumentationInAllBlocks();
     void ShutOffInstrumentationInBlock(uint64_t blockID, uint64_t imageSeq);
     void ShutOffInstrumentationInBlocks(std::set<uint64_t>& blocks, image_key_t 
-      iid);
+      iid, bool suspend = true);
     void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
 
     void ReadLockDSM();
