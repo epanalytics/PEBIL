@@ -121,6 +121,9 @@ AddressStreamDriver::AddressStreamDriver() {
     runCodeCentric = true;
     runDataCentric = false;
 
+    // Used for threading 
+    threadsAreSuspended = false;
+
     // Create the vector to store the tools
     tools = new vector<AddressStreamTool*>();
     numCodeCentricTools = 0;
@@ -453,6 +456,25 @@ void AddressStreamDriver::PauseApplicationWrappers() {
 }
 
 void AddressStreamDriver::ProcessAllBuffers() {
+    fprintf(stderr, "EEO ProcessAllBuffers()\n");
+
+    // Grab DM lock
+    allData->WriteLock();
+
+    // grab DSM lock
+    WriteLockDSM();
+
+    //Suspend all threads
+    SuspendAllThreads(allData->CountThreadsNoLock(), 
+      allData->allthreads.begin(), allData->allthreads.end());
+
+    // create a bool indicating above
+    threadsAreSuspended = true;
+
+    // release both locks
+    UnLockDSM();
+    allData->UnLock();
+
     // Go through each image and thread and process their buffers
     for (set<image_key_t>::iterator iit = allData->allimages.begin();
       iit != allData->allimages.end(); iit++) {
@@ -461,6 +483,11 @@ void AddressStreamDriver::ProcessAllBuffers() {
             ProcessThreadBuffer((*iit), (*it));
         }
     }
+
+    // resume all threads
+    threadsAreSuspended = false;
+    ResumeAllThreads();
+    fprintf(stderr, "EEO End ProcessAllBuffers()\n");
 }
 
 // Thread-safe function
@@ -538,6 +565,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
 //   * Switch sampling on/off depending on sampler settings
 void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t 
   tid) {
+    fprintf(stderr, "EEO ProcessThreadBuffer\n");
 
 #define DONE_WITH_BUFFER(...) BUFFER_CURRENT(stats) = 0;  return NULL;
 
@@ -582,6 +610,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
     // If there is no more instrumentation, return
     // Thread-Safe call
+    // EEO Below calls allData->ReadLock, will be issue with process all buffers
     if (!HasLiveInstrumentationPoints()){
         DONE_WITH_BUFFER();
     }
@@ -590,6 +619,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
         // Refresh FastStats so it can be used
         // Thread-safe call
         BufferEntry* buffer = &(stats->Buffer[1]);
+        fprintf(stderr, "EEO calling fastData->Refresh: 0x%llx\n", pthread_self());
         fastData->Refresh(buffer, numElements, tid);
 
         // Process the buffer for each memory handler
@@ -605,7 +635,25 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
         // Shut off any instrumentation if sample max is hit
         // Thread-safe: Calls thread-safe functions
-        ShutOffInstrumentationInMaxedGroups(iid, tid);
+        if (threadsAreSuspended) {
+            fprintf(stderr, "EEO threadsAreSuspended: true\n");
+        } else {
+            fprintf(stderr, "EEO threadsAreSuspended: false\n");
+        }
+        fprintf(stderr, "EEO A\n");
+        if (!threadsAreSuspended) {
+            SuspendAllThreads(allData->CountThreads(), 
+              allData->allthreads.begin(), allData->allthreads.end());
+            threadsAreSuspended = true;
+            ShutOffInstrumentationInMaxedGroups(iid, tid);
+            threadsAreSuspended = false;
+            ResumeAllThreads();
+        }
+        //Dead lock is between these two print statements
+        fprintf(stderr, "EEO B\n");
+        // EEO will this be hit by all threads eventually?
+        // EEO Can we suspend all threads and then resume? its what we do when
+        // accessing 
 
     // if not sampling            
     } else {
@@ -619,11 +667,15 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
     // Turn sampling on/off
     // Sampler is thread-safe
-    if (sampler->SwitchesMode(numElements)){
+    if (sampler->SwitchesMode(numElements) && !threadsAreSuspended){
+
+        // EEO why does SuspendAllThreads not work?
         SuspendAllThreads(allData->CountThreads(), 
           allData->allthreads.begin(), allData->allthreads.end());
+
         dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys,
           !(isSampling));
+
         ResumeAllThreads();
     }
 
@@ -835,8 +887,13 @@ void AddressStreamDriver::ShutOffInstrumentationInBlock(uint64_t blockID,
 void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint64_t>& blocks,
   image_key_t iid){
     // Make sure only one thread is executing this code
-    SuspendAllThreads(allData->CountThreads(), 
-      allData->allthreads.begin(), allData->allthreads.end());
+    bool suspendHere = false;
+    if (!threadsAreSuspended) {
+        suspendHere = true;
+        SuspendAllThreads(allData->CountThreads(), 
+          allData->allthreads.begin(), allData->allthreads.end());
+        threadsAreSuspended = true;
+    }
 
     uint64_t imageSequence = (uint32_t)allData->GetImageSequence(iid);
     
@@ -846,7 +903,10 @@ void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint64_t>& blocks,
         ShutOffInstrumentationInBlock(blockID, imageSequence);
     }
 
-    ResumeAllThreads();
+    if (suspendHere) {
+        threadsAreSuspended = false;
+        ResumeAllThreads();
+    }
 }
 
 void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid, 

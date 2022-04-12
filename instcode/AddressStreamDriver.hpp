@@ -142,6 +142,9 @@ class AddressStreamDriver {
     bool IsCodeCentric() { return runCodeCentric; }
     bool IsDataCentric() { return runDataCentric; }
 
+    // Used for threading purposes
+    bool threadsAreSuspended;
+
     void PauseApplicationWrappers();
     void ProcessAllBuffers();
     uint64_t ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 

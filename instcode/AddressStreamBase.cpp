@@ -122,16 +122,19 @@ void SamplingMethod::Print(){
 }
 
 bool SamplingMethod::ReadLock() {
+    fprintf(stderr, "EEO SamplingMethod ReadLock: 0x%llx\n", pthread_self());
     bool res = (pthread_rwlock_rdlock(&sampling_rwlock) == 0);
     return res;
 }
 
 bool SamplingMethod::UnLock() {
+    fprintf(stderr, "EEO SamplingMethod UnLock: 0x%llx\n", pthread_self());
     bool res = (pthread_rwlock_unlock(&sampling_rwlock) == 0);
     return res;
 }
 
 bool SamplingMethod::WriteLock() {
+    fprintf(stderr, "EEO SamplingMethod WriteLock: 0x%llx\n", pthread_self());
     bool res = (pthread_rwlock_wrlock(&sampling_rwlock) == 0);
     return res;
 }
@@ -143,14 +146,17 @@ MemoryStreamHandler::~MemoryStreamHandler(){
 }
 
 bool MemoryStreamHandler::TryLock(){
+    fprintf(stderr, "EEO MemoryStreamHandler TryLock: 0x%llx\n", pthread_self());
     return (pthread_mutex_trylock(&mlock) == 0);
 }
 
 bool MemoryStreamHandler::Lock(){
+    fprintf(stderr, "EEO MemoryStreamHandler Lock: 0x%llx\n", pthread_self());
     return (pthread_mutex_lock(&mlock) == 0);
 }
 
 bool MemoryStreamHandler::UnLock(){
+    fprintf(stderr, "EEO MemoryStreamHandler UnLock: 0x%llx\n", pthread_self());
     return (pthread_mutex_unlock(&mlock) == 0);
 }
 
