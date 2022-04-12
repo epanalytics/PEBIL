@@ -146,7 +146,7 @@ class AddressStreamDriver {
     void ProcessAllBuffers();
     uint64_t ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer, bool lock);
-    void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid, bool suspend =
+    void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid, bool suspend=
       true);
 
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
@@ -160,7 +160,8 @@ class AddressStreamDriver {
     void ShutOffInstrumentationInBlock(uint64_t blockID, uint64_t imageSeq);
     void ShutOffInstrumentationInBlocks(std::set<uint64_t>& blocks, image_key_t 
       iid, bool suspend = true);
-    void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
+    void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t, bool
+      suspend=true);
 
     void ReadLockDSM(bool lock=true);
     void RegisterThreadInDynamicTool();

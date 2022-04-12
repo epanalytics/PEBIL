@@ -624,8 +624,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
         // Shut off any instrumentation if sample max is hit
         // Thread-safe: Calls thread-safe functions
-        if (suspend)
-            ShutOffInstrumentationInMaxedGroups(iid, tid);
+        ShutOffInstrumentationInMaxedGroups(iid, tid, suspend);
 
     // if not sampling            
     } else {
@@ -639,16 +638,20 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
     // Turn sampling on/off
     // Sampler is thread-safe
-    if (sampler->SwitchesMode(numElements) && suspend){
-        allData->WriteLock();
+    if (sampler->SwitchesMode(numElements)){
         sampler->WriteLock();
-        SuspendAllThreads(allData->CountThreads(false), 
-          allData->allthreads.begin(), allData->allthreads.end());
+        if (suspend) {
+            allData->WriteLock();
+            SuspendAllThreads(allData->CountThreads(false), 
+              allData->allthreads.begin(), allData->allthreads.end());
+        }
         dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys,
           !(isSampling));
-        ResumeAllThreads();
+        if (suspend) {
+            ResumeAllThreads();
+            allData->UnLock();
+        }
         sampler->UnLock();
-        allData->UnLock();
     }
 
     // Thread-safe
@@ -882,11 +885,13 @@ void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint64_t>& blocks,
 }
 
 void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid, 
-  thread_key_t tid) {
+  thread_key_t tid, bool suspend) {
+
+    bool lock = suspend;
 
     // Thread-safe call
     AddressStreamStats* stats = (AddressStreamStats*)allData->GetData(iid, 
-      tid);
+      tid, lock);
 
     // Make sure group counters are up to date
     for(uint32_t i = 0; i < (stats->BlockCount); i++) {
@@ -904,10 +909,12 @@ void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid,
     // Can't combine this with above because a later block could cause 
     // group to exceed max
     set<uint64_t> blocksToRemove;
-    allData->WriteLock();
     sampler->WriteLock();
-    SuspendAllThreads(allData->CountThreads(false), 
-      allData->allthreads.begin(), allData->allthreads.end());
+    if (suspend) {
+        allData->WriteLock();
+        SuspendAllThreads(allData->CountThreads(false), 
+          allData->allthreads.begin(), allData->allthreads.end());
+    }
     
     for (set<uint64_t>::iterator it = liveMemoryAccessInstPointKeys->begin();
       it != liveMemoryAccessInstPointKeys->end(); it++) {
@@ -928,9 +935,11 @@ void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid,
     if (blocksToRemove.size() > 0)
         ShutOffInstrumentationInBlocks(blocksToRemove, iid, false);
 
-    ResumeAllThreads();
+    if (suspend) {
+        ResumeAllThreads();
+        allData->UnLock();
+    }
     sampler->UnLock();
-    allData->UnLock();
 }
 
 void AddressStreamDriver::UnpauseApplicationWrappers() {
