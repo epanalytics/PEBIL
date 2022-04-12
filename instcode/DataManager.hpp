@@ -228,16 +228,22 @@ public:
     //    return res;
     //}
 
-    void ReadLock(){
-        (void) pthread_rwlock_rdlock(&rwlock);
+    void ReadLock(bool lock=true) {
+        if (lock) {
+            (void) pthread_rwlock_rdlock(&rwlock);
+        }
     }
 
-    void UnLock(){
-        (void) pthread_rwlock_unlock(&rwlock);
+    void UnLock(bool lock=true){
+        if (lock) {
+            (void) pthread_rwlock_unlock(&rwlock);
+        }
     }
 
-    void WriteLock(){
-        (void) pthread_rwlock_wrlock(&rwlock);
+    void WriteLock(bool lock=true){
+        if (lock) {
+            (void) pthread_rwlock_wrlock(&rwlock);
+        }
     }
 
     // these can only be called correctly by the current thread
@@ -276,12 +282,12 @@ public:
         return ret;
     }
 
-    virtual uint32_t GetImageSequence(image_key_t iid){
-        ReadLock();
+    virtual uint32_t GetImageSequence(image_key_t iid, bool lock=true) {
+        ReadLock(lock);
         assert(imageseq.count(iid) == 1 && 
           "image must be added with AddImage method");
         uint32_t ret = imageseq[iid];
-        UnLock();
+        UnLock(lock);
         return ret;
     }
 
@@ -538,10 +544,17 @@ private:
     T** stats;
     // No STL containers and stats is indexed by thread...just a regular lock
     // should suffice
-    pthread_mutex_t lock;
+    pthread_mutex_t mlock;
 
-    void Lock() { pthread_mutex_lock(&lock); }
-    void UnLock() { pthread_mutex_unlock(&lock); }
+    void Lock(bool lock=true) { 
+      if (lock)
+          pthread_mutex_lock(&mlock); 
+    }
+
+    void UnLock(bool lock=true) {
+        if (lock)
+            pthread_mutex_unlock(&mlock);
+    }
 
 public:
     // Must be called while allData has been initialized with only a single
@@ -555,7 +568,7 @@ public:
         assert(alldata->CountThreads() == 1);
         assert(alldata->CountImages() == 1);
         assert(alldata->GetThreadSequence(pthread_self()) == 0);
-        pthread_mutex_init(&lock, NULL);
+        pthread_mutex_init(&mlock, NULL);
         Lock();
 
         stats = new T*[threadcount];

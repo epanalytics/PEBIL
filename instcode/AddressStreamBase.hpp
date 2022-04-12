@@ -78,7 +78,7 @@ class SamplingMethod {
     virtual ~SamplingMethod();
 
     virtual bool CurrentlySampling();
-    virtual bool ExceedsAccessLimit(uint64_t count);
+    virtual bool ExceedsAccessLimit(uint64_t count, bool lock=true);
     virtual uint64_t GetAccessCount() { return AccessCount; }
     uint64_t GetAccessLimit() { return AccessLimit; }
     virtual double GetSamplingFrequency();
@@ -88,9 +88,9 @@ class SamplingMethod {
     virtual bool SwitchesMode(uint64_t count);
     void Print();
 
-    bool ReadLock();
-    bool UnLock();
-    bool WriteLock();
+    void ReadLock(bool lock=true);
+    void UnLock(bool lock=true);
+    void WriteLock(bool lock=true);
 };
 
 // DFP and other interesting memory things extend this class.
@@ -106,8 +106,8 @@ class MemoryStreamHandler {
     // Number of addresses that appeared but aren't processed
     virtual void SkipAddresses(uint32_t numToSkip) {};
     virtual bool Verify() = 0;
-    bool Lock();
-    bool UnLock();
+    void Lock();
+    void UnLock();
     bool TryLock();
 
 };

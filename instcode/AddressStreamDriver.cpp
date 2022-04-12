@@ -214,9 +214,9 @@ void AddressStreamDriver::ExitTool() {
 
 bool AddressStreamDriver::HasLiveInstrumentationPoints() {
     // if there are keys, then still live
-    allData->ReadLock();
+    sampler->ReadLock();
     bool stillLive = !(liveMemoryAccessInstPointKeys->empty());
-    allData->UnLock();
+    sampler->UnLock();
     return stillLive;
 }
 
@@ -328,6 +328,7 @@ void AddressStreamDriver::InitializeKeys() {
     // buffer (PointType_bufferfill) so the sampler can turn them on/off
     set<uint64_t> keys;
     dynamicPoints->GetAllDynamicKeys(keys);
+    sampler->WriteLock();
     for (set<uint64_t>::iterator it = keys.begin(); it != keys.end(); it++) {
         uint64_t k = (*it);
         if (GET_TYPE(k) == PointType_bufferfill && 
@@ -335,6 +336,7 @@ void AddressStreamDriver::InitializeKeys() {
             liveMemoryAccessInstPointKeys->insert(k);
         }
     }
+    sampler->UnLock();
 
   
     // Disable them if sampling is turned off
@@ -623,8 +625,8 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
         // Shut off any instrumentation if sample max is hit
         // Thread-safe: Calls thread-safe functions
-        //if (suspend)
-        //    ShutOffInstrumentationInMaxedGroups(iid, tid);
+        if (suspend)
+            ShutOffInstrumentationInMaxedGroups(iid, tid);
 
     // if not sampling            
     } else {
@@ -639,10 +641,12 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     // Turn sampling on/off
     // Sampler is thread-safe
     if (sampler->SwitchesMode(numElements) && suspend){
+        sampler->WriteLock();
         SuspendAllThreads(allData->CountThreads(), 
           allData->allthreads.begin(), allData->allthreads.end());
         dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys,
           !(isSampling));
+        sampler->UnLock();
         ResumeAllThreads();
     }
 
@@ -855,11 +859,13 @@ void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint64_t>& blocks,
   image_key_t iid, bool suspend) {
     // Make sure only one thread is executing this code
     if (suspend) {
-        SuspendAllThreads(allData->CountThreads(), 
+        allData->WriteLock();
+        sampler->WriteLock();
+        SuspendAllThreads(allData->CountThreadsNoLock(), 
           allData->allthreads.begin(), allData->allthreads.end());
     }
 
-    uint64_t imageSequence = (uint32_t)allData->GetImageSequence(iid);
+    uint64_t imageSequence = (uint32_t)allData->GetImageSequence(iid, false);
     
     for (set<uint64_t>::iterator it = blocks.begin(); it != blocks.end(); 
       it++) {
@@ -869,6 +875,8 @@ void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint64_t>& blocks,
 
     if (suspend) {
         ResumeAllThreads();
+        sampler->UnLock();
+        allData->UnLock();
     }
 }
 
@@ -895,24 +903,41 @@ void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid,
     // Can't combine this with above because a later block could cause 
     // group to exceed max
     set<uint64_t> blocksToRemove;
-    AddressStreamStats* imageStats;
+   // AddressStreamStats* imageStats;
+   // bool checkNextKey = true;
+   // set<uint64_t>::iterator kit;
+    allData->WriteLock();
+    sampler->WriteLock();
+    SuspendAllThreads(allData->CountThreadsNoLock(), 
+      allData->allthreads.begin(), allData->allthreads.end());
+    //kit = liveMemoryAccessInstPointKyes->begin();
+    //checkNextKey = (kit != liveMemoryAccessInstPointKeys->end());
+    
     for (set<uint64_t>::iterator it = liveMemoryAccessInstPointKeys->begin();
       it != liveMemoryAccessInstPointKeys->end(); it++) {
         uint64_t blockID = GET_BLOCKID(*it);
-        image_key_t imageID = allData->GetImageId(GET_IMAGEID(*it));
-        imageStats = (AddressStreamStats*)allData->GetData(imageID, tid);
+        //image_key_t imageID = allData->GetImageId(GET_IMAGEID(*it));
+        // Don't touch keys in other images for now, since we would 
+        // need to get a data manager lock for that.
+        //if (imageID != iid)
+        //    continue;
+        //imageStats = (AddressStreamStats*)allData->GetData(imageID, tid);
         // If max count is reached, we will remove this block
-        uint64_t blocksGroupId = imageStats->GroupIds[blockID]; 
-        if (sampler->ExceedsAccessLimit(imageStats->GroupCounters[
-          blocksGroupId])) {
+        uint64_t blocksGroupId = stats->GroupIds[blockID]; 
+        bool removeBlock = sampler->ExceedsAccessLimit(stats->GroupCounters[
+          blocksGroupId], false);
+        if (removeBlock)
             blocksToRemove.insert(blockID);            
-        }
     }
 
     // Only call this if there are blocks to remove since it will suspend 
     // threads
     if (blocksToRemove.size() > 0)
-        ShutOffInstrumentationInBlocks(blocksToRemove, iid);
+        ShutOffInstrumentationInBlocks(blocksToRemove, iid, false);
+
+    ResumeAllThreads();
+    sampler->UnLock();
+    allData->UnLock();
 }
 
 void AddressStreamDriver::UnpauseApplicationWrappers() {

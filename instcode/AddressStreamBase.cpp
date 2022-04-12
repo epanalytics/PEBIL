@@ -84,13 +84,13 @@ bool SamplingMethod::CurrentlySampling(uint64_t count){
     return res;
 }
 
-bool SamplingMethod::ExceedsAccessLimit(uint64_t count){
-    ReadLock();
+bool SamplingMethod::ExceedsAccessLimit(uint64_t count, bool lock){
+    ReadLock(lock);
     bool res = false;
     if (AccessLimit > 0 && count > AccessLimit){
         res = true;
     }
-    UnLock();
+    UnLock(lock);
     return res;
 }
 
@@ -121,19 +121,22 @@ void SamplingMethod::Print(){
     UnLock();
 }
 
-bool SamplingMethod::ReadLock() {
-    bool res = (pthread_rwlock_rdlock(&sampling_rwlock) == 0);
-    return res;
+void SamplingMethod::ReadLock(bool lock) {
+    if (lock)
+        bool res = (pthread_rwlock_rdlock(&sampling_rwlock) == 0);
+    return;
 }
 
-bool SamplingMethod::UnLock() {
-    bool res = (pthread_rwlock_unlock(&sampling_rwlock) == 0);
-    return res;
+void SamplingMethod::UnLock(bool lock) {
+    if (lock)
+        bool res = (pthread_rwlock_unlock(&sampling_rwlock) == 0);
+    return;
 }
 
-bool SamplingMethod::WriteLock() {
-    bool res = (pthread_rwlock_wrlock(&sampling_rwlock) == 0);
-    return res;
+void SamplingMethod::WriteLock(bool lock) {
+    if (lock)
+        bool res = (pthread_rwlock_wrlock(&sampling_rwlock) == 0);
+    return;
 }
 
 MemoryStreamHandler::MemoryStreamHandler(){
@@ -146,12 +149,14 @@ bool MemoryStreamHandler::TryLock(){
     return (pthread_mutex_trylock(&mlock) == 0);
 }
 
-bool MemoryStreamHandler::Lock(){
-    return (pthread_mutex_lock(&mlock) == 0);
+void MemoryStreamHandler::Lock(){
+    bool res = (pthread_mutex_lock(&mlock) == 0);
+    return;
 }
 
-bool MemoryStreamHandler::UnLock(){
-    return (pthread_mutex_unlock(&mlock) == 0);
+void MemoryStreamHandler::UnLock(){
+    bool res = (pthread_mutex_unlock(&mlock) == 0);
+    return;
 }
 
 char* StringParser::GetEnv(const char* variable){
