@@ -57,18 +57,18 @@ SamplingMethod::SamplingMethod(uint32_t limit, uint32_t on, uint32_t off){
 SamplingMethod::~SamplingMethod(){
 }
 
-bool SamplingMethod::CurrentlySampling(){
-    return CurrentlySampling(0);
+bool SamplingMethod::CurrentlySampling(bool lock){
+    return CurrentlySampling(0, lock);
 }
 
 // Returns if would be sampling after "count" samples
-bool SamplingMethod::CurrentlySampling(uint64_t count){
-    ReadLock();
+bool SamplingMethod::CurrentlySampling(uint64_t count, bool lock){
+    ReadLock(lock);
     uint32_t PeriodLength = SampleOn + SampleOff;
 
     bool res = false;
     if (SampleOn == 0){
-        UnLock();
+        UnLock(lock);
         return res;
     }
 
@@ -80,7 +80,7 @@ bool SamplingMethod::CurrentlySampling(uint64_t count){
         res = true;
     }
     
-    UnLock();
+    UnLock(lock);
     return res;
 }
 
@@ -105,14 +105,14 @@ double SamplingMethod::GetSamplingFrequency() {
     return frequency;
 }
 
-void SamplingMethod::IncrementAccessCount(uint64_t count){
-    WriteLock();
+void SamplingMethod::IncrementAccessCount(uint64_t count, bool lock){
+    WriteLock(lock);
     AccessCount += count;
-    UnLock();
+    UnLock(lock);
 }
 
-bool SamplingMethod::SwitchesMode(uint64_t count){
-    return (CurrentlySampling(0) != CurrentlySampling(count));
+bool SamplingMethod::SwitchesMode(uint64_t count, bool lock){
+    return (CurrentlySampling(0, lock) != CurrentlySampling(count, lock));
 }
 
 void SamplingMethod::Print(){

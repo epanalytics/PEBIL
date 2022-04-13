@@ -121,7 +121,7 @@ class AddressStreamDriver {
     uint32_t GetNumMemoryHandlers() { return numMemoryHandlers; }
     uint32_t GetNumTools() { return tools->size(); }
 
-    bool HasLiveInstrumentationPoints();
+    bool HasLiveInstrumentationPoints(bool lock=true);
 
     void InitializeAddressStreamDriver(DataManager<AddressStreamStats*>* d);
     void InitializeKeys();

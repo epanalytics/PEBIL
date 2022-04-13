@@ -212,11 +212,11 @@ void AddressStreamDriver::ExitTool() {
     EXIT_TOOL(dataStructureModule);
 }
 
-bool AddressStreamDriver::HasLiveInstrumentationPoints() {
+bool AddressStreamDriver::HasLiveInstrumentationPoints(bool lock) {
     // if there are keys, then still live
-    sampler->ReadLock();
+    sampler->ReadLock(lock);
     bool stillLive = !(liveMemoryAccessInstPointKeys->empty());
-    sampler->UnLock();
+    sampler->UnLock(lock);
     return stillLive;
 }
 
@@ -459,6 +459,7 @@ void AddressStreamDriver::ProcessAllBuffers() {
     //Suspend all threads
     EnterTool();
     allData->WriteLock();
+    sampler->WriteLock();
     WriteLockDSM();
     SuspendAllThreads(allData->CountThreads(false), 
       allData->allthreads.begin(), allData->allthreads.end());
@@ -475,6 +476,7 @@ void AddressStreamDriver::ProcessAllBuffers() {
     // resume all threads
     ResumeAllThreads();
     UnLockDSM();
+    sampler->UnLock();
     allData->UnLock();
     ExitTool();
 }
@@ -563,7 +565,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     // Check if we are sampling
     // Thread-safe: Sampling method protected with lock
     bool isSampling;
-    isSampling = sampler->CurrentlySampling();
+    isSampling = sampler->CurrentlySampling(lock);
 
     assert(iid);
     if (allData == NULL){
@@ -601,7 +603,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
     // If there is no more instrumentation, return
     // Thread-Safe call
-    if (!HasLiveInstrumentationPoints()){
+    if (!HasLiveInstrumentationPoints(lock)){
         DONE_WITH_BUFFER();
     }
 
@@ -638,10 +640,10 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
     // Turn sampling on/off
     // Sampler is thread-safe
-    if (sampler->SwitchesMode(numElements)){
-        sampler->WriteLock();
+    if (sampler->SwitchesMode(numElements, lock)){
         if (suspend) {
             allData->WriteLock();
+            sampler->WriteLock();
             SuspendAllThreads(allData->CountThreads(false), 
               allData->allthreads.begin(), allData->allthreads.end());
         }
@@ -649,13 +651,13 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
           !(isSampling));
         if (suspend) {
             ResumeAllThreads();
+            sampler->UnLock();
             allData->UnLock();
         }
-        sampler->UnLock();
     }
 
     // Thread-safe
-    sampler->IncrementAccessCount(numElements);
+    sampler->IncrementAccessCount(numElements, lock);
 
     DONE_WITH_BUFFER();
 }
@@ -909,9 +911,9 @@ void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid,
     // Can't combine this with above because a later block could cause 
     // group to exceed max
     set<uint64_t> blocksToRemove;
-    sampler->WriteLock();
     if (suspend) {
         allData->WriteLock();
+        sampler->WriteLock();
         SuspendAllThreads(allData->CountThreads(false), 
           allData->allthreads.begin(), allData->allthreads.end());
     }
@@ -937,9 +939,9 @@ void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid,
 
     if (suspend) {
         ResumeAllThreads();
+        sampler->UnLock();
         allData->UnLock();
     }
-    sampler->UnLock();
 }
 
 void AddressStreamDriver::UnpauseApplicationWrappers() {
