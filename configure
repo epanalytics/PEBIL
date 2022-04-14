@@ -645,6 +645,7 @@ PEBIL_MPIFC_OPENMPI_LIB
 OPENMPI_IS_NEW
 PEBIL_CXX_BINDINGS
 PEBIL_STATIC_BUILD
+PEBIL_VERBOSE_SLICER
 PEBIL_DEBUG
 MPICXX
 MPIFC
@@ -709,6 +710,7 @@ ac_user_opts='
 enable_option_checking
 enable_mpi
 enable_debug
+enable_verbose_slicer
 enable_static
 enable_mpicxxbind
 enable_adamant
@@ -1361,6 +1363,7 @@ Optional Features:
   --enable-mpi            Use mpi compiler when building instrumentation
                           libraries [yes]
   --debug                 Print debugging information [no]
+  --enable-verbose-slicer PEBIL Slicer should print output in pause/restart]
   --enable-static         Build a statically-linked pebil executable in
                           addition to a dynamically-linked executable [yes]
   --enable-mpicxxbind     Assume C++ bindings during build [yes]
@@ -5871,6 +5874,19 @@ if test "$debug_ok" !="yes"; then
     PEBIL_DEBUG="-DWARNING_SEVERITY=20"
 else
     PEBIL_DEBUG="-DINFORM"
+fi
+
+
+# Pebil Slicer Debug Output
+# Check whether --enable-verbose-slicer was given.
+if test "${enable_verbose_slicer+set}" = set; then :
+  enableval=$enable_verbose_slicer; verbose_slicer_ok=$enableval
+fi
+
+if test "$verbose_slicer_ok" == "yes"; then
+   PEBIL_VERBOSE_SLICER="-DVERBOSE_SLICER"
+else
+   PEBIL_VERBOSE_SLICER=""
 fi
 
 

@@ -23,14 +23,18 @@
 #include <stdlib.h>
 
 void epa_pebil_start() {
-    fprintf(stderr, "In EMPTY ep_pebil_start\n");
+#ifdef VERBOSE_SLICER
+    fprintf(stdout, "In EMPTY ep_pebil_start\n");
+#endif
     return;
 }
 
 void epa_pebil_start_() { epa_pebil_start(); return; }
 
 void epa_pebil_pause() {
-    fprintf(stderr, "In EMPTY epa_pebil_pause\n");
+#ifdef VERBOSE_SLICER
+    fprintf(stdout, "In EMPTY epa_pebil_pause\n");
+#endif
     return;
 }
 
