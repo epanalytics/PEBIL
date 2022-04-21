@@ -50,7 +50,6 @@ private:
     // Helpful variables for initializing data structures
     uint64_t nullLineInfoValue = 0;
     uint64_t simulationStatsOffset = 0;
-    uint64_t maxMemops = 0;
 
     // Functions to allocate space in the instrumented binary
     void allocateNullLineInfoValue();

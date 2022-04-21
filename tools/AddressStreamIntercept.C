@@ -218,31 +218,14 @@ uint64_t AddressStreamIntercept::getNumberOfGroups() {
 uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(){
 
     uint64_t numMemops = 0;
-    bool collectMax;
-    if (maxMemops == 0){
-        collectMax = true;
-    }
     for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
         BasicBlock* bb = blocksToInst[blockInd];
         ASSERT(blocksToInstHash.get(bb->getHashCode().getValue()));
         uint64_t curMemops = getNumberOfMemopsToInstrument(bb);
         numMemops += curMemops;
-        if (collectMax){
-            if (curMemops > maxMemops) {
-                maxMemops = curMemops;
-            }
-        }
     }
 
     return numMemops;
-}
-
-// Get maximum number of memops in a single bb 
-uint64_t AddressStreamIntercept::getMaxMemopsInBasicBlock() {
-    if (maxMemops == 0){
-        getNumberOfMemopsToInstrument();
-    }
-    return maxMemops;
 }
 
 // Get the number of memops to instrument in a block
@@ -1164,12 +1147,7 @@ void AddressStreamIntercept::instrument(){
 }
 
 uint64_t AddressStreamIntercept::GetBufferEntries() {
-    if (isThreadedMode()) {
-        uint64_t retVal = getMaxMemopsInBasicBlock();
-        return retVal;
-    } else {
-        return BUFFER_ENTRIES;
-    }
+    return BUFFER_ENTRIES;
 }
 
 // Instrument the program entry with a function to initialize the Address 
