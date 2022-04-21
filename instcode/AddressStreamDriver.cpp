@@ -73,8 +73,8 @@ using namespace std;
 #endif
 
 #ifdef HAS_DATA_STRUCTURE_MODULE
-  #define ENTER_TOOL(m) if(runDataCentric) m->EnterTool()
-  #define EXIT_TOOL(m) if(runDataCentric) m->ExitTool()
+  #define ENTER_TOOL(m) m->EnterTool()
+  #define EXIT_TOOL(m, b) if(runDataCentric) m->ExitTool(b)
   #define GENERATE_DATA_TOOL(m) new m()
   #define GENERATE_MODULE(m) m = new DataStructureModule()
   #define GET_DATA_STRUCTURE_ID(m, a, l) m->GetDataStructureID(a, l)
@@ -89,8 +89,8 @@ using namespace std;
   #define UNLOCK(m, l) if(runDataCentric) m->UnLock(l)
   #define WRITELOCK(m, l) if(runDataCentric) m->WriteLock(l)
 #else
-  #define ENTER_TOOL(m) 0
-  #define EXIT_TOOL(m) 0
+  #define ENTER_TOOL(m) false
+  #define EXIT_TOOL(m, b) 0
   #define GENERATE_DATA_TOOL(m) 0
   #define GENERATE_MODULE(m) 0
   #define GET_DATA_STRUCTURE_ID(m, a, l) 0
@@ -204,12 +204,18 @@ void AddressStreamDriver::DeleteAllData() {
     delete allData;
 }
 
-void AddressStreamDriver::EnterTool() {
-    ENTER_TOOL(dataStructureModule);
+// Return if the tool needed to be entered
+// Pass to exit tool
+bool AddressStreamDriver::EnterTool() {
+    if (runDataCentric)
+        return ENTER_TOOL(dataStructureModule);
+    else
+        return false;
 }
 
-void AddressStreamDriver::ExitTool() {
-    EXIT_TOOL(dataStructureModule);
+// Pass value from enter tool
+void AddressStreamDriver::ExitTool(bool needToExit) {
+    EXIT_TOOL(dataStructureModule, needToExit);
 }
 
 bool AddressStreamDriver::HasLiveInstrumentationPoints(bool lock) {
@@ -386,7 +392,7 @@ void* AddressStreamDriver::InitializeNewImage(image_key_t* iid,
 
 void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
     RegisterThreadInDynamicTool();
-    EnterTool();
+    bool entered = EnterTool();
     SAVE_STREAM_FLAGS(cout);
     if (allData){
         if(dynamicPoints->IsThreadedMode())
@@ -403,7 +409,7 @@ void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
     }
 
     RESTORE_STREAM_FLAGS(cout);
-    ExitTool();
+    ExitTool(entered);
     return NULL;
 }
 
@@ -457,7 +463,8 @@ void AddressStreamDriver::PauseApplicationWrappers() {
 void AddressStreamDriver::ProcessAllBuffers() {
 
     //Suspend all threads
-    EnterTool();
+    bool entered = EnterTool();
+    fastData->Lock();
     allData->WriteLock();
     sampler->WriteLock();
     WriteLockDSM();
@@ -478,7 +485,8 @@ void AddressStreamDriver::ProcessAllBuffers() {
     UnLockDSM();
     sampler->UnLock();
     allData->UnLock();
-    ExitTool();
+    fastData->UnLock();
+    ExitTool(entered);
 }
 
 // Thread-safe function
@@ -526,7 +534,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             if (handlerIndex == numCodeCentricMemoryHandlers) {
                 // TODO: change to correct address
                 reference->memseq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
-                  reference->address, lock);
+                  reference->address, false);
             }
             if (handlerIndex >= numCodeCentricMemoryHandlers) {
                 ss->SetIsCodeCentric(false);

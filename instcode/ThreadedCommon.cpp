@@ -97,14 +97,16 @@ extern "C" {
         assert(CountSuspended == 0);
         pthread_mutex_lock(&pauser);
 
+        uint32_t ksize = size - 1;
         for (set<thread_key_t>::iterator tit = b; tit != e; tit++){
             if ((*tit) != pthread_self()){
-                pthread_kill((*tit), SuspendSignal);
+                int ret = pthread_kill((*tit), SuspendSignal);
+                if (ret != 0)
+                    ksize = ksize - 1;
             }
         }
 
         // wait for all other threads to reach paused state
-        uint32_t ksize = size - 1;
         while (CountSuspended < ksize){
             pthread_yield();
         }

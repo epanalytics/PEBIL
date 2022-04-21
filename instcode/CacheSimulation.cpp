@@ -428,7 +428,7 @@ void CacheSimulationTool::PrintApplicationHeader(ofstream& file,
   DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
   uint64_t totalMemop, uint64_t sampledCount) {
 
-    AddressStreamStats* stats = AllData->GetData(pthread_self());
+    AddressStreamStats* stats = AllData->GetData();
     uint32_t numCaches = handlers.size();
     // Print the application and address stream information
     file << "# appname       = " << stats->Application << ENDL

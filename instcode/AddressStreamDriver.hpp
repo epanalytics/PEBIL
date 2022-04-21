@@ -99,8 +99,8 @@ class AddressStreamDriver {
 
     void DeleteAllData();
 
-    void EnterTool();
-    void ExitTool();
+    bool EnterTool();
+    void ExitTool(bool needToExit);
 
     void* FinalizeImage(image_key_t*);
 
