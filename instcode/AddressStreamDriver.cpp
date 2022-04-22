@@ -503,6 +503,9 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
     ReadLockDSM(lock);
     for (elementIndex = 0; elementIndex < numElementsInBuffer; 
       elementIndex++){
+
+        debug(assert(elementIndex >= 0));
+        debug(assert(elementIndex < numElementsInBuffer));
         debug(assert(faststats[elementIndex]));
         debug(assert(faststats[elementIndex]->Stats));
 
@@ -533,6 +536,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             // memop ID to the data structure ID
             if (handlerIndex == numCodeCentricMemoryHandlers) {
                 // TODO: change to correct address
+                // TODO: This address is WRONG OMG *facepalm*
                 reference->memseq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
                   reference->address, false);
             }

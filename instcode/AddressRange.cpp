@@ -313,7 +313,8 @@ uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
         uint32_t memid = (uint32_t)access->memseq;
         uint64_t addr = access->address;
         RangeStats* rs = (RangeStats*)stats;
-        rs->Update(memid, addr);
+        if (addr != 0)
+            rs->Update(memid, addr);
         return 0;
     } else if (access->type == VECTOR_ENTRY) {
         uint64_t currAddr;
@@ -326,7 +327,8 @@ uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
                 currAddr = (access->vectorAddress).base + 
                   (access->vectorAddress).indexVector[i] * 
                   (access->vectorAddress).scale;
-                rs->Update(memid, currAddr);
+                  if (currAddr != 0)
+                      rs->Update(memid, currAddr);
             }
             mask = (mask >> 1);
         }

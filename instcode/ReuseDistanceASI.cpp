@@ -164,7 +164,8 @@ uint32_t ReuseDistanceHandler::Process(void* stats, BufferEntry* access) {
         entry.id = access->memseq;
     }
     entry.address = access->address;
-    internalHandler->Process(entry);
+    if (access->address != 0)
+        internalHandler->Process(entry);
     return 0;
 }
 

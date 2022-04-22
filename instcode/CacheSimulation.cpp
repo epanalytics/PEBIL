@@ -1133,6 +1133,9 @@ void CacheStructureHandler::PostProcessAddress(CacheStats* stats, uint64_t
 uint32_t CacheStructureHandler::ProcessAddress(CacheStats* stats, uint64_t 
   address, uint64_t memseq, uint8_t load) {
 
+    if (address == 0)
+        return 0;
+
     EvictionInfo evictInfo;
     evictInfo.level = INVALID_CACHE_LEVEL;
     uint32_t currLevel = 0;
