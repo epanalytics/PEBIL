@@ -118,15 +118,15 @@ extern "C" {
         if (Driver->GetAllData() == NULL){
             init_signal_handlers(true);
             DataManager<AddressStreamStats*>* AllData;
-            AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats, 
+            AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats,
               DeleteStreamStats, ReferenceStreamStats);
             Driver->InitializeAddressStreamDriver(AllData);
         }
         assert(Driver);
 
-        Driver->PauseApplicationWrappers();
+        bool entered = Driver->EnterTool();
         (void) Driver->InitializeNewImage(key, stats, td);
-        Driver->UnpauseApplicationWrappers();
+        Driver->ExitTool(entered);
 
         pthread_rwlock_unlock(&dynamic_init_rwlock);
 

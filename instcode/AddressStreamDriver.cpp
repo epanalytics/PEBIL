@@ -395,13 +395,16 @@ void* AddressStreamDriver::InitializeNewThread(thread_key_t tid){
     bool entered = EnterTool();
     SAVE_STREAM_FLAGS(cout);
     if (allData){
-        if(dynamicPoints->IsThreadedMode())
-            allData->AddThread(tid);
+        if(dynamicPoints->IsThreadedMode()) {
+            assert(fastData);
+            fastData->Lock();
+            allData->WriteLock();
+            allData->AddThread(tid, false);
+            fastData->AddThread(tid, false);
+            allData->UnLock();
+            fastData->UnLock();
+        }
         InitializeSuspendHandler();
-
-        assert(fastData);
-        if(dynamicPoints->IsThreadedMode())
-            fastData->AddThread(tid);
     } else {
         ErrorExit("Calling PEBIL thread initialization library for thread " 
           << hex << tid << " but no images have been initialized.", 
@@ -494,13 +497,10 @@ void AddressStreamDriver::ProcessAllBuffers() {
 uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid, 
   thread_key_t tid, uint32_t numElementsInBuffer, bool lock) {
 
-    //uint32_t threadSeq = allData->GetThreadSequence(tid);
-    //uint32_t numProcessed = 0;
     uint64_t numSkipped = 0;
     AddressStreamStats** faststats = fastData->GetBufferStats(tid, lock);
     assert(faststats != NULL);
     uint32_t elementIndex = 0; 
-    ReadLockDSM(lock);
     for (elementIndex = 0; elementIndex < numElementsInBuffer; 
       elementIndex++){
 
@@ -545,11 +545,9 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             }
 
             (void) handler->Process((void*)ss, reference);
-      //      numProcessed++;
         }
     }
   
-    UnLockDSM(lock);
     return numSkipped;
 }
 
@@ -573,6 +571,16 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     bool lock = suspend;
 
 #define DONE_WITH_BUFFER(...) BUFFER_CURRENT(stats) = 0;  return NULL;
+
+    // Prevent another thread from executing this code for this thread's 
+    // buffer at the same time as this thread. This currently can only 
+    // happen during a data-centric, coming from ProcessAllBuffers.
+    // ProcessAllBuffers takes the data structure module read lock, so 
+    // getting a write lock would prevent it from processing this buffer.
+    // We grab the data structure module read lock so that other threads can 
+    // process their own buffers concurrently and so that we don't change 
+    // anything for a code-centric-only run
+    ReadLockDSM(lock);
 
     // Check if we are sampling
     // Thread-safe: Sampling method protected with lock
@@ -616,6 +624,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     // If there is no more instrumentation, return
     // Thread-Safe call
     if (!HasLiveInstrumentationPoints(lock)){
+        UnLockDSM(lock);
         DONE_WITH_BUFFER();
     }
 
@@ -654,7 +663,9 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     // Sampler is thread-safe
     if (sampler->SwitchesMode(numElements, lock)){
         if (suspend) {
-            allData->WriteLock();
+            allData->ReadLock();
+            // We are modifiying dynamic points. Use the sampler write 
+            // lock to protect this action
             sampler->WriteLock();
             SuspendAllThreads(allData->CountThreads(false), 
               allData->allthreads.begin(), allData->allthreads.end());
@@ -671,6 +682,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     // Thread-safe
     sampler->IncrementAccessCount(numElements, lock);
 
+    UnLockDSM(lock);
     DONE_WITH_BUFFER();
 }
 
@@ -877,7 +889,7 @@ void AddressStreamDriver::ShutOffInstrumentationInBlocks(set<uint64_t>& blocks,
   image_key_t iid, bool suspend) {
     // Make sure only one thread is executing this code
     if (suspend) {
-        allData->WriteLock();
+        allData->ReadLock();
         sampler->WriteLock();
         SuspendAllThreads(allData->CountThreads(false), 
           allData->allthreads.begin(), allData->allthreads.end());
@@ -924,7 +936,7 @@ void AddressStreamDriver::ShutOffInstrumentationInMaxedGroups(image_key_t iid,
     // group to exceed max
     set<uint64_t> blocksToRemove;
     if (suspend) {
-        allData->WriteLock();
+        allData->ReadLock();
         sampler->WriteLock();
         SuspendAllThreads(allData->CountThreads(false), 
           allData->allthreads.begin(), allData->allthreads.end());

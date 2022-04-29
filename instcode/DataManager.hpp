@@ -317,12 +317,12 @@ public:
     // If there are images initialized, creates initial data for each
     // No pre-conditions
     // passed image id is the image adding the thread
-    virtual void AddThread(thread_key_t tid){
-        WriteLock();
+    virtual void AddThread(thread_key_t tid, bool lock=true){
+        WriteLock(lock);
 
         // If it's been initialized before, just return
         if(allthreads.count(tid) > 0) {
-            UnLock();
+            UnLock(lock);
             return;
         }
 
@@ -371,7 +371,7 @@ public:
             SetThreadData((*iit), tid, DataManagerType_Thread);
         }
         allthreads.insert(tid);
-        UnLock();
+        UnLock(lock);
     }
 
     void AddThread(){
@@ -651,9 +651,13 @@ public:
         debug(assert(num <= capacity));
 
         uint32_t threadseq = alldata->GetThreadSequence(tid, lock);
-        if(threadseq >= threadcount) {
-            AddThread(tid, lock);
-        }
+       
+        // EEO and ACC: We now have Locks around initialization so it should 
+        // NOT be possible for alldata to have a thread that FastData does 
+        // not have. 
+        //if(threadseq >= threadcount) {
+        //    AddThread(tid, lock);
+        //}
         assert(threadseq < threadcount);
 
         // If there's only one image, stats must already hold correct data
