@@ -71,13 +71,13 @@ class SamplingMethod {
     pthread_rwlock_t sampling_rwlock;
     pthread_rwlockattr_t sampling_rwlock_attr;
 
-    bool CurrentlySampling(uint64_t count, bool lock=true);
+    bool CurrentlySampling(uint64_t count, bool lock);
 
   public:
     SamplingMethod(uint32_t limit, uint32_t on, uint32_t off);
     virtual ~SamplingMethod();
 
-    virtual bool CurrentlySampling(bool lock=true);
+    virtual bool CurrentlySampling(bool lock);
     virtual bool ExceedsAccessLimit(uint64_t count, bool lock=true);
     virtual uint64_t GetAccessCount() { return AccessCount; }
     uint64_t GetAccessLimit() { return AccessLimit; }

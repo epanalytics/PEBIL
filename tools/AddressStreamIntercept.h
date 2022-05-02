@@ -61,7 +61,6 @@ private:
     void collectVectorEntry(BasicBlock*, X86Instruction*, uint32_t,
       AddressStreamStats&, uint32_t, uint32_t, uint32_t, uint8_t);
 
-    uint64_t getMaxMemopsInBasicBlock();
     uint64_t getNullLineInfoValue();
     uint32_t getNumberOfBlocksToInstrument();
     uint64_t getNumberOfGroups();

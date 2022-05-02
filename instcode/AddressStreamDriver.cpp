@@ -463,6 +463,14 @@ void AddressStreamDriver::PauseApplicationWrappers() {
     PAUSE_MODULE(dataStructureModule);
 }
 
+// Process all the addresses in each threads buffers. This goes against the 
+// assumption that thread A can only access its own buffer and therefore it 
+// can update it without locks. 
+// We "get around this" by grabbing a read lock in "ProcessThreadBuffer"
+// and grabbing the corresponding WriteLock here. Additionally, we stop 
+// all threads so that they cannot add to their buffers. We grab all other 
+// locks that are required for processing the buffer so that another thread 
+// is not suspended while holding a required lock
 void AddressStreamDriver::ProcessAllBuffers() {
 
     //Suspend all threads

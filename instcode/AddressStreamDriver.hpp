@@ -168,10 +168,6 @@ class AddressStreamDriver {
     void UnpauseApplicationWrappers();
     void UnLockDSM(bool lock=true);
     void WriteLockDSM(bool lock=true);
-    void SetInitThread();
-    void UnsetInitThread();
-    bool IsInitThreads();
-    bool isInitThread;
 
     // For Testing Purposes
     void AddTool(AddressStreamTool* t) { tools->push_back(t); }
