@@ -984,18 +984,21 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
           emitAddImmToRegaddrImm(numMemops, sr2, offsetof(BufferEntry, 
           __buf_current)));
     } else {
+        // sr2 = &(stats.Buffer[0])
+        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToReg(
+          getInstDataAddress() + (uint64_t)stats.Buffer, sr2));
         // First set oldPosition to current
+        // sr3 = ((BufferEntry*)sr2)->__buf_current
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_current), 
+          sr3));
+        // ((BufferEntry*)sr2)->__buf_oldPosition = sr3
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, 
+            __buf_oldPosition), true));
+        // stats.Buffer[0].__buf_current++
         uint64_t currentOffset = (uint64_t)stats.Buffer + 
           offsetof(BufferEntry, __buf_current);
-        uint64_t oldPositionOffset = (uint64_t)stats.Buffer + 
-          offsetof(BufferEntry, __buf_oldPosition);
-        // sr3 = stats.Buffer[0].__buf_current
-        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToReg(
-          getInstDataAddress() + currentOffset, sr3));
-        // stats.Buffer[0].__buf_oldPosition = sr3
-        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveRegToMem(
-          sr3, getInstDataAddress() + oldPositionOffset));
-        // stats.Buffer[0].__buf_current++
         snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToMem(
           numMemops, getInstDataAddress() + currentOffset));
     }
