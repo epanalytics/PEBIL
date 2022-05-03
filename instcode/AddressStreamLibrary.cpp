@@ -118,15 +118,15 @@ extern "C" {
         if (Driver->GetAllData() == NULL){
             init_signal_handlers(true);
             DataManager<AddressStreamStats*>* AllData;
-            AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats, 
+            AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats,
               DeleteStreamStats, ReferenceStreamStats);
             Driver->InitializeAddressStreamDriver(AllData);
         }
         assert(Driver);
 
-        Driver->PauseApplicationWrappers();
+        bool entered = Driver->EnterTool();
         (void) Driver->InitializeNewImage(key, stats, td);
-        Driver->UnpauseApplicationWrappers();
+        Driver->ExitTool(entered);
 
         pthread_rwlock_unlock(&dynamic_init_rwlock);
 
@@ -140,9 +140,9 @@ extern "C" {
         SAVE_STREAM_FLAGS(cout);
 
         image_key_t iid = *key;
-        Driver->PauseApplicationWrappers();
+        bool entered = Driver->EnterTool();
         Driver->ProcessThreadBuffer(iid, pthread_self());
-        Driver->UnpauseApplicationWrappers();
+        Driver->ExitTool(entered);
 
         RESTORE_STREAM_FLAGS(cout);
         return NULL;
@@ -229,9 +229,6 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
         exit(1);
     }
     DataManager<AddressStreamStats*>* allData = Driver->GetAllData();
-
-//    // Make sure that the write lock was held
-//    assert(allData->IsWriteLockHeld());
     
     // every thread and image gets its own statistics
 
@@ -271,9 +268,9 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     } else {
         // Other images would share the handlers
         // Calls ReadLock - Release lock
-        allData->UnLock();
-        AddressStreamStats* fs = allData->GetData(tid);
-        allData->WriteLock();
+        //allData->UnLock();
+        AddressStreamStats* fs = allData->GetData(firstimage, tid, false);
+        //allData->WriteLock();
         stats->Handlers = fs->Handlers;
     }
 
@@ -287,9 +284,9 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
         BUFFER_CURRENT(stats) = 0;
     } else if (iid != firstimage) {
         // Calls ReadLock - Release lock
-        allData->UnLock();
-        AddressStreamStats* fs = allData->GetData(tid);
-        allData->WriteLock();
+        //allData->UnLock();
+        AddressStreamStats* fs = allData->GetData(firstimage, tid, false);
+        //allData->WriteLock();
         stats->Buffer = fs->Buffer;
     }
 

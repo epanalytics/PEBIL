@@ -428,7 +428,7 @@ void CacheSimulationTool::PrintApplicationHeader(ofstream& file,
   DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
   uint64_t totalMemop, uint64_t sampledCount) {
 
-    AddressStreamStats* stats = AllData->GetData(pthread_self());
+    AddressStreamStats* stats = AllData->GetData();
     uint32_t numCaches = handlers.size();
     // Print the application and address stream information
     file << "# appname       = " << stats->Application << ENDL
@@ -1132,6 +1132,9 @@ void CacheStructureHandler::PostProcessAddress(CacheStats* stats, uint64_t
 
 uint32_t CacheStructureHandler::ProcessAddress(CacheStats* stats, uint64_t 
   address, uint64_t memseq, uint8_t load) {
+
+    if (address == 0)
+        return 0;
 
     EvictionInfo evictInfo;
     evictInfo.level = INVALID_CACHE_LEVEL;

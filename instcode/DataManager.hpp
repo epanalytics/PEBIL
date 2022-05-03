@@ -228,16 +228,22 @@ public:
     //    return res;
     //}
 
-    void ReadLock(){
-        (void) pthread_rwlock_rdlock(&rwlock);
+    void ReadLock(bool lock=true) {
+        if (lock) {
+            (void) pthread_rwlock_rdlock(&rwlock);
+        }
     }
 
-    void UnLock(){
-        (void) pthread_rwlock_unlock(&rwlock);
+    void UnLock(bool lock=true){
+        if (lock) {
+            (void) pthread_rwlock_unlock(&rwlock);
+        }
     }
 
-    void WriteLock(){
-        (void) pthread_rwlock_wrlock(&rwlock);
+    void WriteLock(bool lock=true){
+        if (lock) {
+            (void) pthread_rwlock_wrlock(&rwlock);
+        }
     }
 
     // these can only be called correctly by the current thread
@@ -249,20 +255,20 @@ public:
         return firstimage;
     }
 
-    virtual uint32_t GetThreadSequence(thread_key_t tid){
-        ReadLock();
+    virtual uint32_t GetThreadSequence(thread_key_t tid, bool lock=true){
+        ReadLock(lock);
         if (threadseq.count(tid) != 1){
             inform << "Thread not available!?! " << std::hex << tid << ENDL;
         }
         assert(threadseq.count(tid) == 1 && 
           "thread must be added with AddThread method");
         uint32_t ret = threadseq[tid];
-        UnLock();
+        UnLock(lock);
         return ret;
     }
 
-    virtual image_key_t GetImageId(uint32_t imageSequence) {
-        ReadLock();
+    virtual image_key_t GetImageId(uint32_t imageSequence, bool lock=true) {
+        ReadLock(lock);
         image_key_t ret = firstimage;
         for (std::set<image_key_t>::iterator iit = allimages.begin(); iit !=
           allimages.end(); iit++){
@@ -272,16 +278,16 @@ public:
             }
         }
 
-        UnLock();
+        UnLock(lock);
         return ret;
     }
 
-    virtual uint32_t GetImageSequence(image_key_t iid){
-        ReadLock();
+    virtual uint32_t GetImageSequence(image_key_t iid, bool lock=true) {
+        ReadLock(lock);
         assert(imageseq.count(iid) == 1 && 
           "image must be added with AddImage method");
         uint32_t ret = imageseq[iid];
-        UnLock();
+        UnLock(lock);
         return ret;
     }
 
@@ -311,12 +317,12 @@ public:
     // If there are images initialized, creates initial data for each
     // No pre-conditions
     // passed image id is the image adding the thread
-    virtual void AddThread(thread_key_t tid){
-        WriteLock();
+    virtual void AddThread(thread_key_t tid, bool lock=true){
+        WriteLock(lock);
 
         // If it's been initialized before, just return
         if(allthreads.count(tid) > 0) {
-            UnLock();
+            UnLock(lock);
             return;
         }
 
@@ -365,7 +371,7 @@ public:
             SetThreadData((*iit), tid, DataManagerType_Thread);
         }
         allthreads.insert(tid);
-        UnLock();
+        UnLock(lock);
     }
 
     void AddThread(){
@@ -458,13 +464,7 @@ public:
     // Probably best used when only one image exists.
     virtual T GetData(){
         // This GetData calls ReadLock()
-        T retVal = GetData(pthread_self());
-        return retVal;
-    }
-
-    T GetData(thread_key_t tid){
-        // This GetData calls ReadLock()
-        T retVal = GetData(firstimage, tid);
+        T retVal = GetData(firstimage, pthread_self());
         return retVal;
     }
 
@@ -472,8 +472,8 @@ public:
     // The image must have been initialized
     // The thread might have escaped initialization if it was created before
     // this library was loaded
-    virtual T GetData(image_key_t iid, thread_key_t tid){
-        ReadLock();
+    virtual T GetData(image_key_t iid, thread_key_t tid, bool lock=true){
+        ReadLock(lock);
         if (datamap.count(iid) != 1){
             inform << "About to fail iid " << std::hex << iid << " check with "
               << std::dec << datamap.count(iid) << ENDL;
@@ -482,21 +482,22 @@ public:
           "Attempting to look up data for uninitialized image");
 
         if(datamap[iid].count(tid) != 1) {
-            UnLock();
+            UnLock(lock);
             AddThread(tid);
-            ReadLock();
+            ReadLock(lock);
         }
         T retVal = datamap[iid][tid];
-        UnLock();
+        UnLock(lock);
         return retVal;
     }
 
-    virtual uint32_t CountThreads(){
-        ReadLock();
+    virtual uint32_t CountThreads(bool lock=true){
+        ReadLock(lock);
         uint32_t ret = allthreads.size();
-        UnLock();
+        UnLock(lock);
         return ret;
     }
+
     virtual uint32_t CountImages(){
         ReadLock();
         uint32_t ret = allimages.size();
@@ -534,10 +535,7 @@ private:
     T** stats;
     // No STL containers and stats is indexed by thread...just a regular lock
     // should suffice
-    pthread_mutex_t lock;
-
-    void Lock(){ pthread_mutex_lock(&lock); }
-    void UnLock(){ pthread_mutex_unlock(&lock); }
+    pthread_mutex_t mlock;
 
 public:
     // Must be called while allData has been initialized with only a single
@@ -551,7 +549,7 @@ public:
         assert(alldata->CountThreads() == 1);
         assert(alldata->CountImages() == 1);
         assert(alldata->GetThreadSequence(pthread_self()) == 0);
-        pthread_mutex_init(&lock, NULL);
+        pthread_mutex_init(&mlock, NULL);
         Lock();
 
         stats = new T*[threadcount];
@@ -575,12 +573,22 @@ public:
         UnLock();
     }
 
+    void Lock(bool lock=true) { 
+      if (lock)
+          pthread_mutex_lock(&mlock); 
+    }
+
+    void UnLock(bool lock=true) {
+        if (lock)
+            pthread_mutex_unlock(&mlock);
+    }
+
     // tid must have already been added to alldata
     // Expands stats to hold new thread data
     // If this is the only image, it also pulls data from allData
-    virtual void AddThread(thread_key_t tid){
-        Lock();
-        uint32_t tid_index = alldata->GetThreadSequence(tid);
+    virtual void AddThread(thread_key_t tid, bool lock=true){
+        Lock(lock);
+        uint32_t tid_index = alldata->GetThreadSequence(tid, lock);
         uint32_t newsize = tid_index+1 > threadcount ? tid_index+1 : threadcount;
 
         // Grow stats and copy old data if necessary
@@ -608,13 +616,13 @@ public:
 
         // if only one image, can't count on it being refreshed later
         if(imagecount == 1) {
-            T dat = alldata->GetData(tid);
+            T dat = alldata->GetData(alldata->GetFirstImage(), tid, lock);
             for(uint32_t j = 0; j < capacity; ++j){
                 stats[tid_index][j] = dat;
             }
         }
 
-        UnLock();
+        UnLock(lock);
     }
 
     // image must have already been added to allData
@@ -637,15 +645,19 @@ public:
 
     // synchronize this threads entry in stats with first num ids taken from
     // buffer using dataid
-    virtual void Refresh(V buffer, uint32_t num, thread_key_t tid){
+    virtual void Refresh(V buffer, uint32_t num, thread_key_t tid, bool lock){
         debug(assert(imagecount > 0));
         debug(assert(threadcount > 0));
         debug(assert(num <= capacity));
 
-        uint32_t threadseq = alldata->GetThreadSequence(tid);
-        if(threadseq >= threadcount) {
-            AddThread(tid);
-        }
+        uint32_t threadseq = alldata->GetThreadSequence(tid, lock);
+       
+        // EEO and ACC: We now have Locks around initialization so it should 
+        // NOT be possible for alldata to have a thread that FastData does 
+        // not have. 
+        //if(threadseq >= threadcount) {
+        //    AddThread(tid, lock);
+        //}
         assert(threadseq < threadcount);
 
         // If there's only one image, stats must already hold correct data
@@ -661,13 +673,13 @@ public:
         // i = dataid at bufferidx
         // ci = current valid i
         // di = SimulationStats* for current thread,image
-        Lock();
+        Lock(lock);
         for (uint32_t j = 0; j < num; j++, buffer++){
 
             dataid(buffer, &i);
 
             if (i == 0){
-                if (alldata->CountThreads() > 1){
+                if (alldata->CountThreads(lock) > 1){
                     stats[threadseq][j] = NULL;
                     continue;
                 }
@@ -677,20 +689,20 @@ public:
             // If not the same image as last entry, look up the data
             if (i != ci){
                 ci = i;
-                di = alldata->GetData(i, tid);
+                di = alldata->GetData(i, tid, lock);
             }
             stats[threadseq][j] = di;
 
             debug(assert(stats[threadseq][j]));
         }
-        UnLock();
+        UnLock(lock);
     };
 
-    virtual T* GetBufferStats(thread_key_t tid){
+    virtual T* GetBufferStats(thread_key_t tid, bool allDataLock){
         assert(imagecount > 0);
         assert(threadcount > 0);
 
-        uint32_t threadseq = alldata->GetThreadSequence(tid);
+        uint32_t threadseq = alldata->GetThreadSequence(tid, allDataLock);
         assert(threadseq < threadcount);
 
         return stats[threadseq];

@@ -163,8 +163,26 @@ uint32_t ReuseDistanceHandler::Process(void* stats, BufferEntry* access) {
     } else {
         entry.id = access->memseq;
     }
-    entry.address = access->address;
-    internalHandler->Process(entry);
+    if (access->type == MEM_ENTRY) {
+        entry.address = access->address;
+        if (access->address != 0)
+            internalHandler->Process(entry);
+    } else if (access->type == VECTOR_ENTRY) {
+        uint64_t currAddr;
+        uint16_t mask = (access->vectorAddress).mask;
+
+        for (int i = 0; i < (access->vectorAddress).numIndices; i++) {
+            if(mask % 2 == 1) {
+                currAddr = (access->vectorAddress).base +
+                  (access->vectorAddress).indexVector[i] *
+                  (access->vectorAddress).scale;
+                entry.address = currAddr;
+                if (access->address != 0)
+                    internalHandler->Process(entry);
+            }
+            mask = (mask >> 1);
+        }
+    }
     return 0;
 }
 

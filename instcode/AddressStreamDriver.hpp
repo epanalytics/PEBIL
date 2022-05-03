@@ -99,6 +99,9 @@ class AddressStreamDriver {
 
     void DeleteAllData();
 
+    bool EnterTool();
+    void ExitTool(bool needToExit);
+
     void* FinalizeImage(image_key_t*);
 
     DataManager<AddressStreamStats*>* GetAllData() { return allData; }
@@ -118,7 +121,7 @@ class AddressStreamDriver {
     uint32_t GetNumMemoryHandlers() { return numMemoryHandlers; }
     uint32_t GetNumTools() { return tools->size(); }
 
-    bool HasLiveInstrumentationPoints();
+    bool HasLiveInstrumentationPoints(bool lock=true);
 
     void InitializeAddressStreamDriver(DataManager<AddressStreamStats*>* d);
     void InitializeKeys();
@@ -142,8 +145,9 @@ class AddressStreamDriver {
     void PauseApplicationWrappers();
     void ProcessAllBuffers();
     uint64_t ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
-      uint32_t numElementsInBuffer);
-    void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
+      uint32_t numElementsInBuffer, bool lock);
+    void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid, bool suspend=
+      true);
 
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
@@ -155,10 +159,15 @@ class AddressStreamDriver {
     void ShutOffInstrumentationInAllBlocks();
     void ShutOffInstrumentationInBlock(uint64_t blockID, uint64_t imageSeq);
     void ShutOffInstrumentationInBlocks(std::set<uint64_t>& blocks, image_key_t 
-      iid);
-    void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
+      iid, bool suspend = true);
+    void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t, bool
+      suspend=true);
 
+    void ReadLockDSM(bool lock=true);
+    void RegisterThreadInDynamicTool();
     void UnpauseApplicationWrappers();
+    void UnLockDSM(bool lock=true);
+    void WriteLockDSM(bool lock=true);
 
     // For Testing Purposes
     void AddTool(AddressStreamTool* t) { tools->push_back(t); }

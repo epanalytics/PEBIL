@@ -71,26 +71,26 @@ class SamplingMethod {
     pthread_rwlock_t sampling_rwlock;
     pthread_rwlockattr_t sampling_rwlock_attr;
 
-    bool CurrentlySampling(uint64_t count);
+    bool CurrentlySampling(uint64_t count, bool lock);
 
   public:
     SamplingMethod(uint32_t limit, uint32_t on, uint32_t off);
     virtual ~SamplingMethod();
 
-    virtual bool CurrentlySampling();
-    virtual bool ExceedsAccessLimit(uint64_t count);
+    virtual bool CurrentlySampling(bool lock);
+    virtual bool ExceedsAccessLimit(uint64_t count, bool lock=true);
     virtual uint64_t GetAccessCount() { return AccessCount; }
     uint64_t GetAccessLimit() { return AccessLimit; }
     virtual double GetSamplingFrequency();
     uint32_t GetSampleOn() { return SampleOn; }
     uint32_t GetSampleOff() { return SampleOff; }
-    void IncrementAccessCount(uint64_t count);
-    virtual bool SwitchesMode(uint64_t count);
+    void IncrementAccessCount(uint64_t count, bool lock=true);
+    virtual bool SwitchesMode(uint64_t count, bool lock=true);
     void Print();
 
-    bool ReadLock();
-    bool UnLock();
-    bool WriteLock();
+    void ReadLock(bool lock=true);
+    void UnLock(bool lock=true);
+    void WriteLock(bool lock=true);
 };
 
 // DFP and other interesting memory things extend this class.
@@ -106,8 +106,8 @@ class MemoryStreamHandler {
     // Number of addresses that appeared but aren't processed
     virtual void SkipAddresses(uint32_t numToSkip) {};
     virtual bool Verify() = 0;
-    bool Lock();
-    bool UnLock();
+    void Lock();
+    void UnLock();
     bool TryLock();
 
 };
