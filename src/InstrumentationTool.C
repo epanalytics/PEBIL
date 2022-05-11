@@ -1089,7 +1089,7 @@ void InstrumentationTool::printSanitizeTranslationFile(std::map<char*,std::strin
         Function* f = getExposedFunction(i);
         char* realName = f->getRealName();
         char* fakeName=f->getName();
-        fprintf(fd,"%s\t%s\t%s\n",fakeName,realName,lineNoInfo[realName].c_str());
+        fprintf(fd,"%s\t%s\t%s\t%#llx\n",fakeName,realName,lineNoInfo[realName].c_str(),f->getBaseAddress());
     }
     fclose(fd);
     if (encrypt){

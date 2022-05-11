@@ -798,9 +798,12 @@ Function::Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz,boo
     flowGraph = NULL;
     hashCode = HashCode(text->getSectionIndex(),index);
     PRINT_DEBUG_HASHCODE("Function %d, section %d  Hashcode: 0x%08llx", index, text->getSectionIndex(), hashCode.getValue());
-    if (sanitize){
-        setSanitize(hashCode.getValue());
-    }
+
+    // using this hash as the fake name is problematic because this is a function hash, while most of the tools seem to ouput
+    //  the BB hash of the head block. So, not setting this here.
+    //if (sanitize){
+    //    setSanitize(hashCode.getValue());
+    //}
     badInstruction = 0;
     flags = 0;
     defUse = false;
@@ -828,6 +831,12 @@ bool Function::verify(){
         for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
             if (!flowGraph->getBasicBlock(i)->verify()){
                 return false;
+            }
+            // set the sanitized name here; if the flowGraph construction is done, then we can look up the 
+            //   head basic block and retreive its hash.
+            if (i == 0 && flowGraph) {
+                BasicBlock* bb = getBasicBlock(0);
+                setSanitize(bb->getHashCode().getValue());
             }
         }
         if (getNumberOfBytes() > sizeInBytes){
