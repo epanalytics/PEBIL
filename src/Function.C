@@ -794,7 +794,7 @@ Function::Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz,boo
     : TextObject(PebilClassType_Function,text,idx,sym,sym->GET(st_value),sz)
 {
     ASSERT(sym);
-
+    sanitizeFlag = sanitize;
     flowGraph = NULL;
     hashCode = HashCode(text->getSectionIndex(),index);
     PRINT_DEBUG_HASHCODE("Function %d, section %d  Hashcode: 0x%08llx", index, text->getSectionIndex(), hashCode.getValue());
@@ -834,10 +834,12 @@ bool Function::verify(){
             }
             // set the sanitized name here; if the flowGraph construction is done, then we can look up the 
             //   head basic block and retreive its hash.
-            if (i == 0 && flowGraph) {
+            
+            if (i == 0) {
                 BasicBlock* bb = getBasicBlock(0);
                 setSanitize(bb->getHashCode().getValue());
             }
+            
         }
         if (getNumberOfBytes() > sizeInBytes){
             PRINT_ERROR("Function %s has more bytes in BBs (%d) than in its size (%d)", getName(), getNumberOfBytes(), sizeInBytes);

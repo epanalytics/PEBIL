@@ -41,7 +41,7 @@ protected:
     TextSection* textSection;
     uint32_t index;
     Symbol* symbol;
-//    char sanitizeName[__MAX_STRING_SIZE];
+    bool sanitizeFlag = false;
     char sanitizeName[__MAX_STRING_SIZE];
     Vector<X86Instruction*>* digestLinear();
 public:

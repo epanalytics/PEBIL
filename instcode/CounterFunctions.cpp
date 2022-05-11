@@ -452,7 +452,7 @@ extern "C"
                                 << TAB << dec << imgseq
                                 << TAB << dec << counter
                                 << TAB << "# " << "__pebil_unknown__:0"
-                                << TAB << hex << c->Hashes[i] //function "name"
+                                << TAB << c->Functions[i]
                                 << TAB << hex << c->Addresses[i]
                                 << ENDL;
                         }
