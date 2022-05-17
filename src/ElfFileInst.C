@@ -396,6 +396,18 @@ bool ElfFileInst::isDisabledFunction(Function* func){
     return false ^ white;
 }
 
+Function* ElfFileInst::getFunctionWithAddr(uint32_t addr) {
+    Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(addr);
+    if (functionSymbol) {
+        for (uint32_t f = 0; f < getNumberOfAllFunctions(); f++) {
+            Function* function = getFunctionOfAll(f);
+            if (functionSymbol->GET(st_value) == function->getSymbolValue())
+                return function;
+        }
+    }
+    return NULL;
+}
+
 uint32_t ElfFileInst::initializeReservedData(uint64_t address, uint32_t size, const void* data){
 
     if (address + size > getInstDataAddress() + usableDataOffset ||

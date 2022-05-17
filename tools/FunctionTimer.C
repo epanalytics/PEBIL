@@ -102,7 +102,6 @@ void FunctionTimer::instrument(){
      */
 
     FunctionTimers funcInfo;
-    funcInfo.sanitize = sanitize;
     uint64_t functionInfoStruct = reserveDataOffset(sizeof(FunctionTimers));
 
     funcInfo.master = getElfFile()->isExecutable();
@@ -126,9 +125,10 @@ void FunctionTimer::instrument(){
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
         Function* f = getExposedFunction(i);
         
-        uint64_t funcname = reserveDataOffset(strlen(f->getRealName()) + 1);
+        uint64_t funcname = reserveDataOffset(strlen(f->getName()) + 1);
         initializeReservedPointer(funcname, funcNameArray + sizeof(char*) * i);
-        initializeReservedData(getInstDataAddress() + funcname, strlen(f->getRealName()) + 1, (void*)f->getRealName()); //elizabeth
+        initializeReservedData(getInstDataAddress() + funcname, 
+          strlen(f->getName()) + 1, (void*)f->getName());
 
     }
 

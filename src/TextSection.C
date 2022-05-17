@@ -53,32 +53,17 @@ uint32_t FreeText::getNumberOfInstructions(){
     return numberOfInstructions;
 }
 
+// Return name of function
 char* TextObject::getName(){
-
-    if (sanitizeFlag) {
-      return sanitizeName;
-    } else {
-      if (symbol){
-            return symbol->getSymbolName();
-      }
-      return symbol_without_name;
-    }
-
-
-
-/*
-    if (sanitizeName[0]=='\0'){
-        if (symbol){
-            return symbol->getSymbolName();
-        }
-        return symbol_without_name;
-    } else {
+    // If set to sanitize, return sanitized name
+    if (sanitizeFlag)
         return sanitizeName;
-    }
-*/
+    return getRealName();
 }
+
+// Return unsanitized name of function
 char* TextObject::getRealName(){
-    if (symbol){
+    if (symbol) {
         return symbol->getSymbolName();
     }
     return symbol_without_name;

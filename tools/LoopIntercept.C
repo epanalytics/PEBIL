@@ -139,7 +139,7 @@ void LoopIntercept::discoverAllLoops(){
         allBlockIds->append(unq++);
         LineInfo* li = NULL;
         if (lineInfoFinder){
-            li = lineInfoFinder->lookupLineInfo(head);
+            li = lineInfoFinder->lookupLineInfo(head, sanitize);
         }
         allLineInfos->append(li);
     }
@@ -353,7 +353,7 @@ void LoopIntercept::instrument(){
         ASSERT(head->getHashCode().getValue() == hash);
         LineInfo* li = NULL;
         if (lineInfoFinder){
-            li = lineInfoFinder->lookupLineInfo(head);
+            li = lineInfoFinder->lookupLineInfo(head, sanitize);
         }
         Function* f = head->getFunction();
         FlowGraph* fg = head->getFlowGraph();
