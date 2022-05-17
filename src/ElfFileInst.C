@@ -126,7 +126,7 @@ BasicBlock* ElfFileInst::findExposedBasicBlock(HashCode hashCode){
     return NULL;
 }
 
-Vector<X86Instruction*>* ElfFileInst::findAllCalls(char* names){
+Vector<X86Instruction*>* ElfFileInst::findAllCalls(char* names) {
     char* fnames = new char[strlen(names)+1];
     memcpy(fnames, names, strlen(names));
     uint32_t len = strlen(names);
@@ -134,8 +134,8 @@ Vector<X86Instruction*>* ElfFileInst::findAllCalls(char* names){
 
     Vector<uint32_t> fstart;
     fstart.append(0);
-    for (uint32_t i = 0; i < len; i++){
-        if (fnames[i] == ':'){
+    for (uint32_t i = 0; i < len; i++) {
+        if (fnames[i] == ':') {
             fnames[i] = '\0';
             fstart.append(i+1);
         }
@@ -143,16 +143,18 @@ Vector<X86Instruction*>* ElfFileInst::findAllCalls(char* names){
 
     Vector<X86Instruction*>* calls = new Vector<X86Instruction*>();
 #pragma omp parallel for
-    for (uint32_t i = 0; i < getNumberOfExposedInstructions(); i++){
+    for (uint32_t i = 0; i < getNumberOfExposedInstructions(); i++) {
         X86Instruction* instruction = getExposedInstruction(i);
         ASSERT(instruction->getContainer()->isFunction());
 
-        if (instruction->isFunctionCall()){
-            Symbol* functionSymbol = elfFile->lookupFunctionSymbol(instruction->getTargetAddress());
+        if (instruction->isFunctionCall()) {
+            Symbol* functionSymbol = elfFile->lookupFunctionSymbol(
+              instruction->getTargetAddress());
 
-            if (functionSymbol){
-                for (uint32_t j = 0; j < fstart.size(); j++){
-                    if (!strcmp(functionSymbol->getSymbolName(), fnames + fstart[j])){
+            if (functionSymbol) {
+                for (uint32_t j = 0; j < fstart.size(); j++) {
+                    if (!strcmp(functionSymbol->getRealSymbolName(), fnames + 
+                      fstart[j])) {
 #pragma omp critical(calls)
                         (*calls).append(instruction);
                         break;
@@ -507,7 +509,8 @@ uint32_t ElfFileInst::relocateAndBloatFunction(Function* operatedFunction, uint6
     }
     ASSERT(currentByte <= operatedFunction->getNumberOfBytes() && "Function is not big enough to relocate");
 
-    Function* placeHolder = new Function(text, operatedFunction->getIndex(), operatedFunction->getFunctionSymbol(), functionSize,sanitize);
+    Function* placeHolder = new Function(text, operatedFunction->getIndex(), 
+      operatedFunction->getFunctionSymbol(), functionSize);
 
     Vector<AddressAnchor*>* modAnchors = elfFile->searchAddressAnchors(operatedFunction->getBaseAddress());
     for (uint32_t i = 0; i < modAnchors->size(); i++){
@@ -2298,34 +2301,44 @@ uint32_t ElfFileInst::addStringToDynamicStringTable(const char* str){
     return origSize;
 }
 
-uint64_t ElfFileInst::addFunction(InstrumentationFunction* func){
-    ASSERT(currentPhase == ElfInstPhase_user_declare && "Instrumentation phase order must be observed");
+uint64_t ElfFileInst::addFunction(InstrumentationFunction* func) {
+    ASSERT(currentPhase == ElfInstPhase_user_declare && 
+      "Instrumentation phase order must be observed");
 
-    uint32_t funcNameOffset = addStringToDynamicStringTable(func->getFunctionName());
+    uint32_t funcNameOffset = addStringToDynamicStringTable(
+      func->getFunctionName());
 
     DynamicTable* dynamicTable = elfFile->getDynamicTable();
-    uint64_t symtabAddr = dynamicTable->getDynamicByType(DT_SYMTAB,0)->GET_A(d_val,d_un);
+    uint64_t symtabAddr = dynamicTable->getDynamicByType(DT_SYMTAB, 0)->
+      GET_A(d_val, d_un);
     uint16_t symtabIdx = elfFile->getNumberOfSymbolTables();
-    for (uint32_t i = 0; i < elfFile->getNumberOfSymbolTables(); i++){
+    for (uint32_t i = 0; i < elfFile->getNumberOfSymbolTables(); i++) {
         SymbolTable* symTab = elfFile->getSymbolTable(i);
-        SectionHeader* sHdr = elfFile->getSectionHeader(symTab->getSectionIndex());
-        if (sHdr->GET(sh_addr) == symtabAddr){
-            ASSERT(symtabIdx == elfFile->getNumberOfSymbolTables() && "Cannot have multiple symbol tables linked to the dynamic table");
+        SectionHeader* sHdr = elfFile->getSectionHeader(symTab->
+          getSectionIndex());
+        if (sHdr->GET(sh_addr) == symtabAddr) {
+            ASSERT(symtabIdx == elfFile->getNumberOfSymbolTables() && 
+              "Cannot have multiple symbol tables linked to the dynamic table");
             symtabIdx = i;
         }
     }
-    ASSERT(symtabIdx != elfFile->getNumberOfSymbolTables() && "There must be a symbol table that is identifiable with the dynamic table");
+    ASSERT(symtabIdx != elfFile->getNumberOfSymbolTables() && "There must be "
+      "a symbol table that is identifiable with the dynamic table");
     SymbolTable* dynamicSymbolTable = elfFile->getSymbolTable(symtabIdx);
-    for (uint32_t i = 0; i < dynamicSymbolTable->getNumberOfSymbols(); i++){
-        if (!strcmp(dynamicSymbolTable->getSymbolName(i),func->getFunctionName())){
+    for (uint32_t i = 0; i < dynamicSymbolTable->getNumberOfSymbols(); i++) {
+        if (!strcmp(dynamicSymbolTable->getSymbolName(i),
+          func->getFunctionName())) {
             return 0;
-            PRINT_ERROR("A symbol named `%s' already exists in the dynamic symbol table", dynamicSymbolTable->getSymbolName(i));
+            PRINT_ERROR("A symbol named `%s' already exists in the "
+              "dynamic symbol table", dynamicSymbolTable->getSymbolName(i));
             __SHOULD_NOT_ARRIVE;
         }
     }
 
-    uint64_t relocationOffset = addPLTRelocationEntry(dynamicSymbolTable->getNumberOfSymbols(), func->getGlobalDataOffset());
-    addSymbolToDynamicSymbolTable(funcNameOffset, 0, 0, STB_GLOBAL, STT_NOTYPE, 0, 0);
+    uint64_t relocationOffset = addPLTRelocationEntry(dynamicSymbolTable->
+      getNumberOfSymbols(), func->getGlobalDataOffset());
+    addSymbolToDynamicSymbolTable(funcNameOffset, 0, 0, STB_GLOBAL, STT_NOTYPE, 
+      0, 0);
 
     func->setRelocationOffset(relocationOffset);
     verify();

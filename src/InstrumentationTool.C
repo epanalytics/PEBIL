@@ -1353,9 +1353,10 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
             char* callTgtName = INFO_UNKNOWN;
             if (bb->endsWithCall()) {
                 callTgtAddr = bb->getExitInstruction()->getTargetAddress();
-                Function* tgtFunction = getFunctionWithAddr(callTgtAddr);
-                if (tgtFunction != NULL) {
-                    callTgtName = tgtFunction->getName();
+                Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
+                  callTgtAddr);
+                if (functionSymbol && functionSymbol->getSymbolName()) {
+                    callTgtName = functionSymbol->getSymbolName();
                 }
             } else if (bb->endsWithUnconditionalBranch()) {
                 callTgtAddr = bb->getExitInstruction()->getTargetAddress();
@@ -1366,9 +1367,10 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
                 if (bb->getFunction()->isInRange(callTgtAddr)) {
                     callTgtAddr = 0;
                 } else {
-                    Function* tgtFunction = getFunctionWithAddr(callTgtAddr);
-                    if (tgtFunction != NULL) {
-                        callTgtName = tgtFunction->getName();
+                    Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
+                      callTgtAddr);
+                    if (functionSymbol && functionSymbol->getSymbolName()) {
+                        callTgtName = functionSymbol->getSymbolName();
                     } else {
                         PRINT_WARN(7, "BB 0x%llx has unconditional branch to "
                           "a nameless function (0x%llx)", 
@@ -1665,21 +1667,22 @@ void InstrumentationTool::printCallTreeInfo(const char* extension,
             X86Instruction* ins = finstructions[j];
             // only if the instruction is a call
             if (ins->isCall()) {
-                  // and the target address is not in the self
-                  if (!f->inRange(ins->getTargetAddress())) {
-                      // get the function name
-                      uint64_t callTgtAddr = ins->getTargetAddress();
-                      char* callTgtName = INFO_UNKNOWN;
-                      Function* tgtFunction = getFunctionWithAddr(callTgtAddr);
-                      if (tgtFunction != NULL) {
-                          callTgtName = tgtFunction->getName();
-                      }
-                      std::set<std::string> temp =
-                        (std::set<std::string>)callTreeInfo.at(thisFuncName);
-                      temp.insert(callTgtName);
+                // and the target address is not in the self
+                if (!f->inRange(ins->getTargetAddress())) {
+                    // get the function name
+                    uint64_t callTgtAddr = ins->getTargetAddress();
+                    char* callTgtName = INFO_UNKNOWN;
+                    Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
+                      callTgtAddr);
+                    if (functionSymbol && functionSymbol->getSymbolName()) {
+                        callTgtName = functionSymbol->getSymbolName();
+                    }
+                    std::set<std::string> temp =
+                      (std::set<std::string>)callTreeInfo.at(thisFuncName);
+                    temp.insert(callTgtName);
 #pragma omp critical(callTreeInfo)
-                      callTreeInfo[thisFuncName] = temp;
-                  }    
+                    callTreeInfo[thisFuncName] = temp;
+                }    
             }
         } 
     }
@@ -1888,9 +1891,10 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
       char* callTgtName = INFO_UNKNOWN;
       if (ins->isCall()){
           callTgtAddr = ins->getTargetAddress();
-          Function* tgtFunction = getFunctionWithAddr(callTgtAddr);
-          if (tgtFunction != NULL) {
-              callTgtName = tgtFunction->getName();
+          Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
+            callTgtAddr);
+          if (functionSymbol && functionSymbol->getSymbolName()) {
+              callTgtName = functionSymbol->getSymbolName();
           }
       } else if (ins->isUnconditionalBranch()) {
           callTgtAddr = ins->getTargetAddress();
@@ -1901,9 +1905,10 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
           if(f->isInRange(callTgtAddr)) {
               callTgtAddr = 0;
           } else {
-              Function* tgtFunction = getFunctionWithAddr(callTgtAddr);
-              if (tgtFunction != NULL) {
-                  callTgtName = tgtFunction->getName();
+              Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol(
+                callTgtAddr);
+              if (functionSymbol && functionSymbol->getSymbolName()) {
+                  callTgtName = functionSymbol->getSymbolName();
               } else {
                   PRINT_WARN(7, "BB 0x%llx has unconditional branch to "
                     "a nameless function (0x%llx)", 
