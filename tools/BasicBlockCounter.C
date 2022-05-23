@@ -570,6 +570,7 @@ void BasicBlockCounter::instrument() {
         printCallTreeInfo(getExtension(), allBlocks, allBlockIds, 
           allBlockLineInfos, allBlocks->size());
     }
+    printSanitizeTranslationFile(getExtension());
 
     delete[] nostring;
 

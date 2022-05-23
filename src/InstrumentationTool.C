@@ -1080,18 +1080,39 @@ void InstrumentationTool::setSanitize(bool encryption){
     setElfInstSanitize(true);
     return;
 }
-void InstrumentationTool::printSanitizeTranslationFile(std::map<char*, 
-  std::string> lineNoInfo) {
+void InstrumentationTool::printSanitizeTranslationFile(const char* extension) {
+    if (!sanitize)
+        return;
+
+    LineInfoFinder* lineFinder = NULL;
     char translationName[__MAX_STRING_SIZE];
-    sprintf(translationName,"%s%s",getApplicationName(),".translation");
-    FILE* fd = fopen(translationName,"w");
-    fprintf(fd,"Alias\tFunction Name\tFile Name\tLine No.\n");
-    for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+    sprintf(translationName, "%s.%s.%s", getFullFileName(), extension, 
+      "translation");
+    if (hasLineInformation())
+        lineFinder = getLineInfoFinder();
+    FILE* fd = fopen(translationName, "w");
+    fprintf(fd, "Alias\tFunction Name\tFile Name\tLine No.\n");
+    for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++) {
         Function* f = getExposedFunction(i);
+        BasicBlock* bb = f->getBasicBlockAtAddress(f->getBaseAddress());
+        LineInfo* li = NULL;
+
+        // Function names
         char* realName = f->getRealName();
         char* fakeName = f->getName();
-        fprintf(fd, "%s\t%s\t%s\t%#llx\n", fakeName, realName,
-          lineNoInfo[realName].c_str(), f->getBaseAddress());
+
+        // Line information
+        char* fileName = INFO_UNKNOWN;
+        uint32_t lineNo = 0;
+        if (lineFinder != NULL) 
+            li = lineFinder->lookupLineInfo(bb, false);
+        if (li != NULL) {
+            fileName = li->getFileName();
+            lineNo = li->GET(lr_line);
+        }
+ 
+        fprintf(fd, "%s\t%s\t%s:%u\t%#llx\n", fakeName, realName, fileName,
+          lineNo, f->getBaseAddress());
     }
     fclose(fd);
     if (encrypt){
@@ -1581,9 +1602,6 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
 
     ASSERT(currentPhase == ElfInstPhase_user_reserve && 
       "Instrumentation phase order must be observed"); 
-    if (sanitize){
-        printSanitizeTranslationFile(functionLineNo);
-    }
 }
 
 

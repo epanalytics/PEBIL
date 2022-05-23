@@ -301,6 +301,7 @@ void FunctionTimer::instrument(){
 
         delete exitBlocks;
     }
+    printSanitizeTranslationFile(getExtension());
 }
 
 extern "C" {
@@ -314,7 +315,7 @@ ExternalFunctionTimer::ExternalFunctionTimer(ElfFile* elf)
 {
 }
 
-void ExternalFunctionTimer::declare(){
+void ExternalFunctionTimer::declare() {
     InstrumentationTool::declare();
 
     // declare any shared library that will contain instrumentation functions
@@ -334,7 +335,7 @@ void ExternalFunctionTimer::declare(){
     ASSERT(functionExit);
 }
 
-void ExternalFunctionTimer::instrument(){
+void ExternalFunctionTimer::instrument() {
     InstrumentationTool::instrument();
 
     uint32_t temp32;
