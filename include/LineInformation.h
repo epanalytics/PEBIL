@@ -131,10 +131,10 @@ public:
     LineInfoFinder(DwarfLineInfoSection* dwarfLineSection);
     ~LineInfoFinder();
 
-    LineInfo* lookupLineInfo(Function* f);
-    LineInfo* lookupLineInfo(BasicBlock* bb);
-    LineInfo* lookupLineInfo(X86Instruction* ins);
-    LineInfo* lookupLineInfo(uint64_t addr);
+    LineInfo* lookupLineInfo(Function* f, bool sanitize);
+    LineInfo* lookupLineInfo(BasicBlock* bb, bool sanitize);
+    LineInfo* lookupLineInfo(X86Instruction* ins, bool sanitize);
+    LineInfo* lookupLineInfo(uint64_t addr, bool sanitize);
 
     bool verify();
 };

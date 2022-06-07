@@ -41,7 +41,7 @@ protected:
     TextSection* textSection;
     uint32_t index;
     Symbol* symbol;
-//    char sanitizeName[__MAX_STRING_SIZE];
+    bool sanitizeFlag = false;
     char sanitizeName[__MAX_STRING_SIZE];
     Vector<X86Instruction*>* digestLinear();
 public:
@@ -120,7 +120,7 @@ public:
     void generateCFGs(Vector<AddressAnchor*>* addressAnchors);
     void printDisassembly(bool instructionDetail);
     void read(BinaryInputFile* b);
-    uint32_t disassemble(BinaryInputFile* b,bool sanitize);
+    uint32_t disassemble(BinaryInputFile* b);
 
     uint64_t findInstrumentationPoint(uint64_t addr, uint32_t size, InstLocations loc);
 
