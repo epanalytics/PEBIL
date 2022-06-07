@@ -150,7 +150,7 @@ void TauFunctionTrace::instrument(){
             Vector<BasicBlock*>* exitPoints = function->getFlowGraph()->getExitBlocks();
 
             std::string c;
-            c.append(function->getRealName());
+            c.append(function->getName());
             if (c == "_start"){
                 exitPoints->append(getProgramExitBlock());
                 PRINT_INFOR("Special case: inserting exit for _start inside _fini since control generally doesn't reach its exit");
@@ -170,7 +170,7 @@ void TauFunctionTrace::instrument(){
 
             LineInfo* li = NULL;
             if (lineInfoFinder){
-                li = lineInfoFinder->lookupLineInfo(addr);
+                li = lineInfoFinder->lookupLineInfo(addr, sanitize);
             }
 
             if (li){
@@ -231,7 +231,7 @@ void TauFunctionTrace::instrument(){
 
                         LineInfo* li = NULL;
                         if (lineInfoFinder){
-                            li = lineInfoFinder->lookupLineInfo(addr);
+                            li = lineInfoFinder->lookupLineInfo(addr, sanitize);
                         }
 
                         if (li){
@@ -370,7 +370,7 @@ void TauFunctionTrace::instrument(){
 
                 LineInfo* li = NULL;
                 if (lineInfoFinder){
-                    li = lineInfoFinder->lookupLineInfo(addr);
+                    li = lineInfoFinder->lookupLineInfo(addr, sanitize);
                 }
                 if (li){
                     f.file.append(li->getFileName());
