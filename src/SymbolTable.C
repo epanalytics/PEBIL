@@ -46,7 +46,8 @@ void SymbolTable::sortForGnuHash(uint32_t firstSymIndex, uint32_t numberOfBucket
     PRINT_DEBUG_HASH("sorting for gnu hash with nbuckets = %d", numberOfBuckets);
 
     for (uint32_t i = firstSymIndex; i < symbols.size(); i++){
-        PRINT_DEBUG_HASH("symbol[%d] bucketn %d", i, elf_gnu_hash(symbols[i]->getSymbolName()) % numberOfBuckets);
+        PRINT_DEBUG_HASH("symbol[%d] bucketn %d", i, elf_gnu_hash(
+          symbols[i]->getRealSymbolName()) % numberOfBuckets);
     }
 
     // used to keep track of the locations of symbols before/after sort, which we can use
@@ -58,8 +59,10 @@ void SymbolTable::sortForGnuHash(uint32_t firstSymIndex, uint32_t numberOfBucket
 
     for (uint32_t i = firstSymIndex; i < symbols.size(); i++){
         for (uint32_t j = firstSymIndex; j < symbols.size() - 1; j++){
-            uint32_t h1 = elf_gnu_hash(symbols[j]->getSymbolName()) % numberOfBuckets;
-            uint32_t h2 = elf_gnu_hash(symbols[j + 1]->getSymbolName()) % numberOfBuckets;
+            uint32_t h1 = elf_gnu_hash(symbols[j]->getRealSymbolName()) % 
+              numberOfBuckets;
+            uint32_t h2 = elf_gnu_hash(symbols[j + 1]->getRealSymbolName()) % 
+              numberOfBuckets;
             if (h1 > h2){
                 // swap symbols in this table
                 Symbol* tmpsym = symbols[j];
@@ -121,8 +124,15 @@ void SymbolTable::sortForGnuHash(uint32_t firstSymIndex, uint32_t numberOfBucket
     }
 
     for (uint32_t i = firstSymIndex; i < symbols.size(); i++){
-        PRINT_DEBUG_HASH("symbol[%d] bucketn %d", i, elf_gnu_hash(symbols[i]->getSymbolName()) % numberOfBuckets);
+        PRINT_DEBUG_HASH("symbol[%d] bucketn %d", i, 
+          elf_gnu_hash(symbols[i]->getRealSymbolName()) % numberOfBuckets);
     }
+}
+
+Symbol::Symbol(SymbolTable* tbl, char* symPtr, uint32_t idx) : 
+  Base(PebilClassType_Symbol), index(idx), symbolPtr(symPtr), table(tbl),
+  sanitize(false) {
+    sprintf(sanitizedName, "%s", "");
 }
 
 bool Symbol::isTextObjectSymbol(TextSection* text){
@@ -140,11 +150,29 @@ bool Symbol::isFunctionSymbol(TextSection* text){
     return false;
 }
 
-char* Symbol::getSymbolName(){
+char* Symbol::getRealSymbolName(){
     if (table){
         return table->getSymbolName(index);
     }
     return NULL;
+}
+
+char* Symbol::getSymbolName(){
+    if (sanitize){
+        return sanitizedName;
+    }
+    return getRealSymbolName();
+}
+
+void Symbol::setSanitize() { 
+    sanitize = true;
+    char newName[__MAX_STRING_SIZE];
+    sprintf(newName, "Symbol%ld", getIndex());
+    setSanitizedName(newName);
+}
+
+void Symbol::setSanitizedName(char* newName) { 
+    sprintf(sanitizedName, "%s", newName); 
 }
 
 int compareSymbolValue(const void* arg1, const void* arg2){
@@ -429,6 +457,11 @@ bool SymbolTable::verify(){
     return true;
 }
 
+void SymbolTable::setSanitize() {
+    // Go through each symbol and sanitize it
+    for (uint32_t i = 0; i < symbols.size(); i++)
+        symbols[i]->setSanitize();
+}
 
 void SymbolTable::setStringTable(){
     ASSERT(elfFile);

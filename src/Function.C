@@ -790,17 +790,19 @@ Function::~Function(){
         delete deadRegs;
     }
 }
-Function::Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz,bool sanitize)
-    : TextObject(PebilClassType_Function,text,idx,sym,sym->GET(st_value),sz)
-{
-    ASSERT(sym);
 
+Function::Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz)
+  : TextObject(PebilClassType_Function, text, idx, sym, sym->GET(st_value), sz){
+    ASSERT(sym);
     flowGraph = NULL;
     hashCode = HashCode(text->getSectionIndex(),index);
-    PRINT_DEBUG_HASHCODE("Function %d, section %d  Hashcode: 0x%08llx", index, text->getSectionIndex(), hashCode.getValue());
-    if (sanitize){
-        setSanitize(hashCode.getValue());
-    }
+    PRINT_DEBUG_HASHCODE("Function %d, section %d  Hashcode: 0x%08llx", index, 
+      text->getSectionIndex(), hashCode.getValue());
+
+    char sanitizedName[__MAX_STRING_SIZE];
+    sprintf(sanitizedName, "0x%08llx", hashCode.getValue());
+    sym->setSanitizedName(sanitizedName);
+
     badInstruction = 0;
     flags = 0;
     defUse = false;

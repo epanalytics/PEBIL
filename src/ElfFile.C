@@ -918,6 +918,12 @@ void ElfFile::initSectionFilePointers(bool sanitize){
         getSymbolTable(i)->setStringTable();
     }
 
+    if (sanitize) {
+        for (uint32_t i = 0; i < getNumberOfSymbolTables(); i++) {
+            getSymbolTable(i)->setSanitize();
+        }
+    }
+
     // find the symbol table + relocation section for each relocation table
     for (uint32_t i = 0; i < getNumberOfRelocationTables(); i++){
         getRelocationTable(i)->setSymbolTable();
@@ -935,7 +941,7 @@ void ElfFile::initSectionFilePointers(bool sanitize){
     }
     X86Instruction::initBlankUd(is64Bit());
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
-        textSections[i]->disassemble(binaryInputFile,sanitize);
+        textSections[i]->disassemble(binaryInputFile);
     }
 
 }
