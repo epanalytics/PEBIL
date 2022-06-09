@@ -369,7 +369,43 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                 continue;
             }
 
-            (void) handler->Process((void*)ss, reference);
+            // New code \/\/\/
+            if (reference->type == MEM_ENTRY && handler->ProcessMEMENTRY()) { 
+                uint64_t memSeq = reference->memseq;
+                uint64_t addr = reference->address;
+                uint64_t length = 0;
+                bool flag = reference->loadstoreflag;
+                (void) handler->Process((void*)ss, memSeq, addr, flag, length);
+            } else if (reference->type == VECTOR_ENTRY 
+              && handler->ProcessVECENTRY()) {
+
+                uint64_t currAddr;
+                uint64_t memSeq = reference->memseq;
+                bool flag = reference->loadstoreflag;
+                uint16_t mask = (reference->vectorAddress).mask;
+                uint64_t length = 0;
+                uint32_t loopCheck = (reference->vectorAddress).numIndices;
+                for (int i = 0; i < loopCheck; i++) {
+                    if (mask % 2 == 1) {
+                        currAddr = (reference->vectorAddress).base
+                        + (reference->vectorAddress).indexVector[i]
+                        * (reference->vectorAddress).scale;
+
+                        length++;
+                        if (!handler->ProcessOVERRIDE()) {
+                            (void) handler->Process((void*)ss, memSeq, currAddr, 
+                              flag, length);
+                        }
+                    } 
+                    mask = (mask >> 1);
+                }
+                if (handler->ProcessOVERRIDE()) {
+                    (void) handler->Process((void*)ss, memSeq, currAddr, 
+                      flag, length);
+                }
+            }
+            // New code ^^^
+            //(void) handler->Process((void*)ss, reference);
       //      numProcessed++;
         }
     }

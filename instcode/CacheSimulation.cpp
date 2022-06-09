@@ -1270,37 +1270,10 @@ void CacheStructureHandler::Print(ofstream& f){
     }
 }
 
-uint32_t CacheStructureHandler::Process(void* stats_in, BufferEntry* access) {
+uint32_t CacheStructureHandler::Process(void* stats_in, uint64_t memSeq,
+  uint64_t addr, bool flag, uint64_t length) {
     CacheStats* stats = (CacheStats*)stats_in;
-    if(access->type == MEM_ENTRY) {
-        debug(inform << "Processing MEM_ENTRY with address " << hex << 
-          (access->address) << "(" << dec << access->memseq << ")" << ENDL);
-        return ProcessAddress(stats, access->address, access->memseq, 
-          access->loadstoreflag);
-    } else if(access->type == VECTOR_ENTRY) {
-        debug(inform << "Processing VECTOR_ENTRY " << ENDL;); 
-        // FIXME
-        // Unsure how the mask and index vector are being set up. For now,
-        // I'm assuming that the last significant bit of the mask corresponds
-        // to the first index (indexVector[0]
-        // for each index i in indexVector:
-        //    load/store base + indexVector[i] * scale
-        uint32_t lastReturn = 0;
-        uint64_t currAddr;
-        uint16_t mask = (access->vectorAddress).mask;
-
-        for (int i = 0; i < (access->vectorAddress).numIndices; i++) {
-            if(mask % 2 == 1) {
-                currAddr = (access->vectorAddress).base + 
-                  (access->vectorAddress).indexVector[i] * 
-                  (access->vectorAddress).scale;
-                lastReturn = ProcessAddress(stats, currAddr, access->memseq, 
-                  access->loadstoreflag);
-            }
-            mask = (mask >> 1);
-        }
-        return lastReturn;
-    } 
+    return ProcessAddress(stats, addr, memSeq, flag);
   /* TO BE IMPLEMENTED LATER
 else if(access->type == PREFETCH_ENTRY) {
       if (ExecuteSoftwarePrefetches) {
@@ -1310,7 +1283,6 @@ else if(access->type == PREFETCH_ENTRY) {
         return 0;
       }
    } */
-    return 0;
 }
 
 bool CacheStructureHandler::Verify(){

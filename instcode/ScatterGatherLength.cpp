@@ -352,25 +352,14 @@ void VectorLengthHandler::Print(ofstream& f){
     f << "VectorLengthHandler" << ENDL;
 }
 
-uint32_t VectorLengthHandler::Process(void* stats, BufferEntry* access){
+uint32_t VectorLengthHandler::Process(void* stats, uint64_t memSeq, 
+  uint64_t addr, bool flag, uint64_t length) {
 
-    if(access->type == MEM_ENTRY) {
-        return 0;
-    } else if(access->type == VECTOR_ENTRY) {
-        uint64_t length = 0;
-        uint32_t memid = (uint32_t)access->memseq;
-        uint16_t mask = (access->vectorAddress).mask;
-        VectorLengthStats* vls = (VectorLengthStats*)stats;
-
-        for (int i = 0; i < (access->vectorAddress).numIndices; i++) {
-            if(mask % 2 == 1) {
-                length++;
-            }
-            mask = (mask >> 1);
-        }
-        vls->Update(memid, length);
-        return 0;
-    } 
+    // TODO TEST THIS HEAVILY
+    uint32_t memid = (uint32_t)memSeq;
+    VectorLengthStats* vls = (VectorLengthStats*)stats;
+    vls->Update(memid, length);
+    return 0;
     // TODO To be implemented later
     /*} else if(access->type == PREFETCH_ENTRY) {
         uint32_t memid = (uint32_t)access->memseq;
@@ -381,6 +370,5 @@ uint32_t VectorLengthHandler::Process(void* stats, BufferEntry* access){
         }
         return 0;
    }*/
-    return 0;
 }
                 
