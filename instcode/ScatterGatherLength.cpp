@@ -353,7 +353,8 @@ void VectorLengthHandler::Print(ofstream& f){
 }
 
 uint32_t VectorLengthHandler::Process(void* stats, uint64_t memSeq, 
-  bool ldstFlag, uint64_t addresses[64], uint64_t length, bool memvecFlag) {
+  bool ldstFlag, uint64_t* addresses, uint64_t arrLen, 
+  uint64_t length, bool memvecFlag) {
 
     // TODO TEST THIS HEAVILY
     if (memvecFlag == false) { // mem entry do not process

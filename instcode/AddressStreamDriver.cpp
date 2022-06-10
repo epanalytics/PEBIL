@@ -69,6 +69,8 @@ AddressStreamDriver::AddressStreamDriver() {
 
     // Create the vector to store the tools
     tools = new vector<AddressStreamTool*>();
+    arrLen = 64;
+    addresses = (uint64_t *)malloc(sizeof(uint64_t)*arrLen);
 
     numMemoryHandlers = 0;
 
@@ -91,6 +93,8 @@ AddressStreamDriver::~AddressStreamDriver() {
       tools->end(); it++) {
           delete (*it);
     }
+    if (addresses) 
+        delete addresses;
     tools->clear();
     delete tools;
     delete fastData;
@@ -376,7 +380,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                 addresses[0]  = reference->address;
                 bool memvecFlag = false;
                 (void) handler->Process((void*)ss, memSeq, ldstFlag, addresses, 
-                  1, memvecFlag);
+                  arrLen, 1, memvecFlag);
 
             } else if (reference->type == VECTOR_ENTRY 
               && handler->ProcessVECENTRY()) {
@@ -407,8 +411,8 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                     } 
                     mask = (mask >> 1);
                 }
-                handler->Process((void*)ss, memSeq, ldstFlag, addresses, length,
-                  memvecFlag);
+                handler->Process((void*)ss, memSeq, ldstFlag, addresses, arrLen,
+                  length, memvecFlag);
                 /*if (handler->ProcessOVERRIDE()) {
                     (void) handler->Process((void*)ss, memSeq, currAddr, 
                       flag, length);

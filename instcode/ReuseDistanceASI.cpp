@@ -153,7 +153,8 @@ void ReuseDistanceHandler::Print(ofstream& f) {
 }
 
 uint32_t ReuseDistanceHandler::Process(void* stats, uint64_t memSeq,
-  bool ldstFlag, uint64_t addresses[64], uint64_t length, bool memvecFlag) {
+  bool ldstFlag, uint64_t* addresses, uint64_t arrLen,
+  uint64_t length, bool memvecFlag) {
 
     ReuseStreamStats* s = (ReuseStreamStats*)stats;
     //TODO can I just reuse the same ReuseEntry object and not have to make a 

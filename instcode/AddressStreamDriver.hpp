@@ -57,7 +57,8 @@ class AddressStreamDriver {
     // Holds the tools that are being run
     std::vector<AddressStreamTool*>* tools = NULL;
     // Used for passing addresses from vectorized instruction to the tools
-    uint64_t addresses[64];
+    uint64_t* addresses;
+    uint64_t arrLen;
 
     uint32_t numMemoryHandlers;
 
