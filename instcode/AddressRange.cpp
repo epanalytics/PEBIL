@@ -307,7 +307,9 @@ uint32_t AddressRangeHandler::Process(void* stats, uint64_t memSeq,
 
     uint32_t memId = (uint32_t)memSeq;
     RangeStats* rs = (RangeStats*)stats;
-    rs->Update(memSeq, addr);
+    if (addr != 0) {
+        rs->Update(memSeq, addr);
+    }
     
     // TODO To be implemented later
     /*} else if(access->type == PREFETCH_ENTRY) {

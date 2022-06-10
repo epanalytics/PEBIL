@@ -155,11 +155,13 @@ void ReuseDistanceHandler::Print(ofstream& f) {
 uint32_t ReuseDistanceHandler::Process(void* stats, uint64_t memSeq,
   uint64_t addr, bool flag, uint64_t length) {
 
-    ReuseStreamStats* s = (ReuseStreamStats*)stats;
-    ReuseEntry entry = ReuseEntry();
-    entry.id = s->GetHash(memSeq);
-    entry.address = addr;
-    internalHandler->Process(entry);
+    if (addr != 0) {
+        ReuseStreamStats* s = (ReuseStreamStats*)stats;
+        ReuseEntry entry = ReuseEntry();
+        entry.id = s->GetHash(memSeq);
+        entry.address = addr;
+        internalHandler->Process(entry);
+    }
     return 0;
 }
 
