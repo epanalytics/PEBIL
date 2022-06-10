@@ -372,18 +372,21 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             // New code \/\/\/
             if (reference->type == MEM_ENTRY && handler->ProcessMEMENTRY()) { 
                 uint64_t memSeq = reference->memseq;
-                uint64_t addr = reference->address;
-                uint64_t length = 0;
-                bool flag = reference->loadstoreflag;
-                (void) handler->Process((void*)ss, memSeq, addr, flag, length);
+                bool ldstFlag = reference->loadstoreflag;
+                addresses[0]  = reference->address;
+                bool memvecFlag = false;
+                (void) handler->Process((void*)ss, memSeq, ldstFlag, addresses, 
+                  1, memvecFlag);
+
             } else if (reference->type == VECTOR_ENTRY 
               && handler->ProcessVECENTRY()) {
 
                 uint64_t currAddr;
                 uint64_t memSeq = reference->memseq;
-                bool flag = reference->loadstoreflag;
+                bool ldstFlag = reference->loadstoreflag;
                 uint16_t mask = (reference->vectorAddress).mask;
                 uint64_t length = 0;
+                bool memvecFlag = true;
                 uint32_t loopCheck = (reference->vectorAddress).numIndices;
                 for (int i = 0; i < loopCheck; i++) {
                     if (mask % 2 == 1) {
@@ -391,18 +394,25 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                         + (reference->vectorAddress).indexVector[i]
                         * (reference->vectorAddress).scale;
 
+                        //we start at 0 for length and increment when there
+                        //is an address we are accessing so we can use that
+                        //to keep track of where we are in the array as well
+                        //as its final length
+                        addresses[length] = currAddr;
                         length++;
-                        if (!handler->ProcessOVERRIDE()) {
+                        /*if (!handler->ProcessOVERRIDE()) {
                             (void) handler->Process((void*)ss, memSeq, currAddr, 
                               flag, length);
-                        }
+                        }*/
                     } 
                     mask = (mask >> 1);
                 }
-                if (handler->ProcessOVERRIDE()) {
+                handler->Process((void*)ss, memSeq, ldstFlag, addresses, length,
+                  memvecFlag);
+                /*if (handler->ProcessOVERRIDE()) {
                     (void) handler->Process((void*)ss, memSeq, currAddr, 
                       flag, length);
-                }
+                }*/
             }
             // New code ^^^
             //(void) handler->Process((void*)ss, reference);

@@ -66,8 +66,8 @@ class ReuseDistanceHandler : public MemoryStreamHandler {
     virtual ~ReuseDistanceHandler();
 
     void Print(std::ofstream& f);
-    uint32_t Process(void* stats, uint64_t memSeq, uint64_t addr, bool flag, 
-      uint64_t length);
+    uint32_t Process(void* stats, uint64_t memSeq, bool ldstFlag, 
+      uint64_t addresses[64], uint64_t length, bool memvecFlag);
 
     virtual void SkipAddresses(uint32_t numToSkip);
     bool Verify() { return true; }

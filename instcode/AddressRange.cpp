@@ -303,11 +303,17 @@ void AddressRangeHandler::Print(ofstream& f){
 }
 
 uint32_t AddressRangeHandler::Process(void* stats, uint64_t memSeq, 
-  uint64_t addr, bool flag, uint64_t length) {
+  bool ldstFlag, uint64_t addresses[64], uint64_t length, bool memvecFlag) {
 
-    uint32_t memId = (uint32_t)memSeq;
-    RangeStats* rs = (RangeStats*)stats;
-    rs->Update(memSeq, addr);
+    for(int i=0;i<length;i++) {
+        uint64_t addr = addresses[i];
+        if (addr != 0) {
+            uint32_t memId = (uint32_t)memSeq;
+            RangeStats* rs = (RangeStats*)stats;
+            rs->Update(memSeq, addr);
+        }
+        return 0;
+    }
     
     // TODO To be implemented later
     /*} else if(access->type == PREFETCH_ENTRY) {

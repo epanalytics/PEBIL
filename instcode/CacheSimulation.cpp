@@ -1271,9 +1271,15 @@ void CacheStructureHandler::Print(ofstream& f){
 }
 
 uint32_t CacheStructureHandler::Process(void* stats_in, uint64_t memSeq,
-  uint64_t addr, bool flag, uint64_t length) {
+  bool ldstFlag, uint64_t addresses[64], uint64_t length, bool memvecFlag) {
+
     CacheStats* stats = (CacheStats*)stats_in;
-    return ProcessAddress(stats, addr, memSeq, flag);
+    uint32_t lastReturn = 0;
+    for(int i=0;i<length;i++) {
+        uint64_t addr = addresses[i];
+        lastReturn = ProcessAddress(stats, addr, memSeq, ldstFlag);
+    }
+    return lastReturn;
   /* TO BE IMPLEMENTED LATER
 else if(access->type == PREFETCH_ENTRY) {
       if (ExecuteSoftwarePrefetches) {

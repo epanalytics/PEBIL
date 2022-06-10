@@ -153,13 +153,20 @@ void ReuseDistanceHandler::Print(ofstream& f) {
 }
 
 uint32_t ReuseDistanceHandler::Process(void* stats, uint64_t memSeq,
-  uint64_t addr, bool flag, uint64_t length) {
+  bool ldstFlag, uint64_t addresses[64], uint64_t length, bool memvecFlag) {
 
     ReuseStreamStats* s = (ReuseStreamStats*)stats;
-    ReuseEntry entry = ReuseEntry();
-    entry.id = s->GetHash(memSeq);
-    entry.address = addr;
-    internalHandler->Process(entry);
+    //TODO can I just reuse the same ReuseEntry object and not have to make a 
+    //new one every time?
+    for(int i=0;i<length;i++) {
+        uint64_t addr = addresses[i];
+        ReuseEntry entry = ReuseEntry();
+        entry.id = s->GetHash(memSeq);
+        entry.address = addr;
+        if (addr != 0) {
+            internalHandler->Process(entry);
+        }
+    }
     return 0;
 }
 
