@@ -310,11 +310,6 @@ void ReuseDistance::SkipAddresses(uint64_t amount){
     if (binindividual == 1) {
         useDefault = true;
     }
-    if((!useDefault && amount < binindividual) || (useDefault && amount < 50)){
-        fprintf(stderr, 
-          "WARNING: skipped amount %u with window size %u and bin size %u\n", 
-          amount, window->size(), binindividual);
-    }
     sequence += amount;
 
     // flush the window completely

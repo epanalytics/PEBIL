@@ -475,10 +475,12 @@ void AddressStreamDriver::ProcessAllBuffers() {
 
     //Suspend all threads
     bool entered = EnterTool();
+    // Get Data Structure Module FIRST, since process_buffer will 
+    // take it first too
+    WriteLockDSM();
     fastData->Lock();
     allData->WriteLock();
     sampler->WriteLock();
-    WriteLockDSM();
     SuspendAllThreads(allData->CountThreads(false), 
       allData->allthreads.begin(), allData->allthreads.end());
 
@@ -493,10 +495,10 @@ void AddressStreamDriver::ProcessAllBuffers() {
 
     // resume all threads
     ResumeAllThreads();
-    UnLockDSM();
     sampler->UnLock();
     allData->UnLock();
     fastData->UnLock();
+    UnLockDSM();
     ExitTool(entered);
 }
 
