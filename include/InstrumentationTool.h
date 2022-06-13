@@ -88,6 +88,8 @@ protected:
 
     Vector<X86Instruction*>* atomicIncrement(uint32_t dest, uint32_t scratch, uint32_t count, uint64_t memaddr, Vector<X86Instruction*>* insns);
 
+    void printSanitizeTranslationFile(const char* extension);
+
     void printStaticFile(const char* extension, Vector<Base*>* allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* allBlockLineInfos, uint32_t bufferSize);
     void printCallTreeInfo(const char* extension, Vector<Base*>* allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* allBlockLineInfos, uint32_t bufferSize);
     
@@ -168,7 +170,6 @@ public:
     bool isMasterImage();
     void setMasterImage(bool isMaster);
     void setSanitize(bool);
-    void printSanitizeTranslationFile(std::map<char*,std::string> lineInfo);
     bool sanitize=false;
 };
 

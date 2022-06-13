@@ -1395,7 +1395,7 @@ void AddressStreamIntercept::writeStaticFile() {
             continue;
 
         if (lineInfoFinder){
-            li = lineInfoFinder->lookupLineInfo(bb);
+            li = lineInfoFinder->lookupLineInfo(bb, sanitize);
         }
 
         // initialize block info
@@ -1437,7 +1437,7 @@ void AddressStreamIntercept::initializeLineInfo(AddressStreamStats& stats,
     }
 
     if (lineInfoFinder){
-        li = lineInfoFinder->lookupLineInfo(bb);
+        li = lineInfoFinder->lookupLineInfo(bb, sanitize);
     }
 
     if (li){
@@ -1457,11 +1457,11 @@ void AddressStreamIntercept::initializeLineInfo(AddressStreamStats& stats,
         initializeReservedPointer(noData, (uint64_t)stats.Files + blockSeq * 
           sizeof(char*));
     }
-    uint64_t funcname = reserveDataOffset(strlen(func->getRealName()) + 1);
+    uint64_t funcname = reserveDataOffset(strlen(func->getName()) + 1);
     initializeReservedPointer(funcname, (uint64_t)stats.Functions + blockSeq * 
       sizeof(char*));
     initializeReservedData(getInstDataAddress() + funcname, strlen(
-      func->getRealName()) + 1, (void*)func->getRealName());
+      func->getName()) + 1, (void*)func->getName());
 }
 
 // TODO To be implemented later

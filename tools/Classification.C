@@ -121,7 +121,7 @@ void Classification::instrument(){
         allBlocks->append(bb);
         allBlockIds->append(blockId);
         if(lineInfoFinder)
-            allLineInfos->append(lineInfoFinder->lookupLineInfo(bb));
+            allLineInfos->append(lineInfoFinder->lookupLineInfo(bb, sanitize));
 
         FlagsProtectionMethods prot = FlagsProtectionMethod_full;
         X86Instruction* bestinst = bb->getExitInstruction();

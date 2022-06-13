@@ -152,7 +152,7 @@ void CallReplace::instrument(){
                     myInstList.append(funcIdx);
                     LineInfo* li = NULL;
                     if (lineInfoFinder){
-                        li = lineInfoFinder->lookupLineInfo(bb);
+                        li = lineInfoFinder->lookupLineInfo(bb, sanitize);
                     }
                     myLineInfos.append(li);
                 }
