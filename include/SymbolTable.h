@@ -43,9 +43,11 @@ public:
     char* symbolPtr;
     SymbolTable* table;
 
-    Symbol(SymbolTable* tbl, char* symPtr, uint32_t idx) : 
-      Base(PebilClassType_Symbol), index(idx), symbolPtr(symPtr), table(tbl) {}
-        ~Symbol(){};
+    bool sanitize;
+    char sanitizedName[__MAX_STRING_SIZE];
+
+    Symbol(SymbolTable* tbl, char* symPtr, uint32_t idx);
+    ~Symbol(){};
 
     SYMBOL_MACROS_BASIS("For the get_X/set_X field macros check the defines directory");
 
@@ -57,8 +59,11 @@ public:
     char* getSymbolPtr() { return symbolPtr; }
     bool verify(uint16_t targetSize);
     virtual char* charStream() { __SHOULD_NOT_ARRIVE; return NULL; }
+    char* getRealSymbolName();
     char* getSymbolName();
     void setIndex(uint32_t idx) { index = idx; }
+    void setSanitize();
+    void setSanitizedName(char* newName);
 
     virtual unsigned char getSymbolBinding() { __SHOULD_NOT_ARRIVE; }
     virtual unsigned char getSymbolType() { __SHOULD_NOT_ARRIVE; }
@@ -123,6 +128,8 @@ public:
     bool verify();
     bool isDynamic() { return dynamic; }
 
+    // Set each symbol to sanitized names
+    void setSanitize();
     void setStringTable();
 
     Symbol* getSymbol(uint32_t index) { return symbols[index]; }

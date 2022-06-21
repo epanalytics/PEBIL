@@ -53,19 +53,18 @@ uint32_t FreeText::getNumberOfInstructions(){
     return numberOfInstructions;
 }
 
-char* TextObject::getName(){
-    if (sanitizeName[0]=='\0'){
-        if (symbol){
-            return symbol->getSymbolName();
-        }
-        return symbol_without_name;
-    } else {
-        return sanitizeName;
-    }
-}
-char* TextObject::getRealName(){
-    if (symbol){
+// Return name of function
+char* TextObject::getName() {
+    if (symbol) {
         return symbol->getSymbolName();
+    }
+    return symbol_without_name;
+}
+
+// Return unsanitized name of function
+char* TextObject::getRealName() {
+    if (symbol) {
+        return symbol->getRealSymbolName();
     }
     return symbol_without_name;
 }
@@ -216,7 +215,7 @@ bool TextObject::isFunction(){
 }
 
 
-Vector<Symbol*> TextSection::discoverTextObjects(){
+Vector<Symbol*> TextSection::discoverTextObjects() {
     Vector<Symbol*> functionSymbols;
 
     ASSERT(!functionSymbols.size() && "This array should be empty since it is loaded by this function");
@@ -249,7 +248,6 @@ Vector<Symbol*> TextSection::discoverTextObjects(){
         }
     }
     functionSymbols.reverse();
-
     return functionSymbols;
 }
 
@@ -380,20 +378,19 @@ TextSection::TextSection(char* filePtr, uint64_t size, uint16_t scnIdx, uint32_t
     source = src;
 }
 
-uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile, 
-  bool sanitize){
+uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile) {
     SectionHeader* sectionHeader = elfFile->getSectionHeader(getSectionIndex());
 
     Vector<Symbol*> textSymbols = discoverTextObjects();
 
-    if (textSymbols.size()){
+    if (textSymbols.size()) {
         // In every compiler, the _init and _fini symbols have size 0 in the
         // symbol table EXCEPT for cray's fortran compiler, which sets the 
         // size of _fini to 16. Since this is larger than the actual function
         // size, pebil gets confused during instrumentation.
         // Here, we hardcode _fini's symbol size to 0 to avoid the issue
         Symbol* lastSymbol = textSymbols.back();
-        char* lastSymbolName = lastSymbol->getSymbolName();
+        char* lastSymbolName = lastSymbol->getRealSymbolName();
         const char* finiName = "_fini";
         if (!(strncmp(lastSymbolName, finiName, strlen(finiName)))) {
               if (strlen(lastSymbolName) == strlen(finiName)) {
@@ -402,52 +399,62 @@ uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile,
         }
 
         uint32_t i;
-
-        for (i = 0; i < textSymbols.size()-1; i++){
-
-            // use the max of: the size listed in the symbol table and the size between this function and the next
-            uint32_t size = textSymbols[i+1]->GET(st_value) - textSymbols[i]->GET(st_value);
-            if (textSymbols[i]->GET(st_size) > size && textSymbols[i]->GET(st_size) < sectionHeader->GET(sh_size)){
+        for (i = 0; i < textSymbols.size() - 1; i++) {
+            // use the max of: the size listed in the symbol table and the size
+            // between this function and the next
+            uint32_t size = textSymbols[i+1]->GET(st_value) - 
+              textSymbols[i]->GET(st_value);
+            if ((textSymbols[i]->GET(st_size) > size) && (textSymbols[i]->
+              GET(st_size) < sectionHeader->GET(sh_size))) {
                 size = textSymbols[i]->GET(st_size);
             }
 
-            if (textSymbols[i]->isFunctionSymbol(this)){
-                sortedTextObjects.append(new Function(this, i, textSymbols[i], size,sanitize)); 
+            if (textSymbols[i]->isFunctionSymbol(this)) {
+                sortedTextObjects.append(new Function(this, i, textSymbols[i], 
+                  size)); 
                 ASSERT(sortedTextObjects.back()->isFunction());
 #ifdef GENERATE_BLACKLIST
-                fprintf(stdout, "pebil_function_list %s\n", ((Function*)sortedTextObjects.back())->getName());
+                fprintf(stdout, "pebil_function_list %s\n", 
+                  ((Function*)sortedTextObjects.back())->getName());
 #endif
-            } else if (textSymbols[i]->isTextObjectSymbol(this)){
+            } else if (textSymbols[i]->isTextObjectSymbol(this)) {
                 bool hasInstructions = false;
-                // FIXME How can we reliably discern between code and data in non-typed sections?
+                // FIXME How can we reliably discern between code and data in 
+                // non-typed sections?
                 //if(textSymbols[i]->getSymbolType() == STT_NOTYPE &&
                 //  (textSymbols[i]->getSymbolBinding() == STB_LOCAL || textSymbols[i]->getSymbolBinding() == STB_GLOBAL)) {
                 //    hasInstructions = true;
                 //} else {
                 //    hasInstructions = false;
                 //}
-                sortedTextObjects.append(new FreeText(this, i, textSymbols[i], textSymbols[i]->GET(st_value), size, hasInstructions));
+                sortedTextObjects.append(new FreeText(this, i, textSymbols[i], 
+                  textSymbols[i]->GET(st_value), size, hasInstructions));
                 ASSERT(!sortedTextObjects.back()->isFunction());
             } else {
-                PRINT_ERROR("Unknown symbol type found to be associated with text section");
+                PRINT_ERROR("Unknown symbol type found to be associated with "
+                  "text section");
             }
         }
 
         // the last function ends at the end of the section
-        uint32_t size = sectionHeader->GET(sh_addr) + sectionHeader->GET(sh_size) - textSymbols.back()->GET(st_value);
-        if (textSymbols[i]->GET(st_size) > size){
+        uint32_t size = sectionHeader->GET(sh_addr) + sectionHeader->
+          GET(sh_size) - textSymbols.back()->GET(st_value);
+        if (textSymbols[i]->GET(st_size) > size) {
             size = textSymbols[i]->GET(st_size);
         }
-        if (textSymbols.back()->isFunctionSymbol(this)){
-            sortedTextObjects.append(new Function(this, i, textSymbols.back(), size,sanitize));
+        if (textSymbols.back()->isFunctionSymbol(this)) {
+            sortedTextObjects.append(new Function(this, i, textSymbols.back(), 
+              size));
         } else {
-            sortedTextObjects.append(new FreeText(this, i, textSymbols.back(), textSymbols.back()->GET(st_value), size, false));
+            sortedTextObjects.append(new FreeText(this, i, textSymbols.back(),
+              textSymbols.back()->GET(st_value), size, false));
         }
     }
 
     // this is a text section with no functions (probably the .plt section), so we will put everything into a single textobject
-    else{
-        sortedTextObjects.append(new FreeText(this, 0, NULL, sectionHeader->GET(sh_addr), sectionHeader->GET(sh_size), true));
+    else {
+        sortedTextObjects.append(new FreeText(this, 0, NULL, sectionHeader->
+          GET(sh_addr), sectionHeader->GET(sh_size), true));
     }
 
     verify();
