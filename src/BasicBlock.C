@@ -444,8 +444,13 @@ uint32_t BasicBlock::getNumberOfBranches(){
 uint32_t BasicBlock::getNumberOfBinMem(){
     uint32_t binCount = 0;
     for (uint32_t i = 0; i < instructions.size(); i++){
-        if (instructions[i]->isBinMem()){
+        // Only include instrumentable memory operations. Others go in 
+        // stack/frame
+        if (instructions[i]->isBinMem() && 
+          (instructions[i]->isMemoryOperation())) {
             binCount++;
+            if (instructions[i]->isLoad() && instructions[i]->isStore())
+                binCount++;
         }
     }
     return binCount;
@@ -741,10 +746,14 @@ uint32_t BasicBlock::getNumberOfBinString(){
     return binCount;
 }
 
-uint32_t BasicBlock::getNumberOfBinStack(){
+uint32_t BasicBlock::getNumberOfBinStackFrame(){
     uint32_t binCount = 0;
     for (uint32_t i = 0; i < instructions.size(); i++){
-        if (instructions[i]->isBinStack()){
+        if (instructions[i]->isBinStack()) {
+            binCount++;
+        // For BinFrame and BinStack that are not labeled as stack
+        } else if (instructions[i]->isBinMem() && 
+          !(instructions[i]->isMemoryOperation())) {
             binCount++;
         }
     }
@@ -764,7 +773,7 @@ uint32_t BasicBlock::getNumberOfBinOther(){
 uint32_t BasicBlock::getNumberOfBinUnknown(){
     uint32_t binCount = 0;
     for (uint32_t i = 0; i < instructions.size(); i++){
-        if (instructions[i]->isBinUnknown()){
+        if (instructions[i]->isBinUnknown()) {
             binCount++;
         }
     }
@@ -1110,7 +1119,7 @@ void BasicBlock::print(){
         }
         PRINT_OUT("\n");
     }
-    //    printInstructions();
+        printInstructions();
 }
 
 std::string BasicBlock::toDot()
