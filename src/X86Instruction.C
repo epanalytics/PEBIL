@@ -2253,7 +2253,12 @@ bool X86Instruction::isBinInts()    { return  X86InstructionClassifier::getInstr
 bool X86Instruction::isBinFloat()   { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_float;   }
 bool X86Instruction::isBinFloatv()  { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_floatv;  }
 bool X86Instruction::isBinFloats()  { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_floats;  }
-bool X86Instruction::isBinMove()    { return  (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_move) || (isMoveOperation()) ;    }
+
+bool X86Instruction::isBinMove() {
+    return (X86InstructionClassifier::getInstructionBin(this) == 
+      X86InstructionBin_move) || (isMoveOperation());
+}
+
 bool X86Instruction::isBinSystem()  { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_system;  }
 bool X86Instruction::isBinStack()   { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_stack;   }
 bool X86Instruction::isBinOther()   { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_other;   }
@@ -2273,7 +2278,7 @@ bool X86Instruction::isBinSingles() { return (X86InstructionClassifier::getInstr
 bool X86Instruction::isBinDouble()  { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_float)  && (X86InstructionClassifier::getInstructionMemSize(this)) == 8; }
 bool X86Instruction::isBinDoublev() { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_floatv) && (X86InstructionClassifier::getInstructionMemSize(this)) == 8; }
 bool X86Instruction::isBinDoubles() { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_floats) && (X86InstructionClassifier::getInstructionMemSize(this)) == 8; }
-bool X86Instruction::isBinMem()     { return (X86InstructionClassifier::getInstructionMemLocation(this) != 0); }
+bool X86Instruction::isBinMem() { return (X86InstructionClassifier::getInstructionMemLocation(this) != 0); }
 
 void X86Instruction::printBin(){
     if(isBinUnknown()) printf("Unknown\t");
