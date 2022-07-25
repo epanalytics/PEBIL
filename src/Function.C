@@ -750,6 +750,7 @@ X86Instruction* Function::getInstructionAtAddress(uint64_t addr){
     return NULL;
 }
 
+// Find BB containing given address
 BasicBlock* Function::getBasicBlockAtAddress(uint64_t addr){
     if (addr < getBaseAddress()){
         return NULL;
