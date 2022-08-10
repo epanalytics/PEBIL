@@ -71,9 +71,21 @@ bool Note::verify(){
     if (!name){
         PRINT_ERROR("Name pointer in note section should be non-null");
         return false;
-    } if (namesz != strlen(name) + 1 && namesz != nextAlignAddress(strlen(name) + 1, Size__32_bit_Note_Section_Entry)){
+    }
+    // Sometimes the given name size is bigger than the actual size. 
+    // If this is the case, pad the name with extra chars to make it the same 
+    // length
+    if (namesz > strlen(name) + 1) {
+        uint32_t extra = namesz - (strlen(name) + 1);
+        char c = 'a';
+        for (auto i = 0; i < extra; i++)
+            (void) strncat(name, &c, 1);
+    }
+    if ((namesz != strlen(name) + 1) && (namesz != nextAlignAddress(
+      strlen(name) + 1, Size__32_bit_Note_Section_Entry))) {
         print();
-        PRINT_ERROR("Actual name size does not match claimed name size in note section -- %d != %d", namesz, strlen(name) + 1);
+        PRINT_ERROR("Actual name size does not match claimed name size in "
+          "note section -- %d != %d", namesz, strlen(name) + 1);
         return false;
     }
     return true;
