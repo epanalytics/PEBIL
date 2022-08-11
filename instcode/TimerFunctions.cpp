@@ -68,7 +68,8 @@ static uint32_t shutoffIters=100;
 // microseconds per visit.
 static uint32_t timingThreshold=5000;
 // By default, shut off functions that are exited but not recorded as entered
-static uint32_t shutoffUnenteredFuncs=1;
+// Otherwise, this keeps track of # times this happens per thread
+static uint32_t trackUnenteredFuncs=0;
 static uint64_t timerCPUFreq=3200000000;
 // HPE EPYC: note that if the env variable is not defined, we default to 
 //    what is defined here:
@@ -128,7 +129,7 @@ FunctionTimers* GenerateFunctionTimers(FunctionTimers* timers, uint32_t typ, ima
     retval->inFunction = new uint32_t[retval->functionCount];
     retval->functionEntryCounts = new uint64_t[retval->functionCount];
     retval->functionShutoff = new uint32_t[retval->functionCount]; 
-    retval->unenteredFunctions = new bool[retval->functionCount];
+    retval->unenteredFunctions = new uint64_t[retval->functionCount];
 
     memset(retval->functionTimerAccum, 0, sizeof(*retval->functionTimerAccum) *       retval->functionCount);
     memset(retval->functionTimerLast, 0, sizeof(*retval->functionTimerLast) *         retval->functionCount);
@@ -148,8 +149,8 @@ FunctionTimers* GenerateFunctionTimers(FunctionTimers* timers, uint32_t typ, ima
         shutoffFunctionTimers = 0;
     }
 
-    if (!ReadEnvUint32("FTIMER_KEEP_UNENTERED", &shutoffUnenteredFuncs)){
-        shutoffUnenteredFuncs = 1;
+    if (!ReadEnvUint32("FTIMER_TRACK_UNENTERED", &trackUnenteredFuncs)){
+        trackUnenteredFuncs = 0;
     }
 
 
@@ -242,8 +243,10 @@ extern "C"
                 warn << "Leaving a never entered function." << ENDL;
             }
             timers->inFunction[funcIndex] = 0;
-            timers->unenteredFunctions[funcIndex] = true;
-            if (shutoffUnenteredFuncs) {
+            timers->unenteredFunctions[funcIndex]++;
+            // If we aren't tracking the unentered functions, shutoff the 
+            // function timer for it
+            if (!trackUnenteredFuncs) {
                 uint64_t imageSeq = AllData->GetImageSequence(*key);
                 AllData->WriteLock();
                 uint64_t this_key = GENERATE_UNIQUE_KEY(funcIndex, imageSeq,
@@ -464,6 +467,8 @@ extern "C"
                 bool unentered = false;
                 fname = functionNames[funcIndex];
                 fprintf(outFile, "\n%s:\t", fname);
+                if (trackUnenteredFuncs)
+                    fprintf(unOutFile, "\n%s:\t", fname);
                 for (set<thread_key_t>::iterator tit = 
                   AllData->allthreads.begin(); tit != 
                   AllData->allthreads.end(); ++tit) {
@@ -486,11 +491,23 @@ extern "C"
                           functionHashes[funcIndex],
                           AllData->GetImageSequence(*iit));
                     }
+                    // If tracking unentered functions, then print each function
+                    // and number of "warnings" per thread
+                    if (trackUnenteredFuncs) {
+                        fprintf(unOutFile, "\tThread: %d\tUnentered: "
+                          "%lld\tHash: 0x%llx\tImage: %d\t", 
+                          AllData->GetThreadSequence(*tit),  
+                          timers->unenteredFunctions[funcIndex], timers->
+                          functionHashes[funcIndex],
+                          AllData->GetImageSequence(*iit));
+
+                    }
                     if (timers->unenteredFunctions[funcIndex])
                         unentered = true;
                 }
 
-                if (unentered)
+                // If not tracking, just print list of unentered functions
+                if (unentered && !trackUnenteredFuncs)
                     fprintf(unOutFile, "%s\n", fname);
             }
         }
