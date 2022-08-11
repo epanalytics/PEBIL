@@ -241,6 +241,15 @@ extern "C"
             if(GetTaskId() == 0 && !producedWarning) {
                 producedWarning = true;
                 warn << "Leaving a never entered function." << ENDL;
+                if (trackUnenteredFuncs)
+                    warn << "Check the unentered file at the end of this run "
+                      "for the threads that left unentered functions." << ENDL;
+                else
+                    warn << "Check the unentered file at the end of this run "
+                      "for a list of functions exited but never entered. " 
+                      "These functions are being shut off! To prevent shutoff "
+                      "and/or collect more details, set "
+                      "FTIMER_TRACK_UNENTERED=1" << ENDL;
             }
             timers->inFunction[funcIndex] = 0;
             timers->unenteredFunctions[funcIndex]++;
