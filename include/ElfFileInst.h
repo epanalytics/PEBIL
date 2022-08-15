@@ -181,6 +181,10 @@ protected:
     uint32_t getNumberOfExposedMemOps() { return exposedMemOps.size(); }
     X86Instruction* getExposedMemOp(uint32_t idx) { return exposedMemOps[idx]; }    
 
+    uint32_t getNumberOfAllFunctions() { return allFunctions.size(); }
+    Function* getFunctionOfAll(uint32_t idx) { return allFunctions[idx]; }
+    Function* getFunctionWithAddr(uint32_t addr);
+
     BasicBlock* getProgramExitBlock();
     Vector<X86Instruction*>* findAllCalls(char* fnames);
 

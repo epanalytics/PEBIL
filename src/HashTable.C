@@ -55,7 +55,8 @@ void GnuHashTable::buildTable(uint32_t numEntries, uint32_t numBuckets){
 
     PRINT_DEBUG_HASH("bucket listing:");
     for (uint32_t i = firstSymIndex; i < symTab->getNumberOfSymbols(); i++){
-        PRINT_DEBUG_HASH("\tsym[%d] hashbuck %d", i, elf_gnu_hash(symTab->getSymbolName(i)) % numberOfBuckets);
+        PRINT_DEBUG_HASH("\tsym[%d] hashbuck %d", i, elf_gnu_hash(
+          symTab->getSymbolName(i)) % numberOfBuckets);
     }
 
     ASSERT(numberOfBuckets);
@@ -67,7 +68,8 @@ void GnuHashTable::buildTable(uint32_t numEntries, uint32_t numBuckets){
     uint32_t bucketIndex = 0;
     buckets = new uint32_t[numberOfBuckets];
     bzero(buckets, sizeof(uint32_t) * numberOfBuckets);
-    for (uint32_t i = symTab->getNumberOfSymbols() - 1; i >= firstSymIndex; i--){
+    for (uint32_t i = symTab->getNumberOfSymbols() - 1; i >= firstSymIndex; i--)
+    {
         bucketIndex = elf_gnu_hash(symTab->getSymbolName(i)) % numberOfBuckets;
         buckets[bucketIndex] = i;
     }
@@ -80,14 +82,15 @@ void GnuHashTable::buildTable(uint32_t numEntries, uint32_t numBuckets){
     bzero(stopBits, sizeof(bool) * numberOfEntries);
     for (uint32_t i = 0; i < numberOfBuckets; i++){
         if (buckets[i] > firstSymIndex){
-            PRINT_DEBUG_HASH("accessing stop bit %d/%d -- bucket[%d] is %d", buckets[i] - firstSymIndex - 1, numberOfEntries, i, buckets[i]);
+            PRINT_DEBUG_HASH("accessing stop bit %d/%d -- bucket[%d] is %d", 
+              buckets[i] - firstSymIndex - 1, numberOfEntries, i, buckets[i]);
             stopBits[buckets[i] - firstSymIndex - 1] = true;
         }
     }
 
     entries = new uint32_t[numberOfEntries];
     for (uint32_t i = 0; i < numberOfEntries; i++){
-        entries[i] = elf_gnu_hash(symTab->getSymbolName(i + firstSymIndex)) & ~1;
+        entries[i] = elf_gnu_hash(symTab->getSymbolName(i+firstSymIndex)) & ~1;
         if (stopBits[i]){
             entries[i] |= 1;
         }
@@ -127,11 +130,14 @@ uint32_t GnuHashTable::findSymbol(const char* symbolName){
 
     PRINT_DEBUG_HASH("Symbol with name %s has hash buckets[%d]=%d", symbolName, elf_sysv_hash(symbolName) % numberOfBuckets, x);
 
-    while (x - firstSymIndex < numberOfEntries && !entryHasStopBit(x - firstSymIndex) && strcmp(symbolName,symTab->getSymbolName(x))){
+    while ((x - firstSymIndex < numberOfEntries) && 
+      (!entryHasStopBit(x - firstSymIndex)) && 
+      (strcmp(symbolName, symTab->getSymbolName(x)))) {
         x++;
     }
-    if (strcmp(symbolName,symTab->getSymbolName(x))){
-        PRINT_ERROR("The symbol being searched (%s) is non-existent", symbolName);
+    if (strcmp(symbolName, symTab->getSymbolName(x))){
+        PRINT_ERROR("The symbol being searched (%s) is non-existent", 
+          symbolName);
         return -1;
     }
     return x;
@@ -302,7 +308,9 @@ void GnuHashTable::print(){
     if (numberOfEntries){
         SymbolTable* symTab = elfFile->getSymbolTable(symTabIdx);
         for (uint32_t i = firstSymIndex; i < symTab->getNumberOfSymbols(); i++){
-            PRINT_INFOR("SYMBOL (%4d): elf_gnu_hash(%s) mod %d = %d", i, symTab->getSymbolName(i), numberOfBuckets, elf_gnu_hash(symTab->getSymbolName(i)) % numberOfBuckets);
+            PRINT_INFOR("SYMBOL (%4d): elf_gnu_hash(%s) mod %d = %d", i, 
+              symTab->getSymbolName(i), numberOfBuckets, 
+              elf_gnu_hash(symTab->getSymbolName(i)) % numberOfBuckets);
         }
     }
 }
@@ -335,7 +343,8 @@ bool GnuHashTable::verify(){
         SymbolTable* symTab = elfFile->getSymbolTable(symTabIdx);
         for (uint32_t i = firstSymIndex; i < symTab->getNumberOfSymbols(); i++){
             if (findSymbol(symTab->getSymbolName(i)) != i){
-                PRINT_ERROR("Hash Table search failed for symbol %s (idx %d)", symTab->getSymbolName(i), i);
+                PRINT_ERROR("Hash Table search failed for symbol %s (idx %d)", 
+                  symTab->getSymbolName(i), i);
                 return false;
             }
         }
@@ -381,8 +390,10 @@ void SysvHashTable::buildTable(uint32_t numEntries, uint32_t numBuckets){
 
     // temporarily set entry[i] to the bucket index a name lookup on entry[i] with have to pass through
     for (uint32_t i = 0; i < numberOfEntries; i++){
-        entries[i] = elf_sysv_hash(symTab->getSymbolName(i)) % numberOfBuckets;
-        PRINT_DEBUG_HASH("Entry[%d] = (%d)%d -- %s", i, entries[i] % numberOfBuckets, entries[i], symTab->getSymbolName(i));
+        entries[i] = elf_sysv_hash(symTab->getSymbolName(i)) % 
+          numberOfBuckets;
+        PRINT_DEBUG_HASH("Entry[%d] = (%d)%d -- %s", i, entries[i] % 
+          numberOfBuckets, entries[i], symTab->getSymbolName(i));
     }
 
     // set bucket[i] to the last entry index which uses that bucket (ie, where entries[i] == i)
@@ -446,11 +457,13 @@ uint32_t SysvHashTable::findSymbol(const char* symbolName){
 
     uint32_t x = buckets[elf_sysv_hash(symbolName) % numberOfBuckets];
 
-    PRINT_DEBUG_HASH("Symbol with name %s has hash buckets[%d]=%d", symbolName, elf_sysv_hash(symbolName) % numberOfBuckets, x);
+    PRINT_DEBUG_HASH("Symbol with name %s has hash buckets[%d]=%d", symbolName, 
+      elf_sysv_hash(symbolName) % numberOfBuckets, x);
 
-    while (strcmp(symbolName,symTab->getSymbolName(x))){
-        if (x == entries[x]){
-            PRINT_ERROR("The symbol being searched (%s) is non-existent", symbolName);
+    while (strcmp(symbolName, symTab->getSymbolName(x))) {
+        if (x == entries[x]) {
+            PRINT_ERROR("The symbol being searched (%s) is non-existent", 
+              symbolName);
             return -1;
         }
         x = entries[x];
@@ -463,46 +476,51 @@ uint32_t SysvHashTable::findSymbol(const char* symbolName){
 bool SysvHashTable::verify(){
     SymbolTable* symTab = elfFile->getSymbolTable(symTabIdx);
 
-    if (!symTab){
+    if (!symTab) {
         PRINT_ERROR("Couldn't get symbol table %d from elfFile", symTabIdx);
         return false;
     }
 
-    if (isGnuStyleHash()){
+    if (isGnuStyleHash()) {
         PRINT_ERROR("This hash table should use sysv-style hashing");
         return false;
     }
 
-    if (numberOfEntries != symTab->getNumberOfSymbols()){
-        PRINT_ERROR("In the hash table, the number of entries should be equal to the number of symbols in the corresponding symbol table");
+    if (numberOfEntries != symTab->getNumberOfSymbols()) {
+        PRINT_ERROR("In the hash table, the number of entries should be equal "
+          "to the number of symbols in the corresponding symbol table");
         return false;
     }
     
-    for (uint32_t i = 1; i < numberOfEntries; i++){
-        if (symTab->getSymbol(i)->GET(st_name) > 0){
-            if (findSymbol(symTab->getSymbolName(i)) != i){
+    for (uint32_t i = 1; i < numberOfEntries; i++) {
+        if (symTab->getSymbol(i)->GET(st_name) > 0) {
+            if (findSymbol(symTab->getSymbolName(i)) != i) {
                 print();
-                PRINT_ERROR("Hash Table search for %s is erroneous", symTab->getSymbolName(i));
+                PRINT_ERROR("Hash Table search for %s is erroneous", 
+                  symTab->getSymbolName(i));
                 return false;
             }
         }
     }
     
-    if (elfFile->getSectionHeader(sectionIndex)->GET(sh_entsize) != sizeof(uint32_t)){
+    if (elfFile->getSectionHeader(sectionIndex)->GET(sh_entsize) != 
+      sizeof(uint32_t)) {
         PRINT_ERROR("Hash table entry size must be %d bytes", sizeof(uint32_t));
         return false;
     }
     
     if (elfFile->getSectionHeader(sectionIndex)->GET(sh_type) != SHT_HASH &&
         elfFile->getSectionHeader(sectionIndex)->GET(sh_type) != SHT_GNU_HASH){
-        PRINT_ERROR("Section type for hash table must be SHT_HASH or SHT_GNU_HASH");
+        PRINT_ERROR("Section type for hash table must be SHT_HASH or "
+          "SHT_GNU_HASH");
         return false;
     }
     
-    for (uint32_t i = 0; i < symTab->getNumberOfSymbols(); i++){
-        if (symTab->getSymbol(i)->GET(st_name) > 0){
-            if (findSymbol(symTab->getSymbolName(i)) != i){
-                PRINT_ERROR("Hash Table search failed for symbol %s (idx %d)", symTab->getSymbolName(i), i);
+    for (uint32_t i = 0; i < symTab->getNumberOfSymbols(); i++) {
+        if (symTab->getSymbol(i)->GET(st_name) > 0) {
+            if (findSymbol(symTab->getSymbolName(i)) != i) {
+                PRINT_ERROR("Hash Table search failed for symbol %s (idx %d)", 
+                  symTab->getSymbolName(i), i);
                 return false;
             }
         }
@@ -574,11 +592,12 @@ void SysvHashTable::print(){
     PRINT_INFOR("SysvHashTable: sect %d ( for sect(dynsym?) %d) with %d x %d",
         sectionIndex,symTab->getSectionIndex(),numberOfBuckets,numberOfEntries);
 
-    for (uint32_t i = 0; i < numberOfBuckets; i++){
+    for (uint32_t i = 0; i < numberOfBuckets; i++) {
         PRINT_INFOR("\tbuc%5d",i);
         uint32_t entryidx = buckets[i];
-        while (entryidx){
-            PRINT_INFOR("\t\tchn%5d -- %s",entryidx,symTab->getSymbolName(entryidx));
+        while (entryidx) {
+            PRINT_INFOR("\t\tchn%5d -- %s", entryidx, 
+              symTab->getSymbolName(entryidx));
             entryidx = entries[entryidx];
 
         }
