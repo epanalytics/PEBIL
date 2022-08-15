@@ -425,93 +425,70 @@ extern "C"
             << ENDL;
 
         // For each image
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin(); iit != AllData->allimages.end(); iit++){
+        for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
+          iit != AllData->allimages.end(); iit++){
             uint32_t imgseq = AllData->GetImageSequence(*iit);
 
             // For each counter
-            CounterArray* c = (CounterArray*)AllData->GetData((*iit), pthread_self());
-            for (uint32_t i = 0; i < c->Size; i++){
+            CounterArray* c = (CounterArray*)AllData->GetData((*iit), 
+              pthread_self());
+            for (uint32_t i = 0; i < c->Size; i++) {
                 uint32_t idx;
-                if (c->Types[i] == CounterType_basicblock){
+                if (c->Types[i] == CounterType_basicblock)
                     idx = i;
-                } else if (c->Types[i] == CounterType_instruction){
+                else if (c->Types[i] == CounterType_instruction)
                     idx = c->Counters[i];
-                } else {
+                else
                     idx = i;
-                }
 
                 // Sum Counts from each thread
                 uint32_t counter = 0;
-                for(DataManager<CounterArray*>::iterator it = AllData->begin(*iit); it != AllData->end(*iit); ++it) {
+                for(DataManager<CounterArray*>::iterator it = AllData->begin(
+                  *iit); it != AllData->end(*iit); ++it) {
                     CounterArray* tc = it->second;
                     counter += tc->Counters[idx];
-                }
+                } // for each thread
                 
-                if (counter >= PRINT_MINIMUM){
-                    if (!c->sanitize){
-                        if (c->Types[i] == CounterType_loop){
-                            BlockFile
-                                << "LPP"
-                                << TAB << hex << c->Hashes[i]
-                                << TAB << dec << imgseq
-                                << TAB << dec << counter
-                                << TAB << "# " << c->Files[i] << ":" << dec << c->Lines[i]
-                                << TAB << c->Functions[i]
-                                << TAB << hex << c->Addresses[i]
-                                << TAB << dec << c->BlockIds[i]
-                                << ENDL;
-                        } else {
-                            BlockFile
-                                << "BLK"
-                                << TAB << dec << i
-                                << TAB << hex << c->Hashes[i]
-                                << TAB << dec << imgseq
-                                << TAB << dec << counter
-                                << TAB << "# " << c->Files[i] << ":" << dec << c->Lines[i]
-                                << TAB << c->Functions[i]
-                                << TAB << hex << c->Addresses[i]
-                                << ENDL;
-                        }
+                if (counter >= PRINT_MINIMUM) {
+                    if (c->Types[i] == CounterType_loop) {
+                        BlockFile
+                            << "LPP"
+                            << TAB << hex << c->Hashes[i]
+                            << TAB << dec << imgseq
+                            << TAB << dec << counter
+                            << TAB << "# " << c->Files[i] << ":" << dec 
+                              << c->Lines[i]
+                            << TAB << c->Functions[i]
+                            << TAB << hex << c->Addresses[i]
+                            << TAB << dec << c->BlockIds[i]
+                            << ENDL;
                     } else {
-                        if (c->Types[i] == CounterType_loop){
-                            BlockFile
-                                << "LPP"
-                                << TAB << hex << c->Hashes[i]
-                                << TAB << dec << imgseq
-                                << TAB << dec << counter
-                                << TAB << "# " << "__pebil_unknown__:0"
-                                << TAB << hex << c->Hashes[i] //function "name"
-                                << TAB << hex << c->Addresses[i]
-                                << TAB << dec << c->BlockIds[i]
-                                << ENDL;
-                        } else {
-                            BlockFile
-                                << "BLK"
-                                << TAB << dec << i
-                                << TAB << hex << c->Hashes[i]
-                                << TAB << dec << imgseq
-                                << TAB << dec << counter
-                                << TAB << "# " << "__pebil_unknown__:0"
-                                << TAB << hex << c->Hashes[i] //function "name"
-                                << TAB << hex << c->Addresses[i]
-                                << ENDL;
-                        }
-                        
+                        BlockFile
+                            << "BLK"
+                            << TAB << dec << i
+                            << TAB << hex << c->Hashes[i]
+                            << TAB << dec << imgseq
+                            << TAB << dec << counter
+                            << TAB << "# " << c->Files[i] << ":" << dec 
+                              << c->Lines[i]
+                            << TAB << c->Functions[i]
+                            << TAB << hex << c->Addresses[i]
+                            << ENDL;
                     }
-                   for(DataManager<CounterArray*>::iterator it = AllData->begin(*iit); it != AllData->end(*iit); ++it) {
-                       thread_key_t tid = it->first;
-                       CounterArray* tc = it->second;
-                       if( tc->Counters[idx] >= PRINT_MINIMUM) {
+                    for(DataManager<CounterArray*>::iterator it = 
+                      AllData->begin(*iit); it != AllData->end(*iit); ++it) {
+                        thread_key_t tid = it->first;
+                        CounterArray* tc = it->second;
+                        if(tc->Counters[idx] >= PRINT_MINIMUM) {
                            BlockFile
                                << TAB << dec << AllData->GetThreadSequence(tid)
                                << TAB << dec << tc->Counters[idx]
                                << ENDL;
-                       }
-                   }
-                }
-            }
-    
-        }
+                        }
+                    } // for all threads
+                } // if > min count
+            } // for each counter
+        } // for each image
 
         inform << "cxxx Total Execution time for " << ctrs->Extension << "-instrumented image " << ctrs->Application << ": " << (AllData->GetTimer(*key, 1) - AllData->GetTimer(*key, 0)) << " seconds" << ENDL;
 

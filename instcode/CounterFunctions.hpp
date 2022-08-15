@@ -40,7 +40,6 @@ typedef struct {
     char** Functions;
     char* Application;
     char* Extension;
-    bool sanitize;
 } CounterArray;
 
 CounterArray* GenerateCounterArray(CounterArray* ctrs, uint32_t typ,

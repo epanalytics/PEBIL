@@ -67,7 +67,7 @@ void BasicBlockCounter::setBlocksToInstrument() {
             X86Instruction* ins = getExposedInstruction(i);
 
             if (lineInfoFinder){
-                li = lineInfoFinder->lookupLineInfo(ins);
+                li = lineInfoFinder->lookupLineInfo(ins, sanitize);
             }
             f = (Function*)ins->getContainer();
             bb = f->getBasicBlockAtAddress(ins->getBaseAddress());
@@ -85,7 +85,7 @@ void BasicBlockCounter::setBlocksToInstrument() {
         } else {
             bb = getExposedBasicBlock(i);
             if (lineInfoFinder){
-                li = lineInfoFinder->lookupLineInfo(bb);
+                li = lineInfoFinder->lookupLineInfo(bb, sanitize);
             }
             f = bb->getFunction();
             
@@ -190,7 +190,6 @@ void BasicBlockCounter::instrument() {
     ctrs.Initialized = true;
     ctrs.PerInstruction = isPerInstruction();
     ctrs.Master = isMasterImage();
-    ctrs.sanitize = sanitize;
 
     // Get all the points we will instrument (Size)
     // Get all the loops we will instrument
@@ -368,12 +367,11 @@ void BasicBlockCounter::instrument() {
           sizeof(uint32_t)*i, sizeof(uint32_t), &i);
 
         // Functions
-        uint64_t funcname = reserveDataOffset(strlen(f->getRealName()) + 1);
+        uint64_t funcname = reserveDataOffset(strlen(f->getName()) + 1);
         initializeReservedPointer(funcname, (uint64_t)ctrs.Functions + 
           i*sizeof(char*));
         initializeReservedData(getInstDataAddress() + funcname, 
-          strlen(f->getRealName()) + 1, (void*)f->getRealName());
-
+          strlen(f->getName()) + 1, (void*)f->getName());
         // Counters and Types
         // For insns, they get type instruction. Blocks (and first insn in 
         // blocks) get type Block
@@ -477,7 +475,7 @@ void BasicBlockCounter::instrument() {
         // Lines and Files
         LineInfo* li = NULL;
         if (lineInfoFinder) {
-            li = lineInfoFinder->lookupLineInfo(head);
+            li = lineInfoFinder->lookupLineInfo(head, sanitize);
         }
         // populate these only if we have the info
         if (li) {
@@ -506,11 +504,11 @@ void BasicBlockCounter::instrument() {
           sizeof(uint32_t)*i, sizeof(uint32_t), &loopId);
 
         // Functions
-        uint64_t funcname = reserveDataOffset(strlen(f->getRealName()) + 1);
+        uint64_t funcname = reserveDataOffset(strlen(f->getName()) + 1);
         initializeReservedPointer(funcname, (uint64_t)ctrs.Functions + 
           i*sizeof(char*));
         initializeReservedData(getInstDataAddress() + funcname, 
-          strlen(f->getRealName()) + 1, (void*)f->getRealName());
+          strlen(f->getName()) + 1, (void*)f->getName());
 
         // Counters and Types
         uint64_t counterOffset =  (uint64_t)ctrs.Counters + (i * 
@@ -578,6 +576,7 @@ void BasicBlockCounter::instrument() {
         printCallTreeInfo(getExtension(), allBlocks, allBlockIds, 
           allBlockLineInfos, allBlocks->size());
     }
+    printSanitizeTranslationFile(getExtension());
 
     delete[] nostring;
 

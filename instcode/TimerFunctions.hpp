@@ -40,7 +40,6 @@ typedef struct FunctionTimers_s {
     uint32_t* inFunction;
     uint64_t appTimeStart;
     struct timeval appTimeOfDayStart;
-    bool sanitize = false;
 } FunctionTimers;
 
 #endif
