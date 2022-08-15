@@ -69,6 +69,8 @@ AddressStreamDriver::AddressStreamDriver() {
 
     // Create the vector to store the tools
     tools = new vector<AddressStreamTool*>();
+    arrLen = 64;
+    addresses = (uint64_t *)malloc(sizeof(uint64_t)*arrLen);
 
     numMemoryHandlers = 0;
 
@@ -91,8 +93,10 @@ AddressStreamDriver::~AddressStreamDriver() {
       tools->end(); it++) {
           delete (*it);
     }
+    if (addresses) 
+        delete addresses;
     tools->clear();
-    delete tools;
+    delete tools; 
     delete fastData;
 }
 
@@ -369,21 +373,25 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                 continue;
             }
 
-            // New code \/\/\/
-            if (reference->type == MEM_ENTRY && handler->ProcessMEMENTRY()) { 
-                uint64_t memSeq = reference->memseq;
-                uint64_t addr = reference->address;
-                uint64_t length = 0;
-                bool flag = reference->loadstoreflag;
-                (void) handler->Process((void*)ss, memSeq, addr, flag, length);
-            } else if (reference->type == VECTOR_ENTRY 
-              && handler->ProcessVECENTRY()) {
+            if (reference->type == MEM_ENTRY && handler->ProcessMEMENTRY()) {
 
+                uint64_t memSeq = reference->memseq;
+                bool ldstFlag = reference->loadstoreflag;
+                addresses[0]  = reference->address;
+                bool memvecFlag = false;
+                (void) handler->Process((void*)ss, memSeq, ldstFlag, addresses, 
+                  arrLen, 1, memvecFlag);
+
+            }// if memory entry 
+            else if (reference->type == VECTOR_ENTRY 
+              && handler->ProcessVECENTRY()) {
+ 
                 uint64_t currAddr;
                 uint64_t memSeq = reference->memseq;
-                bool flag = reference->loadstoreflag;
+                bool ldstFlag = reference->loadstoreflag;
                 uint16_t mask = (reference->vectorAddress).mask;
                 uint64_t length = 0;
+                bool memvecFlag = true;
                 uint32_t loopCheck = (reference->vectorAddress).numIndices;
                 for (int i = 0; i < loopCheck; i++) {
                     if (mask % 2 == 1) {
@@ -391,24 +399,20 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                         + (reference->vectorAddress).indexVector[i]
                         * (reference->vectorAddress).scale;
 
+                        //we start at 0 for length and increment when there
+                        //is an address we are accessing so we can use that
+                        //to keep track of where we are in the array as well
+                        //as its final length
+                        addresses[length] = currAddr;
                         length++;
-                        if (!handler->ProcessOVERRIDE()) {
-                            (void) handler->Process((void*)ss, memSeq, currAddr, 
-                              flag, length);
-                        }
-                    } 
+                    }// mask check 
                     mask = (mask >> 1);
-                }
-                if (handler->ProcessOVERRIDE()) {
-                    (void) handler->Process((void*)ss, memSeq, currAddr, 
-                      flag, length);
-                }
-            }
-            // New code ^^^
-            //(void) handler->Process((void*)ss, reference);
-      //      numProcessed++;
-        }
-    }
+                }// for num of indices
+                handler->Process((void*)ss, memSeq, ldstFlag, addresses, arrLen,
+                  length, memvecFlag);
+            }// if vector entry
+        }// for number of handlers
+    }// for elements in the buffer
 
     return numSkipped;
 }
@@ -598,9 +602,8 @@ void AddressStreamDriver::SetUpTools() {
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 
       tools->end(); it++) {
         AddressStreamTool* currentTool = (*it);
-        StringParser parser;
         uint32_t handlersAdded = currentTool->CreateHandlers(
-          GetNumMemoryHandlers(), &parser);
+          GetNumMemoryHandlers(), parser);
         assert(handlersAdded > 0);
         numMemoryHandlers += handlersAdded;
     }

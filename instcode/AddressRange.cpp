@@ -303,13 +303,18 @@ void AddressRangeHandler::Print(ofstream& f){
 }
 
 uint32_t AddressRangeHandler::Process(void* stats, uint64_t memSeq, 
-  uint64_t addr, bool flag, uint64_t length) {
+  bool ldstFlag, uint64_t* addresses, uint64_t arrLen, uint64_t length, bool memvecFlag) {
 
-    uint32_t memId = (uint32_t)memSeq;
-    RangeStats* rs = (RangeStats*)stats;
-    if (addr != 0) {
-        rs->Update(memSeq, addr);
+    // TODO should this fail or error out if length > arrLen?
+    for(int i=0;i<length;i++) {
+        uint64_t addr = addresses[i];
+        if (addr != 0) {
+            uint32_t memId = (uint32_t)memSeq;
+            RangeStats* rs = (RangeStats*)stats;
+            rs->Update(memSeq, addr);
+        }
     }
+    return 0;
     
     // TODO To be implemented later
     /*} else if(access->type == PREFETCH_ENTRY) {
@@ -320,7 +325,7 @@ uint32_t AddressRangeHandler::Process(void* stats, uint64_t memSeq,
           rs->Update(memid, addr);
         }
         return 0;
-   }*/
-   return 0;
+   }
+   return 0;*/
 }
                 
