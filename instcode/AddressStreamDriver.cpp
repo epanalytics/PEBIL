@@ -96,7 +96,7 @@ AddressStreamDriver::~AddressStreamDriver() {
     if (addresses) 
         delete addresses;
     tools->clear();
-    delete tools;
+    delete tools; 
     delete fastData;
 }
 
@@ -373,8 +373,8 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                 continue;
             }
 
-            // New code \/\/\/
-            if (reference->type == MEM_ENTRY && handler->ProcessMEMENTRY()) { 
+            if (reference->type == MEM_ENTRY && handler->ProcessMEMENTRY()) {
+
                 uint64_t memSeq = reference->memseq;
                 bool ldstFlag = reference->loadstoreflag;
                 addresses[0]  = reference->address;
@@ -382,9 +382,10 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                 (void) handler->Process((void*)ss, memSeq, ldstFlag, addresses, 
                   arrLen, 1, memvecFlag);
 
-            } else if (reference->type == VECTOR_ENTRY 
+            }// if memory entry 
+            else if (reference->type == VECTOR_ENTRY 
               && handler->ProcessVECENTRY()) {
-
+ 
                 uint64_t currAddr;
                 uint64_t memSeq = reference->memseq;
                 bool ldstFlag = reference->loadstoreflag;
@@ -404,25 +405,14 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                         //as its final length
                         addresses[length] = currAddr;
                         length++;
-                        /*if (!handler->ProcessOVERRIDE()) {
-                            (void) handler->Process((void*)ss, memSeq, currAddr, 
-                              flag, length);
-                        }*/
-                    } 
+                    }// mask check 
                     mask = (mask >> 1);
-                }
+                }// for num of indices
                 handler->Process((void*)ss, memSeq, ldstFlag, addresses, arrLen,
                   length, memvecFlag);
-                /*if (handler->ProcessOVERRIDE()) {
-                    (void) handler->Process((void*)ss, memSeq, currAddr, 
-                      flag, length);
-                }*/
-            }
-            // New code ^^^
-            //(void) handler->Process((void*)ss, reference);
-      //      numProcessed++;
-        }
-    }
+            }// if vector entry
+        }// for number of handlers
+    }// for elements in the buffer
 
     return numSkipped;
 }
@@ -612,9 +602,8 @@ void AddressStreamDriver::SetUpTools() {
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 
       tools->end(); it++) {
         AddressStreamTool* currentTool = (*it);
-        StringParser parser;
         uint32_t handlersAdded = currentTool->CreateHandlers(
-          GetNumMemoryHandlers(), &parser);
+          GetNumMemoryHandlers(), parser);
         assert(handlersAdded > 0);
         numMemoryHandlers += handlersAdded;
     }
