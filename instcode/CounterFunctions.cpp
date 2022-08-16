@@ -169,8 +169,12 @@ void* tool_thread_fini(thread_key_t tid){
 
 extern "C"
 {
+    void pebil_slicer_verbose_start(const char*);
+    void pebil_slicer_verbose_pause(const char*);
     void epa_pebil_start() {
-        fprintf(stderr, "In epa_pebil_start\n");
+#ifdef VERBOSE_SLICER
+        pebil_slicer_verbose_start("JBB");
+#endif
         DynamicPoints->SetDynamicPoints(BlockCountKeys, true);
         return;
     }
@@ -178,7 +182,9 @@ extern "C"
     void epa_pebil_start_() { epa_pebil_start(); return; }
 
     void epa_pebil_pause() {
-        fprintf(stderr, "In epa_pebil_pause\n");
+#ifdef VERBOSE_SLICER
+        pebil_slicer_verbose_pause("JBB");
+#endif
         DynamicPoints->SetDynamicPoints(BlockCountKeys, false);
         return;
     }

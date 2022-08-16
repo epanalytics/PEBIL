@@ -190,8 +190,12 @@ uint64_t ReferenceFunctionTimers(FunctionTimers* timers){
 extern "C"
 {
 
+    void pebil_slicer_verbose_start(const char*);
+    void pebil_slicer_verbose_pause(const char*);
     void epa_pebil_start() {
-        fprintf(stderr, "In epa_pebil_start\n");
+#ifdef VERBOSE_SLICER
+        pebil_slicer_verbose_start("FTMINST");
+#endif
         DynamicPoints->SetDynamicPoints(EntryExitKeys, true);
         return;
     }
@@ -199,7 +203,9 @@ extern "C"
     void epa_pebil_start_() { epa_pebil_start(); return; }
 
     void epa_pebil_pause() {
-        fprintf(stderr, "In epa_pebil_pause\n");
+#ifdef VERBOSE_SLICER
+        pebil_slicer_verbose_pause("FTMINST");
+#endif
         DynamicPoints->SetDynamicPoints(EntryExitKeys, false);
         return;
     }
