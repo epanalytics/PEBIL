@@ -26,11 +26,13 @@
 #ifdef VERBOSE_SLICER
 pthread_t pebil_slicer_thread_id = 0;
 bool pebil_slicer_recursion_check = false;
+time_t pebil_slicer_start_time = 0;
 
 void pebil_slicer_verbose_start(const char* toolName) {
     time_t startTime = time(NULL);
     fprintf(stdout, "In epa_pebil_start for %s - %s", toolName, 
       ctime(&startTime));
+    pebil_slicer_start_time = startTime;
     pthread_t thisThread = pthread_self();
     if (!pebil_slicer_thread_id)
         pebil_slicer_thread_id = thisThread;
@@ -47,8 +49,12 @@ void pebil_slicer_verbose_start(const char* toolName) {
 
 void pebil_slicer_verbose_pause(const char* toolName) {
     time_t endTime = time(NULL);
-    fprintf(stdout, "In epa_pebil_pause for %s - %s", toolName, 
-      ctime(&endTime));
+    time_t elapsedTime = 0;
+    if (pebil_slicer_start_time)
+        elapsedTime = endTime - pebil_slicer_start_time;
+    pebil_slicer_start_time = 0;
+    fprintf(stdout, "In epa_pebil_pause for %s (%llus) - %s", toolName, 
+      elapsedTime, ctime(&endTime));
     pthread_t thisThread = pthread_self();
     if (!pebil_slicer_thread_id)
         pebil_slicer_thread_id = thisThread;
