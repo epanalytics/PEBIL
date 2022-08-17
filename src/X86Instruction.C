@@ -2264,13 +2264,13 @@ bool X86Instruction::isBinStack()   { return  X86InstructionClassifier::getInstr
 bool X86Instruction::isBinOther()   { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_other;   }
 bool X86Instruction::isBinCache()   { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_cache;   }
 bool X86Instruction::isBinString()  { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_string;  }
-bool X86Instruction::isBinByte()    { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int || isBinInts()) && (X86InstructionClassifier::getInstructionMemSize(this) == 1); }
+bool X86Instruction::isBinByte()    { return ((X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int) || isBinInts()) && (X86InstructionClassifier::getInstructionMemSize(this) == 1); }
 bool X86Instruction::isBinBytev()   { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_intv)   && (X86InstructionClassifier::getInstructionMemSize(this)) == 1; }
-bool X86Instruction::isBinWord()    { return (((X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int) || isBinInts()) && (X86InstructionClassifier::getInstructionMemSize(this) == 2)); }
+bool X86Instruction::isBinWord()    { return ((X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int) || isBinInts()) && (X86InstructionClassifier::getInstructionMemSize(this) == 2); }
 bool X86Instruction::isBinWordv()   { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_intv)   && (X86InstructionClassifier::getInstructionMemSize(this)) == 2; }
-bool X86Instruction::isBinDword()   { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int || isBinInts())    && (X86InstructionClassifier::getInstructionMemSize(this) == 4); }
+bool X86Instruction::isBinDword()   { return ((X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int) || isBinInts())    && (X86InstructionClassifier::getInstructionMemSize(this) == 4); }
 bool X86Instruction::isBinDwordv()  { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_intv)   && (X86InstructionClassifier::getInstructionMemSize(this)) == 4; }
-bool X86Instruction::isBinQword()   { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int || isBinInts())    && (X86InstructionClassifier::getInstructionMemSize(this) == 8); }
+bool X86Instruction::isBinQword()   { return ((X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int) || isBinInts())    && (X86InstructionClassifier::getInstructionMemSize(this) == 8); }
 bool X86Instruction::isBinQwordv()  { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_intv)   && (X86InstructionClassifier::getInstructionMemSize(this)) == 8; }
 bool X86Instruction::isBinSingle()  { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_float)  && (X86InstructionClassifier::getInstructionMemSize(this)) == 4; }
 bool X86Instruction::isBinSinglev() { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_floatv) && (X86InstructionClassifier::getInstructionMemSize(this)) == 4; }
@@ -2958,14 +2958,14 @@ struct x86class {
 #define xtyp(__typ) X86InstructionType_ ## __typ
 // __fmt: For implicit memory operations
 #define xfmt(__fmt) X86OperandFormat_ ## __fmt
-// __mem: Size of memory --> used to classify int/float type
 #define xsiz(__bits) (__bits >> 3)
 #define X86InstructionBin_0 X86InstructionBin_unknown
 #define X86OperandFormat_0 X86OperandFormat_unknown
 #define MEM_SZ_VARIABLE (0xf)
 #define VRSZ (MEM_SZ_VARIABLE << 3)
 
-// ___loc: For +bin line --> mem operations
+// __mem: Size of memory --> used to classify int/float type
+// __loc: For +bin line --> mem operations
 // __elem: For +vec line --> vector element size
 #define mkclass(__mne, __typ, __bin, __fmt, __mem, __loc, __elem) \
     classifications[UD_I ## __mne] = (struct x86class) { UD_I ## __mne, xtyp(__typ), xbin(__bin), xfmt(__fmt), xsiz(__mem), (__loc >> 8), xsiz(__elem)};
