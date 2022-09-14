@@ -425,8 +425,11 @@ void BasicBlockCounter::instrument() {
         if (isSaveAll() && usePIC) threadReg = X86_REG_INVALID;
 
         // Instrument!
-        InstrumentationTool::insertBlockCounter(counterOffset, bb, true, 
+        InstrumentationPoint* blockInstPoint = 
+          InstrumentationTool::insertBlockCounter(counterOffset, bb, true, 
           threadReg);
+        dynamicPoint(blockInstPoint, GENERATE_UNIQUE_KEY(i, 0,
+          PointType_blockcount), true);
     }
 
     // Next, instrument loops. If "isInstrumentingLoops" is false, then 
@@ -531,8 +534,11 @@ void BasicBlockCounter::instrument() {
 
         // Instrument!
         // increment counter on each time we encounter the loop head
-        InstrumentationTool::insertBlockCounter(counterOffset, head, true, 
+        InstrumentationPoint* loopInstPoint = 
+          InstrumentationTool::insertBlockCounter(counterOffset, head, true, 
           threadReg);
+        //dynamicPoint(loopInstPoint, GENERATE_KEY(i, PointType_blockcount),
+        //  true);
 
         // decrement counter each time we traverse a back edge
         for (uint32_t j = 0; j < tail->getNumberOfTargets(); j++) {

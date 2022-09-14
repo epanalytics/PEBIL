@@ -40,6 +40,30 @@ using namespace std;
 static AddressStreamDriver* Driver = NULL;
 
 extern "C" {
+    void pebil_slicer_verbose_start(const char*);
+    void pebil_slicer_verbose_pause(const char*);
+    void epa_pebil_start() {
+#ifdef VERBOSE_SLICER
+        pebil_slicer_verbose_start("ADDSTRINST");
+#endif
+        Driver->ProcessAllBuffers();
+        Driver->SetDynamicPoints(true);
+        return;
+    }
+
+    void epa_pebil_start_() { epa_pebil_start(); return; }
+
+    void epa_pebil_pause() {
+#ifdef VERBOSE_SLICER
+        pebil_slicer_verbose_pause("ADDSTRINST");
+#endif
+        Driver->ProcessAllBuffers();
+        Driver->SetDynamicPoints(false);
+        return;
+    }
+
+    void epa_pebil_pause_() { epa_pebil_pause(); return; }
+
     // Create mutex to esnure that dynamicPoints are initialized exactly once
     static pthread_rwlock_t dynamic_init_rwlock = PTHREAD_RWLOCK_INITIALIZER;
     // Called at just before image initialization

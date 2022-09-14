@@ -326,6 +326,10 @@ uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
             mask = (mask >> 1);
         }
         return 0;
+    } else {
+        fprintf(stderr, "Found invalid access type %d for memid %d\n",
+          access->type, access->memseq);
+        assert(false);
     }
     // TODO To be implemented later
     /*} else if(access->type == PREFETCH_ENTRY) {

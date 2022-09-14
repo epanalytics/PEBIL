@@ -31,7 +31,7 @@ ifeq ($(STATIC_INST_LIB),yes)
 		PEBIL_LIBS += libpapiinst.a libpapifunc.a
 	endif
 else
-	PEBIL_LIBS = libpebilruntime.so libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libaddressstream.so
+	PEBIL_LIBS = libpebilruntime.so libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libaddressstream.so libpebilslicer.so
 	ifeq ($(PEBIL_PAPI_BUILD),yes)
 		PEBIL_LIBS += libpapiinst.so libpapifunc.so
 	endif
@@ -43,8 +43,8 @@ BINDIR      = ../bin
 LIB_TARGETS = $(foreach pebil_lib,$(PEBIL_LIBS),$(LIBDIR)/$(pebil_lib))
 MPICC       = @MPICC@
 MPICXX      = @MPICXX@
-CFLAGS      = @CFLAGS@ @MPI_FLAGS@ @CPUFREQ_FLAGS@ @ADAMANT_HEADER_FLAGS@  @THROTTLER_FLAGS@ @PEBIL_DEBUG@ -w
-CXXFLAGS    = @CXXFLAGS@ @MPI_CXXFLAGS@ @MPI_FLAGS@ @CPUFREQ_FLAGS@ @ADAMANT_HEADER_FLAGS@  @THROTTLER_FLAGS@ @PEBIL_DEBUG@ -w
+CFLAGS      = @CFLAGS@ @MPI_FLAGS@ @CPUFREQ_FLAGS@ @ADAMANT_HEADER_FLAGS@  @THROTTLER_FLAGS@ @PEBIL_DEBUG@ @PEBIL_VERBOSE_SLICER@ -w
+CXXFLAGS    = @CXXFLAGS@ @MPI_CXXFLAGS@ @MPI_FLAGS@ @CPUFREQ_FLAGS@ @ADAMANT_HEADER_FLAGS@  @THROTTLER_FLAGS@ @PEBIL_DEBUG@ @PEBIL_VERBOSE_SLICER@ -w
 
 ALL_TARGETS	=	$(LIB_TARGETS)
 
@@ -96,6 +96,9 @@ $(LIBDIR)/%.O: %.cpp
 
 $(LIBDIR)/libpebilruntime.so : $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
+
+$(LIBDIR)/libpebilslicer.so : $(LIBDIR)/EmptySlicer.o
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(CXXFLAGS)
 
 $(LIBDIR)/libcounter.so : $(LIBDIR)/CounterFunctions.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)

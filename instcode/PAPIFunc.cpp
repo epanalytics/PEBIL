@@ -81,8 +81,6 @@ using namespace std;
 #define CLOCK_RATE_HZ 3200000000
 static uint32_t timerCPUFreq = CLOCK_RATE_HZ;
 
-DynamicInstrumentation* DynamicPoints = NULL;
-
 static uint32_t hwcSetNumber = 0;
 
 // Set with FPAPI_SHUTOFF - enables function shutoff
@@ -104,6 +102,9 @@ inline uint64_t read_timestamp_counter() {
 }
 
 DataManager<FunctionPAPI*>* AllData = NULL;
+DynamicInstrumentation* DynamicPoints = NULL;
+static std::set<uint64_t> EntryExitKeys;
+
 
 FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ, 
   image_key_t iid, thread_key_t tid, image_key_t firstimage) {
@@ -197,6 +198,28 @@ uint64_t ReferenceFunctionPAPI(FunctionPAPI* counters){
 
 extern "C"
 {
+
+    void pebil_slicer_verbose_start(const char*);
+    void pebil_slicer_verbose_pause(const char*);
+    void epa_pebil_start() {
+#ifdef VERBOSE_SLICER
+        pebil_slicer_verbose_start("PAPI-FTMINST");
+#endif
+        DynamicPoints->SetDynamicPoints(EntryExitKeys, true);
+        return;
+    }
+
+    void epa_pebil_start_() { epa_pebil_start(); return; }
+
+    void epa_pebil_pause() {
+#ifdef VERBOSE_SLICER
+        pebil_slicer_verbose_pause("PAPI-FTMINST");
+#endif
+        DynamicPoints->SetDynamicPoints(EntryExitKeys, false);
+        return;
+    }
+
+    void epa_pebil_pause_() { epa_pebil_pause(); return; }
 
   // function entry instrumentation
   int32_t function_entry(uint32_t funcIndex, image_key_t* key) {
@@ -467,6 +490,27 @@ extern "C"
       set<uint64_t> inits;
       inits.insert(GENERATE_KEY(*key, PointType_inits));
       DynamicPoints->SetDynamicPoints(inits, false);
+
+      // Get all func entry and func exit instrumentation points so that the 
+      // user can turn them on/off
+      std::set<uint64_t> keys;
+      DynamicPoints->GetAllDynamicKeys(keys);
+      assert(EntryExitKeys.empty());
+      for (auto it = keys.begin(); it != keys.end(); it++) {
+          uint64_t k = (*it);
+          if (GET_TYPE(k) == PointType_functionEntry ||
+            GET_TYPE(k) == PointType_functionExit) {
+              EntryExitKeys.insert(k);
+          }
+      }
+
+      // If EPA_SLICER_START_OFF is set, then turn inst off
+      uint32_t startOff = 0;
+      (void) ReadEnvUint32("EPA_SLICER_START_OFF", &startOff);
+      if (startOff != 0)
+          DynamicPoints->SetDynamicPoints(EntryExitKeys, false);
+
+
  
       pthread_mutex_unlock(&image_init_mutex);
     
