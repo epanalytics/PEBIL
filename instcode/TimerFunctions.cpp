@@ -67,6 +67,9 @@ static uint32_t shutoffIters=100;
 // please set FTIMER_THRESHOLD env variable to control the number of
 // microseconds per visit.
 static uint32_t timingThreshold=5000;
+// By default, shut off functions that are exited but not recorded as entered
+// Otherwise, this keeps track of # times this happens per thread
+static uint32_t trackUnenteredFuncs=0;
 static uint64_t timerCPUFreq=3200000000;
 // HPE EPYC: note that if the env variable is not defined, we default to 
 //    what is defined here:
@@ -126,19 +129,28 @@ FunctionTimers* GenerateFunctionTimers(FunctionTimers* timers, uint32_t typ, ima
     retval->inFunction = new uint32_t[retval->functionCount];
     retval->functionEntryCounts = new uint64_t[retval->functionCount];
     retval->functionShutoff = new uint32_t[retval->functionCount]; 
+    retval->unenteredFunctions = new uint64_t[retval->functionCount];
 
-    memset(retval->functionTimerAccum, 0, sizeof(*retval->functionTimerAccum) * retval->functionCount);
-    memset(retval->functionTimerLast, 0, sizeof(*retval->functionTimerLast) * retval->functionCount);
-    memset(retval->inFunction, 0, sizeof(*retval->inFunction) * retval->functionCount);
-    memset(retval->functionEntryCounts, 0, sizeof(*retval->functionEntryCounts) * retval->functionCount);
-    memset(retval->functionShutoff, 0, sizeof(*retval->functionShutoff) * retval->functionCount);
+    memset(retval->functionTimerAccum, 0, sizeof(*retval->functionTimerAccum) *       retval->functionCount);
+    memset(retval->functionTimerLast, 0, sizeof(*retval->functionTimerLast) *         retval->functionCount);
+    memset(retval->inFunction, 0, sizeof(*retval->inFunction) * 
+      retval->functionCount);
+    memset(retval->functionEntryCounts, 0, sizeof(*retval->functionEntryCounts)       * retval->functionCount);
+    memset(retval->functionShutoff, 0, sizeof(*retval->functionShutoff) * 
+      retval->functionCount);
+    memset(retval->unenteredFunctions, 0, sizeof(*retval->unenteredFunctions) 
+      * retval->functionCount);
 
     retval->appTimeStart = timers->appTimeStart;
     retval->appTimeOfDayStart = timers->appTimeOfDayStart;
 
     // read in key environment variables
     if (!ReadEnvUint32("FTIMER_SHUTOFF", &shutoffFunctionTimers)){
-        shutoffFunctionTimers=0;
+        shutoffFunctionTimers = 0;
+    }
+
+    if (!ReadEnvUint32("FTIMER_TRACK_UNENTERED", &trackUnenteredFuncs)){
+        trackUnenteredFuncs = 0;
     }
 
 
@@ -181,6 +193,7 @@ void DeleteFunctionTimers(FunctionTimers* timers){
     delete timers->inFunction;
     delete timers->functionEntryCounts;
     delete timers->functionShutoff;
+    delete timers->unenteredFunctions;
 }
 
 uint64_t ReferenceFunctionTimers(FunctionTimers* timers){
@@ -219,17 +232,43 @@ extern "C"
     int32_t function_exit(uint32_t funcIndex, image_key_t* key) {
         thread_key_t tid = pthread_self();
         uint64_t last, now;
+        static bool producedWarning = false;
         FunctionTimers* timers = AllData->GetData(*key, pthread_self());
 
         int32_t recDepth = timers->inFunction[funcIndex];
+        // If exiting a function that was never "entered"
         if(recDepth == 0) {
-            if(GetTaskId() == 0) {
-                warn << "Thread " << AllData->GetThreadSequence(tid) << 
-                  " Leaving never entered function " << funcIndex << ":" << 
-                  timers->functionNames[funcIndex] << ENDL;
-                print_backtrace();
+            if(GetTaskId() == 0 && !producedWarning) {
+                producedWarning = true;
+                warn << "Leaving a never entered function." << ENDL;
+                if (trackUnenteredFuncs)
+                    warn << "Check the unentered file at the end of this run "
+                      "for the threads that left unentered functions." << ENDL;
+                else
+                    warn << "Check the unentered file at the end of this run "
+                      "for a list of functions exited but never entered. " 
+                      "These functions are being shut off! To prevent shutoff "
+                      "and/or collect more details, set "
+                      "FTIMER_TRACK_UNENTERED=1" << ENDL;
             }
             timers->inFunction[funcIndex] = 0;
+            timers->unenteredFunctions[funcIndex]++;
+            // If we aren't tracking the unentered functions, shutoff the 
+            // function timer for it
+            if (!trackUnenteredFuncs) {
+                uint64_t imageSeq = AllData->GetImageSequence(*key);
+                AllData->WriteLock();
+                uint64_t this_key = GENERATE_UNIQUE_KEY(funcIndex, imageSeq,
+                  PointType_functionExit);
+                uint64_t corresponding_entry_key = GENERATE_UNIQUE_KEY(
+                  funcIndex, imageSeq, PointType_functionEntry);
+                set<uint64_t> inits;
+                inits.insert(this_key);
+                inits.insert(corresponding_entry_key);
+                DynamicPoints->SetDynamicPoints(inits, false); 
+                timers->functionShutoff[funcIndex] = 1;
+                AllData->UnLock();
+            }
             return 0; 
 
         } else if(recDepth < 0) {
@@ -396,13 +435,26 @@ extern "C"
         struct timeval tvEnd;
         gettimeofday(&tvEnd, NULL);
 
+        // print times
         char outFileName[1024];
         sprintf(outFileName, "%s.meta_%0d.%s", timers->application, GetTaskId(),
           timers->extension);
 
+        // print unentered functions
+        char unenteredFileName[1024];
+        sprintf(unenteredFileName, "%s.unentered_%0d.%s", timers->application, 
+          GetTaskId(), timers->extension);
+
         FILE* outFile = fopen(outFileName, "w");
         if (!outFile){
             cerr << "error: cannot open output file %s" << outFileName << ENDL;
+            exit(-1);
+        }
+
+        FILE* unOutFile = fopen(unenteredFileName, "w");
+        if (!unOutFile){
+            cerr << "error: cannot open output file %s" << unenteredFileName 
+              << ENDL;
             exit(-1);
         }
 
@@ -420,9 +472,12 @@ extern "C"
             char** functionNames = imageData->functionNames;
             uint64_t functionCount = imageData->functionCount;
             for (uint64_t funcIndex = 0; funcIndex < functionCount; ++funcIndex)            {
-                char* fname; 
+                char* fname;
+                bool unentered = false;
                 fname = functionNames[funcIndex];
                 fprintf(outFile, "\n%s:\t", fname);
+                if (trackUnenteredFuncs)
+                    fprintf(unOutFile, "\n%s:\t", fname);
                 for (set<thread_key_t>::iterator tit = 
                   AllData->allthreads.begin(); tit != 
                   AllData->allthreads.end(); ++tit) {
@@ -445,11 +500,31 @@ extern "C"
                           functionHashes[funcIndex],
                           AllData->GetImageSequence(*iit));
                     }
+                    // If tracking unentered functions, then print each function
+                    // and number of "warnings" per thread
+                    if (trackUnenteredFuncs) {
+                        fprintf(unOutFile, "\tThread: %d\tUnentered: "
+                          "%lld\tHash: 0x%llx\tImage: %d\t", 
+                          AllData->GetThreadSequence(*tit),  
+                          timers->unenteredFunctions[funcIndex], timers->
+                          functionHashes[funcIndex],
+                          AllData->GetImageSequence(*iit));
+
+                    }
+                    if (timers->unenteredFunctions[funcIndex])
+                        unentered = true;
                 }
+
+                // If not tracking, just print list of unentered functions
+                if (unentered && !trackUnenteredFuncs)
+                    fprintf(unOutFile, "%s\n", fname);
             }
         }
         fflush(outFile);
         fclose(outFile);
+        fflush(unOutFile);
+        fclose(unOutFile);
+
         return NULL;
     }
 };
