@@ -57,8 +57,9 @@ class AddressStreamDriver {
     // Holds the tools that are being run
     std::vector<AddressStreamTool*>* tools = NULL;
     // Used for passing addresses from vectorized instruction to the tools
+    // TODO make thread safe when merging with DataCentric
     uint64_t* addresses;
-    uint64_t arrLen;
+    uint64_t maxNumAddresses;
 
     uint32_t numMemoryHandlers;
 

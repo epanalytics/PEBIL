@@ -69,8 +69,8 @@ AddressStreamDriver::AddressStreamDriver() {
 
     // Create the vector to store the tools
     tools = new vector<AddressStreamTool*>();
-    arrLen = 64;
-    addresses = (uint64_t *)malloc(sizeof(uint64_t)*arrLen);
+    maxNumAddresses = 64;
+    addresses = (uint64_t *)malloc(sizeof(uint64_t)*maxNumAddresses);
 
     numMemoryHandlers = 0;
 
@@ -93,8 +93,8 @@ AddressStreamDriver::~AddressStreamDriver() {
       tools->end(); it++) {
           delete (*it);
     }
-    if (addresses) 
-        delete addresses;
+    if (addresses != NULL) 
+        free(addresses);
     tools->clear();
     delete tools; 
     delete fastData;
@@ -360,58 +360,73 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
         }
         assert(stats != NULL);
 
+        BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
+        if (reference->imageid == 0){
+            debug(assert(AllData->CountThreads() > 1));
+            continue;
+        }
+        uint64_t memSeq = reference->memseq;
+        bool ldstFlag = reference->loadstoreflag;
+        // I have a hunch most will be false so default to that
+        bool memvecFlag = false; 
+        uint64_t length = 0;
+        // if we are handling a single entry, make sure the handler we are
+        // trying to run it actually handles single memory entries
+        // all tools except for ScatterGather handle single Addresses
+        if (reference->type == MEM_ENTRY) {
+            if (reference->address != 0) { 
+                addresses[0]  = reference->address;
+                // memvecFlag = false;
+            } else {
+                inform << "found address 0, skipping\n";
+            }
+        //} if memory entry 
+
+        // if we are handling a vector entry, make sure the handler we are
+        // trying to run it actually handles vector memory entries
+        // all tools handle vector memory entries, this check was created
+        // in case that changes in the future 
+        } else if (reference->type == VECTOR_ENTRY ) {
+            uint64_t currAddr;
+            uint16_t mask = (reference->vectorAddress).mask;
+            length = 0;
+            memvecFlag = true;
+            uint32_t loopCheck = (reference->vectorAddress).numIndices;
+            assert(maxNumAddresses <= loopCheck);
+            for (int i = 0; i < loopCheck; i++) {
+                if (mask % 2 == 1) {
+                    currAddr = (reference->vectorAddress).base
+                      + (reference->vectorAddress).indexVector[i]
+                      * (reference->vectorAddress).scale;
+                    //we start at 0 for length and increment when there
+                    //is an address we are accessing so we can use that
+                    //to keep track of where we are in the array as well
+                    //as its final length
+                    addresses[length] = currAddr;
+                    length++;
+                }// mask check 
+                mask = (mask >> 1);
+            }// for num of indices
+        }// if vector entry
+
         // Process for each memory handler
         for (uint32_t handlerIndex = 0; handlerIndex < GetNumMemoryHandlers(); 
           handlerIndex++) {
             MemoryStreamHandler* handler = stats->Handlers[handlerIndex];
             StreamStats* ss = stats->Stats[handlerIndex];
-
-            BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
-
-            if (reference->imageid == 0){
-                debug(assert(AllData->CountThreads() > 1));
-                continue;
-            }
-
             if (reference->type == MEM_ENTRY && handler->ProcessMEMENTRY()) {
-
-                uint64_t memSeq = reference->memseq;
-                bool ldstFlag = reference->loadstoreflag;
-                addresses[0]  = reference->address;
-                bool memvecFlag = false;
+                // maxNumAddresses is the allocated size of the array when it was 
+                // created, the 1 is the number of actual elements used
+                (void) handler->Process((void*)ss, memSeq, ldstFlag, 
+                  addresses, maxNumAddresses, 1, memvecFlag);
+            } else if (reference->type == VECTOR_ENTRY 
+              && handler->ProcessVECENTRY()){
                 (void) handler->Process((void*)ss, memSeq, ldstFlag, addresses, 
-                  arrLen, 1, memvecFlag);
-
-            }// if memory entry 
-            else if (reference->type == VECTOR_ENTRY 
-              && handler->ProcessVECENTRY()) {
- 
-                uint64_t currAddr;
-                uint64_t memSeq = reference->memseq;
-                bool ldstFlag = reference->loadstoreflag;
-                uint16_t mask = (reference->vectorAddress).mask;
-                uint64_t length = 0;
-                bool memvecFlag = true;
-                uint32_t loopCheck = (reference->vectorAddress).numIndices;
-                for (int i = 0; i < loopCheck; i++) {
-                    if (mask % 2 == 1) {
-                        currAddr = (reference->vectorAddress).base
-                        + (reference->vectorAddress).indexVector[i]
-                        * (reference->vectorAddress).scale;
-
-                        //we start at 0 for length and increment when there
-                        //is an address we are accessing so we can use that
-                        //to keep track of where we are in the array as well
-                        //as its final length
-                        addresses[length] = currAddr;
-                        length++;
-                    }// mask check 
-                    mask = (mask >> 1);
-                }// for num of indices
-                handler->Process((void*)ss, memSeq, ldstFlag, addresses, arrLen,
-                  length, memvecFlag);
-            }// if vector entry
+                  maxNumAddresses, length, memvecFlag);
+            }//if else if block
         }// for number of handlers
+        // 0 out addresses array to prevent passing stale data
+        memset(addresses, 0, sizeof(uint64_t)*maxNumAddresses);
     }// for elements in the buffer
 
     return numSkipped;
