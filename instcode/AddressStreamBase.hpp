@@ -98,13 +98,9 @@ class MemoryStreamHandler {
     virtual ~MemoryStreamHandler();
 
     virtual void Print(std::ofstream& f) = 0;
-    virtual bool ProcessMEMENTRY() { return true; }
-    virtual bool ProcessVECENTRY() { return true; }
-    virtual bool ProcessOVERRIDE() { return false; }
     virtual uint32_t Process(void* stats, uint64_t memSeq, bool ldstFlag,
-      uint64_t* addresses, uint64_t arrLen, uint64_t length, bool memvecFlag) = 0;
-    //virtual uint32_t Process(void* stats, uint64_t memSeq, uint64_t addr,
-    //  bool flag, uint64_t length) = 0;
+      uint64_t* addresses, uint64_t arrLen, uint64_t length, bool memvecFlag) 
+      = 0;
     // Number of addresses that appeared but aren't processed
     virtual void SkipAddresses(uint32_t numToSkip) {};
     virtual bool Verify() = 0;

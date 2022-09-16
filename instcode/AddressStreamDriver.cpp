@@ -385,26 +385,19 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
         bool ldstFlag = reference->loadstoreflag;
         // I have a hunch most will be false so default to that
         bool memvecFlag = false; 
-        uint64_t length = 0;
-        // if we are handling a single entry, make sure the handler we are
-        // trying to run it actually handles single memory entries
-        // all tools except for ScatterGather handle single Addresses
+        // for single memory entry, length is one
+        uint64_t length = 1;
         if (reference->type == MEM_ENTRY) {
             if (reference->address != 0) { 
                 addresses[0]  = reference->address;
-                // memvecFlag = false;
             } else {
                 inform << "found address 0, skipping\n";
             }
-        //} if memory entry 
-
-        // if we are handling a vector entry, make sure the handler we are
-        // trying to run it actually handles vector memory entries
-        // all tools handle vector memory entries, this check was created
-        // in case that changes in the future 
+        // end of if memory entry 
         } else if (reference->type == VECTOR_ENTRY ) {
             uint64_t currAddr;
             uint16_t mask = (reference->vectorAddress).mask;
+            // for vec entry, length is determined by the mask.
             length = 0;
             memvecFlag = true;
             uint32_t loopCheck = (reference->vectorAddress).numIndices;
@@ -423,24 +416,19 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                 }// mask check 
                 mask = (mask >> 1);
             }// for num of indices
-        }// if vector entry
+        }// end of if vector entry
 
         // Process for each memory handler
         for (uint32_t handlerIndex = 0; handlerIndex < GetNumMemoryHandlers(); 
           handlerIndex++) {
             MemoryStreamHandler* handler = stats->Handlers[handlerIndex];
             StreamStats* ss = stats->Stats[handlerIndex];
-            if (reference->type == MEM_ENTRY && handler->ProcessMEMENTRY()) {
-                // maxNumAddresses is the allocated size of the array when it was 
-                // created, the 1 is the number of actual elements used
-                (void) handler->Process((void*)ss, memSeq, ldstFlag, 
-                  addresses, maxNumAddresses, 1, memvecFlag);
-            } else if (reference->type == VECTOR_ENTRY 
-              && handler->ProcessVECENTRY()){
-                (void) handler->Process((void*)ss, memSeq, ldstFlag, addresses, 
-                  maxNumAddresses, length, memvecFlag);
-            }//if else if block
+            // maxNumAddresses is the allocated size of the array when it was 
+            // created, the length is the number of actual elements used
+            (void) handler->Process((void*)ss, memSeq, ldstFlag, addresses, 
+              maxNumAddresses, length, memvecFlag);
         }// for number of handlers
+
         // 0 out addresses array to prevent passing stale data
         memset(addresses, 0, sizeof(uint64_t)*maxNumAddresses);
     }// for elements in the buffer

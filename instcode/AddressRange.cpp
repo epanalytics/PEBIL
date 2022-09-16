@@ -303,7 +303,8 @@ void AddressRangeHandler::Print(ofstream& f){
 }
 
 uint32_t AddressRangeHandler::Process(void* stats, uint64_t memSeq, 
-  bool ldstFlag, uint64_t* addresses, uint64_t arrLen, uint64_t length, bool memvecFlag) {
+  bool ldstFlag, uint64_t* addresses, uint64_t arrLen, uint64_t length, 
+  bool memvecFlag) {
 
     // TODO should this fail or error out if length > arrLen?
     for(int i=0;i<length;i++) {

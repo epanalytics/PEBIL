@@ -1271,7 +1271,8 @@ void CacheStructureHandler::Print(ofstream& f){
 }
 
 uint32_t CacheStructureHandler::Process(void* stats_in, uint64_t memSeq,
-  bool ldstFlag, uint64_t* addresses, uint64_t arrLen, uint64_t length, bool memvecFlag) {
+  bool ldstFlag, uint64_t* addresses, uint64_t arrLen, uint64_t length, 
+  bool memvecFlag) {
 
     CacheStats* stats = (CacheStats*)stats_in;
     uint32_t lastReturn = 0;
