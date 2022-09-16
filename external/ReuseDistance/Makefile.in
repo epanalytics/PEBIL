@@ -1,10 +1,28 @@
+#/* 
+# * This file is part of the ReuseDistance tool.
+# * 
+# * Copyright (c) 2012, University of California Regents
+# * All rights reserved.
+# * 
+# * This program is free software: you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation, either version 3 of the License, or
+# * (at your option) any later version.
+# *
+# * This program is distributed in the hope that it will be useful,
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# * GNU General Public License for more details.
+# *
+# * You should have received a copy of the GNU General Public License
+# * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# */
 TGT = @PACKAGE@
 
 LINKSHARED = -lpthread -shared
 BUILDSHARED = -fPIC
 INCLUDE = -I.
 INSTALLTO = @prefix@
-EXTOBJ = tree234.o LRUDistanceAnalyzer.o
 
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@ -g
@@ -19,11 +37,11 @@ all: $(DYNTGT) test
 dynamic: $(DYNTGT)
 static: $(STATGT)
 
-$(DYNTGT): $(TGT).o $(EXTOBJ)
-	$(CXX) $(CXXFLAGS) $(LINKSHARED) -o $@ $< $(EXTOBJ)
+$(DYNTGT): $(TGT).o
+	$(CXX) $(CXXFLAGS) $(LINKSHARED) -o $@ $<
 
-$(STATGT): $(TGT).o $(EXTOBJ)
-	$(AR) cru $@ $< $(EXTOBJ)
+$(STATGT): $(TGT).o
+	$(AR) cru $@ $<
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDE) $(BUILDSHARED) -c -o $@ $<
@@ -38,7 +56,7 @@ check: all test
 	$(MAKE) -C test/ check
 
 clean:
-	rm -rf $(TGT).o $(DYNTGT) $(STATGT) $(EXTOBJ) *.ii *.s
+	rm -rf $(TGT).o $(DYNTGT) $(STATGT) *.ii *.s
 	$(MAKE) -C test/ clean
 
 install: all

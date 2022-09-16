@@ -26,8 +26,10 @@
 #include <iostream>
 #include <set>
 
+#ifndef debug
 //#define debug(...) __VA_ARGS__
 #define debug(...)
+#endif
 
 typedef uint64_t image_key_t;
 typedef pthread_t thread_key_t;
@@ -49,93 +51,6 @@ static const char* CounterTypeNames[CounterType_total] = {
     "function"
 };
 
-enum EntryType: uint8_t {
-  MEM_ENTRY = 0,
-  PREFETCH_ENTRY,
-  VECTOR_ENTRY
-};
-  
-struct VectorAddress {
-    uint32_t indexVector[16];
-    uint64_t base;
-    uint8_t  scale;
-    uint64_t mask;
-};
-
-typedef struct {
-    enum EntryType type;
-    uint8_t        loadstoreflag;   // Dirty Caching
-    uint64_t       imageid;         // Multi-image
-    uint64_t       memseq;          // identifies memop in image
-    union {
-        uint64_t address;        // value simulated
-        struct VectorAddress vectorAddress;
-    };
-//    uint64_t    threadid;        // Error-checking
-//    uint64_t    programAddress;  // only used for adamant
-} BufferEntry;
-#define __buf_current  address
-#define __buf_capacity memseq
-
-class StreamStats;
-class MemoryStreamHandler;
-class ReuseDistance;
-
-typedef struct{
-    uint64_t GroupId; // for now, same as BB-ID/ Top-most loop of 
-    uint32_t InnerLevelSize;
-    uint64_t GroupCount;
-    uint64_t* InnerLevelBasicBlocks; // Since there can be >1 
-} NestedLoopStruct;
-
-typedef struct {
-    // memory buffer
-    BufferEntry* Buffer;
-
-    // metadata
-    thread_key_t threadid;
-    image_key_t imageid;
-    bool Initialized;
-    bool PerInstruction;
-    bool LoopInclusion; // when terminating sampling for a block,
-                        // do this for all blocks within the loop
-                        // Note: includes all other blocks in the loop
-    bool Master;
-    uint32_t Phase;
-    uint32_t InstructionCount;
-    uint32_t BlockCount;
-    uint32_t AllocCount;
-    char* Application;
-    char* Extension;
-
-    // per-memop data
-    uint64_t* BlockIds;
-    uint64_t* MemopIds;
-
-    // per-block data
-    CounterTypes* Types;
-    uint64_t* Counters;
-    uint32_t* MemopsPerBlock;
-    char** Files;
-    uint32_t* Lines;
-    char** Functions;
-    uint64_t* Hashes;
-    uint64_t* Addresses;
-    uint64_t* GroupIds;
-    StreamStats** Stats; // indexed by handler
-    MemoryStreamHandler** Handlers;
-    ReuseDistance** RHandlers;
-
-
-    uint64_t NestedLoopCount;
-    NestedLoopStruct* NLStats; 
-
-} SimulationStats;
-
-#define BUFFER_ENTRY(__stats, __n) (&(__stats->Buffer[__n+1]))
-#define BUFFER_CAPACITY(__stats) (__stats->Buffer[0].__buf_capacity)
-#define BUFFER_CURRENT(__stats) (__stats->Buffer[0].__buf_current)
-
 typedef enum {
     PointType_undefined = 0,
     PointType_blockcount,
@@ -144,11 +59,12 @@ typedef enum {
     PointType_bufferfill,
     PointType_functionEntry,
     PointType_functionExit,
+    PointType_inits,
     PointType_total
 } PointTypes;
 
 #define DYNAMIC_POINT_SIZE_LIMIT 128
-typedef struct {
+typedef struct DynamicInst_s {
     uint64_t VirtualAddress;
     uint64_t ProgramAddress;
     uint64_t Key;
@@ -158,8 +74,14 @@ typedef struct {
     bool IsEnabled;
 } DynamicInst;
 
-#define GENERATE_KEY(__bid, __typ) ((__typ & 0xf) | (__bid << 4))
-#define GET_BLOCKID(__key) ((__key >> 4))
+#define GENERATE_UNIQUE_ID(__bid, __iid) ((__bid << 8) | ((__iid & 0xf) << 4))
+// Generate a key given a block sequence and an image sequence
+#define GENERATE_UNIQUE_KEY(__bid, __iid, __typ) ((__typ & 0xf) | GENERATE_UNIQUE_ID(__bid, __iid))
+// Generate a key given a unique id
+#define GENERATE_KEY(__id, __typ) ((__typ & 0xf) | (__id << 4))
+#define GET_UNIQUEID(__key) ((__key >> 4))
+#define GET_IMAGEID(__key) (((__key & 0xf0)>> 4))
+#define GET_BLOCKID(__key) ((__key >> 8))
 #define GET_TYPE(__key) ((__key & 0xf))
 
 #endif //_Metasim_hpp_

@@ -357,7 +357,7 @@ sub GenerateCaches_Main {
     print OUT_FD "\n";
     print OUT_FD "#define __SYSTEM_COUNT $sys_count\n";
     print OUT_FD "uint8_t systemCount =  __SYSTEM_COUNT;\n";
-    print OUT_FD "MemoryHierarchy systems[__SYSTEM_COUNT] = {\n";
+    print OUT_FD "struct MemoryHierarchy systems[__SYSTEM_COUNT] = {\n";
 
     for(my $j=0;$j<@system_caches;$j++){
         if(!defined($system_caches[$j])){

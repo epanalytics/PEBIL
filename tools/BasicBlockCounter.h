@@ -28,17 +28,33 @@ protected:
     InstrumentationFunction* entryFunc;
     InstrumentationFunction* exitFunc;
 
-    bool loopCount;
+    Vector<uint64_t>* allAddresses = NULL;
+    Vector<Base*>* allBlocks = NULL;
+    Vector<uint32_t>* allBlockIds = NULL;
+    Vector<LineInfo*>* allBlockLineInfos = NULL;
+    Vector<Function*>* allFunctions = NULL;
+    Vector<uint64_t>* allHashes = NULL;
+
+    LineInfoFinder* lineInfoFinder = NULL;
+    bool loopCount = false;
+    Vector<Loop*>* loopsToInstrument = NULL;
+
+    virtual uint32_t getNumberOfBlocksToInstrument();
+    virtual bool isInstrumentingLoops() { return true; }
+    virtual void setBlocksToInstrument();
+    void setLineInfoFinder();
+    void setLoopsToInstrument();
+
 public:
     BasicBlockCounter(ElfFile* elf);
-    ~BasicBlockCounter() {}
+    virtual ~BasicBlockCounter();
 
     void declare();
     void instrument();
 
-    const char* briefName() { return "BasicBlockCounter"; }
-    const char* defaultExtension() { return "jbbinst"; }
-    uint32_t allowsArgs() { return PEBIL_OPT_LPI | PEBIL_OPT_DTL; }
+    virtual const char* briefName() { return "BasicBlockCounter"; }
+    virtual const char* defaultExtension() { return "jbbinst"; }
+    virtual uint32_t allowsArgs() { return PEBIL_OPT_LPI | PEBIL_OPT_DTL; }
     uint32_t requiresArgs() { return PEBIL_OPT_NON; }
 };
 

@@ -20,11 +20,11 @@
 
 #ifndef _Debug_h_
 #define _Debug_h_
-
 #include <iostream>
-
 // debugging macros -- these can produce copious amounts of output
-#define WARNING_SEVERITY 7
+#ifndef WARNING_SEVERITY
+#define WARNING_SEVERITY 1
+#endif
 
 //#define DEVELOPMENT
 //#define DEBUG_MEMTRACK
@@ -298,7 +298,7 @@
     PRINT_INFO(); \
     PRINT_OUT("instruction %d %s list: ", __i, #__list);      \
     for (uint32_t __j = 0; __j < __elts; __j++){\
-    if (__list[__i]->contains(__j)){\
+    if (__list[__i].containsRegister(__j)){\
     PRINT_OUT("reg:%d ", __j);\
     }\
     }\
@@ -323,7 +323,7 @@
 static void* _backtraceArray[BACKTRACE_SIZE];
 static size_t _backtraceSize;
 static char** _backtraceStrings;
-static int _arrayBacktraceIterator;
+static long unsigned int _arrayBacktraceIterator;
 
 #define ASSERT(__str) \
     if (!(__str)){ _backtraceSize = backtrace(_backtraceArray, BACKTRACE_SIZE); _backtraceStrings = backtrace_symbols(_backtraceArray, _backtraceSize); \

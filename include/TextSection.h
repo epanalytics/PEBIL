@@ -41,12 +41,13 @@ protected:
     TextSection* textSection;
     uint32_t index;
     Symbol* symbol;
-
+//    char sanitizeName[__MAX_STRING_SIZE];
+    char sanitizeName[__MAX_STRING_SIZE];
     Vector<X86Instruction*>* digestLinear();
 public:
     TextObject(PebilClassTypes typ, TextSection* text, uint32_t idx, Symbol* sym, uint64_t addr, uint32_t sz);
     ~TextObject() {}
-
+    void setSanitize(uint64_t input) {sprintf(sanitizeName,"0x%08llx",input);} 
     uint32_t getIndex() { return index; }
     uint64_t getBaseAddress() { return baseAddress; }
     bool inRange(uint64_t addr);
@@ -62,6 +63,7 @@ public:
  
     virtual void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset) { __SHOULD_NOT_ARRIVE; }
     virtual char* getName();
+    virtual char* getRealName();
     virtual uint32_t digest(Vector<AddressAnchor*>* addressAnchors) { __SHOULD_NOT_ARRIVE; }
     virtual void printDisassembly(bool instructionDetail) { __SHOULD_NOT_ARRIVE; }
     virtual void wedge(uint32_t shamt) { __SHOULD_NOT_ARRIVE; }
@@ -111,14 +113,14 @@ public:
 
     ByteSources getByteSource();
     void setByteSource(ByteSources src) { source = src; }
-    uint32_t setSizeInBytes(uint32_t sz) { sizeInBytes = sz; }
+    void setSizeInBytes(uint32_t sz) { sizeInBytes = sz; }
     uint32_t readNoFile();
     uint32_t getIndex() { return index; }
     uint32_t disassemble();
-    uint32_t generateCFGs(Vector<AddressAnchor*>* addressAnchors);
-    uint32_t printDisassembly(bool instructionDetail);
-    uint32_t read(BinaryInputFile* b);
-    uint32_t disassemble(BinaryInputFile* b);
+    void generateCFGs(Vector<AddressAnchor*>* addressAnchors);
+    void printDisassembly(bool instructionDetail);
+    void read(BinaryInputFile* b);
+    uint32_t disassemble(BinaryInputFile* b,bool sanitize);
 
     uint64_t findInstrumentationPoint(uint64_t addr, uint32_t size, InstLocations loc);
 
@@ -146,7 +148,7 @@ public:
     Vector<X86Instruction*>* swapInstructions(uint64_t addr, Vector<X86Instruction*>* replacements);
 
     void printLoops();
-    uint32_t buildLoops();
+    void buildLoops();
 };
 
 

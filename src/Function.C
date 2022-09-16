@@ -161,7 +161,9 @@ void Function::printDisassembly(bool instructionDetail){
     }
 }
 
-uint32_t Function::bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* instPoints){
+uint32_t Function::bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* 
+  instPoints, Vector<Vector<uint64_t>*>* oldInsnAddresses, Vector<uint64_t>* 
+  oldInsns, Vector<uint64_t>* newInsns){
     uint32_t currByte = 0;
     if ((*instPoints).size() != flowGraph->getNumberOfBasicBlocks()){
         print();
@@ -173,11 +175,12 @@ uint32_t Function::bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* inst
     uint32_t bbidx = 0;
     for (uint32_t i = 0; i < flowGraph->getNumberOfBlocks(); i++){
         Block* block = flowGraph->getBlock(i);
+        block->setBaseAddress(baseAddress + currByte);
         if (block->getType() == PebilClassType_BasicBlock){
-            ((BasicBlock*)block)->bloat((*instPoints)[bbidx]);
+            ((BasicBlock*)block)->bloat((*instPoints)[bbidx], 
+              (*oldInsnAddresses)[bbidx], oldInsns, newInsns);
             bbidx++;
         }
-        block->setBaseAddress(baseAddress + currByte);
         currByte += block->getNumberOfBytes();
     }
     ASSERT(bbidx == flowGraph->getNumberOfBasicBlocks());
@@ -186,7 +189,7 @@ uint32_t Function::bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* inst
     return sizeInBytes;
 }
 
-uint32_t Function::addSafetyJump(X86Instruction* tgtInstruction){
+void Function::addSafetyJump(X86Instruction* tgtInstruction){
     Block* block = flowGraph->getBasicBlock(flowGraph->getNumberOfBasicBlocks() - 1);
     if (block->getType() == PebilClassType_BasicBlock){
         CodeBlock* cb = ((CodeBlock*)block);
@@ -298,6 +301,17 @@ bool Function::containsCallToRange(uint64_t lowAddr, uint64_t highAddr){
         if (flowGraph->getBasicBlock(i)->containsCallToRange(lowAddr,highAddr)){
             return true;
         }
+    }
+    return false;
+}
+
+// Return true if a given address is within range of the function
+bool Function::isInRange(uint64_t addr){
+    //PRINT_INFOR("ACC: -- Checking if 0x%x is in range of <0x%x, 0x%x>", addr,
+    //  getBaseAddress(), getBaseAddress() + getSizeInBytes());
+    if ((addr >= getBaseAddress()) && (addr < (getBaseAddress() + 
+      getSizeInBytes()))){
+        return true;
     }
     return false;
 }
@@ -437,7 +451,11 @@ Vector<X86Instruction*>* Function::digestRecursive(){
 
         PRINT_DEBUG_CFG("recursive cfg: address %#llx with %d bytes", currentAddress, currentInstruction->getSizeInBytes());
 
-        if (currentInstruction->getInstructionType() == UD_Iinvalid){
+        if ((currentInstruction->getInstructionType() == 
+          X86InstructionType_invalid)  || 
+          (currentInstruction->getInstructionType() == 
+          X86InstructionType_unknown)) {
+
             setBadInstruction(currentInstruction->getBaseAddress());
         }
 
@@ -542,7 +560,8 @@ Vector<X86Instruction*>* Function::digestRecursive(){
     return allInstructions;
 }
 
-uint32_t Function::generateCFG(Vector<X86Instruction*>* instructions, Vector<AddressAnchor*>* addressAnchors){
+void Function::generateCFG(Vector<X86Instruction*>* instructions, 
+  Vector<AddressAnchor*>* addressAnchors){
     BasicBlock* currentBlock = NULL;
     BasicBlock* entryBlock = NULL;
     uint32_t numberOfBasicBlocks = 0;
@@ -654,7 +673,7 @@ uint32_t Function::generateCFG(Vector<X86Instruction*>* instructions, Vector<Add
         unknownBlocks.append(new RawBlock(unknownBlocks.size(), flowGraph, textSection->getStreamAtAddress(getBaseAddress()),
                                               flowGraph->getBlock(0)->getBaseAddress()-getBaseAddress(), getBaseAddress()));
     }
-    for (int32_t i = 0; i < flowGraph->getNumberOfBlocks()-1; i++){
+    for (uint32_t i = 0; i < flowGraph->getNumberOfBlocks()-1; i++){
         uint64_t blockEnds = flowGraph->getBlock(i)->getBaseAddress() + flowGraph->getBlock(i)->getNumberOfBytes();        
         uint64_t blockBegins = flowGraph->getBlock(i+1)->getBaseAddress();        
         if (blockEnds < blockBegins){
@@ -771,9 +790,7 @@ Function::~Function(){
         delete deadRegs;
     }
 }
-
-
-Function::Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz)
+Function::Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz,bool sanitize)
     : TextObject(PebilClassType_Function,text,idx,sym,sym->GET(st_value),sz)
 {
     ASSERT(sym);
@@ -781,7 +798,9 @@ Function::Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz)
     flowGraph = NULL;
     hashCode = HashCode(text->getSectionIndex(),index);
     PRINT_DEBUG_HASHCODE("Function %d, section %d  Hashcode: 0x%08llx", index, text->getSectionIndex(), hashCode.getValue());
-
+    if (sanitize){
+        setSanitize(hashCode.getValue());
+    }
     badInstruction = 0;
     flags = 0;
     defUse = false;
@@ -791,7 +810,6 @@ Function::Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz)
 
     verify();
 }
-
 
 bool Function::verify(){
     if (symbol){

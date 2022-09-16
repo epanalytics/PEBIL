@@ -90,11 +90,18 @@ private:
     Vector<X86Instruction*> replacedInstructions;
     Vector<BasicBlock*> interposedBlocks;
 
+    Vector<uint64_t> relocatedInsnAddresses;
+    Vector<uint64_t> originalInsnAddresses;
+
     bool allowStatic;
     bool threadedMode;
-    bool hybridOffloadMode;
     bool multipleImages;
     bool perInstruction;
+    bool saveAll;
+    bool saveZmmRegs;
+    bool trackRelocatedInsns; // Map relocated addresses to origin
+    bool sanitize;
+    bool disableStatic;
 
     ProgramHeader* instSegment;
 
@@ -115,8 +122,8 @@ private:
     LineInfoFinder* lineInfoFinder;
 
     uint32_t addStringToDynamicStringTable(const char* str);
-    uint32_t addSymbolToDynamicSymbolTable(uint32_t name, uint64_t value, uint64_t size, uint8_t bind, uint8_t type, uint32_t other, uint16_t scnidx);
-    uint32_t expandHashTable(uint32_t idx);
+    void addSymbolToDynamicSymbolTable(uint32_t name, uint64_t value, uint64_t size, uint8_t bind, uint8_t type, uint32_t other, uint16_t scnidx);
+    uint32_t expandHashTable(HashTable* hashTable);
 
     void initializeDisabledFunctions(char* inputFuncList);
 
@@ -193,6 +200,8 @@ public:
 
     void print();
     void print(uint32_t printCodes);
+    void printRelocatedInsnMaps();
+    void printHiddenFunctions();
     void dump(const char* extension, bool isext=true);
 
     bool verify();
@@ -214,12 +223,18 @@ public:
     void setAllowStatic() { allowStatic = true; }
     void setThreadedMode() { threadedMode = true; ASSERT(is64Bit() && "Threading support not available for IA32"); }
     bool isThreadedMode() { return threadedMode; }
-    void setHybridOffloadMode() { hybridOffloadMode = true; }
-    bool isHybridOffloadMode() { return hybridOffloadMode; }
     void setMultipleImages() { multipleImages = true; ASSERT(is64Bit() && "Multi-image support not available for IA32"); }
     bool isMultiImage() { return multipleImages; }
     void setPerInstruction() { perInstruction = true; }
     bool isPerInstruction() { return perInstruction; }
+    void setSaveAll() { saveAll = true; }
+    bool isSaveAll() { return saveAll; }
+    void unsetSaveZmm() { saveZmmRegs = false; }
+    bool isSaveZmm() { return saveZmmRegs; }
+    void setTrackRelocatedInsns() { trackRelocatedInsns = true; }
+    bool isTrackRelocatedInsns() { return trackRelocatedInsns; }
+    void setDisableStatic() { disableStatic = true; }
+    bool getDisableStatic() { return disableStatic; }
 
     char* getApplicationName() { return elfFile->getAppName(); }
     uint32_t getApplicationSize() { return elfFile->getFileSize(); }
@@ -255,6 +270,7 @@ public:
     virtual void instrument() { __SHOULD_NOT_ARRIVE; }
     virtual const char* getExtension() { __SHOULD_NOT_ARRIVE; }
     virtual bool canRelocateFunction(Function* func) { return true; }
+    void setElfInstSanitize(bool input){ sanitize=input; }
 };
 
 

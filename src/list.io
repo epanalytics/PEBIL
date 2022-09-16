@@ -1,9 +1,0 @@
-puts
-__printf_chk
-__fprintf_chk
-fprintf
-printf
-fflush
-fopen
-_gfortran_st_write
-_gfortran_transfer_character

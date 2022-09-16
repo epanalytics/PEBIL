@@ -48,6 +48,15 @@
 bool ElfFile::isMicBinary() {
     return getFileHeader()->GET(e_machine) == EM_K10M;
 }
+
+bool ElfFile::isAVX512Binary() {
+#ifdef HAS_AVX512_SET
+    return true;
+#else
+    return false;
+#endif
+}
+
 // get the smallest virtual address of all loadable segments (ie, the base address for the program)
 uint64_t ElfFile::getProgramBaseAddress(){
     uint64_t segmentBase = -1;
@@ -60,7 +69,8 @@ uint64_t ElfFile::getProgramBaseAddress(){
         }
     }
 
-    ASSERT(segmentBase != -1 && "No loadable segments found (or their p_vaddr fields are incorrect)");
+    ASSERT(segmentBase != (uint64_t)-1 && "No loadable segments found (or "
+      "their p_vaddr fields are incorrect)");
     return segmentBase;
 }
 
@@ -72,6 +82,10 @@ bool ElfFile::isWedgeAddress(uint64_t addr){
 }
 
 bool ElfFile::isDataWedgeAddress(uint64_t addr){
+
+    // The textSegmentIdx and dataSegmentIdx may have changed!
+    // See the verify function for more information
+    ASSERT(false);
 
     //PRINT_INFOR("Checking %lx", addr);
 
@@ -358,6 +372,26 @@ ProgramHeader* ElfFile::getProgramHeaderPHDR(){
     return NULL;
 }
 
+void ElfFile::getLoadSegments(Vector<ProgramHeader*>* vec) {
+    uint32_t numOfPH = getNumberOfPrograms();   
+    for(uint32_t i=0;i<numOfPH;i++) {
+        ProgramHeader* ph = getProgramHeader(i);
+        if (ph->GET(p_type) == PT_LOAD) {
+            vec->append(ph);
+        }
+    }
+}
+
+uint16_t ElfFile::getELFStructuresSegmentIdx(){
+    // We assume the the first LOAD segment is the 3rd segment overall
+    // if this assumption fails a nonsense value is returned that should 
+    // alert us if that doesn't happen
+    if (getProgramHeader(2)->GET(p_type) == PT_LOAD) {
+        return 2;
+    }
+    return (uint16_t)-1;
+}
+
 DataSection* ElfFile::getDotDataSection(){
     uint16_t dataSectionIndex = 0;
 
@@ -389,7 +423,22 @@ RawSection* ElfFile::findDataSectionAtAddr(uint64_t addr){
     return dataSection;
 }
 
-uint16_t ElfFile::findSectionIdx(char* name){
+uint16_t ElfFile::findInitialTextSectionIdx() {
+    // Possible first text sections: .init, .rodata
+    uint16_t initIdx = findSectionIdx(".init");
+    uint16_t rodataIdx = findSectionIdx(".rodata");
+    ASSERT((initIdx > 0 || rodataIdx > 0) && 
+      "Could not find an initial text section")
+    if (rodataIdx == 0)
+        return initIdx - 1;
+    if (initIdx == 0)
+        return rodataIdx - 1;
+    if (rodataIdx < initIdx)
+        return rodataIdx - 1;
+    return initIdx - 1;
+}
+
+uint16_t ElfFile::findSectionIdx(const char* name){
     for (uint16_t i = 1; i < getNumberOfSections(); i++){
         if (name && sectionHeaders[i]->getSectionNamePtr()){
             if (!strcmp(sectionHeaders[i]->getSectionNamePtr(),name)){
@@ -427,6 +476,15 @@ bool ElfFile::verify(){
     }
     
     // verify that there is only 1 text and 1 data segment
+    // 12/07/2021: This is not really a good assumption anymore. Starting
+    // with gcc9, ELF files can have more than two LOAD segments. We have 
+    // changed it so that the LOAD section that gets extended is the 
+    // ELFStructuresSegment. The text segment is the segment with the text 
+    // section and the data segment is the one with the first data section.
+    //
+    // Leaving this code here because the wedge code uses the textSegmentIdx 
+    // and dataSegmentIdx and we don't have a good example that uses the 
+    // wedge code for testing purposes
     uint32_t textSegCount = 0;
     uint32_t dataSegCount = 0;
     for (uint32_t i = 0; i < getNumberOfPrograms(); i++){
@@ -443,8 +501,37 @@ bool ElfFile::verify(){
                 dataSegmentIdx = i;
                 dataSegCount++;
             } else {
-                PRINT_ERROR("Segment(%d) with type PT_LOAD has attributes that are not consistent with text or data");
-                return false;
+                //PRINT_INFO("Segment(%d) with type PT_LOAD has attributes that are not consistent with text or data");
+                //return false;
+            }
+        }
+    }
+
+    // flag for determining if all LOAD segments are continuous
+    // Assume that LOAD segments start at index 2 (see 
+    // getELFStructuresSegmentIdx)
+    bool flag = false;
+    for (uint32_t i = 0; i < getNumberOfPrograms(); i++) {
+        ProgramHeader* phdr = getProgramHeader(i);
+        if (i < 2 && phdr->GET(p_type) == PT_LOAD){
+            PRINT_ERROR("LOAD Segments do not start at index 2");
+            return false;
+        }
+        if (i == 2 && phdr->GET(p_type) != PT_LOAD) {
+            PRINT_ERROR("LOAD Segments do not start at index 2");
+            return false;
+        } else {
+            flag = true;
+        }
+        if (i > 2 && flag == true){
+            if (phdr->GET(p_type) != PT_LOAD){
+                flag = false;
+                continue;
+            }
+        }
+        if (i > 2 && flag == false) {
+            if (phdr->GET(p_type) == PT_LOAD) {
+                PRINT_ERROR("LOAD Segments not all continous");
             }
         }
     }
@@ -548,16 +635,8 @@ bool ElfFile::verifyDynamic(){
             sysvHashSectionAddress_DT = dynamicTable->getDynamicByType(DT_HASH,0)->GET_A(d_val,d_un);
         }
     }
-    // if both types are present, we assume the sysv style version comes first
-    if (getNumberOfHashTables() == 2){
-        if (gnuHashSectionAddress_DT <= sysvHashSectionAddress_DT){
-            PRINT_ERROR("Sysv hash table should come before gnu hash table");
-            return false;
-        }
-    }
 
     uint64_t dynstrSectionAddress_DT = dynamicTable->getDynamicByType(DT_STRTAB,0)->GET_A(d_val,d_un);
-    uint64_t dynsymSectionAddress_DT = dynamicTable->getDynamicByType(DT_SYMTAB,0)->GET_A(d_val,d_un);
     if (dynamicTable->countDynamics(DT_REL) + dynamicTable->countDynamics(DT_RELA) != 1){
         PRINT_ERROR("Can only have one relocation table referenced by the dynamic table");
         return false;
@@ -574,10 +653,8 @@ bool ElfFile::verifyDynamic(){
     // The file must start with note and interp sections
     uint64_t gnuHashSectionAddress = 0;
     uint64_t sysvHashSectionAddress = 0;
-    uint64_t dynamicSectionAddress = 0;
     uint64_t dynstrSectionAddress = 0;
     uint64_t dynsymSectionAddress = 0;
-    uint64_t textSectionAddress = 0;
     uint64_t relocationSectionAddress = 0;
     uint64_t pltgotSectionAddress = 0;
     uint64_t versymSectionAddress = 0;
@@ -682,8 +759,10 @@ bool ElfFile::verifyDynamic(){
 
 }
 
-ProgramHeader* ElfFile::addSegment(uint16_t idx, uint32_t type, uint64_t offset, uint64_t vaddr, uint64_t paddr,
-                             uint32_t memsz, uint32_t filesz, uint32_t flags, uint32_t align){
+ProgramHeader* ElfFile::addSegment(uint16_t idx, uint32_t type, uint64_t offset, 
+  uint64_t vaddr, uint64_t paddr, uint32_t memsz, uint32_t filesz, 
+  uint32_t flags, uint32_t align){
+
     if (is64Bit()){
         programHeaders.insert(new ProgramHeader64(idx), idx);
     } else {
@@ -714,9 +793,10 @@ ProgramHeader* ElfFile::addSegment(uint16_t idx, uint32_t type, uint64_t offset,
     return programHeaders[idx];
 }
 
-uint64_t ElfFile::addSection(uint16_t idx, PebilClassTypes classtype, char* bytes, uint32_t name, uint32_t type, 
-                             uint64_t flags, uint64_t addr, uint64_t offset, uint64_t size, uint32_t link, 
-                             uint32_t info, uint64_t addralign, uint64_t entsize){
+uint64_t ElfFile::addSection(uint16_t idx, PebilClassTypes classtype, 
+  char* bytes, uint32_t name, uint32_t type, uint64_t flags, uint64_t addr, 
+  uint64_t offset, uint64_t size, uint32_t link, uint32_t info, 
+  uint64_t addralign, uint64_t entsize){
 
     if (is64Bit()){
         sectionHeaders.insert(new SectionHeader64(idx), idx);
@@ -799,7 +879,7 @@ void ElfFile::sortSectionHeaders(){
 }
 
 
-void ElfFile::initSectionFilePointers(){
+void ElfFile::initSectionFilePointers(bool sanitize){
 
     char* stringTablePtr = ((StringTable*)rawSections[fileHeader->GET(e_shstrndx)])->getFilePointer();
 
@@ -855,7 +935,7 @@ void ElfFile::initSectionFilePointers(){
     }
     X86Instruction::initBlankUd(is64Bit());
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
-        textSections[i]->disassemble(binaryInputFile);
+        textSections[i]->disassemble(binaryInputFile,sanitize);
     }
 
 }
@@ -1236,19 +1316,16 @@ void ElfFile::findFunctions(){
 
 
 
-uint32_t ElfFile::printDisassembly(bool instructionDetail){
-    uint32_t numInstrs = 0;
-
+void ElfFile::printDisassembly(bool instructionDetail){
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
         if (textSections[i]){
             if (textSections[i]->getByteSource() != ByteSource_Instrumentation){
-                numInstrs += textSections[i]->printDisassembly(instructionDetail);
+                textSections[i]->printDisassembly(instructionDetail);
             } else {
                 PRINT_INFOR("Skipping print of section %hd because it is instrumentation code", textSections[i]->getSectionIndex());
             }
         }
     }
-    return numInstrs;
 }
 
 void ElfFile::dump(char* extension, bool isext){
@@ -1301,9 +1378,7 @@ void ElfFile::dump(BinaryOutputFile* binaryOutputFile){
 
 void ElfFile::parse(){
 
-    TIMER(double t1 = timer());	
-
-    char* endianCheck = "elfs\0";
+    const char* endianCheck = "elfs\0";
     uint32_t endianValue = getUInt32(endianCheck);
     if (endianValue != 0x73666c65){
         PRINT_ERROR("Platform must be little endian");
@@ -1544,6 +1619,7 @@ uint32_t ElfFile::getFileSize() {
 
 void ElfFile::setLineInfoFinder(){
 }
+
 
 void ElfFile::findLoops(){
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
@@ -1879,7 +1955,7 @@ uint32_t ElfFile::anchorProgramElements(){
 
         // since there are no constraints on the alignment of stuff in the data sections we must check starting at EVERY byte
         // ^^^NO TO THE ABOVE STATEMENT^^^: we will check just word-aligned addresses since we were getting false positives
-        for (int32_t currByte = 0; currByte < sectionSize; currByte += sizeof(uint32_t)){
+        for (uint32_t currByte = 0; currByte < sectionSize; currByte += sizeof(uint32_t)){
             char* dataPtr = (char*)(dataRawSection->getFilePointer()+currByte);
             uint64_t extendedData;
             if (addrAlign == sizeof(uint64_t)){

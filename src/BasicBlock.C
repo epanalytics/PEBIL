@@ -46,7 +46,7 @@ X86Instruction* BasicBlock::findBestInstPoint(InstLocations* loc, BitSet<uint32_
 
     bool hasFlags = false;
     if (attendFlags){
-        for (int32_t i = 0; i < ninsn * 2; i++){
+        for (uint32_t i = 0; i < ninsn * 2; i++){
             ASSERT(i / 2 < ninsn); 
             X86Instruction* ins = getInstruction(i / 2);
             if (i % 2 == 0 && ins->allFlagsDeadIn()){
@@ -65,7 +65,7 @@ X86Instruction* BasicBlock::findBestInstPoint(InstLocations* loc, BitSet<uint32_
     }
 
     uint32_t maxDead = 0;
-    for (int32_t i = 0; i < ninsn * 2; i++){
+    for (uint32_t i = 0; i < ninsn * 2; i++){
         ASSERT(i / 2 < ninsn);
         X86Instruction* ins = getInstruction(i / 2);
         uint32_t dead = 0;
@@ -104,7 +104,6 @@ X86Instruction* BasicBlock::findBestInstPoint(InstLocations* loc, BitSet<uint32_
         if (endsWithControl()){
             bestloc = InstLocation_prior;
         }
-        X86Instruction* e = getInstruction(best);
     }
 
     X86Instruction* bestinsn = getInstruction(best);
@@ -143,6 +142,10 @@ bool BasicBlock::endsWithCall(){
 
 bool BasicBlock::endsWithReturn(){
     return instructions.back()->isReturn();
+}
+
+bool BasicBlock::endsWithUnconditionalBranch(){
+    return instructions.back()->isUnconditionalBranch();
 }
 
 std::map<uint32_t, uint32_t>* BasicBlock::getOperandLengthCounts(){
@@ -201,7 +204,9 @@ uint32_t CodeBlock::addTailJump(X86Instruction* tgtInstruction){
     return getNumberOfBytes();
 }
 
-uint32_t BasicBlock::bloat(Vector<InstrumentationPoint*>* instPoints){
+uint32_t BasicBlock::bloat(Vector<InstrumentationPoint*>* instPoints,
+  Vector<uint64_t>* oldInsnAddresses, Vector<uint64_t>* oldInsns, 
+  Vector<uint64_t>* newInsns){
     PRINT_DEBUG_FUNC_RELOC("fluffing block at %llx for function %s", baseAddress, getLeader()->getContainer()->getName());
 
     PRINT_DEBUG_BLOAT_FILTER("block range for bloat [%#llx,%#llx)", getBaseAddress(), getBaseAddress() + getNumberOfBytes());
@@ -211,8 +216,6 @@ uint32_t BasicBlock::bloat(Vector<InstrumentationPoint*>* instPoints){
         Function* pointsFunction = (Function*)(*instPoints)[i]->getSourceObject()->getContainer();
         ASSERT(pointsFunction->getHashCode().getValue() == flowGraph->getFunction()->getHashCode().getValue());
     }
-
-    X86Instruction* firstInstruction = instructions[0];
 
     Vector<InstrumentationPoint*> expansions;
     Vector<uint32_t> expansionIndices;
@@ -238,7 +241,6 @@ uint32_t BasicBlock::bloat(Vector<InstrumentationPoint*>* instPoints){
     for (int32_t i = expansions.size()-1; i >= 0; i--){
         uint32_t bloatAmount = expansions[i]->getNumberOfBytes();
         uint32_t instructionIdx = expansionIndices[i];
-        PRINT_DEBUG_BLOAT_FILTER("bloating point at instruction %#llx by %d bytes", instructions[instructionIdx]->getProgramAddress(), bloatAmount);
         if (instructionIdx < instructions.size() + 1){
             for ( ; bloatAmount >= MAX_NOP_LENGTH; bloatAmount -= MAX_NOP_LENGTH){
                 instructions.insert(X86InstructionFactory::emitNop(MAX_NOP_LENGTH), instructionIdx);
@@ -249,6 +251,7 @@ uint32_t BasicBlock::bloat(Vector<InstrumentationPoint*>* instPoints){
                 byteCountUpdate = true;                
             }
         }
+        PRINT_DEBUG_BLOAT_FILTER("bloating point at instruction %#llx by %d bytes", instructions[instructionIdx]->getProgramAddress(), bloatAmount);
     }
 
     for (uint32_t i = 0; i < instructions.size(); i++){
@@ -261,6 +264,26 @@ uint32_t BasicBlock::bloat(Vector<InstrumentationPoint*>* instPoints){
             }
         }
     }
+
+    // If requested to keep track of reloated instructions
+    if (oldInsnAddresses->size() > 0 ) {
+        uint64_t currentAddress = baseAddress;
+        uint32_t currOldInsn = 0;
+        for (uint32_t i = 0; i < instructions.size(); i++) {
+            if (instructions[i]->getBaseAddress() == 0) {
+                // Instrumentation
+            } else if (i < oldInsnAddresses->size() || currOldInsn < 
+              oldInsnAddresses->size()) {
+                oldInsns->append((*oldInsnAddresses)[currOldInsn]);
+                newInsns->append(currentAddress);
+                currOldInsn++;
+            } else {
+                // Instrumentation
+            }
+            currentAddress += instructions[i]->getSizeInBytes();  
+        } 
+    }
+
     setBaseAddress(baseAddress);
 
     return getNumberOfBytes();
@@ -749,7 +772,6 @@ uint32_t BasicBlock::getNumberOfBinUnknown(){
 }
 
 void RawBlock::printDisassembly(bool instructionDetail){
-    uint32_t bytesPerWord = 1;
     uint32_t bytesPerLine = 8;
     
     uint32_t currByte = 0;

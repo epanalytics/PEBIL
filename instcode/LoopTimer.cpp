@@ -1,3 +1,22 @@
+/* 
+ * This file is part of the pebil project.
+ * 
+ * Copyright (c) 2010, University of California Regents
+ * All rights reserved.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 /*
  * Time spent in each function
@@ -9,6 +28,10 @@
  */
 
 #include <InstrumentationCommon.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <Metasim.hpp>
+#include <ThreadedCommon.hpp>
 #include <LoopTimer.hpp>
 
 #include <stdio.h>
@@ -22,10 +45,15 @@
 #include <sstream>
 #include <algorithm>
 #include <string>
+#include <cstring>
+
+using namespace std;
 
 // HPE EPYC: note that if the env variable is not defined, we default to                                            
 //    what is defined here:
 static uint32_t timerCPUFreq=2200000000;
+
+DynamicInstrumentation* DynamicPoints = NULL;
 
 DataManager<LoopTimers*>* AllData = NULL;
 
@@ -59,16 +87,18 @@ LoopTimers* GenerateLoopTimers(LoopTimers* timers, uint32_t typ, image_key_t iid
     LoopTimers* retval;
     retval = new LoopTimers();
 
-    retval->master = timers->master && typ == AllData->ImageType;
+    retval->master = timers->master && typ == DataManagerType_Image;
     retval->application = timers->application;
     retval->extension = timers->extension;
     retval->loopCount = timers->loopCount;
     retval->loopHashes = timers->loopHashes;
     retval->loopTimerAccum = new uint64_t[retval->loopCount];
     retval->loopTimerLast = new uint64_t[retval->loopCount];
+    retval->entryCounts = new uint64_t[retval->loopCount];
 
     memset(retval->loopTimerAccum, 0, sizeof(uint64_t) * retval->loopCount);
     memset(retval->loopTimerLast, 0, sizeof(uint64_t) * retval->loopCount);
+    memset(retval->entryCounts, 0, sizeof(uint64_t) * retval->loopCount);
 
     if (ReadEnvUint32("TIMER_CPU_FREQ", &timerCPUFreq)) {
         inform << "Got custom TIMER_CPU_FREQ ***(in MHz)** from the user :: " << timerCPUFreq << endl;
@@ -85,6 +115,7 @@ LoopTimers* GenerateLoopTimers(LoopTimers* timers, uint32_t typ, image_key_t iid
 void DeleteLoopTimers(LoopTimers* timers){
     delete timers->loopTimerAccum;
     delete timers->loopTimerLast;
+    delete timers->entryCounts;
 }
 
 uint64_t ReferenceLoopTimers(LoopTimers* timers){
@@ -103,6 +134,7 @@ extern "C"
         assert(timers->loopTimerLast != NULL);
         
         timers->loopTimerLast[loopIndex] = read_timestamp_counter();
+        timers->entryCounts[loopIndex]++;
         return 0;
     }
 
@@ -120,8 +152,16 @@ extern "C"
     }
 
     // initialize dynamic instrumentation
-    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag) {
-        InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
+    static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
+    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
+      isThreadedModeFlag) {
+        pthread_mutex_lock(&dynamic_init_mutex);
+        if (DynamicPoints == NULL)
+            DynamicPoints = new DynamicInstrumentation();
+
+        DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+          isThreadedModeFlag);
+        pthread_mutex_unlock(&dynamic_init_mutex);
         return NULL;
     }
 
@@ -133,7 +173,7 @@ extern "C"
     // Entry function for threads
     void* tool_thread_init(thread_key_t tid) {
         if (AllData){
-            if(isThreadedMode())
+            if(DynamicPoints->IsThreadedMode())
                 AllData->AddThread(tid);
         } else {
         ErrorExit("Calling PEBIL thread initialization library for thread " << hex << tid << " but no images have been initialized.", MetasimError_NoThread);
@@ -147,13 +187,10 @@ extern "C"
     }
 
     // Called when new image is loaded
+    static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     void* tool_image_init(void* args, image_key_t* key, ThreadData* td) {
+        pthread_mutex_lock(&image_init_mutex);
         LoopTimers* timers = (LoopTimers*)args;
-
-        // Remove this instrumentation
-        set<uint64_t> inits;
-        inits.insert(*key);
-        SetDynamicPoints(inits, false);
 
         // If this is the first image, set up a data manager
         if (AllData == NULL){
@@ -163,12 +200,29 @@ extern "C"
 
         // Add this image
         AllData->AddImage(timers, td, *key);
+
+        // Remove this instrumentation
+        set<uint64_t> inits;
+        inits.insert(GENERATE_KEY(*key, PointType_inits));
+        DynamicPoints->SetDynamicPoints(inits, false);
+
+        pthread_mutex_unlock(&image_init_mutex);
         return NULL;
     }
 
     // 
     void* tool_image_fini(image_key_t* key) {
         image_key_t iid = *key;
+
+        static bool finalized = false;
+        if (finalized)
+            return NULL;
+
+        finalized = true;
+
+        if (DynamicPoints != NULL) {
+            delete DynamicPoints;
+        }
 
         if (AllData == NULL){
             ErrorExit("data manager does not exist. no images were intialized", MetasimError_NoImage);
@@ -210,7 +264,7 @@ extern "C"
                 fprintf(outFile, "0x%llx:0x%llx:\n", imgHash, loopHash);
                 for (set<thread_key_t>::iterator tit = AllData->allthreads.begin(); tit != AllData->allthreads.end(); ++tit) {
                     LoopTimers* timers = AllData->GetData(*iit, *tit);
-                    fprintf(outFile, "\tThread: 0x%llx\tTime: %f\n", *tit, (double)(timers->loopTimerAccum[loopIndex]) / timerCPUFreq);
+                    fprintf(outFile, "\tThread: 0x%llx\tTime: %f\tEntries: %lld\n", *tit, (double)(timers->loopTimerAccum[loopIndex]) / timerCPUFreq, timers->entryCounts[loopIndex]);
                 }
             }
         }

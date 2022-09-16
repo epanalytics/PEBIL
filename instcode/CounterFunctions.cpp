@@ -19,7 +19,9 @@
  */
 
 #include <InstrumentationCommon.hpp>
-#include <Simulation.hpp>
+#include <DataManager.hpp>
+#include <DynamicInstrumentation.hpp>
+#include <ThreadedCommon.hpp>
 #include <CounterFunctions.hpp>
 
 #include <stdio.h>
@@ -33,7 +35,10 @@
 
 #define PRINT_MINIMUM 1
 
+using namespace std;
+
 static DataManager<CounterArray*>* AllData = NULL;
+static DynamicInstrumentation* DynamicPoints = NULL;
 
 void print_loop_array(FILE* stream, CounterArray* ctrs){
     if (ctrs == NULL){
@@ -103,11 +108,11 @@ CounterArray* GenerateCounterArray(CounterArray* ctrs, uint32_t typ, image_key_t
     c->threadid = tid;
     c->imageid = iid;
 
-    if (typ == AllData->ImageType){
+    if (typ == DataManagerType_Image){
         return c;
     }
 
-    assert(typ == AllData->ThreadType);
+    assert(typ == DataManagerType_Thread);
 
     c = (CounterArray*)malloc(sizeof(CounterArray));
     assert(c);
@@ -140,17 +145,16 @@ void DeleteCounterArray(CounterArray* ctrs){
 }
 
 void* tool_thread_init(thread_key_t tid){
-    //inform << "Entering tool_thread_init" << ENDL;
     SAVE_STREAM_FLAGS(cout);
-    //init_signal_handlers();
+    // Each thread needs the signal handlers initialized
+    init_signal_handlers(true);
     if (AllData){
-        if(isThreadedMode())
+        if(DynamicPoints->IsThreadedMode())
             AllData->AddThread(tid);
     } else {
         ErrorExit("Calling PEBIL thread initialization library for thread " << hex << tid << " but no images have been initialized.", MetasimError_NoThread);
     }
     RESTORE_STREAM_FLAGS(cout);
-    //inform << "Leaving tool_thread_init" << ENDL;
     return NULL;
 }
 
@@ -160,12 +164,18 @@ void* tool_thread_fini(thread_key_t tid){
 
 extern "C"
 {
-    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn,bool* isThreadedModeFlag){
+    static pthread_mutex_t dynamic_init_mutex = PTHREAD_MUTEX_INITIALIZER;
+    void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
+      isThreadedModeFlag){
+        pthread_mutex_lock(&dynamic_init_mutex);
         SAVE_STREAM_FLAGS(cout);
-        InitializeDynamicInstrumentation(count, dyn,isThreadedModeFlag);
-
+        if (DynamicPoints == NULL) {
+            DynamicPoints = new DynamicInstrumentation();
+        }
+        DynamicPoints->InitializeDynamicInstrumentation(count, dyn,
+          isThreadedModeFlag);
         RESTORE_STREAM_FLAGS(cout);
-        //inform << "Leaving tool_dynamic_init" << ENDL;
+        pthread_mutex_unlock(&dynamic_init_mutex);
         return NULL;
     }
 
@@ -187,7 +197,6 @@ extern "C"
      */
     static pthread_mutex_t image_init_mutex = PTHREAD_MUTEX_INITIALIZER;
     void* tool_image_init(void* s, uint64_t* key, ThreadData* td){
-        inform << "Entered tool_image_init " << key << ENDL;
         SAVE_STREAM_FLAGS(cout);
 
         CounterArray* ctrs = (CounterArray*)s;
@@ -197,31 +206,31 @@ extern "C"
         // on first visit create data manager - once per address space
         if (AllData == NULL){
             init_signal_handlers();
-            AllData = new DataManager<CounterArray*>(GenerateCounterArray, DeleteCounterArray, RefCounterArray);
+            AllData = new DataManager<CounterArray*>(GenerateCounterArray, 
+              DeleteCounterArray, RefCounterArray);
         }
 
         assert(AllData);
         // Initialize this image if we need to
         if (AllData->allimages.count(*key) == 0){
-            // Remove initialization points -- once per image
-            set<uint64_t> inits;
-            inits.insert(*key);
-            inform << "Removing init points for image " << hex << (*key) << ENDL;
-            SetDynamicPoints(inits, false);
-
             // Add data for this image -- once per image
             AllData->AddImage(ctrs, td, *key);
             ctrs->threadid = AllData->GenerateThreadKey();
             ctrs->imageid = *key;
 
             AllData->SetTimer(*key, 0);
+
+            // Remove initialization points -- once per image
+            set<uint64_t> inits;
+            inits.insert(GENERATE_KEY(*key, PointType_inits));
+            inform << "Removing init points for image " << hex << (*key)<< ENDL;
+            DynamicPoints->SetDynamicPoints(inits, false);
         }
         assert(AllData->allimages.count(*key) == 1);
 
         pthread_mutex_unlock(&image_init_mutex);
 
         RESTORE_STREAM_FLAGS(cout);
-        //inform << "Leaving tool_image_init" << ENDL;
         return NULL;
     }
 
@@ -235,7 +244,6 @@ extern "C"
      */
     void  image_fini_master();
     void* tool_image_fini(uint64_t* key){
-        //inform << "Entering tool_image_fini" << ENDL;
         AllData->SetTimer(*key, 1);
         SAVE_STREAM_FLAGS(cout);
 
@@ -247,6 +255,11 @@ extern "C"
         }
 #endif
 
+        if (DynamicPoints != NULL) {
+            delete DynamicPoints;
+            DynamicPoints = NULL;
+        }
+
         if (AllData == NULL){
             ErrorExit("data manager does not exist. no images were initialized", MetasimError_NoImage);
             return NULL;
@@ -257,8 +270,11 @@ extern "C"
             return NULL;
         }
 
-        static bool finalized;
-        assert(!finalized);
+        // Only print one file --> it will print data for all images
+        static bool finalized = false;
+        if (finalized)
+            return NULL;
+
         finalized = true;
 
         string bfile;
@@ -364,7 +380,7 @@ extern "C"
             << ENDL;
     
         BlockFile
-            << "# LPP" << TAB << "Hashcode" << TAB << "ImageSequence" << TAB << "AllCounter" << TAB << "# File:Line" << TAB << "Function" << TAB << "Address" << ENDL
+            << "# LPP" << TAB << "Hashcode" << TAB << "ImageSequence" << TAB << "AllCounter" << TAB << "# File:Line" << TAB << "Function" << TAB << "Address" << TAB << "LoopID" << ENDL
             << "#" << TAB << "ThreadId" << TAB << "ThreadCounter" << ENDL 
             << ENDL;
 
@@ -390,41 +406,68 @@ extern "C"
                     CounterArray* tc = it->second;
                     counter += tc->Counters[idx];
                 }
-
+                
                 if (counter >= PRINT_MINIMUM){
-                    if (c->Types[i] == CounterType_loop){
-                        BlockFile
-                            << "LPP"
-                            << TAB << hex << c->Hashes[i]
-                            << TAB << dec << imgseq
-                            << TAB << dec << counter
-                            << TAB << "# " << c->Files[i] << ":" << dec << c->Lines[i]
-                            << TAB << c->Functions[i]
-                            << TAB << hex << c->Addresses[i]
-                            << ENDL;
-                    } else {
-                        BlockFile
-                            << "BLK"
-                            << TAB << dec << i
-                            << TAB << hex << c->Hashes[i]
-                            << TAB << dec << imgseq
-                            << TAB << dec << counter
-                            << TAB << "# " << c->Files[i] << ":" << dec << c->Lines[i]
-                            << TAB << c->Functions[i]
-                            << TAB << hex << c->Addresses[i]
-                            << ENDL;
-                    }
-
-                    for(DataManager<CounterArray*>::iterator it = AllData->begin(*iit); it != AllData->end(*iit); ++it) {
-                        thread_key_t tid = it->first;
-                        CounterArray* tc = it->second;
-                        if( tc->Counters[idx] >= PRINT_MINIMUM) {
+                    if (!c->sanitize){
+                        if (c->Types[i] == CounterType_loop){
                             BlockFile
-                                << TAB << dec << AllData->GetThreadSequence(tid)
-                                << TAB << dec << tc->Counters[idx]
+                                << "LPP"
+                                << TAB << hex << c->Hashes[i]
+                                << TAB << dec << imgseq
+                                << TAB << dec << counter
+                                << TAB << "# " << c->Files[i] << ":" << dec << c->Lines[i]
+                                << TAB << c->Functions[i]
+                                << TAB << hex << c->Addresses[i]
+                                << TAB << dec << c->BlockIds[i]
+                                << ENDL;
+                        } else {
+                            BlockFile
+                                << "BLK"
+                                << TAB << dec << i
+                                << TAB << hex << c->Hashes[i]
+                                << TAB << dec << imgseq
+                                << TAB << dec << counter
+                                << TAB << "# " << c->Files[i] << ":" << dec << c->Lines[i]
+                                << TAB << c->Functions[i]
+                                << TAB << hex << c->Addresses[i]
                                 << ENDL;
                         }
+                    } else {
+                        if (c->Types[i] == CounterType_loop){
+                            BlockFile
+                                << "LPP"
+                                << TAB << hex << c->Hashes[i]
+                                << TAB << dec << imgseq
+                                << TAB << dec << counter
+                                << TAB << "# " << "__pebil_unknown__:0"
+                                << TAB << hex << c->Hashes[i] //function "name"
+                                << TAB << hex << c->Addresses[i]
+                                << TAB << dec << c->BlockIds[i]
+                                << ENDL;
+                        } else {
+                            BlockFile
+                                << "BLK"
+                                << TAB << dec << i
+                                << TAB << hex << c->Hashes[i]
+                                << TAB << dec << imgseq
+                                << TAB << dec << counter
+                                << TAB << "# " << "__pebil_unknown__:0"
+                                << TAB << hex << c->Hashes[i] //function "name"
+                                << TAB << hex << c->Addresses[i]
+                                << ENDL;
+                        }
+                        
                     }
+                   for(DataManager<CounterArray*>::iterator it = AllData->begin(*iit); it != AllData->end(*iit); ++it) {
+                       thread_key_t tid = it->first;
+                       CounterArray* tc = it->second;
+                       if( tc->Counters[idx] >= PRINT_MINIMUM) {
+                           BlockFile
+                               << TAB << dec << AllData->GetThreadSequence(tid)
+                               << TAB << dec << tc->Counters[idx]
+                               << ENDL;
+                       }
+                   }
                 }
             }
     
@@ -433,7 +476,23 @@ extern "C"
         inform << "cxxx Total Execution time for " << ctrs->Extension << "-instrumented image " << ctrs->Application << ": " << (AllData->GetTimer(*key, 1) - AllData->GetTimer(*key, 0)) << " seconds" << ENDL;
 
         RESTORE_STREAM_FLAGS(cout);
-        //inform << "Leaving tool_image_fini" << ENDL;
         return NULL;
     }
 };
+
+// For testing only
+void InitializeAllData(DataManager<CounterArray*>* d){
+    AllData = d;
+}
+
+void InitializeDynamicInstrumentation(DynamicInstrumentation* p){
+    DynamicPoints = p;
+}
+
+DataManager<CounterArray*>* GetAllData(){
+    return AllData;
+}
+
+DynamicInstrumentation* GetDynamicInstrumentation(){
+    return DynamicPoints;
+}

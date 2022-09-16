@@ -41,7 +41,7 @@ class InstrumentationPoint;
 #define Size__32_bit_procedure_link 16
 #define Size__64_bit_procedure_link 16
 #define Size__32_bit_function_wrapper 128
-#define Size__64_bit_function_wrapper 768
+#define Size__64_bit_function_wrapper 960
 
 #define FXSTORAGE_RESERVED 0x1000
 #define Size__trampoline_stackalign 0x1000
@@ -163,8 +163,10 @@ typedef enum {
 
 typedef struct {
     uint32_t type;
-    uint32_t reg;
-    uint64_t offset;
+    union {
+        uint32_t reg;
+        uint64_t offset;
+    };
 } Argument;
 
 class InstrumentationFunction : public Instrumentation {
@@ -214,7 +216,7 @@ public:
     void addPLTHook(X86Instruction* hook) { pltHooks.append(hook); }
 
     virtual uint32_t bootstrapReservedSize() { __SHOULD_NOT_ARRIVE; }
-    virtual uint32_t procedureLinkReservedSize() { Size__32_bit_procedure_link; }
+    virtual uint32_t procedureLinkReservedSize() { return Size__32_bit_procedure_link; }
     virtual uint32_t wrapperReservedSize() { __SHOULD_NOT_ARRIVE; }
 
     char* getFunctionName() { return functionName; }
@@ -329,6 +331,8 @@ static const char* InstPriorityNames[InstPriority_Total_Types] = {
 };
 
 class InstrumentationPoint : public Base {
+private:
+    bool saveAll;
 protected:
     X86Instruction* point;
     Instrumentation* instrumentation;
@@ -369,6 +373,9 @@ public:
     FlagsProtectionMethods getFlagsProtectionMethod();
     BitSet<uint32_t>* getProtectedRegisters();
     void setFlagsProtectionMethod(FlagsProtectionMethods p);
+
+    void setSaveAll() { saveAll = true; }
+    bool getSaveAll() { return saveAll; }
 
     void borrowRegister(uint32_t reg);
 

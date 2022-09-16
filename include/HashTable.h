@@ -53,7 +53,7 @@ public:
 
 
     virtual void print() { __SHOULD_NOT_ARRIVE; }
-    virtual uint32_t read(BinaryInputFile* b) { __SHOULD_NOT_ARRIVE; }
+    virtual void read(BinaryInputFile* b) { __SHOULD_NOT_ARRIVE; }
     virtual void initFilePointers() { __SHOULD_NOT_ARRIVE; }
     bool isGnuStyleHash();
     uint32_t expandSize(uint32_t amt);
@@ -81,7 +81,7 @@ private:
 public:
     GnuHashTable(char* rawPtr, uint32_t size, uint16_t scnIdx, ElfFile* elf);
     ~GnuHashTable();
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     void print();
     void initFilePointers();
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
@@ -101,7 +101,7 @@ public:
     ~SysvHashTable() {}
 
     void print();
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     void initFilePointers();
 
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);

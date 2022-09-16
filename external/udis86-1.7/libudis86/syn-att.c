@@ -65,7 +65,7 @@ gen_operand(struct ud* u, struct ud_operand* op)
 		if (op->index) {
 			if (op->base)
 				mkasm(u, ",");
-			else mkasm(u, "(");
+			else mkasm(u, "(,");
 			mkasm(u, "%%%s", ud_reg_tab[op->index - UD_R_AL]);
 		}
 		if (op->scale)
@@ -157,13 +157,15 @@ ud_translate_att(struct ud *u)
   	mkasm(u,  "lock ");
   if (u->pfx_rep)
 	mkasm(u,  "rep ");
+  if (u->pfx_repe)
+	mkasm(u,  "repe ");
   if (u->pfx_repne)
 		mkasm(u,  "repne ");
 
   /* special instructions */
   switch (u->mnemonic) {
 	case UD_Iretf: 
-		mkasm(u, "lret "); 
+		mkasm(u, "lret"); 
 		break;
 	case UD_Idb:
 		mkasm(u, ".byte 0x%x", u->operand[0].lval.ubyte);

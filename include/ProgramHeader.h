@@ -60,7 +60,7 @@ public:
 
     ProgramHeader32(uint32_t idx) { sizeInBytes = Size__32_bit_Program_Header; index = idx; }
     ~ProgramHeader32() {}
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
 
     char* charStream() { return (char*)&entry; }
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
@@ -76,7 +76,7 @@ public:
 
     ProgramHeader64(uint32_t idx) { sizeInBytes = Size__64_bit_Program_Header; index = idx; }
     ~ProgramHeader64() {}
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
 
     char* charStream() { return (char*)&entry; }
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);

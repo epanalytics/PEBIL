@@ -1,5 +1,24 @@
 #
 # Process this file with autoconf to produce a configure script.
+#/* 
+# * This file is part of the pebil project.
+# * 
+# * Copyright (c) 2010, University of California Regents
+# * All rights reserved.
+# * 
+# * This program is free software: you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation, either version 3 of the License, or
+# * (at your option) any later version.
+# *
+# * This program is distributed in the hope that it will be useful,
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# * GNU General Public License for more details.
+# *
+# * You should have received a copy of the GNU General Public License
+# * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# */
 
 AC_PREREQ([2.63])
 AC_INIT([FULL-PACKAGE-NAME], [VERSION], [BUG-REPORT-ADDRESS])
@@ -8,6 +27,17 @@ AC_CONFIG_MACRO_DIR([m4])
 m4_include([m4/acx_mpi.m4])
 m4_include([m4/ax_cxx_header_unordered_map.m4])
 m4_include([m4/ax_compile_stdcxx_0x.m4])
+m4_include([m4/ax_check_x86_features.m4])
+m4_include([m4/ax_gcc_x86_cpu_supports.m4])
+
+# Check if avx512f instruction set is present
+AX_GCC_X86_CPU_SUPPORTS(avx512f, has_avx512="yes", has_avx512="no")
+if test "$has_avx512" = "yes"; then
+    PEBIL_BUILD_FOR_AVX512="-DHAS_AVX512_SET"
+else
+    PEBIL_BUILD_FOR_AVX512=""
+fi
+AC_SUBST(PEBIL_BUILD_FOR_AVX512)
 
 # Checks for programs.
 AC_PROG_CXX
@@ -64,8 +94,17 @@ if test "$ax_cv_cxx_unordered_map" = "yes"; then
    CXXFLAGS="$CXXFLAGS -DHAVE_UNORDERED_MAP"
 fi
 
+#Allow debug option
+AC_ARG_ENABLE(debug, AC_HELP_STRING([--debug], [Print debugging information [no]]),debug_ok=$enableval)
+if test "$debug_ok" !="yes"; then
+    PEBIL_DEBUG="-DWARNING_SEVERITY=20"
+else
+    PEBIL_DEBUG="-DINFORM"
+fi
+AC_SUBST(PEBIL_DEBUG)
+
 AC_ARG_ENABLE(static, AC_HELP_STRING([--enable-static], [Build a statically-linked pebil executable in addition to a dynamically-linked executable [yes]]), static_ok=$enableval)
-if test "$static_ok" != "no"; then
+if test "$static_ok" == "yes"; then
    PEBIL_STATIC_BUILD="yes"
 else
    PEBIL_STATIC_BUILD="no"
@@ -79,6 +118,14 @@ else
   PEBIL_CXX_BINDINGS="no"
 fi
 AC_SUBST(PEBIL_CXX_BINDINGS)
+
+AC_CHECK_PROG(OPENMPI_IS_NEW, mpifort, "yes")
+if test x"$OPENMPI_IS_NEW" == x"yes"; then
+  PEBIL_MPIFC_OPENMPI_LIB="-lmpi_mpifh"
+else
+  PEBIL_MPIFC_OPENMPI_LIB="-lmpi_f77 -lmpi_f90"
+fi
+AC_SUBST(PEBIL_MPIFC_OPENMPI_LIB)
 
 AC_ARG_ENABLE(adamant, AC_HELP_STRING([--enable-adamant], [enable adamant [yes]]), adamant_ok=$enableval)
 AC_CHECK_HEADERS([adm.h],
@@ -113,13 +160,41 @@ AC_ARG_WITH(throttler_headers,
             [throttler_headers=no])
 AC_SUBST(THROTTLER_FLAGS)
 
-AC_ARG_ENABLE(mic_libs, AC_HELP_STRING([--enable-mic-libs], [Create mic runtime libraries [yes]]), mic_libs_ok=$enableval)
-if test "$mic_libs_ok" = "yes"; then
-  PEBIL_MIC_LIBS_BUILD="yes"
+#AC_ARG_ENABLE(epa_tools, [AC_HELP_STRING([--disable-epa-tools], 
+#  [do not use/compile EP Analytics tools @<:@default=yes@:>@])], 
+#  epa_tools_ok=$enableval, epa_tools_ok=yes)
+
+AC_ARG_WITH(epa_tools, [AS_HELP_STRING([--with-epa-tools=<path>],
+  [specify path to epa tools])], [epa_tools=$withval], [epa_tools=default])
+
+if test "x$epa_tools" != "xno"; then
+        PEBIL_EPA_TOOLS_AVAILABLE="yes"
+    if test "x$epa_tools" = "xdefault"; then
+        PEBIL_BUILD_EPA_TOOLS="yes"
+        PEBIL_EPA_TOOLS_PATH="external/epa-pebil-tools"
+        AC_CONFIG_SUBDIRS([external/epa-pebil-tools])
+    else
+        PEBIL_BUILD_EPA_TOOLS="no"
+        PEBIL_EPA_TOOLS_PATH="$epa_tools"
+    fi
 else
-  PEBIL_MIC_LIBS_BUILD="no"
+   PEBIL_BUILD_EPA_TOOLS="no"
+   PEBIL_EPA_TOOLS_AVAILABLE="no"
+   PEBIL_EPA_TOOLS_PATH=""
 fi
-AC_SUBST(PEBIL_MIC_LIBS_BUILD)
+AC_SUBST(PEBIL_BUILD_EPA_TOOLS)
+AC_SUBST(PEBIL_EPA_TOOLS_AVAILABLE)
+AC_SUBST(PEBIL_EPA_TOOLS_PATH)
+
+if test "x$epa_tools" = "xdefault"; then 
+    PEBIL_SUBDIR_EPA_TOOLS_PATH="../${PEBIL_EPA_TOOLS_PATH}"
+    PEBIL_ENV_EPA_TOOLS_PATH="\${pebildir}/${PEBIL_EPA_TOOLS_PATH}"
+else
+    PEBIL_SUBDIR_EPA_TOOLS_PATH="${PEBIL_EPA_TOOLS_PATH}"
+    PEBIL_ENV_EPA_TOOLS_PATH="${PEBIL_EPA_TOOLS_PATH}"
+fi
+AC_SUBST(PEBIL_SUBDIR_EPA_TOOLS_PATH)
+AC_SUBST(PEBIL_ENV_EPA_TOOLS_PATH)
 
 AC_ARG_ENABLE(papi, AC_HELP_STRING([--enable-papi], [Build with PAPI hardware counter support [yes]]), enable_papi_ok=$enableval)
 if test "$enable_papi_ok" = "yes"; then
@@ -155,16 +230,12 @@ AC_CHECK_FUNCS([bzero memset])
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  tools/Makefile
-                 testapps/Makefile
-                 testapps/apps/Makefile
-                 testapps/toys/Makefile
                  instcode/Makefile
                  scripts/blacklist.sh
                  cshrc
                  bashrc])
 AC_CONFIG_SUBDIRS([external/udis86-1.7])
 AC_CONFIG_SUBDIRS([external/ReuseDistance])
-AC_CONFIG_SUBDIRS([external/ReuseDistanceForMIC]) # Probably only wanna do if MIC
 AC_OUTPUT
 chmod +x scripts/blacklist.sh
 
