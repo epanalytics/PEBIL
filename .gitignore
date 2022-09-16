@@ -1,0 +1,10 @@
+# Makefiles
+Makefile
+
+# Enviroment files
+bashrc
+cshrc
+
+# Configuration files
+config.log
+config.status

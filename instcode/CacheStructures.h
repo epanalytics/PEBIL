@@ -9,7 +9,7 @@
 
 #define __SYSTEM_COUNT 9
 uint8_t systemCount =  __SYSTEM_COUNT;
-MemoryHierarchy systems[__SYSTEM_COUNT] = {
+struct MemoryHierarchy systems[__SYSTEM_COUNT] = {
 	{      /* <------ STRIDE SYSTEM */
 	    0, /* sysid0 */
 	    1, /* cache level count */

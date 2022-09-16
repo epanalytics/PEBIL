@@ -54,7 +54,7 @@ class TextSection;
 #define InstrumentorFlag_none       0x0
 #define InstrumentorFlag_norelocate 0x1
 
-#define INSTHDR_RESERVE_AMT 0x1000
+#define INSTHDR_RESERVE_AMT 0x4000
 #define TEXT_EXTENSION_INC  0x40000
 #define DATA_EXTENSION_INC  0x40000
 #define DEFAULT_INST_SEGMENT_IDX 4
@@ -73,7 +73,6 @@ typedef enum {
 
 class ElfFileInst {
 private:
-    ElfFile* elfFile;
 
     BasicBlock* programEntryBlock;
     Vector<Function*> hiddenFunctions;
@@ -91,16 +90,23 @@ private:
     Vector<X86Instruction*> replacedInstructions;
     Vector<BasicBlock*> interposedBlocks;
 
+    Vector<uint64_t> relocatedInsnAddresses;
+    Vector<uint64_t> originalInsnAddresses;
+
     bool allowStatic;
     bool threadedMode;
     bool multipleImages;
     bool perInstruction;
+    bool saveAll;
+    bool saveZmmRegs;
+    bool trackRelocatedInsns; // Map relocated addresses to origin
+    bool sanitize;
+    bool disableStatic;
 
     ProgramHeader* instSegment;
 
     uint16_t extraTextIdx;
     uint16_t extraDataIdx;
-    uint16_t dataIdx;
 
     uint64_t usableDataOffset;
     uint64_t regStorageOffset;
@@ -116,16 +122,17 @@ private:
     LineInfoFinder* lineInfoFinder;
 
     uint32_t addStringToDynamicStringTable(const char* str);
-    uint32_t addSymbolToDynamicSymbolTable(uint32_t name, uint64_t value, uint64_t size, uint8_t bind, uint8_t type, uint32_t other, uint16_t scnidx);
-    uint32_t expandHashTable(uint32_t idx);
+    void addSymbolToDynamicSymbolTable(uint32_t name, uint64_t value, uint64_t size, uint8_t bind, uint8_t type, uint32_t other, uint16_t scnidx);
+    uint32_t expandHashTable(HashTable* hashTable);
 
     void initializeDisabledFunctions(char* inputFuncList);
 
     void applyInstrumentationDataToRaw();
-    void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
 
     void declareLibraryList();
 protected:
+    ElfFile* elfFile;
+
     Vector<Function*> allFunctions;
     Vector<Function*> exposedFunctions;
     Vector<BasicBlock*> exposedBasicBlocks;
@@ -179,6 +186,10 @@ protected:
 
     BasicBlock* initInterposeBlock(FlowGraph* fg, uint32_t bbsrcidx, uint32_t bbtgtidx);
 
+    void computeVectorMasks();
+
+    void dump(BinaryOutputFile* binaryOutputFile);
+
 public:
     ElfFileInst(ElfFile* elf);
     ~ElfFileInst();
@@ -189,7 +200,9 @@ public:
 
     void print();
     void print(uint32_t printCodes);
-    void dump(char* extension, bool isext=true);
+    void printRelocatedInsnMaps();
+    void printHiddenFunctions();
+    void dump(const char* extension, bool isext=true);
 
     bool verify();
 
@@ -214,6 +227,14 @@ public:
     bool isMultiImage() { return multipleImages; }
     void setPerInstruction() { perInstruction = true; }
     bool isPerInstruction() { return perInstruction; }
+    void setSaveAll() { saveAll = true; }
+    bool isSaveAll() { return saveAll; }
+    void unsetSaveZmm() { saveZmmRegs = false; }
+    bool isSaveZmm() { return saveZmmRegs; }
+    void setTrackRelocatedInsns() { trackRelocatedInsns = true; }
+    bool isTrackRelocatedInsns() { return trackRelocatedInsns; }
+    void setDisableStatic() { disableStatic = true; }
+    bool getDisableStatic() { return disableStatic; }
 
     char* getApplicationName() { return elfFile->getAppName(); }
     uint32_t getApplicationSize() { return elfFile->getFileSize(); }
@@ -228,7 +249,7 @@ public:
 
     uint64_t reserveDataOffset(uint64_t size);
     uint64_t reserveDataAddress(uint64_t size);
-    uint32_t initializeReservedData(uint64_t address, uint32_t size, void* data);
+    uint32_t initializeReservedData(uint64_t address, uint32_t size, const void* data);
     uint32_t initializeReservedPointer(uint64_t addr, uint64_t ptr);
 
     void functionSelect();
@@ -249,6 +270,7 @@ public:
     virtual void instrument() { __SHOULD_NOT_ARRIVE; }
     virtual const char* getExtension() { __SHOULD_NOT_ARRIVE; }
     virtual bool canRelocateFunction(Function* func) { return true; }
+    void setElfInstSanitize(bool input){ sanitize=input; }
 };
 
 

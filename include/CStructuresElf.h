@@ -41,7 +41,7 @@ static uint32_t elf_sysv_hash(const char* name){
     uint32_t h = 0, g;
     while (*name){
         h = (h << 4) + *name++;
-        if (g = h & 0xf0000000){
+        if ((g = (h & 0xf0000000))){
             h ^= g >> 24;
         }
         h &= ~g;
@@ -255,6 +255,8 @@ typedef struct
    chances of collision with official or non-GNU unofficial values.  */
 
 #define EM_ALPHA	0x9026
+#define EM_L10M         180
+#define EM_K10M         181
 
 /* Legal values for e_version (version).  */
 

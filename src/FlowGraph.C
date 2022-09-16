@@ -34,6 +34,7 @@
 
 #include <set>
 #include <vector>
+#include <stack>
 
 using namespace std;
 
@@ -42,6 +43,716 @@ void FlowGraph::wedge(uint32_t shamt){
         blocks[i]->setBaseAddress(blocks[i]->getBaseAddress() + shamt);
     }
 }
+
+static uint32_t getRegId(enum ud_type reg) {
+    if(IS_16BIT_GPR(reg)) {
+        return reg + 32;
+    } else if(IS_32BIT_GPR(reg)) {
+        return reg + 16;
+    }
+
+    return reg;
+}
+
+struct RegisterStatePrediction {
+    // current instruction and index in block
+    X86Instruction* ins;
+    uint32_t idx;
+
+    // Register state
+    std::pebil_map_type<uint32_t, RuntimeValue> state;
+
+    std::stack<RuntimeValue> stack;
+
+    // copy constructor
+    RegisterStatePrediction(RegisterStatePrediction& other) {
+        // copy register state
+        state = other.state;
+        stack = other.stack;
+    }
+
+    RegisterStatePrediction() {}
+};
+
+// Merge possible value states from newState into oldState
+// Return true if changes were made
+static bool mergeStates(struct RegisterStatePrediction* oldState, struct RegisterStatePrediction* newState) {
+    if(oldState->ins != newState->ins) {
+        printf("ERROR? Trying to merge states for different instructions! 0x%llx 0x%llx\n", newState->ins, oldState->ins);
+        newState->ins->print();
+        oldState->ins->print();
+    }
+    assert(oldState->ins == newState->ins);
+    assert(oldState->idx == newState->idx);
+
+    bool changesMade = false;
+
+    // Update old register states
+    for(std::pebil_map_type<uint32_t, RuntimeValue>::iterator it = oldState->state.begin(); it != oldState->state.end(); ++it) {
+        uint32_t reg = it->first;
+        RuntimeValue v = it->second;
+
+        // If the confidence is already Maybe, it will always be Maybe
+        if(v.confidence == Maybe) {
+            newState->state.erase(reg);
+            continue;
+        }
+
+        // Since, it must be Definitely, check against value in new state
+        // Drop the confidence if newState has a different value or lower/missing confidence
+        std::pebil_map_type<uint32_t, RuntimeValue>::iterator newVit = newState->state.find(reg);
+        if(newVit != newState->state.end()) {
+            RuntimeValue newV = newVit->second;
+            if(newV.confidence == Definitely && v.value == newV.value) {
+                // Do nothing
+            } else {
+                v.confidence = Maybe;
+            }
+            newState->state.erase(newVit);
+        } else {
+            v.confidence = Maybe;
+        }
+
+        // If the confidence changed, update it
+        if(v.confidence == Maybe) {
+            changesMade = true;
+            oldState->state[reg] = v;
+        }
+    }
+
+    // Merge any new register states
+    for(std::pebil_map_type<uint32_t, RuntimeValue>::iterator it = newState->state.begin(); it != newState->state.end(); ++it) {
+        uint32_t reg = it->first;
+        RuntimeValue v = it->second;
+
+        // since this value wasn't removed, it must be new to old state and confidence must be Maybe
+        assert(oldState->state.count(reg) == 0);
+        changesMade = true;
+        v.confidence = Maybe;
+        oldState->state[reg] = v;
+    }
+
+    // Merge stack states FIXME assume no change for now
+    return changesMade;
+}
+
+static RuntimeValue getValueOfOperand(OperandX86* src, RegisterStatePrediction* item) {
+    if(src->getType() == UD_OP_IMM) {
+        return {Definitely, (uint64_t)src->getValue()};
+    }
+    else if(src->getType() == UD_OP_REG) {
+        if(item->state.find(getRegId(src->GET(base))) != item->state.end()) {
+            RuntimeValue val = item->state[getRegId(src->GET(base))];
+            return val;
+        }
+    }
+
+    return {Unknown, 0};
+}
+
+// Determine the values of vector mask registers for all instructions
+// This is a forward moving worklist algorithm using constant value propogation
+// to statically predict the values of registers
+void FlowGraph::computeVectorMasks(){
+
+    //fprintf(stderr, "Computing vector masks for function %s\n", function->getName());
+    std::pebil_map_type<X86Instruction*, struct RegisterStatePrediction*> instruction_states;
+
+    // build maps of addresses -> instructions/blocks
+    std::pebil_map_type<uint64_t, X86Instruction*> imap;
+    std::pebil_map_type<uint64_t, BasicBlock*> bmap;
+    for (uint32_t i = 0; i < basicBlocks.size(); i++){
+        BasicBlock* bb = basicBlocks[i];
+        for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
+            X86Instruction* x = bb->getInstruction(j);
+            for (uint32_t k = 0; k < x->getSizeInBytes(); k++){
+                ASSERT(imap.count(x->getBaseAddress() + k) == 0);
+                ASSERT(bmap.count(x->getBaseAddress() + k) == 0);
+                imap[x->getBaseAddress() + k] = x;
+                bmap[x->getBaseAddress() + k] = bb;
+            }
+        }
+    }
+
+    // The worklist is a queue
+    // priorities are unused, should be all 0
+    PriorityQueue<RegisterStatePrediction*, int> worklist = PriorityQueue<struct RegisterStatePrediction*, int>();
+
+    // get first instruction
+    X86Instruction* firstIns = basicBlocks[0]->getInstruction(0);
+    assert(firstIns != NULL);
+
+    // make an initial register state
+    struct RegisterStatePrediction* first = new RegisterStatePrediction();
+    first->ins = firstIns;
+    first->idx = 0;
+    first->state[getRegId(UD_R_K0)] = {Definitely, 0xFFFF};
+    worklist.insert(first, 0);
+
+    // Initialize worklist with first instruction
+    // while worklist has items:
+    //   remove i from worklist
+    //   i.vectorInfo.k1val = Predict(i, k1)
+    //   add targets of i to worklist
+    while(!worklist.isEmpty()) {
+        int unused;
+
+        // Get input register state
+        struct RegisterStatePrediction* item = worklist.deleteMin(&unused);
+        X86Instruction* ins = item->ins;
+
+        // Check if there is an existing state and end this path if states are the same
+        if(instruction_states.count(ins) > 0) {
+            struct RegisterStatePrediction* oldState = instruction_states[ins];
+            assert(ins == oldState->ins);
+            bool different = mergeStates(oldState, item);
+            delete item;
+            if(!different) {
+                continue;
+            }
+            item = oldState;
+        }
+        instruction_states[ins] = item;
+        assert(item->ins == ins);
+
+        // Set the mask register value
+        // if mask register is k0, hardwired to 0xffff
+        // FIXME: On KNL, it's 64 bits not 16 bits
+//        ins->print(); //ALLYSONC
+        if(ins->GET(vector_mask_register) == UD_R_K0) {
+            //ins->setKRegister({Definitely, 0xffff});
+            ins->setKRegister({Definitely, 0xffffffffffffffff});
+
+        // otherwise search in input state
+        } else if(ins->GET(vector_mask_register) != 0) {
+            ins->setKRegister(item->state[ins->GET(vector_mask_register)]);
+        }
+
+        // Update state
+        RegisterStatePrediction* nextItem = new RegisterStatePrediction(*item);
+
+        // update to registers
+        OperandX86* dest = ins->getDestOperand();
+        if(dest && dest->getType() == UD_OP_REG) {
+            RuntimeValue value;
+            uint64_t maskSize = 64;
+
+            // Moves
+            if(ins->isMoveOperation() && ins->getSourceOperand(0) != NULL) {
+                OperandX86* src = ins->getSourceOperand(0);
+                value = getValueOfOperand(src, nextItem);
+
+            // Stack pops
+            } else if(ins->isStackPop()) {
+                if(!nextItem->stack.empty()) {
+                    value = nextItem->stack.top();
+                    nextItem->stack.pop();
+                } else {
+                    value = {Unknown, 0};
+                }
+
+            }
+            // Other instructions
+            // FIXME: Assuming mask vector size of 64 bits
+            else {
+                // Number of bits set
+                switch(ins->GET(mnemonic)) {
+                case UD_Iinc:
+                {
+                    RuntimeValue oldval = nextItem->state[getRegId(dest->GET(base))];
+                    maskSize = 16;
+                    if(oldval.confidence == Definitely) {
+                        value = {Definitely, oldval.value + 1};
+                    }
+                    break;
+                }
+                case UD_Ikaddw:
+                case UD_Ikaddb:
+                case UD_Ikaddq:
+                case UD_Ikaddd: {
+                    OperandX86* src1 = ins->getSourceOperand(1);
+                    OperandX86* src2 = ins->getSourceOperand(0);
+                    RuntimeValue src1Val = getValueOfOperand(src1, nextItem);
+                    RuntimeValue src2Val = getValueOfOperand(src2, nextItem);
+                    
+                    if(ins->GET(mnemonic) == UD_Ikaddw)
+                      maskSize = 16;
+                    if(ins->GET(mnemonic) == UD_Ikaddb)
+                      maskSize = 8;
+                    if(ins->GET(mnemonic) == UD_Ikaddq)
+                      maskSize = 64;
+                    if(ins->GET(mnemonic) == UD_Ikaddd)
+                      maskSize = 32;
+
+                    if(src1Val.confidence == Definitely && src2Val.confidence == Definitely){
+                        value = {Definitely, src1Val.value + src2Val.value};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                case UD_Ikand: {
+                    OperandX86* src = ins->getSourceOperand(1);
+                    RuntimeValue srcVal = getValueOfOperand(src, nextItem);
+                    RuntimeValue oldVal = nextItem->state[getRegId(dest->GET(base))];
+                    if(ins->GET(mnemonic) == UD_Ikand)
+                      maskSize = 16;
+
+                    if(srcVal.confidence == Definitely && oldVal.confidence == Definitely){
+                        value = {Definitely, srcVal.value & oldVal.value};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                case UD_Ikandw:
+                case UD_Ikandb:
+                case UD_Ikandq:
+                case UD_Ikandd: {
+                    OperandX86* src1 = ins->getSourceOperand(1);
+                    OperandX86* src2 = ins->getSourceOperand(0);
+                    RuntimeValue src1Val = getValueOfOperand(src1, nextItem);
+                    RuntimeValue src2Val = getValueOfOperand(src2, nextItem);
+                    
+                    if(ins->GET(mnemonic) == UD_Ikandw)
+                      maskSize = 16;
+                    if(ins->GET(mnemonic) == UD_Ikandb)
+                      maskSize = 8;
+                    if(ins->GET(mnemonic) == UD_Ikandq)
+                      maskSize = 64;
+                    if(ins->GET(mnemonic) == UD_Ikandd)
+                      maskSize = 32;
+
+                    if(src1Val.confidence == Definitely && src2Val.confidence == Definitely){
+                        value = {Definitely, src1Val.value & src2Val.value};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                case UD_Ikandn: {
+                    OperandX86* src = ins->getSourceOperand(1);
+                    RuntimeValue srcVal = getValueOfOperand(src, nextItem);
+                    RuntimeValue oldVal = nextItem->state[getRegId(dest->GET(base))];
+                    if(ins->GET(mnemonic) == UD_Ikandn)
+                      maskSize = 16;
+                    if(srcVal.confidence == Definitely && oldVal.confidence == Definitely){
+                        value = {Definitely, srcVal.value & (~oldVal.value)};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                case UD_Ikandnw:
+                case UD_Ikandnb:
+                case UD_Ikandnq:
+                case UD_Ikandnd: {
+                    OperandX86* src1 = ins->getSourceOperand(1);
+                    OperandX86* src2 = ins->getSourceOperand(0);
+                    RuntimeValue src1Val = getValueOfOperand(src1, nextItem);
+                    RuntimeValue src2Val = getValueOfOperand(src2, nextItem);
+                    
+                    if(ins->GET(mnemonic) == UD_Ikandnw)
+                      maskSize = 16;
+                    if(ins->GET(mnemonic) == UD_Ikandnb)
+                      maskSize = 8;
+                    if(ins->GET(mnemonic) == UD_Ikandnq)
+                      maskSize = 64;
+                    if(ins->GET(mnemonic) == UD_Ikandnd)
+                      maskSize = 32;
+
+                    if(src1Val.confidence == Definitely && src2Val.confidence == Definitely){
+                        value = {Definitely, (~src1Val.value) & src2Val.value};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                case UD_Ikandnr: {
+                    OperandX86* src = ins->getSourceOperand(1);
+                    RuntimeValue srcVal = getValueOfOperand(src, nextItem);
+                    RuntimeValue oldVal = nextItem->state[getRegId(dest->GET(base))];
+                    if(ins->GET(mnemonic) == UD_Ikandnr)
+                      maskSize = 16;
+                    if(srcVal.confidence == Definitely && oldVal.confidence == Definitely){
+                        value = {Definitely, (~srcVal.value) & oldVal.value};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                //case UD_Ikconcath:
+                //case UD_Ikconcatl:
+                //case UD_Ikextract:
+                //case UD_Ikmerge2l1h:
+                //case UD_Ikmerge2l1l:
+                //case UD_kmov:
+                //case UD_kmovw:
+                //case UD_kmovb:
+                //case UD_kmovq:
+                //case UD_kmovd:
+                //case UD_kunpckbw:
+                //case UD_kunpckwd:
+                //case UD_kunpckdq:
+                case UD_Iknotw: 
+                case UD_Iknotb: 
+                case UD_Iknotq: 
+                case UD_Iknotd: 
+                case UD_Iknot: {
+                    OperandX86* src = ins->getSourceOperand(1); // FIXME pretending to have two source operands
+                    RuntimeValue srcVal = getValueOfOperand(src, nextItem);
+
+                    if(ins->GET(mnemonic) == UD_Iknot)
+                      maskSize = 16;
+                    if(ins->GET(mnemonic) == UD_Iknotw)
+                      maskSize = 16;
+                    if(ins->GET(mnemonic) == UD_Iknotb)
+                      maskSize = 8;
+                    if(ins->GET(mnemonic) == UD_Iknotq)
+                      maskSize = 64;
+                    if(ins->GET(mnemonic) == UD_Iknotd)
+                      maskSize = 32;
+
+                    if(srcVal.confidence == Definitely){
+                        value = {Definitely, ~srcVal.value};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                case UD_Ikor: {
+                    OperandX86* src = ins->getSourceOperand(1);
+                    RuntimeValue srcVal = getValueOfOperand(src, nextItem);
+                    RuntimeValue oldVal = nextItem->state[getRegId(dest->GET(base))];
+                    if(ins->GET(mnemonic) == UD_Ikor)
+                      maskSize = 16;
+
+                    if(srcVal.confidence == Definitely && oldVal.confidence == Definitely){
+                        value = {Definitely, srcVal.value | oldVal.value};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                case UD_Ikorw:
+                case UD_Ikorb:
+                case UD_Ikorq:
+                case UD_Ikord: {
+                    OperandX86* src1 = ins->getSourceOperand(1);
+                    OperandX86* src2 = ins->getSourceOperand(0);
+                    RuntimeValue src1Val = getValueOfOperand(src1, nextItem);
+                    RuntimeValue src2Val = getValueOfOperand(src2, nextItem);
+                    
+                    if(ins->GET(mnemonic) == UD_Ikorw)
+                      maskSize = 16;
+                    if(ins->GET(mnemonic) == UD_Ikorb)
+                      maskSize = 8;
+                    if(ins->GET(mnemonic) == UD_Ikorq)
+                      maskSize = 64;
+                    if(ins->GET(mnemonic) == UD_Ikord)
+                      maskSize = 32;
+
+                    if(src1Val.confidence == Definitely && src2Val.confidence == Definitely){
+                        value = {Definitely, src1Val.value | src2Val.value};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                //case UD_Ikortest:
+                //case UD_Ikortestw:
+                //case UD_Ikortestb:
+                //case UD_Ikortestq:
+                //case UD_Ikortestd:
+                case UD_Ikshiftlw:
+                case UD_Ikshiftlb:
+                case UD_Ikshiftlq:
+                case UD_Ikshiftld: {
+                    OperandX86* src1 = ins->getSourceOperand(1);
+                    OperandX86* src2 = ins->getSourceOperand(0);
+                    RuntimeValue src1Val = getValueOfOperand(src1, nextItem);
+                    RuntimeValue src2Val = getValueOfOperand(src2, nextItem);
+                    
+                    if(ins->GET(mnemonic) == UD_Ikshiftlw)
+                      maskSize = 16;
+                    if(ins->GET(mnemonic) == UD_Ikshiftlb)
+                      maskSize = 8;
+                    if(ins->GET(mnemonic) == UD_Ikshiftlq)
+                      maskSize = 64;
+                    if(ins->GET(mnemonic) == UD_Ikshiftld)
+                      maskSize = 32;
+
+                    if(src1Val.confidence == Definitely && src2Val.confidence == Definitely){
+                        value = {Definitely, src1Val.value << src2Val.value};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                case UD_Ikshiftrw:
+                case UD_Ikshiftrb:
+                case UD_Ikshiftrq:
+                case UD_Ikshiftrd: {
+                    OperandX86* src1 = ins->getSourceOperand(1);
+                    OperandX86* src2 = ins->getSourceOperand(0);
+                    RuntimeValue src1Val = getValueOfOperand(src1, nextItem);
+                    RuntimeValue src2Val = getValueOfOperand(src2, nextItem);
+                    
+                    if(ins->GET(mnemonic) == UD_Ikshiftrw)
+                      maskSize = 16;
+                    if(ins->GET(mnemonic) == UD_Ikshiftrb)
+                      maskSize = 8;
+                    if(ins->GET(mnemonic) == UD_Ikshiftrq)
+                      maskSize = 64;
+                    if(ins->GET(mnemonic) == UD_Ikshiftrd)
+                      maskSize = 32;
+
+                    if(src1Val.confidence == Definitely && src2Val.confidence == Definitely){
+                        value = {Definitely, src1Val.value >> src2Val.value};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                // case UD_Iktestw:
+                // case UD_Iktestb:
+                // case UD_Iktestq:
+                // case UD_Iktestd:
+                case UD_Ikxnor: {
+                    OperandX86* src = ins->getSourceOperand(1);
+                    RuntimeValue srcVal = getValueOfOperand(src, nextItem);
+                    RuntimeValue oldVal = nextItem->state[getRegId(dest->GET(base))];
+                    if(ins->GET(mnemonic) == UD_Ikxnor)
+                      maskSize = 16;
+                    if(srcVal.confidence == Definitely && oldVal.confidence == Definitely){
+                        value = {Definitely, ~(srcVal.value ^ oldVal.value)};
+                    } else if(src->GET(base) == dest->GET(base)){
+                        value = {Definitely, 0xFFFFFFFFFFFFFFFF};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                  break;
+                }
+                case UD_Ikxnorw:
+                case UD_Ikxnorb:
+                case UD_Ikxnorq:
+                case UD_Ikxnord: {
+                    OperandX86* src1 = ins->getSourceOperand(1);
+                    OperandX86* src2 = ins->getSourceOperand(0);
+                    RuntimeValue src1Val = getValueOfOperand(src1, nextItem);
+                    RuntimeValue src2Val = getValueOfOperand(src2, nextItem);
+            
+                    //printf("\t\tSRC 1: %d - %d, %d \n", getRegId(src1->GET(base))-UD_R_K0, src1Val.confidence, src1Val.value);
+                    //printf("\t\tSRC 0: %d - %d, %d \n", getRegId(src2->GET(base))-UD_R_K0, src2Val.confidence, src2Val.value);
+                    
+                    if(ins->GET(mnemonic) == UD_Ikxnorw)
+                      maskSize = 16;
+                    if(ins->GET(mnemonic) == UD_Ikxnorb)
+                      maskSize = 8;
+                    if(ins->GET(mnemonic) == UD_Ikxnorq)
+                      maskSize = 64;
+                    if(ins->GET(mnemonic) == UD_Ikxnord)
+                      maskSize = 32;
+
+                    if(src1Val.confidence == Definitely && src2Val.confidence == Definitely){
+                        value = {Definitely, ~(src1Val.value ^ src2Val.value)};
+                    } else if(src1->GET(base) == src2->GET(base)){
+                        value = {Definitely, 0xFFFFFFFFFFFFFFFF};
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                case UD_Ikxor:
+                case UD_Ixor:
+                {
+                    OperandX86* src = ins->getSourceOperand(1);
+                    if(src->getType() == UD_OP_REG && dest->GET(base) == src->GET(base)) {
+                        value = {Definitely, 0};
+                    } else {
+                        RuntimeValue srcVal = getValueOfOperand(src, nextItem);
+                        RuntimeValue oldVal = nextItem->state[getRegId(dest->GET(base))];
+                        if(ins->GET(mnemonic) == UD_Ikandw)
+                            maskSize = 16;
+                        if(srcVal.confidence == Definitely && oldVal.confidence == Definitely){
+                            value = {Definitely, srcVal.value ^ oldVal.value};
+                        } else {
+                            value = {Unknown, 0};
+                        }
+                    }
+                    break;
+                }
+                case UD_Ikxorw:
+                case UD_Ikxorb:
+                case UD_Ikxorq:
+                case UD_Ikxord: {
+                    OperandX86* src1 = ins->getSourceOperand(1);
+                    OperandX86* src2 = ins->getSourceOperand(0);
+                    
+                    if(ins->GET(mnemonic) == UD_Ikxorw)
+                      maskSize = 16;
+                    if(ins->GET(mnemonic) == UD_Ikxorb)
+                      maskSize = 8;
+                    if(ins->GET(mnemonic) == UD_Ikxorq)
+                      maskSize = 64;
+                    if(ins->GET(mnemonic) == UD_Ikxord)
+                      maskSize = 32;
+
+                    if(src1->getType() == UD_OP_REG && src2->GET(base) == src1->GET(base)) {
+                        value = {Definitely, 0};
+                    } else {
+                        RuntimeValue src1Val = getValueOfOperand(src1, nextItem);
+                        RuntimeValue src2Val = getValueOfOperand(src2, nextItem);
+                        if(src1Val.confidence == Definitely && src2Val.confidence == Definitely){
+                            value = {Definitely, src1Val.value ^ src2Val.value};
+                        } else {
+                            value = {Unknown, 0};
+                        }
+                    }
+
+                    break;
+                }
+                case UD_Ivcmppd:
+                case UD_Ivcmpps:
+                {
+                    // Check for equality comparisons between the same register
+                    Vector<OperandX86*>* sources = ins->getSourceOperands();
+                    SwizzleOperation swiz = ins->getSwizzleOperation();
+                    maskSize = 16;
+                    if( swiz == 0 && 
+                       (*sources)[0]->getType() == UD_OP_REG &&
+                       (*sources)[1]->getType() == UD_OP_REG ) {
+
+                        uint32_t sourceSize = (*sources)[1]->getBitsUsed();
+                        switch(sourceSize) {
+                          case 512: maskSize = 16; break;
+                          case 256: maskSize = 8; break;
+                          case 128:
+                          default: maskSize = 4;
+                        }
+
+                        uint8_t cmpOp = (*sources)[2]->getValue();
+
+                        switch(cmpOp) {
+
+                        // eq, le, nlt
+                        case 0:
+                        case 2:
+                        //case 5: value = {Definitely, 0xFF}; break;
+                        case 5: value = {Definitely, 0xFFFF}; break;
+
+                        // lt, ne, nle
+                        case 1:
+                        case 4:
+                        case 6: value = {Definitely, 0}; break;
+
+                        case 3: // FIXME Unord
+                        case 7: // ord
+                        default:
+                            value = {Unknown, 0};
+                        }
+                    } else {
+                        value = {Unknown, 0};
+                    }
+                    break;
+                }
+                default:
+                    value = {Unknown, 0};
+                    break;
+                }
+            }
+
+            // Change the value to use the number of bits specifed by the mask
+            // mnemonic
+            RuntimeValue normValue = {value.confidence, (value.value) & ((1 << maskSize) - 1)};
+            //fprintf(stderr, "Writing %d, %d to register: %d\n", value.confidence, value.value, getRegId(dest->GET(base)));
+//            printf("\t\tWriting %d, %d to register: %d\n", normValue.confidence, normValue.value, getRegId(dest->GET(base))-UD_R_K0); //ALLYSONC
+            nextItem->state[getRegId(dest->GET(base))] = normValue;
+
+        // Updates to stack
+        } else if(ins->isStackPush()) {
+            //ins->print();
+            RuntimeValue value;
+            OperandX86* src = ins->getSourceOperand(0);
+            if(src == NULL) {
+                value = {Unknown, 0};
+                //fprintf(stderr, "Pushing unknown onto stack\n");
+            } else {
+                value = getValueOfOperand(src, nextItem);
+            }
+            nextItem->stack.push(value);
+
+        }
+
+        // Implicit writes to mask register
+        if (((ins->GET(mnemonic) >= UD_Ivgatherdpd) && 
+          (ins->GET(mnemonic) <= UD_Ivgatherpf1dps)) ||
+          ((ins->GET(mnemonic) >= UD_Ivscatterdpd) && 
+          (ins->GET(mnemonic) <= UD_Ivscatterpf1dps)) ||
+          (ins->GET(mnemonic) == UD_Ivpscatterdd) || 
+          (ins->GET(mnemonic) == UD_Ivpscatterdq) ||
+          (ins->GET(mnemonic) == UD_Ivpgatherdd) || 
+          (ins->GET(mnemonic) == UD_Ivpgatherdq)) {
+            nextItem->state[ins->GET(vector_mask_register)].confidence = Maybe;
+        }
+
+        // add targets of i to worklist
+        bool passed = false;
+
+        // fallthrough targets
+        if(ins->controlFallsThrough()) {
+            BasicBlock* tgtBlock = bmap[ins->getBaseAddress() + ins->getSizeInBytes()];
+            if(tgtBlock) {
+                X86Instruction* ftTarget = imap[ins->getBaseAddress() + ins->getSizeInBytes()];
+                if(ftTarget) {
+                    // fall through to new block
+                    if(ftTarget->isLeader()) {
+                            nextItem->ins = ftTarget;
+                            nextItem->idx = 0;
+                            worklist.insert(nextItem, 0);
+                            passed = true;
+                    // fall through to next instruction
+                    } else {
+                        nextItem->ins = ftTarget;
+                        nextItem->idx = 0;
+                        worklist.insert(nextItem, 0);
+                        passed = true;
+                    }
+                }
+            }
+        }
+
+        // targets of branches/calls within this function
+        if(ins->usesControlTarget() && bmap.count(ins->getTargetAddress()) > 0) {
+            BasicBlock* tgtBlock = bmap[ins->getTargetAddress()];
+            if(tgtBlock) {
+                if(!passed) {
+                    // pass this item and avoid copying state
+                    nextItem->ins = tgtBlock->getLeader();
+                    nextItem->idx = 0;
+                    worklist.insert(nextItem, 0);
+                    passed = true;
+                } else {
+                    // copy state
+                    nextItem = new RegisterStatePrediction(*nextItem);
+                    nextItem->ins = tgtBlock->getLeader();
+                    nextItem->idx = 0;
+                    worklist.insert(nextItem, 0);
+                    passed = true;
+                }
+            }
+        }
+
+        if(!passed) {
+            delete nextItem;
+        }
+    }
+
+    for(std::pebil_map_type<X86Instruction*, struct RegisterStatePrediction*>::iterator it = instruction_states.begin(); it != instruction_states.end(); ++it) {
+        delete it->second;
+    }
+}
+
 
 uint32_t loopXDefUseDist(uint32_t currDist, uint32_t funcSize){
     return currDist + funcSize;
@@ -149,11 +860,11 @@ bool flowsInDefUseScope(BasicBlock* tgt, Loop* loop){
 }
 
 inline void singleDefUse(FlowGraph* fg, X86Instruction* ins, BasicBlock* bb, Loop* loop,
-                         std::pebil_map_type<uint64_t, X86Instruction*>& ipebil_map_type,
-                         std::pebil_map_type<uint64_t, BasicBlock*>& bpebil_map_type,
+                         std::pebil_map_type<uint64_t, X86Instruction*>& imap,
+                         std::pebil_map_type<uint64_t, BasicBlock*>& bmap,
                          std::pebil_map_type<uint64_t, LinkedList<X86Instruction::ReachingDefinition*>*>& alliuses,
                          std::pebil_map_type<uint64_t, LinkedList<X86Instruction::ReachingDefinition*>*>& allidefs,
-                         int k, uint64_t loopLeader, uint32_t fcnt){
+                         uint32_t k, uint64_t loopLeader, uint32_t fcnt){
 
     // Get defintions for this instruction: ins
     LinkedList<X86Instruction::ReachingDefinition*>* idefs = ins->getDefs();
@@ -178,7 +889,7 @@ inline void singleDefUse(FlowGraph* fg, X86Instruction* ins, BasicBlock* bb, Loo
 
     // Initialize worklist with the path from this instruction
     // Only take paths inside the loop. Since the definitions are in a loop, uses in the loop will be most relevant.
-    if (k == bb->getNumberOfInstructions() - 1){
+    if (k == (bb->getNumberOfInstructions() - 1)) {
         ASSERT(ins->controlFallsThrough());
         if (bb->getNumberOfTargets() > 0){
             ASSERT(bb->getNumberOfTargets() == 1);
@@ -237,7 +948,7 @@ inline void singleDefUse(FlowGraph* fg, X86Instruction* ins, BasicBlock* bb, Loo
 
         // end of block that is a branch
         if (cand->usesControlTarget() && !cand->isCall()){
-            BasicBlock* tgtBlock = bpebil_map_type[cand->getTargetAddress()];
+            BasicBlock* tgtBlock = bmap[cand->getTargetAddress()];
             if (tgtBlock && !blockTouched[tgtBlock->getIndex()] && flowsInDefUseScope(tgtBlock, loop)){
                 blockTouched[tgtBlock->getIndex()] = true;
                 if (tgtBlock->getBaseAddress() == loopLeader){
@@ -250,9 +961,9 @@ inline void singleDefUse(FlowGraph* fg, X86Instruction* ins, BasicBlock* bb, Loo
 
         // non-branching control
         if (cand->controlFallsThrough()){
-            BasicBlock* tgtBlock = bpebil_map_type[cand->getBaseAddress() + cand->getSizeInBytes()];
+            BasicBlock* tgtBlock = bmap[cand->getBaseAddress() + cand->getSizeInBytes()];
             if (tgtBlock && flowsInDefUseScope(tgtBlock, loop)){
-                X86Instruction* ftTarget = ipebil_map_type[cand->getBaseAddress() + cand->getSizeInBytes()];
+                X86Instruction* ftTarget = imap[cand->getBaseAddress() + cand->getSizeInBytes()];
                 if (ftTarget){
                     if (ftTarget->isLeader()){
                         if (!blockTouched[tgtBlock->getIndex()]){
@@ -285,6 +996,7 @@ inline void singleDefUse(FlowGraph* fg, X86Instruction* ins, BasicBlock* bb, Loo
         delete *it;
     }
 }
+
 
 void FlowGraph::computeDefUseDist(){
     uint32_t fcnt = function->getNumberOfInstructions();
@@ -383,6 +1095,31 @@ void FlowGraph::computeDefUseDist(){
     ASSERT(allidefs.size() == 0);
 }
 
+// Get a block that will be interposed, its' not necessarily actually interposed yet
+BasicBlock* FlowGraph::getInterposedBlock(uint32_t srcidx, uint32_t tgtidx, bool& created)
+{
+    map<uint32_t, map<uint32_t, BasicBlock*>* >::iterator it1 = interposedBlocks.find(srcidx);
+    map<uint32_t, BasicBlock*>* tgtmap;
+    if(it1 == interposedBlocks.end()) {
+        tgtmap = new map<uint32_t, BasicBlock*>();
+        interposedBlocks[srcidx] = tgtmap;
+    } else {
+        tgtmap = it1->second;
+    }
+
+    map<uint32_t, BasicBlock*>::iterator it2 = tgtmap->find(tgtidx);
+    BasicBlock* bb;
+    if(it2 == tgtmap->end()) {
+        bb = new BasicBlock(getNumberOfBasicBlocks(), this);
+        (*tgtmap)[tgtidx] = bb;
+        created = true;
+    } else {
+        bb = it2->second;
+        created = false;
+    }
+    return bb;
+}
+
 void FlowGraph::interposeBlock(BasicBlock* bb){
     ASSERT(bb->getNumberOfSources() == 1 && bb->getNumberOfTargets() == 1);
     BasicBlock* sourceBlock = bb->getSourceBlock(0);
@@ -408,6 +1145,9 @@ void FlowGraph::interposeBlock(BasicBlock* bb){
 
     ASSERT(linkFound && "There should be a source -> target block relationship between the blocks passed to this function");
 
+    if(sourceBlock->getBaseAddress() + sourceBlock->getNumberOfBytes() == targetBlock->getBaseAddress()) {
+        fprintf(stderr, "Failing assertion block 0x%llx to 0x%llx size %d\n", sourceBlock->getBaseAddress(), targetBlock->getBaseAddress(), sourceBlock->getNumberOfBytes());
+    }
     ASSERT(sourceBlock->getBaseAddress() + sourceBlock->getNumberOfBytes() != targetBlock->getBaseAddress() && "Source shouldn't fall through to target");
 
     bb->setBaseAddress(blocks.back()->getBaseAddress() + blocks.back()->getNumberOfBytes());
@@ -461,32 +1201,74 @@ Loop* FlowGraph::getInnermostLoopForBlock(uint32_t idx){
     return loop;
 }
 
+Loop* FlowGraph::getInnermostArtificialLoopForBlock(uint32_t idx){
+    Loop* loop = NULL;
+    for (uint32_t i = 0; i < artificialLoops.size(); i++){
+        if (artificialLoops[i]->isBlockIn(idx)){
+            if (loop){
+                if (artificialLoops[i]->getNumberOfBlocks() < 
+                  loop->getNumberOfBlocks()){
+                    loop = artificialLoops[i];
+                }
+            } else {
+                loop = artificialLoops[i];
+            }
+        }
+    }
+    return loop;
+}
+
 Loop* FlowGraph::getOuterMostLoopForLoop(uint32_t idx){
-    Loop* input = loops[idx];
+    Loop* input = NULL;
+    if (idx < loops.size())
+        input = loops[idx];
+    else
+        input = artificialLoops[idx - loops.size()];
+
     while (input->getIndex() != getOuterLoop(input->getIndex())->getIndex()){
         input = getOuterLoop(input->getIndex());
     }
     return input;
 }
 
+// Gets any outer loop of loop idx
 Loop* FlowGraph::getOuterLoop(uint32_t idx){
-    Loop* input = loops[idx];
-    for (uint32_t i = 0; i < loops.size(); i++){
-        if (input->isInnerLoopOf(loops[i])){
-            return loops[i];
+    Loop* input = NULL;
+    if (idx < loops.size()) {
+        input = loops[idx];
+        for (uint32_t i = 0; i < loops.size(); i++){
+            if (input->isInnerLoopOf(loops[i])){
+                return loops[i];
+            }
         }
+    } else {
+        input = artificialLoops[idx - loops.size()];
+        for (uint32_t i = 0; i < artificialLoops.size(); i++){
+            if (input->isInnerLoopOf(artificialLoops[i])){
+                return artificialLoops[i];
+            }
+        }
+
     }
     return input;
 }
 
 Loop* FlowGraph::getParentLoop(uint32_t idx){
-    Loop* input = loops[idx];
-    for (uint32_t i = 0; i < loops.size(); i++){
-        if (input->isInnerLoopOf(loops[i])){
-            if (getLoopDepth(loops[idx]->getHead()->getIndex()) == getLoopDepth(loops[i]->getHead()->getIndex()) + 1){
-                return loops[i];
+    Loop* input = NULL;
+    if (idx < loops.size()) {
+        input = loops[idx];
+        for (uint32_t i = 0; i < loops.size(); i++){
+            if (input->isInnerLoopOf(loops[i])){
+                if (getLoopDepth(loops[idx]->getHead()->getIndex()) == 
+                  getLoopDepth(loops[i]->getHead()->getIndex()) + 1){
+                    return loops[i];
+                }
             }
         }
+    } else {
+        // artificial loop depth never reset! Have to fix that before 
+        // using this function
+        assert(false);
     }
     return input;
 }
@@ -517,6 +1299,10 @@ uint32_t FlowGraph::getLoopDepth(uint32_t idx){
         return 0;
     }
     return getLoopDepth(loop);
+}
+
+bool FlowGraph::isArtificialLoop(Loop* l) { 
+  return (l->getIndex() >= loops.size());
 }
 
 void FlowGraph::computeLiveness(){
@@ -583,8 +1369,8 @@ void FlowGraph::computeLiveness(){
                             PRINT_OUT("%d ", (*it));
                         }
                         PRINT_OUT("\n");
-                        uses->print("uses");
-                        defs->print("defs");
+                        uses[i]->print("uses");
+                        defs[i]->print("defs");
                         //PRINT_REG_LIST(uses, maxElts, i);
                         //PRINT_REG_LIST(defs, maxElts, i);
                     }
@@ -603,10 +1389,10 @@ void FlowGraph::computeLiveness(){
             PRINT_DEBUG_LIVE_REGS("before in[n] = use[n] U (out[n] - def[n])");
             DEBUG_LIVE_REGS(
                             {
-                    ins.print("ins");
-                    uses->print("uses");
-                    defs->print("defs");
-                    outs.print("outs");
+                    ins[i].print("ins");
+                    uses[i]->print("uses");
+                    defs[i]->print("defs");
+                    outs[i].print("outs");
                 }
             )
             //PRINT_REG_LIST(ins, maxElts, i);
@@ -698,7 +1484,7 @@ bool FlowGraph::verify(){
             return false;
         }
     }
-    for (int32_t i = 0; i < blocks.size()-1; i++){
+    for (uint32_t i = 0; i < blocks.size()-1; i++){
         if (blocks[i]->getBaseAddress()+blocks[i]->getNumberOfBytes() != blocks[i+1]->getBaseAddress()){
             PRINT_ERROR("Blocks %d and %d in FlowGraph should be adjacent -- %#llx != %#llx", i, i+1, blocks[i]->getBaseAddress()+blocks[i]->getNumberOfBytes(), blocks[i+1]->getBaseAddress());
             return false;
@@ -818,6 +1604,7 @@ void FlowGraph::printLoops(){
         PRINT_INFOR("Flowgraph @ %#llx has %d loops", basicBlocks[0]->getBaseAddress(), loops.size());
     }
     for (uint32_t i = 0; i < loops.size(); i++){
+        //loops[i]->printLiveness();
         loops[i]->print();
     }
 }
@@ -851,12 +1638,14 @@ int compareLoopHeaderVaddr(const void* arg1,const void* arg2){
 }
 
 BasicBlock** FlowGraph::getAllBlocks(){
-    return &basicBlocks;
+    return basicBlocks.array();
 }
 
-uint32_t FlowGraph::buildLoops(){
+void FlowGraph::buildLoops(){
 
-    ASSERT(!loops.size());
+    if(loops.size())
+        return;
+
     PRINT_DEBUG_LOOP("Considering flowgraph for function %d -- has %d blocks", function->getIndex(),  basicBlocks.size());
 
     BasicBlock** allBlocks = new BasicBlock*[basicBlocks.size()]; 
@@ -866,6 +1655,7 @@ uint32_t FlowGraph::buildLoops(){
     BitSet <BasicBlock*>* visitedBitSet = newBitSet();
     BitSet <BasicBlock*>* completedBitSet = newBitSet();
 
+    // find back edges in control flow graph
     depthFirstSearch(allBlocks[0], visitedBitSet, true, completedBitSet, &backEdges);
 
     delete[] allBlocks;
@@ -874,7 +1664,7 @@ uint32_t FlowGraph::buildLoops(){
 
     if(backEdges.empty()){
         PRINT_DEBUG_LOOP("\t%d Contains %d loops (back edges) from %d", getIndex(),loops.size(),basicBlocks.size());
-        return 0;
+        return;
     }
 
     ASSERT(!(backEdges.size() % 2) && "Fatal: Back edge list should be multiple of 2, (from->to)");
@@ -890,6 +1680,7 @@ uint32_t FlowGraph::buildLoops(){
         BasicBlock* to = backEdges.shift();
         ASSERT(from && to && "Fatal: Backedge end points are invalid");
 
+        // Loops are backedges where head dominates the backedge
         if(from->isDominatedBy(to)){
             /* for each back edge found, perform natural loop finding algorithm 
                from pg. 604 of the Aho/Sethi/Ullman (Dragon) compiler book */
@@ -899,6 +1690,7 @@ uint32_t FlowGraph::buildLoops(){
 
             numberOfLoops++;
 
+            // determine which blocks are in the loop
             loopStack.clear();
             inLoop->clear();
 
@@ -937,14 +1729,96 @@ uint32_t FlowGraph::buildLoops(){
 
     PRINT_DEBUG_LOOP("\t%d Contains %d loops (back edges) from %d", getIndex(),numberOfLoops,basicBlocks.size());
 
+    // Sort loops by loop head
     if (numberOfLoops){
         uint32_t i = 0;
+        Vector<uint32_t> subsetIndices;
+        Vector<uint32_t> matchingHeaderIndices;
         while (!loopList.empty()){
-            loops.append(loopList.shift());
+            Loop* naturalLoop = loopList.shift();
+            // All natural loops go into "loops"
+            loops.append(naturalLoop);
+
+            // Merge loops with same header for artificial loops
+            // TODO: Reset the depth!
+            Loop* currentLoop = new Loop(*naturalLoop);
+            PRINT_DEBUG_LOOP("Try adding loop with head %#llx and %d nodes\n", 
+              currentLoop->getHead()->getBaseAddress(), 
+              currentLoop->getNumberOfBlocks());
+            bool okayToInsert = true;
+            for (uint32_t i = 0; (i < artificialLoops.size()) && (okayToInsert);
+              i++) {
+                PRINT_DEBUG_LOOP("\t Test against %#llx", artificialLoops[i]->
+                  getHead()->getBaseAddress());
+                if (artificialLoops[i]->getHead() != currentLoop->getHead()) {
+                    PRINT_DEBUG_LOOP("\t\t Not the same head");
+                    continue;
+                }
+
+                if (artificialLoops[i]->isIdenticalLoop(currentLoop) || 
+                  currentLoop->isInnerLoopOf(artificialLoops[i])) {
+                    PRINT_DEBUG_LOOP("Found identical or bigger loop with head" 
+                      " %#llx and %d nodes\n", 
+                      artificialLoops[i]->getHead()->getBaseAddress(), 
+                      artificialLoops[i]->getNumberOfBlocks());
+                    okayToInsert = false;
+                    continue;
+                }
+
+                if (artificialLoops[i]->isInnerLoopOf(currentLoop)) {
+                    PRINT_DEBUG_LOOP("Found subset with head %#llx and %d nodes"
+                      " at index %d\n", artificialLoops[i]->getHead()->
+                      getBaseAddress(), artificialLoops[i]->getNumberOfBlocks(),
+                      i);
+                    subsetIndices.append(i);
+                    continue;
+                }
+
+                // If we get to this point, then we have two loops with the 
+                // same head, but they are not inner loops. They need to be 
+                // mergied
+                matchingHeaderIndices.append(i);
+                okayToInsert = false;
+            }
+
+            // If we have a matching header, we can't have a subset too
+            assert(!(subsetIndices.size() && matchingHeaderIndices.size()));
+
+            assert(subsetIndices.size() <= 1);
+            for (uint32_t i = 0; i < subsetIndices.size(); i++) {
+                PRINT_DEBUG_LOOP("Removing subset %d\n", subsetIndices[i]);
+                Loop* loopToDelete = artificialLoops.remove(subsetIndices[i]);
+                delete loopToDelete;
+            }
+            subsetIndices.clear();
+
+            assert(matchingHeaderIndices.size() <= 1);
+            for (uint32_t i = 0; i < matchingHeaderIndices.size(); i++) {
+                PRINT_DEBUG_LOOP("Adding loop to loop %d\n", 
+                  matchingHeaderIndices[i]);
+                Loop* loopToBeMergedInto = artificialLoops[
+                  matchingHeaderIndices[i]];
+                assert(loopToBeMergedInto->getFlowGraph() == currentLoop->
+                  getFlowGraph());
+                assert(loopToBeMergedInto->getHead() == currentLoop->getHead());
+                loopToBeMergedInto->mergeLoopInto(currentLoop);
+            }
+            matchingHeaderIndices.clear();
+
+            if (okayToInsert) {
+                artificialLoops.append(currentLoop);
+            } else {
+                delete currentLoop;
+            }
         }
-        qsort(&loops,loops.size(),sizeof(Loop*),compareLoopEntry);
+        qsort(loops.array(),loops.size(),sizeof(Loop*),compareLoopEntry);
         for (i=0; i < loops.size(); i++){
             loops[i]->setIndex(i);
+        }
+        qsort(artificialLoops.array(), artificialLoops.size(), sizeof(Loop*),
+          compareLoopEntry);
+        for (i=0; i < artificialLoops.size(); i++){
+            artificialLoops[i]->setIndex(i + loops.size());
         }
     }
     ASSERT(loops.size() == numberOfLoops - excluded);
@@ -968,6 +1842,8 @@ Vector<BasicBlock*>* FlowGraph::getExitBlocks(){
     for (uint32_t i = 0; i < basicBlocks.size(); i++){
         if (basicBlocks[i]->isExit()){
             (*exitBlocks).append(basicBlocks[i]);
+        } else if (basicBlocks[i]->endsWithCall()) {
+            (*exitBlocks).append(basicBlocks[i]);
         } else if (!getFunction()->inRange(basicBlocks[i]->getBaseAddress())){
             (*exitBlocks).append(basicBlocks[i]);
         }        
@@ -984,11 +1860,10 @@ uint32_t FlowGraph::getIndex() {
     return function->getIndex(); 
 }
 
-uint32_t FlowGraph::getAllBlocks(uint32_t sz, BasicBlock** arr){
+void FlowGraph::getAllBlocks(uint32_t sz, BasicBlock** arr){
     ASSERT(sz == basicBlocks.size());
     for (uint32_t i = 0; i < basicBlocks.size(); i++)
         arr[i] = basicBlocks[i];
-    return basicBlocks.size();
 }
 
 void FlowGraph::findMemoryFloatOps(){
@@ -1015,10 +1890,20 @@ void FlowGraph::print(){
     }
 
     PRINT_INFOR("]");
+}
 
-    for (uint32_t i = 0; i < loops.size(); i++){
-        //        loops[i]->print();
+std::string FlowGraph::toDot() {
+    string retval;
+    retval = "digraph " + string(function->getName()) + " {\n";
+    for(uint32_t i = 0; i < basicBlocks.size(); ++i) {
+        BasicBlock* b = basicBlocks[i];
+        for(uint32_t j = 0; j < b->getNumberOfTargets(); ++j) {
+            BasicBlock* bt = b->getTargetBlock(j);
+            retval += b->toDot() + " -> " + bt->toDot() + ";\n";
+        }
     }
+    retval += "}\n";
+    return retval;
 }
 
 BitSet<BasicBlock*>* FlowGraph::newBitSet() { 
@@ -1041,6 +1926,9 @@ FlowGraph::~FlowGraph(){
     for (uint32_t i = 0; i < blocks.size(); i++){
         delete blocks[i];
     }
+    for(map<uint32_t, map<uint32_t, BasicBlock*>*>::iterator it = interposedBlocks.begin(); it != interposedBlocks.end(); ++it) {
+        delete it->second;
+    }
 }
 
 void FlowGraph::setImmDominatorBlocks(BasicBlock* root){
@@ -1062,6 +1950,8 @@ void FlowGraph::setImmDominatorBlocks(BasicBlock* root){
     //delete[] allBlocks;
 }
 
+// Does a depth first search from root, marking blocks in visitedSet (unmarking if visitedMarkOnSet is false)
+// inserts back edges as pairs of nodes
 void FlowGraph::depthFirstSearch(BasicBlock* root, BitSet<BasicBlock*>* visitedSet, bool visitedMarkOnSet,
                                  BitSet<BasicBlock*>* completedSet, LinkedList<BasicBlock*>* backEdges)
 {
@@ -1072,6 +1962,7 @@ void FlowGraph::depthFirstSearch(BasicBlock* root, BitSet<BasicBlock*>* visitedS
         visitedSet->remove(root->getIndex());
     }
 
+    // Recurse until target has already been visited
     uint32_t numberOfTargets = root->getNumberOfTargets();
     for(uint32_t i=0;i<numberOfTargets;i++){
         BasicBlock* target = root->getTargetBlock(i);
@@ -1086,6 +1977,7 @@ void FlowGraph::depthFirstSearch(BasicBlock* root, BitSet<BasicBlock*>* visitedS
         }
     }
 
+    // paths from here are searched, if this is a future target, it won't be a backedge
     if(completedSet){
         if(visitedMarkOnSet){
             completedSet->insert(root->getIndex());

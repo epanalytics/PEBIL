@@ -50,6 +50,7 @@ public:
     void initializeAnchor(Base* link);
     AddressAnchor* getAddressAnchor() { return addressAnchor; }
     uint64_t getData() { return data; }
+    RawSection* getSection() { return rawSection; }
 
     bool is64Bit() { return is64bit; }
 
@@ -70,7 +71,7 @@ public:
     RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size, uint16_t scnIdx, ElfFile* elf);
     ~RawSection();
 
-    virtual uint32_t read(BinaryInputFile* b);
+    virtual void read(BinaryInputFile* b);
     virtual void print() { __SHOULD_NOT_ARRIVE; }
     virtual bool verify();
 
@@ -110,7 +111,7 @@ public:
     void setBytesAtAddress(uint64_t addr, uint32_t size, char* buff);
     void setBytesAtOffset(uint64_t offset, uint32_t size, char* buff);
 
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
     bool verify();
 };

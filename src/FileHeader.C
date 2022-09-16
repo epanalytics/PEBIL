@@ -88,7 +88,8 @@ bool FileHeader::verify(){
     uint32_t machine_typ = GET(e_machine);
     if (machine_typ != EM_386 && 
         machine_typ != EM_860 && 
-        machine_typ != EM_X86_64){
+        machine_typ != EM_X86_64 &&
+        machine_typ != EM_K10M){
         PRINT_ERROR("Machine type must be intel or amd x86");
         return false;
     }
@@ -197,7 +198,7 @@ void FileHeader::print() {
 void FileHeader::initFilePointers(BinaryInputFile* binaryInputFile){
 }
 
-uint32_t FileHeader32::read(BinaryInputFile* binaryInputFile){
+void FileHeader32::read(BinaryInputFile* binaryInputFile){
 
     setFileOffset(binaryInputFile->currentOffset());
 
@@ -208,11 +209,9 @@ uint32_t FileHeader32::read(BinaryInputFile* binaryInputFile){
     initFilePointers(binaryInputFile);
 
     verify();
-
-    return Size__32_bit_File_Header;
 }
 
-uint32_t FileHeader64::read(BinaryInputFile* binaryInputFile){
+void FileHeader64::read(BinaryInputFile* binaryInputFile){
     setFileOffset(binaryInputFile->currentOffset());
 
     if(!binaryInputFile->copyBytesIterate(&entry,Size__64_bit_File_Header)){
@@ -222,8 +221,6 @@ uint32_t FileHeader64::read(BinaryInputFile* binaryInputFile){
     initFilePointers(binaryInputFile);
 
     verify();
-
-    return Size__64_bit_File_Header;
 }
 
 void FileHeader32::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){

@@ -114,7 +114,7 @@ public:
     uint32_t findVersion(uint32_t ver);
 
     void print();
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     bool verify();
 
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
@@ -130,10 +130,10 @@ public:
     ~GnuVersymTable() {}
 
     void print();
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
     bool verify();
 
-    uint32_t addSymbol(uint16_t val);
+    void addSymbol(uint16_t val);
     uint16_t getSymbol(uint32_t idx) { return versyms[idx]; }
     void setSymbol(uint32_t idx, uint16_t val) { versyms[idx] = val; }
     uint32_t getNumberOfSymbols() { return versyms.size(); }

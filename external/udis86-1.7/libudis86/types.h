@@ -58,14 +58,14 @@ enum ud_type
   UD_R_R12D,	UD_R_R13D,	UD_R_R14D,	UD_R_R15D,
 	
   /* 64 bit GPRs */
-  /* 52-68 */
+  /* 53-68 */
   UD_R_RAX,	UD_R_RCX,	UD_R_RDX,	UD_R_RBX,
   UD_R_RSP,	UD_R_RBP,	UD_R_RSI,	UD_R_RDI,
   UD_R_R8,	UD_R_R9,	UD_R_R10,	UD_R_R11,
   UD_R_R12,	UD_R_R13,	UD_R_R14,	UD_R_R15,
 
   /* segment registers */
-  /* 68-74 */
+  /* 69-74 */
   UD_R_ES,	UD_R_CS,	UD_R_SS,	UD_R_DS,
   UD_R_FS,	UD_R_GS,	
 
@@ -94,22 +94,51 @@ enum ud_type
   UD_R_ST4,	UD_R_ST5,	UD_R_ST6,	UD_R_ST7, 
 
   /* extended multimedia registers */
-  /* 123-138 */
+  /* 123-154 */
   UD_R_XMM0,	UD_R_XMM1,	UD_R_XMM2,	UD_R_XMM3,
   UD_R_XMM4,	UD_R_XMM5,	UD_R_XMM6,	UD_R_XMM7,
   UD_R_XMM8,	UD_R_XMM9,	UD_R_XMM10,	UD_R_XMM11,
   UD_R_XMM12,	UD_R_XMM13,	UD_R_XMM14,	UD_R_XMM15,
 
+  UD_R_XMM16,	UD_R_XMM17,	UD_R_XMM18,	UD_R_XMM19,
+  UD_R_XMM20,	UD_R_XMM21,	UD_R_XMM22,	UD_R_XMM23,
+  UD_R_XMM24,	UD_R_XMM25,	UD_R_XMM26,	UD_R_XMM27,
+  UD_R_XMM28,	UD_R_XMM29,	UD_R_XMM30,	UD_R_XMM31,
+
   /* 256-bit AVX registers */
-  /* 139-154 */
+  /* 155-186 */
   UD_R_YMM0,	UD_R_YMM1,	UD_R_YMM2,	UD_R_YMM3,
   UD_R_YMM4,	UD_R_YMM5,	UD_R_YMM6,	UD_R_YMM7,
   UD_R_YMM8,	UD_R_YMM9,	UD_R_YMM10,	UD_R_YMM11,
   UD_R_YMM12,	UD_R_YMM13,	UD_R_YMM14,	UD_R_YMM15,
 
+  UD_R_YMM16,	UD_R_YMM17,	UD_R_YMM18,	UD_R_YMM19,
+  UD_R_YMM20,	UD_R_YMM21,	UD_R_YMM22,	UD_R_YMM23,
+  UD_R_YMM24,	UD_R_YMM25,	UD_R_YMM26,	UD_R_YMM27,
+  UD_R_YMM28,	UD_R_YMM29,	UD_R_YMM30,	UD_R_YMM31,
+
+  /* 512-bit AVX registers */
+  /* 187 - 218 */
+  UD_R_ZMM0,	UD_R_ZMM1,	UD_R_ZMM2,	UD_R_ZMM3,
+  UD_R_ZMM4,	UD_R_ZMM5,	UD_R_ZMM6,	UD_R_ZMM7,
+  UD_R_ZMM8,	UD_R_ZMM9,	UD_R_ZMM10,	UD_R_ZMM11,
+  UD_R_ZMM12,	UD_R_ZMM13,	UD_R_ZMM14,	UD_R_ZMM15,
+
+  UD_R_ZMM16,	UD_R_ZMM17,	UD_R_ZMM18,	UD_R_ZMM19,
+  UD_R_ZMM20,	UD_R_ZMM21,	UD_R_ZMM22,	UD_R_ZMM23,
+  UD_R_ZMM24,	UD_R_ZMM25,	UD_R_ZMM26,	UD_R_ZMM27,
+  UD_R_ZMM28,	UD_R_ZMM29,	UD_R_ZMM30,	UD_R_ZMM31,
+
+  /* 16-bit K registers */
+  /* 219 - 226 */
+  UD_R_K0,	UD_R_K1,	UD_R_K2,	UD_R_K3,
+  UD_R_K4,	UD_R_K5,	UD_R_K6,	UD_R_K7,
+
+  /* 227 */
   UD_R_RIP,
 
   /* Operand Types */
+  /* 228 - 233 */
   UD_OP_REG,	UD_OP_MEM,	UD_OP_PTR,	UD_OP_IMM,	
   UD_OP_JIMM,	UD_OP_CONST
 };
@@ -120,28 +149,28 @@ enum ud_type
  */
 struct ud_operand 
 {
-  enum ud_type		type;
-  uint16_t		size;
-  uint8_t               position; /* PEBIL */
+  enum ud_type  type;
+  uint16_t      size;       // Size of operand (e.g. 128)
+  uint8_t       position;   // byte position: imm, offset (start w/ 0)
   union {
-	int8_t		sbyte;
-	uint8_t		ubyte;
-	int16_t		sword;
-	uint16_t	uword;
-	int32_t		sdword;
-	uint32_t	udword;
-	int64_t		sqword;
-	uint64_t	uqword;
-
-	struct {
-		uint16_t seg;
-		uint32_t off;
-	} ptr;
-  } lval;
-  enum ud_type		base;
-  enum ud_type		index;
-  uint8_t		offset;
-  uint8_t		scale;	
+      int8_t    sbyte;
+      uint8_t   ubyte;
+      int16_t   sword;
+      uint16_t  uword;
+      int32_t   sdword;
+      uint32_t  udword;
+      int64_t   sqword;
+      uint64_t  uqword;
+      
+      struct {
+          uint16_t seg;
+          uint32_t off;
+      } ptr;
+  }             lval;       // offset value, imm value, etc
+  enum ud_type  base;       // Register
+  enum ud_type  index;      // index register, if there is one
+  uint8_t       offset;     // offset size in bits
+  uint8_t       scale;	    // scale, if there is one
 };
 
 /* -----------------------------------------------------------------------------
@@ -150,56 +179,64 @@ struct ud_operand
  */
 struct ud
 {
-  int 			(*inp_hook) (struct ud*);
-  uint8_t		inp_curr;
-  uint8_t		inp_fill;
-  FILE*			inp_file;
-  uint8_t		inp_ctr;
-  uint8_t*		inp_buff;
-  uint8_t*		inp_buff_end;
-  uint8_t		inp_end;
-  void			(*translator)(struct ud*);
-  uint64_t		insn_offset;
-  char			insn_bytes[16];
-  char			insn_hexcode[32];
-  char			insn_buffer[64];
-  unsigned int		insn_fill;
-  uint8_t		dis_mode;
-  uint64_t		pc;
-  uint8_t		vendor;
-  struct map_entry*	mapen;
-  enum ud_mnemonic_code	mnemonic;
-  struct ud_operand	operand[4];
-  uint8_t		error;
-  uint8_t	 	pfx_rex;
-  uint8_t 		pfx_seg;
-  uint8_t 		pfx_opr;
-  uint8_t 		pfx_adr;
-  uint8_t 		pfx_lock;
-  uint8_t 		pfx_rep;
-  uint8_t 		pfx_repe;
-  uint8_t 		pfx_repne;
-  uint8_t 		pfx_insn;
-  uint8_t               pfx_avx;
-  uint8_t               avx_vex[2];
-  uint8_t		default64;
-  uint8_t		opr_mode;
-  uint8_t		adr_mode;
-  uint8_t		br_far;
-  uint8_t		br_near;
-  uint8_t		implicit_addr;
-  uint8_t		c1;
-  uint8_t		c2;
-  uint8_t		c3;
-  uint8_t		c4;
-  uint8_t 		inp_cache[256];
-  uint8_t		inp_sess[64];
-  uint32_t              flags_use;
-  uint32_t              flags_def;
+  int                     (*inp_hook) (struct ud*);
+  uint8_t                 inp_curr;
+  uint8_t                 inp_fill;
+  FILE*                   inp_file;
+  uint8_t                 inp_ctr;                // Num bytes in insn
+  uint8_t*                inp_buff;
+  uint8_t*                inp_buff_end;
+  uint8_t                 inp_end;
+  void                    (*translator)(struct ud*);
+  uint64_t                insn_offset;            // Offset of insn
+  char                    insn_bytes[16];         // Insn encoding in bytes
+  char                    insn_hexcode[32];
+  char                    insn_buffer[64];
+  unsigned int            insn_fill;
+  uint8_t                 dis_mode;
+  uint64_t                pc;
+  uint8_t                 vendor;
+  struct map_entry*       mapen;
+  enum ud_mnemonic_code   mnemonic;
+  struct ud_operand       operand[4];
+  uint8_t                 error;                  // Was there an error
+  uint8_t                 pfx_rex;                // REX (WRXB)
+  uint8_t                 pfx_seg;                // Segment reg
+  uint8_t                 pfx_opr;                // operand size pfx (ie o32)
+  uint8_t                 pfx_adr;                // addr size pfx (ie a32)
+  uint8_t 		            pfx_lock;               // Includes LOCK prefix
+  uint8_t 		            pfx_rep;                // Includes REP prefix
+  uint8_t 		            pfx_repe;               // Includes REPE prefix
+  uint8_t 		            pfx_repne;              // Includes REPNE prefix
+  uint8_t 		            pfx_insn;               // pfx for insn (ie 0x62)
+  uint8_t                 pfx_avx;                // mandatory pfx (ie 0xF3)
+                          // avx pfxs avx[0]= last pfx; avx[1]= 1st pfx for c4
+  uint8_t                 avx_vex[2];             // vex prefixes 
+  uint8_t                 pfx_size;               // L for VEX insns
+  union {
+    uint8_t               mvex[3];                // mvex prefixes (mic)
+    uint8_t               evex[3];                // evex prefixes
+  };
+  enum ud_type            vector_mask_register;   // mask register (ie k0)
+  uint8_t                 conversion;             // disp8*n (SSS or L'Lb)
+  uint8_t                 default64;
+  uint8_t		              opr_mode;
+  uint8_t		              adr_mode;
+  uint8_t		              br_far;                 // branch far (for call/jmp)
+  uint8_t		              br_near;                // branch near
+  uint8_t		              implicit_addr;          // has implicit address
+  uint8_t		              c1;
+  uint8_t		              c2;
+  uint8_t		              c3;
+  uint8_t		              c4;
+  uint8_t                 inp_cache[256];
+  uint8_t                 inp_sess[64];
+  uint32_t                flags_use;              // flags used (see decode.h)
+  uint32_t                flags_def;              // flags defined
     // 16 GPR (l/h/x/e/r) + 6 SEG + 8 X87 + 16 MMX (mmx/xmm/ymm) + 1 RIP
-  uint64_t               impreg_use;
-  uint64_t               impreg_def;
-  struct ud_itab_entry * itab_entry;
+  uint64_t                impreg_use;             // implicit regs used
+  uint64_t                impreg_def;             // implicit regs defined
+  struct ud_itab_entry*   itab_entry;
 };
 
 /* -----------------------------------------------------------------------------

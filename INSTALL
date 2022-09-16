@@ -1,6 +1,6 @@
 This document contains a basic outline for how to install the
-PEBIL binary instrumentation package. Direct any questions or
-comments to michaell@sdsc.edu
+EP Analytics characterization tools using the PEBIL binary instrumentation package. 
+Direct any questions or comments to allysonc@epanalytics.com
 
 1. System Requirements
 
@@ -8,44 +8,19 @@ comments to michaell@sdsc.edu
    Binary Format           Elf
    Architecture            ia32 or x86_64
 
+2. PEBIL can be built using autoconf configure script and the resulting makefile.
+   A. run the configure script using the flags to define MPICC, MPICXX, CC, & CXX.
+   Other useful flags:
+       --disable-mpicxxbind if using openmpi gnu
 
-2. set up environment
-
-   You will need to set the following variables (assuming the installation is
-   at /path/to/PEBIL/):
-
-   A. bash:
-   $ export PEBIL_ROOT=/path/to/PEBIL
-   $ export PATH=${PATH}:${PEBIL_ROOT}/bin:${PEBIL_ROOT}/scripts
-   $ export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${PEBIL_ROOT}/lib
-
-   This functionality is also encapsulated in bashrc, so you can try:
-   $ . bashrc
-
-   B. csh:
-   % setenv PEBIL_ROOT /path/to/PEBIL/
-   % setenv PATH ${PATH}:${PEBIL_ROOT}/bin:${PEBIL_ROOT}/scripts
-   % setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:${PEBIL_ROOT}/lib
+   $ ./configure [MPICC=...] [--enable-mpi=no] [--disable-mpicxxbind]
+   Example with Intel Compilers and Intel MPI:
+   $./configure MPICC=mpiicc MPICXX=mpiicpc CC=icc CXX=icpc
 
 
-3. PEBIL can be built using either autoconf configure script and the
-resulting makefile or with cmake. 
-   A. run the configure script. The mpi compiler detection isn't perfect 
-   so setting the MPICC variable might be helpful. Some other
-   useful flags might be to use --enable-mpi=no if you don't want MPI
-   support or --enable-static=yes if your system doesn't support shared
-   libraries (TODO: static support sucks)
+3. set up environment
 
-   $ ./configure [MPICC=...] [--enable-mpi=no] [--enable-static=yes]
-
-   B. [NO LONGER SUPPORTED] run cmake. If you use this option you will also need to
-   configure/build the udis library.
-
-   $ cmake .
-   $ cd external/udis86-1.7
-   $ ./configure; make
-   $ cd -
-
+   $ source bashrc
 
 4. build
 
@@ -56,12 +31,13 @@ resulting makefile or with cmake.
    do in that it doesn't try to system directories and ignores the
    --prefix option to configure).
 
+   If you run into the below error, please reconfigure with 
+   --disable-mpicxxbind:
 
-5. run PEBIL
-   For some ideas on what command line options are available:
-   $ pebil --help
+      __pebil__tmp.cxx: In function ‘int main(int, char**)’:
+      __pebil__tmp.cxx:7:1: error: ‘MPI’ has not been declared
+      MPI::Init(argc, argv); MPI::Finalize();
 
-   Examples:
-   $ pebil --typ jbb --app testapps/dynTest.gnu
-   $ pebil --lib lib --typ ide src/pebil
-   $ pebil --typ crp --trk $PEBIL_ROOT/scripts/inputlist/test.wrap --app cg.A.8
+
+5. run PEBIL - see the README
+

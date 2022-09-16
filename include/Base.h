@@ -46,7 +46,6 @@
 #define pebil_map_type map
 #include <map>
 #endif
-
 typedef void (*fprintf_ftype)(FILE*, const char*, ...);
 extern FILE* pebilOutp;
 extern uint64_t warnCount;
@@ -96,17 +95,27 @@ extern uint64_t warnCount;
     fprintf(stderr,"\n");                                \
     ASSERT(0); \
     exit(-1);
+#define ALWAYS_FILE stdout
+#define PRINT_ALWAYS(...) fprintf(ALWAYS_FILE,"[pebil-instr]"); \
+    fprintf(ALWAYS_FILE,## __VA_ARGS__);                        \
+    fprintf(ALWAYS_FILE,"\n");                                  \
+    fflush(ALWAYS_FILE);
 
-#define PRINT_INFOR(...) fprintf(pebilOutp,"[pebil-instr] "); \
+#ifdef INFORM
+#define PRINT_INFOR(...) fprintf(pebilOutp,"[pebil-inform] "); \
     fprintf(pebilOutp,## __VA_ARGS__);                        \
     fprintf(pebilOutp,"\n");                                  \
     fflush(pebilOutp);
-
 #define PRINT_INFO() fprintf(pebilOutp,"[pebil-instr] "); \
     fflush(pebilOutp);
-
 #define PRINT_OUT(...) fprintf(pebilOutp,## __VA_ARGS__); \
     fflush(pebilOutp);
+#else
+#define PRINT_INFOR(...)
+#define PRINT_INFO()
+#define PRINT_OUT(...)
+#endif
+
 
 #ifdef WARNING_SEVERITY
 #define WARN_FILE stdout
@@ -366,7 +375,7 @@ public:
     uint32_t getSizeInBytes() { return sizeInBytes; }
 
     virtual void print() { __SHOULD_NOT_ARRIVE; }
-    virtual uint32_t read(BinaryInputFile* b) { __SHOULD_NOT_ARRIVE; return 0; }
+    virtual void read(BinaryInputFile* b) { __SHOULD_NOT_ARRIVE; }
 
 
     uint32_t getFileOffset() { return fileOffset; }
@@ -445,6 +454,7 @@ private:
 public:
 
     inline uint64_t getValue(){ return entry.bits; }
+    inline uint64_t getBlockCode() { return entry.bits & 0xffffffffffffff00; }
 
     inline HashCode() { entry.bits = INVALID_FIELD; }
     inline HashCode(uint64_t a) { entry.bits = a; }
@@ -464,6 +474,7 @@ public:
     inline uint32_t getFunction()    { return (hasFunction() ? (entry.fields.function - 1) : INVALID_FIELD); }
     inline uint32_t getBlock()       { return (hasBlock() ? (entry.fields.block - 1) : INVALID_FIELD); }
     inline uint32_t getInstruction() { return (hasInstruction() ? (entry.fields.instruction - 1) : INVALID_FIELD); }
+
 };
 
 extern bool allSpace(char* str);
@@ -483,9 +494,9 @@ extern int searchBasicBlockAddress(const void* arg1, const void* arg2);
 extern int searchBaseAddressExact(const void* arg1, const void* arg2);
 extern int searchBaseAddress(const void* arg1, const void* arg2);
 
-extern uint64_t getUInt64(char* buf);
-extern uint32_t getUInt32(char* buf);
-extern uint16_t getUInt16(char* buf);
+extern uint64_t getUInt64(const char* buf);
+extern uint32_t getUInt32(const char* buf);
+extern uint16_t getUInt16(const char* buf);
 extern int64_t absoluteValue(uint64_t d);
 
 extern int32_t scmp(const void *a, const void *b);
@@ -519,6 +530,6 @@ char* sha1sum(char* buffer, uint32_t size, uint64_t* first64);
 
 extern double timer();
 
-#define WEDGE_SHAMT 0x400000
+#define WEDGE_SHAMT 0x180000
 
 #endif

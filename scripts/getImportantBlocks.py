@@ -1,4 +1,23 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
+#
+# This file is part of the pebil project.
+#
+# Copyright (c) 2010, University of California Regents
+# All rights reserved.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 import getopt
 import sys
@@ -31,6 +50,9 @@ def print_usage(err=''):
     print "        a list of .jbbinst trace files"
     print ""
     print "Example: " + sys.argv[0] + " --blockmin 1000 dynTest.r*.jbbinst"
+    print ""
+    print "Outputs a file containing a list of important blocks"
+    print "If a static file is included, an opcount file of (insns, fpops, memops) is also output"
     print_error(err)
 
 def file_exists(filename):
@@ -130,7 +152,7 @@ class LoopLine(CounterLine):
     def __init__(self, toks):
         super(LoopLine, self).__init__(toks)
 
-        if len(toks) != 8:
+        if len(toks) != 9:
             print_usage('invalid loop tokens: ' + str(toks))
 
         if toks[0] != LOOP_IDENTIFIER:
@@ -213,7 +235,7 @@ class JbbTraceFile:
     def __init__(self, tfile):
         self.tfile = tfile
         if not file_exists(self.tfile):
-            print_usage(str(f) + ' is not a valid file') # FIXME f? not tfile?
+            print_usage(str(tfile) + ' is not a valid file') # FIXME f? not tfile?
 
         r = re.compile(INPUT_JBB_NAME_REGEX)
         p = r.match(self.tfile)
@@ -313,15 +335,19 @@ def main():
     imagecounts = {}
     total = 0
     blockfiles = {}
+    # for each jbbinst file
     for f in args:
         index += 1
         print 'Processing input file ' + str(index) + ' of ' + str(len(args)) + ': ' + f
 
         b = JbbTraceFile(f)
+
+        # check if mpirank has been used before
         if blockfiles.has_key(b.mpirank):
             print_usage('duplicate mpi rank found in input files: ' + str(b.mpirank))
         blockfiles[b.mpirank] = 1
 
+        # write opcounts if a static file was given
         if outfile != None:
             blockFile = b
             totInsns = 0
@@ -338,8 +364,9 @@ def main():
             outfile.write(str(blockFile.mpirank) + "\t" + str(totInsns) + "\t" + str(totMemops) + "\t" + str(totFpops) + "\n")
            
 
+        # keep a list of image keys seen
         for ki in b.images.keys():
-            imagelist[ki] = 1
+            imagelist[ki] = b.images[ki]
 
         if ntasks == 0:
             ntasks = b.mpitasks
@@ -382,8 +409,8 @@ def main():
                     f = open(fname, 'w')
                     imagefiles[k] = f
                     print 'Writing output file ' + fname
-                    f.write('# BlockHash # TotalBlockCount\n')
-                imagefiles[k].write(('0x%x' % kb) + ' # ' + str(imagecounts[k][kb]) + '\n')
+                    f.write('# BlockHash ImgHash # TotalBlockCount\n')
+                imagefiles[k].write(('0x%x ' % kb) + ('0x%x' % imagelist[k].hashcode) + ' # ' + str(imagecounts[k][kb]) + '\n')
 
     # close all ouput files
     for k in imagefiles.keys():

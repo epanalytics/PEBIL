@@ -71,19 +71,37 @@ class TextObject;
 #define IS_DEBUG_REG(__reg) ((__reg >= UD_R_DR0) && (__reg <= UD_R_DR15))
 #define IS_MMX_REG(__reg) ((__reg >= UD_R_MM0) && (__reg <= UD_R_MM7))
 #define IS_X87_REG(__reg) ((__reg >= UD_R_ST0) && (__reg <= UD_R_ST7))
-#define IS_XMM_REG(__reg) ((__reg >= UD_R_XMM0) && (__reg <= UD_R_XMM15))
-#define IS_YMM_REG(__reg) ((__reg >= UD_R_YMM0) && (__reg <= UD_R_YMM15))
+#define IS_XMM_REG(__reg) ((__reg >= UD_R_XMM0) && (__reg <= UD_R_XMM31))
+#define IS_YMM_REG(__reg) ((__reg >= UD_R_YMM0) && (__reg <= UD_R_YMM31))
+#define IS_ZMM_REG(__reg) ((__reg >= UD_R_ZMM0) && (__reg <= UD_R_ZMM31))
+#define IS_K_REG(__reg) ((__reg >= UD_R_K0) && (__reg <= UD_R_K7))
 #define IS_PC_REG(__reg) (__reg == UD_R_RIP)
 #define IS_OPERAND_TYPE(__opr) ((__opr >= UD_OP_REG) && (__opr <= UD_OP_CONST))
 
 #define IS_GPR(__reg) (IS_8BIT_GPR(__reg) || IS_16BIT_GPR(__reg) || IS_32BIT_GPR(__reg) || IS_64BIT_GPR(__reg))
 #define IS_REG(__reg) (IS_GPR(__reg) || IS_SEGMENT_REG(__reg) || IS_CONTROL_REG(__reg) || IS_DEBUG_REG(__reg) || \
-                       IS_MMX_REG(__reg) || IS_X87_REG(__reg) || IS_XMM_REG(__reg) || IS_YMM_REG(__reg) || IS_PC_REG(__reg))
-#define IS_ALU_REG(__reg) (IS_GPR(__reg) || IS_XMM_REG(__reg))
+                       IS_MMX_REG(__reg) || IS_X87_REG(__reg) || IS_XMM_REG(__reg) || IS_YMM_REG(__reg) || \
+                       IS_ZMM_REG(__reg) || IS_K_REG(__reg) || IS_PC_REG(__reg))
+#define IS_ALU_REG(__reg) (IS_GPR(__reg) || IS_XMM_REG(__reg) || IS_YMM_REG(__reg) || IS_ZMM_REG(__reg))
 
 #define IS_LOADADDR(__mne) (__mne == UD_Ilea)
-#define IS_PREFETCH(__mne) (__mne == UD_Iprefetch || __mne == UD_Iprefetchnta || __mne == UD_Iprefetcht0 || \
-                            __mne == UD_Iprefetcht1 || __mne == UD_Iprefetcht2)
+#define IS_PREFETCH(__mne) (__mne == UD_Iprefetch || __mne == UD_Iprefetchnta \
+  || __mne == UD_Iprefetcht0 || __mne == UD_Iprefetcht1 || \
+  __mne == UD_Iprefetcht2 || __mne == UD_Ivprefetchnta || \
+  __mne == UD_Ivprefetch0 || __mne == UD_Ivprefetch1 || \
+  __mne == UD_Ivprefetch2 || __mne == UD_Ivprefetchenta || \
+  __mne == UD_Ivprefetche0 || __mne == UD_Ivprefetche1 || \
+   __mne == UD_Ivprefetche2 || \
+  __mne == UD_Ivgatherpf0dpd || __mne == UD_Ivgatherpf0dps || \
+  __mne == UD_Ivgatherpf0qpd || __mne == UD_Ivgatherpf0qps || \
+  __mne == UD_Ivgatherpf0hintdpd || __mne == UD_Ivgatherpf0hintdps || \
+  __mne == UD_Ivscatterpf0dpd ||__mne == UD_Ivscatterpf0dps || \
+  __mne == UD_Ivscatterpf0qpd || __mne == UD_Ivscatterpf0qps || \
+  __mne == UD_Ivscatterpf0hintdpd || __mne == UD_Ivscatterpf0hintdps || \
+  __mne == UD_Ivgatherpf1dpd || __mne == UD_Ivgatherpf1dps || \
+  __mne == UD_Ivgatherpf1qpd || __mne == UD_Ivgatherpf1qps || \
+  __mne == UD_Ivscatterpf1dpd || __mne == UD_Ivscatterpf1dps || \
+  __mne == UD_Ivscatterpf1qpd || __mne == UD_Ivscatterpf1qps)
 
 
 #define __reg_use 0
@@ -122,14 +140,6 @@ class TextObject;
 #define __x86_flagset_alustd       (__bit_shift(X86_FLAG_CF) | __bit_shift(X86_FLAG_PF) | __bit_shift(X86_FLAG_AF) | __bit_shift(X86_FLAG_ZF) | __bit_shift(X86_FLAG_SF) | __bit_shift(X86_FLAG_OF))
 
 #define __flag_reserved "reserved"
-const static char* flag_name_map[X86_FLAG_BITS] = { "carry", __flag_reserved, "parity", __flag_reserved, 
-                           "adjust", __flag_reserved, "zero", "sign",
-                           "trap", "interrupt", "direction", "overflow",
-                           "iopl1", "iopl2", "nested_task", __flag_reserved,
-                           "resume", "v8086", "alignchk", "vint",
-                           "vint_pending", "ident", __flag_reserved, __flag_reserved,
-                           __flag_reserved, __flag_reserved, __flag_reserved, __flag_reserved,
-                           __flag_reserved, __flag_reserved, __flag_reserved, __flag_reserved };
 
 #define CONTAINS_FLAG(__val, __flg) (((__val >> __flg) & 0x1) == 1)
 
@@ -170,23 +180,90 @@ const static char* flag_name_map[X86_FLAG_BITS] = { "carry", __flag_reserved, "p
 #define X86_FPREG_XMM13 (13 + X86_64BIT_GPRS)
 #define X86_FPREG_XMM14 (14 + X86_64BIT_GPRS)
 #define X86_FPREG_XMM15 (15 + X86_64BIT_GPRS)
-#define X86_XMM_REGS 16
+#define X86_FPREG_XMM16 (16 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM17 (17 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM18 (18 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM19 (19 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM20 (20 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM21 (21 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM22 (22 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM23 (23 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM24 (24 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM25 (25 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM26 (26 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM27 (27 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM28 (28 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM29 (29 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM30 (30 + X86_64BIT_GPRS)
+#define X86_FPREG_XMM31 (31 + X86_64BIT_GPRS)
+#define X86_XMM_REGS 32
 
-#define X87_REG_ST0 (0 + X86_64BIT_GPRS + X86_XMM_REGS)
-#define X87_REG_ST1 (1 + X86_64BIT_GPRS + X86_XMM_REGS)
-#define X87_REG_ST2 (2 + X86_64BIT_GPRS + X86_XMM_REGS)
-#define X87_REG_ST3 (3 + X86_64BIT_GPRS + X86_XMM_REGS)
-#define X87_REG_ST4 (4 + X86_64BIT_GPRS + X86_XMM_REGS)
-#define X87_REG_ST5 (5 + X86_64BIT_GPRS + X86_XMM_REGS)
-#define X87_REG_ST6 (6 + X86_64BIT_GPRS + X86_XMM_REGS)
-#define X87_REG_ST7 (7 + X86_64BIT_GPRS + X86_XMM_REGS)
+// YMM and ZMM regs are same as XMM
+#define X86_FPREG_YMM0 X86_FPREG_XMM0
+// FIXME fill in copies for rest of regs?
+#define X86_FPREG_ZMM0 X86_FPREG_XMM0
+#define X86_FPREG_ZMM31 X86_FPREG_XMM31
+// FIXME
+#define X86_ZMM_REGS 32
+
+
+#define X87_REG_ST0 (0 + X86_64BIT_GPRS + X86_ZMM_REGS)
+#define X87_REG_ST1 (1 + X86_64BIT_GPRS + X86_ZMM_REGS)
+#define X87_REG_ST2 (2 + X86_64BIT_GPRS + X86_ZMM_REGS)
+#define X87_REG_ST3 (3 + X86_64BIT_GPRS + X86_ZMM_REGS)
+#define X87_REG_ST4 (4 + X86_64BIT_GPRS + X86_ZMM_REGS)
+#define X87_REG_ST5 (5 + X86_64BIT_GPRS + X86_ZMM_REGS)
+#define X87_REG_ST6 (6 + X86_64BIT_GPRS + X86_ZMM_REGS)
+#define X87_REG_ST7 (7 + X86_64BIT_GPRS + X86_ZMM_REGS)
 #define X87_REGS 8
 
-#define X86_ALU_REGS (X86_64BIT_GPRS + X86_XMM_REGS + X87_REGS)
-const static char* alu_name_map[X86_ALU_REGS] = { "ax", "cx", "dx", "bx", "sp", "bp", "si", "di", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
-                                                  "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", 
-                                                  "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",
-                                                  "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7" };
+#define X86_REG_K0 (0 + X87_REG_ST7 + 1)
+#define X86_REG_K1 (1 + X86_REG_K0)
+#define X86_REG_K2 (2 + X86_REG_K0)
+#define X86_REG_K3 (3 + X86_REG_K0)
+#define X86_REG_K4 (4 + X86_REG_K0)
+#define X86_REG_K5 (5 + X86_REG_K0)
+#define X86_REG_K6 (6 + X86_REG_K0)
+#define X86_REG_K7 (7 + X86_REG_K0)
+#define X86_K_REGS 8
+
+#define X86_ALU_REGS (X86_64BIT_GPRS + X86_XMM_REGS + X87_REGS + X86_K_REGS)
+const static char* alu_name_map[X86_ALU_REGS] = { "ax", "cx", "dx", "bx", 
+  "sp", "bp", "si", "di", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+  "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", 
+  "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "xmm16", 
+  "xmm17", "xmm18", "xmm19", "xmm20", "xmm21", "xmm22", "xmm23", "xmm24", 
+  "xmm25", "xmm26", "xmm27", "xmm28", "xmm29", "xmm30", "xmm31", 
+  "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7",
+  "k0", "k1", "k2", "k3", "k4", "k5", "k6", "k7",
+  };
+
+    
+enum Confidence {
+  Unknown, Maybe, Definitely
+};
+
+enum SwizzleOperation {
+  None,
+  SwapInnerPairs,
+  SwapWithTwoAway,
+  CrossProduct,
+  BroadcastA,
+  BroadcastB,
+  BroadcastC,
+  BroadcastD
+};
+
+struct RuntimeValue {
+    Confidence confidence;
+    uint64_t value;
+};
+
+struct VectorInfo {
+    uint8_t nElements;
+    uint8_t elementSize;
+    struct RuntimeValue kval;
+};
 
 class RegisterSet {
 public:
@@ -271,12 +348,14 @@ struct ud_compact
     //uint8_t 		pfx_insn;
     //uint8_t           pfx_avx;
     //uint8_t           avx_vex[2];
+    enum ud_type        vector_mask_register;
+    uint8_t             conversion;
     //uint8_t		default64;
     //uint8_t		opr_mode;
     uint8_t		adr_mode;
     //uint8_t		br_far;
     //uint8_t		br_near;
-    //uint8_t		implicit_addr;
+    uint8_t		implicit_addr;
     //uint8_t		c1;
     //uint8_t		c2;
     //uint8_t		c3;
@@ -300,8 +379,10 @@ enum X86InstructionType {
     X86InstructionType_move,
     X86InstructionType_float,
     X86InstructionType_string,
-    X86InstructionType_simd,
-    X86InstructionType_avx,
+    X86InstructionType_simdFloat,
+    X86InstructionType_simdInt,
+    X86InstructionType_simdMove,
+    X86InstructionType_helpMove,  // move insns that aren't scalar or simd (usu scalar -> SIMD)
     X86InstructionType_aes,
     X86InstructionType_io,
     X86InstructionType_prefetch,
@@ -334,6 +415,7 @@ enum X86InstructionBin {
     X86InstructionBin_binv,          // Binary
     X86InstructionBin_int,           // Integer
     X86InstructionBin_intv,          // Integer
+    X86InstructionBin_ints,
     X86InstructionBin_float,         // Floating
     X86InstructionBin_floatv,        // Floating
     X86InstructionBin_floats,        // Floating
@@ -368,6 +450,8 @@ typedef enum {
     RegType_X87,
     RegType_XMM,
     RegType_YMM,
+    RegType_ZMM,
+    RegType_K,
     RegType_PC,
     RegType_Total_Types
 } RegTypes;
@@ -400,10 +484,17 @@ public:
     uint32_t getBitsUsed(); 
     uint32_t getBytesUsed();
     uint32_t getBytePosition();
-    uint32_t getBaseRegister();
+    int32_t getBaseRegister();
     uint32_t getIndexRegister();
 
+    bool hasIndexRegister();
+
     void touchedRegisters(BitSet<uint32_t>* regs);
+    bool isImmediate();
+    bool isIndexRegXMM();
+    bool isIndexRegYMM();
+    bool isIndexRegZMM();
+    bool isMemory();
     bool isRelative();
     uint32_t getType() { return GET(type); }
     int64_t getValue();
@@ -417,6 +508,7 @@ private:
     RegisterSet* liveIns;
     RegisterSet* liveOuts;
     uint32_t defUseDist;
+    bool defUseCalculated; // Set when defUseDist has been set
 
     uint32_t* flags_usedef;
 
@@ -434,7 +526,12 @@ private:
 
     uint32_t countValidNonimm();
 
+    struct VectorInfo vectorInfo;
+
+    void countElementsUnalignedLoadStore(bool, bool, bool);
 public:
+
+    X86Instruction* getFallthroughInstruction();
 
     static X86Instruction* disassemble(char* buff);
 
@@ -444,9 +541,13 @@ public:
     uint64_t cacheBaseAddress;
 
     OperandX86* getDestOperand();
+    OperandX86* getSourceOperand(uint32_t index);
     Vector<OperandX86*>* getSourceOperands();
     Vector<OperandX86*>* getOperands();
     std::map<uint32_t, uint32_t>* getOperandLengthCounts();
+    uint32_t getVectorMaskRegister();
+
+    SwizzleOperation getSwizzleOperation();
 
     INSTRUCTION_MACROS_CLASS("For the get_X/set_X field macros check the defines directory");
 
@@ -465,8 +566,9 @@ public:
     BitSet<uint32_t>* getFlagsUsed();
     BitSet<uint32_t>* getFlagsDefined();
     RegisterSet * getUnusableRegisters();
-    RegisterSet * getRegistersUsed();
     RegisterSet * getRegistersDefined();
+    RegisterSet * getRegistersImplicitlyUsed();
+    RegisterSet * getRegistersUsed();
 
     bool allFlagsDeadIn();
     bool allFlagsDeadOut();
@@ -481,9 +583,12 @@ public:
 
     bool usesFlag(uint32_t flg);
     bool defsFlag(uint32_t flg);
-    bool implicitlyUsesReg(uint32_t alu);
-    bool implicitlyDefinesReg(uint32_t alu);
+    bool implicitlyUsesReg(uint64_t alu);
+    bool implicitlyDefinesReg(uint64_t alu);
 
+    struct VectorInfo getVectorInfo();
+    struct RuntimeValue getRegisterValue(enum ud_type reg);
+    void setKRegister(RuntimeValue val);
 
     struct DefLocation {
         enum ud_type type;
@@ -517,6 +622,8 @@ public:
 
     void setLiveIns(RegisterSet* live);
     void setLiveOuts(RegisterSet* live);
+    RegisterSet* getLiveIns() {return liveIns;}
+    RegisterSet* getLiveOuts() {return liveOuts;}
 
     void setBaseAddress(uint64_t addr) { baseAddress = addr; cacheBaseAddress = addr; }
     uint32_t getSizeInBytes() { return sizeInBytes; }
@@ -546,16 +653,22 @@ public:
     bool isCall() { return isSystemCall() || isFunctionCall(); }
     bool isHalt() { return (getInstructionType() == X86InstructionType_halt); }
     bool isNop() { return (getInstructionType() == X86InstructionType_nop); }
-    bool isAvx() { return (getInstructionType() == X86InstructionType_avx); }
     bool isConditionCompare();
     bool isStackPush();
     bool isStackPop();
+    bool isSoftwarePrefetch();
     bool isLoad();
     bool isStore();
     bool isSpecialRegOp();
     bool isLogicOp();
     bool isConditionalMove();
- 
+    bool isScatterGatherOp();
+    bool isVectorInstruction();
+    bool isVectorMaskOp();
+    bool isHelperMove();
+    bool isAdditionOp();
+    bool isSubtractionOp();
+
     bool isBinUnknown();
     bool isBinInvalid();
     bool isBinCond();
@@ -564,6 +677,7 @@ public:
     bool isBinBinv();
     bool isBinInt();
     bool isBinIntv();
+    bool isBinInts();
     bool isBinFloat();
     bool isBinFloatv();
     bool isBinFloats();
@@ -643,6 +757,7 @@ private:
 
 public:
     static bool verify();
+    static void generateTable();
 
     static X86InstructionBin getInstructionBin(X86Instruction* x);
     static uint8_t getInstructionMemLocation(X86Instruction* x);

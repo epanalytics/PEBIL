@@ -26,8 +26,10 @@
 #include <iostream>
 #include <set>
 
+#ifndef debug
 //#define debug(...) __VA_ARGS__
 #define debug(...)
+#endif
 
 typedef uint64_t image_key_t;
 typedef pthread_t thread_key_t;
@@ -49,69 +51,20 @@ static const char* CounterTypeNames[CounterType_total] = {
     "function"
 };
 
-typedef struct {
-    uint64_t    address;
-    uint64_t    memseq;
-    uint64_t    imageid;
-    uint64_t    threadid;
-} BufferEntry;
-#define __buf_current  address
-#define __buf_capacity memseq
-
-class StreamStats;
-class MemoryStreamHandler;
-//MITESH EDITS:  additions for Reuse distance 
-class ReuseDistance;
-
-typedef struct {
-    // memory buffer
-    BufferEntry* Buffer;
-
-    // metadata
-    thread_key_t threadid;
-    image_key_t imageid;
-    bool Initialized;
-    bool PerInstruction;
-    bool Master;
-    uint32_t Phase;
-    uint32_t InstructionCount;
-    uint32_t BlockCount;
-    char* Application;
-    char* Extension;
-
-    // per-memop data
-    uint64_t* BlockIds;
-    uint64_t* MemopIds;
-
-    // per-block data
-    CounterTypes* Types;
-    uint64_t* Counters;
-    uint32_t* MemopsPerBlock;
-    char** Files;
-    uint32_t* Lines;
-    char** Functions;
-    uint64_t* Hashes;
-    uint64_t* Addresses;
-    StreamStats** Stats; // indexed by handler
-    MemoryStreamHandler** Handlers;
-    //MITESH EDITS:  additions for Reuse distance 
-    ReuseDistance** RHandlers;
-} SimulationStats;
-#define BUFFER_ENTRY(__stats, __n) (&(__stats->Buffer[__n+1]))
-#define BUFFER_CAPACITY(__stats) (__stats->Buffer[0].__buf_capacity)
-#define BUFFER_CURRENT(__stats) (__stats->Buffer[0].__buf_current)
-
 typedef enum {
     PointType_undefined = 0,
     PointType_blockcount,
     PointType_buffercheck,
     PointType_bufferinc,
     PointType_bufferfill,
+    PointType_functionEntry,
+    PointType_functionExit,
+    PointType_inits,
     PointType_total
 } PointTypes;
 
 #define DYNAMIC_POINT_SIZE_LIMIT 128
-typedef struct {
+typedef struct DynamicInst_s {
     uint64_t VirtualAddress;
     uint64_t ProgramAddress;
     uint64_t Key;
@@ -121,8 +74,14 @@ typedef struct {
     bool IsEnabled;
 } DynamicInst;
 
-#define GENERATE_KEY(__bid, __typ) ((__typ & 0xf) | (__bid << 4))
-#define GET_BLOCKID(__key) ((__key >> 4))
+#define GENERATE_UNIQUE_ID(__bid, __iid) ((__bid << 8) | ((__iid & 0xf) << 4))
+// Generate a key given a block sequence and an image sequence
+#define GENERATE_UNIQUE_KEY(__bid, __iid, __typ) ((__typ & 0xf) | GENERATE_UNIQUE_ID(__bid, __iid))
+// Generate a key given a unique id
+#define GENERATE_KEY(__id, __typ) ((__typ & 0xf) | (__id << 4))
+#define GET_UNIQUEID(__key) ((__key >> 4))
+#define GET_IMAGEID(__key) (((__key & 0xf0)>> 4))
+#define GET_BLOCKID(__key) ((__key >> 8))
 #define GET_TYPE(__key) ((__key & 0xf))
 
 #endif //_Metasim_hpp_

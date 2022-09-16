@@ -1,8 +1,27 @@
+#
+# This file is part of the pebil project.
+#
+# Copyright (c) 2010, University of California Regents
+# All rights reserved.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
 include ../VERSION
 
 AR            = ar cru
 CXX           = @CXX@
-CXXFLAGS      = @CXXFLAGS@ @MPI_FLAGS@ -DPEBIL_VER="\"$(PEBIL_FULL_VER)\"" -w
+CXXFLAGS      = @CXXFLAGS@ @MPI_FLAGS@ -DPEBIL_VER="\"$(PEBIL_FULL_VER)\"" @PEBIL_DEBUG@ -w 
 SHARED_OPT    = -fPIC
 SHARED_LIB    = -shared
 STATIC_OPT    = -DSTATIC_BUILD
@@ -12,17 +31,18 @@ SRCDIR        = ../src
 BINDIR        = ../bin
 LIBDIR        = ../lib
 EXTDIR        = ../external
-EXTRA_INC     = -I. -I../include -I$(EXTDIR)/udis86-1.7/ -I../instcode
-SHARED_LIBS   = -L$(SRCDIR) -lpebilinst -L$(EXTDIR)/udis86-1.7/libudis86/.libs -ludis86 -ldl
+EXTRA_INC     = -I. -I../include -I$(EXTDIR)/udis86-1.7/ -I../instcode -I$(EXTDIR)/lib/include
+SHARED_LIBS   = -dynamic -L$(SRCDIR) -lpebilinst -L$(EXTDIR)/udis86-1.7/libudis86/.libs -ludis86 -ldl
 STATIC_LIBS   = $(SRCDIR)/libpebilinst.a -L$(EXTDIR)/udis86-1.7/libudis86/.libs -ludis86
 
-TOOLS = BasicBlockCounter CacheSimulation CallReplace Classification FunctionCounter FunctionTimer Minimal LoopIntercept TauFunctionTrace DeadRegisterSquasher
+TOOLS = AddressStreamIntercept BasicBlockCounter CallReplace Classification FunctionCounter FunctionTimer Minimal LoopIntercept TauFunctionTrace DeadRegisterSquasher AddressStreamIntercept
 SRCS = $(foreach var,$(TOOLS),$(var).C)
 OBJS = $(foreach var,$(TOOLS),$(var).o)
 DLIBS = $(foreach var,$(TOOLS),lib$(var)Tool.so)
 SLIBS = $(foreach var,$(TOOLS),lib$(var)Tool.a)
 
 PEBIL_STATIC_BUILD = @PEBIL_STATIC_BUILD@
+
 ifeq ($(PEBIL_STATIC_BUILD),yes)
 	TARGETS  = pebil pebil.static
 	LIBS     = $(DLIBS) $(SLIBS)
@@ -50,11 +70,14 @@ S_%.o: %.C
 lib%Tool.so: %.o
 	$(CXX) $(SHARED_LIB) -o $@ $<
 
+libFunctionCounterTool.so: FunctionCounter.o BasicBlockCounter.o
+	$(CXX) $(SHARED_LIB) -o $@ $^
+
 lib%Tool.a: S_%.o
 	$(AR) $@ $<
 
 clean: 
-	rm -f *inst *.static core *.o *.ii *.s *.so *.a $(TARGETS)
+	rm -f *inst *.static core *.o *.ii *.s *.so *.a $(TARGETS) $(BINDIR)/* $(LIBDIR)/*.so $(LIBDIR)/*.a
 
 depend:
 	g++ -E -MM $(EXTRA_INC) $(SRCS) pebil.C > DEPENDS

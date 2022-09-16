@@ -1,0 +1,11 @@
+# Configuration
+Makefile
+.deps/
+.libs/
+
+# Compiled
+*.lo
+*.o
+*.la
+itab.h
+itab.c

@@ -22,6 +22,7 @@
 #include <InstrumentationTool.h>
 #include <Vector.h>
 #include <getopt.h>
+#include <EncryptTool.h>
 
 #ifdef STATIC_BUILD
 #define DECLARE_INST_CLASS(__class) extern InstrumentationTool* __class ## Maker(ElfFile*)
@@ -39,7 +40,6 @@ extern "C" {
     DECLARE_INST_CLASS(DeadRegisterSquasher);
 };
 #endif
-
 #include <set>
 
 using namespace std;
@@ -97,11 +97,12 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--lnc <lib1.so,lib2.so>] : list of shared libraries to put in executable's dynamic table\n");
     fprintf(stderr,"\t\t[--help] : print help message and exit\n");
     fprintf(stderr,"\t\t[--version] : print version number and exit\n");
-    fprintf(stderr,"\t\t[--silent] : print nothing to stdout\n");
+    fprintf(stderr,"\t\t[--silent] : suppress inform statements\n");
     fprintf(stderr,"\t\t[--dry] : quit before processing any executables\n");
     fprintf(stderr,"\t\t[--threaded] : implement thread safety features and keep statistics per thread\n");
     fprintf(stderr,"\t\t[--images] : prepare for multiple images\n");
     fprintf(stderr,"\t\t[--allowstatic] : try to instrument a static-linked executable " DEVELOPER_MESSAGE "\n");
+    fprintf(stderr,"\t\t[--disablestatic] : don't print static analysis file\n");
     fprintf(stderr,"\t\t[--lib <shared_lib_dir>] : " DEPRECATED_MESSAGE "\n");
     fprintf(stderr,"\t{tool options} (each tool decides if/how to use these)\n");
     fprintf(stderr,"\t\t[--inp <input/file>] : path to an input file\n");
@@ -109,22 +110,25 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--trk <tracking/file>] : path to a tracking file\n");
     fprintf(stderr,"\t\t[--perinsn] : gather statistics per instruction if a tool supports it\n");
     fprintf(stderr,"\t\t[--dtl] : " DEPRECATED_MESSAGE "\n");
-    fprintf(stderr,"\t\t[--lpi] : " DEPRECATED_MESSAGE "\n");
+    fprintf(stderr,"\t\t[--lpi] : loop inclusion: if sampling is turned off for a block, turn off sampling for all other blocks in the same loop.\n");
     fprintf(stderr,"\t\t[--phs <phase_no>] : " DEPRECATED_MESSAGE " (if given, must be == 1)\n");
     fprintf(stderr,"\t\t[--dfp <pattern/file>] : " DEPRECATED_MESSAGE "\n");
     fprintf(stderr,"\t\t[--dmp <off|on|nosim>] : " DEPRECATED_MESSAGE "\n");
+    fprintf(stderr,"\t\t[--sanitize] : anonymize function names\n");
+/*    fprintf(stderr,"\t\t[--password] : anonymize function names and encrypt file\n");*/ //TODO find good encryption API
+    fprintf(stderr,"\t\t[--decrypt <encrypted_file>] : decrypt the file that translates anonymous functions to their function names\n");
     fprintf(stderr,"\n");
     exit(1);
 }
 
 void printSuccess(){
-    PRINT_INFOR("******** Instrumentation Successfull ********");
+    PRINT_ALWAYS("******** Instrumentation Successful ********");
 }
 
 void printDone(){
-    PRINT_INFOR("");
-    PRINT_INFOR("******** DONE ******** SUCCESS ***** SUCCESS ***** SUCCESS ********");
-    PRINT_INFOR("");
+    PRINT_ALWAYS("");
+    PRINT_ALWAYS("******** DONE ******** SUCCESS ***** SUCCESS ***** SUCCESS ********");
+    PRINT_ALWAYS("");
 }
 
 typedef enum {
@@ -199,6 +203,7 @@ static char* ToolNames[Total_InstrumentationType] = {
     "CacheSimulation"
 };
 
+
 int main(int argc,char* argv[]){
 
 #define DEFINE_FLAG(__name) int __name ## _flag = 0
@@ -213,6 +218,12 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(threaded);
     DEFINE_FLAG(images);
     DEFINE_FLAG(perinsn);
+    DEFINE_FLAG(saveall);
+    DEFINE_FLAG(nosavezmm);
+    DEFINE_FLAG(printinsnmaps);
+    DEFINE_FLAG(disablestatic);
+    DEFINE_FLAG(sanitize);
+/*    DEFINE_FLAG(password);*/ //TODO
 
 #define DEFINE_ARG(__name) char* __name ## _arg = NULL
     DEFINE_ARG(typ); // char* typ_arg = NULL;
@@ -230,6 +241,8 @@ int main(int argc,char* argv[]){
     DEFINE_ARG(phs);
     DEFINE_ARG(dfp);
     DEFINE_ARG(out);
+    DEFINE_ARG(inv);
+    DEFINE_ARG(decrypt);
 
 #define FLAG_OPTION(__name, __char) {#__name, no_argument, &__name ## _flag, __char}
 #define ARG_OPTION(__name, __char) {#__name, required_argument, 0, __char}
@@ -237,14 +250,14 @@ int main(int argc,char* argv[]){
         /* These options set a flag. */
         FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'),
         FLAG_OPTION(version, 'V'), FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), FLAG_OPTION(threaded, 'P'),
-        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'),
+        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'), FLAG_OPTION(disablestatic, 'D'), FLAG_OPTION(sanitize,'a'), //FLAG_OPTION(password,'A'),
 
         /* These options take an argument
            We distinguish them by their indices. */
         ARG_OPTION(typ, 'y'), ARG_OPTION(tool, 't'), ARG_OPTION(tlib, 'O'), ARG_OPTION(inp, 'p'), ARG_OPTION(trk, 'k'), 
         ARG_OPTION(lnc, 'n'), ARG_OPTION(inf, 'z'), ARG_OPTION(app, 'a'), ARG_OPTION(lib, 'l'),
         ARG_OPTION(ext, 'x'), ARG_OPTION(fbl, 'b'), ARG_OPTION(dmp, 'm'), ARG_OPTION(phs, 'f'), ARG_OPTION(dfp, 'g'),
-        ARG_OPTION(out, 'o'),
+        ARG_OPTION(out, 'o'), ARG_OPTION(inv, 'i'), ARG_OPTION(decrypt,'d'), 
         {0,              0,                 0,              0},
     };
 
@@ -285,6 +298,8 @@ int main(int argc,char* argv[]){
         SET_ARGPTR(phs, 'f')
         SET_ARGPTR(dfp, 'g')
         SET_ARGPTR(out, 'o')
+        SET_ARGPTR(inv, 'i')
+	    SET_ARGPTR(decrypt,'d')
 
         /* this shouldn't happen, but handle it anyway */
         else {
@@ -295,6 +310,14 @@ int main(int argc,char* argv[]){
     // --version: print version number and exit
     if (version_flag){
         fprintf(stdout, "pebil %s\n", PEBIL_VER);
+        return 0;
+    }
+    // --decrypt filename: decrypt encrypted file
+    if (decrypt_arg){
+        EncryptTool encryptTool = EncryptTool();
+        encryptTool.getPasswordFromUser(Decrypt);
+        std::string decryptFile(decrypt_arg); 
+        encryptTool.decryptFile(decryptFile);
         return 0;
     }
 
@@ -324,6 +347,7 @@ int main(int argc,char* argv[]){
         dtl_flag = 1;
     }
 
+
     // --typ: figure out which tool to use
     uint32_t instType = unknown_inst_type;
     if (typ_arg){
@@ -348,8 +372,8 @@ int main(int argc,char* argv[]){
 
     // --tool: make sure --tool or --typ was passed
     if (!tool_arg){
-        printUsage("one of the following options is required: --typ, --tool");
-        __SHOULD_NOT_ARRIVE;
+       printUsage("one of the following options is required: --typ, --tool");
+       __SHOULD_NOT_ARRIVE;
     }
         
     // --app: use the argument as the application name
@@ -384,7 +408,7 @@ int main(int argc,char* argv[]){
         functionBlackList = fbl_arg;
     }
     PRINT_INFOR("The function blacklist is taken from %s", functionBlackList);
-
+    bool sanitize=sanitize_flag /* || password_flag*/; //TODO
     // --dmp: convert arg to dump code
     uint32_t dumpCode = dumpcode_off;
     if (dmp_arg){
@@ -395,7 +419,7 @@ int main(int argc,char* argv[]){
         __SHOULD_NOT_ARRIVE;
     }
 
-    // --dry: stop doing stuff and exit!
+    // --dry: stop doing stuff and !
     if (dry_flag){
         PRINT_INFOR("--dry option was used, exiting before file processing");
         return 0;
@@ -413,9 +437,9 @@ int main(int argc,char* argv[]){
     }
     sprintf(toolConstructor, "%sMaker", tool_arg);
 
-#ifdef STATIC_BUILD
     InstrumentationTool* (*maker)(ElfFile*);
 
+#ifdef STATIC_BUILD
 #define GENERATE_MAKER(__class) if (!strcmp(#__class, tool_arg)){ maker = __class ## Maker; }
     GENERATE_MAKER(TauFunctionTrace);
     GENERATE_MAKER(BasicBlockCounter);
@@ -434,7 +458,6 @@ int main(int argc,char* argv[]){
     }
 
 #else // STATIC_BUILD
-    void* maker = NULL;
     void* libHandle = NULL;    
     PRINT_INFOR("Using library %s and generator %s for dynamic class loading", toolLibName, toolConstructor);
 
@@ -451,7 +474,7 @@ int main(int argc,char* argv[]){
             PRINT_ERROR("cannot open tool library %s, it needs to be in your LD_LIBRARY_PATH", toolLibName);
             return 1;
         }
-        maker = dlsym(libHandle, toolConstructor);
+        maker = reinterpret_cast<InstrumentationTool*(*)(ElfFile*)>(dlsym(libHandle, toolConstructor));
         dlErr = dlerror();
         if (dlErr){
             PRINT_ERROR("Error from dlsym: %s", dlErr);
@@ -481,67 +504,67 @@ int main(int argc,char* argv[]){
         }
         sprintf(appName, "%s\0", execName + startApp);
         
-        ElfFile elfFile(execName, appName);
+
+        /********************* Create elf file object *************************/
+        ElfFile* elfFile;
+
+        elfFile = new ElfFile(execName, appName);
+
         instrumented.insert(execName);
 
         TIMER(t1 = timer(); tapp = t1);
-        elfFile.parse();
-        elfFile.initSectionFilePointers();
+        elfFile->parse();
+        elfFile->initSectionFilePointers(sanitize);
         TIMER(t2 = timer();PRINT_INFOR("___timer: Step %d Parse  : %.2f seconds",++stepNumber,t2-t1);t1=t2);
-        
-        elfFile.generateCFGs();
+
+        elfFile->generateCFGs();
         TIMER(t2 = timer();PRINT_INFOR("___timer: Step %d Disasm/cfg : %.2f seconds",++stepNumber,t2-t1);t1=t2);    
         
-        elfFile.findLoops();
+        elfFile->findLoops();
         TIMER(t2 = timer();PRINT_INFOR("___timer: Step %d Loop    : %.2f seconds",++stepNumber,t2-t1);t1=t2);
         
         PRINT_MEMTRACK_STATS(__LINE__, __FILE__, __FUNCTION__);
             
         if (inf_arg){
-            elfFile.print(printCodes);
+            elfFile->print(printCodes);
+
             TIMER(t2 = timer();PRINT_INFOR("___timer: Step %d Print   : %.2f seconds",++stepNumber,t2-t1);t1=t2);
         }
         
-        elfFile.verify();
+        elfFile->verify();
         TIMER(t2 = timer();PRINT_INFOR("___timer: Step %d Verify  : %.2f seconds",++stepNumber,t2-t1);t1=t2);
 
-        elfFile.anchorProgramElements();
+        elfFile->anchorProgramElements();
 
         // if space is needed in front of the binary's elf control, try to shift all binary contents out of the way
-        if (elfFile.getProgramBaseAddress() < WEDGE_SHAMT){
-            if (!elfFile.isSharedLib()){
+        if (elfFile->getProgramBaseAddress() < WEDGE_SHAMT){
+            if (!elfFile->isSharedLib()){
                 PRINT_WARN(20, "The base address of this binary is too small, but the binary is an executable.");
                 PRINT_WARN(20, "Will attempt to shift all program addresses, which will probably fail because executables usually contain position-dependent code/data.");
             }
             PRINT_INFOR("Shifting virtual address of all program contents by %#lx", WEDGE_SHAMT);
-            elfFile.wedge(WEDGE_SHAMT);
+            elfFile->wedge(WEDGE_SHAMT);
 
             TIMER(t2 = timer();PRINT_INFOR("___timer: Step %d Wedge   : %.2f seconds",++stepNumber,t2-t1);t1=t2);
         }
 
+	/****************** Either instrument or dump original file **********/
         if (instType == identical_inst_type){
             if (out_arg){
-                elfFile.dump(out_arg, false);
+                elfFile->dump(out_arg, false);
             } else {
-                elfFile.dump(ext_arg);
+                elfFile->dump(ext_arg);
             }
             PRINT_INFOR("Dumping identical binary from stored executable information");
             printSuccess();
         } else {
             ASSERT(maker);
 
-#ifdef STATIC_BUILD
-            InstrumentationTool* instTool = maker(&elfFile);
-#else 
-            InstrumentationTool* instTool = reinterpret_cast<InstrumentationTool*(*)(ElfFile*)>(maker)(&elfFile);
-#endif
+/******************** Begin application instrumentation ***********************/
+
+            InstrumentationTool* instTool = maker(elfFile);
 
             ASSERT(!strcmp(tool_arg, instTool->briefName()) && "name yielded by briefName does not match tool name");
-
-            instTool->initToolArgs(lpi_flag == 0 ? false : true,
-                                   dtl_flag == 0 ? false : true,
-                                   doi_flag == 0 ? false : true,
-                                   0, inp_arg, dfp_arg, trk_arg);
 
             char ext[__MAX_STRING_SIZE];
             if (ext_arg){
@@ -565,13 +588,25 @@ int main(int argc,char* argv[]){
             }
             ASSERT(phaseNo == 0 || phaseNo == 1);
 
+            instTool->init(ext_arg);
+            instTool->initToolArgs(lpi_flag == 0 ? false : true,
+                                   dtl_flag == 0 ? false : true,
+                                   doi_flag == 0 ? false : true,
+                                   phaseNo, inp_arg, dfp_arg, trk_arg, inv_arg);
+            if (!instTool->verifyArgs()){
+                printUsage("argument missing/incorrect");
+            }
+
             if (lnc_arg){
                 instTool->setLibraryList(lnc_arg);
             }
             
             ASSERT(functionBlackList);
             instTool->setInputFunctions(functionBlackList);
-            
+	        if (sanitize_flag /*|| password_flag*/){ //TODO
+                //instTool->setSanitize(password_flag);
+                instTool->setSanitize(false);
+	        }
             if (allowstatic_flag){
                 instTool->setAllowStatic();
             }
@@ -587,14 +622,21 @@ int main(int argc,char* argv[]){
             if (perinsn_flag){
                 instTool->setPerInstruction();
             }
-            
-            instTool->init(ext_arg);
-            instTool->initToolArgs(lpi_flag == 0 ? false : true,
-                                   dtl_flag == 0 ? false : true,
-                                   doi_flag == 0 ? false : true,
-                                   phaseNo, inp_arg, dfp_arg, trk_arg);
-            if (!instTool->verifyArgs()){
-                printUsage("argument missing/incorrect");
+
+            if (saveall_flag) {
+                instTool->setSaveAll();
+            }
+
+            if (nosavezmm_flag) {
+                instTool->unsetSaveZmm();
+            }
+
+            if (printinsnmaps_flag) {
+                instTool->setTrackRelocatedInsns();
+            }
+
+            if (disablestatic_flag) {
+                instTool->setDisableStatic();
             }
             
             ASSERT(instTool);
@@ -602,13 +644,17 @@ int main(int argc,char* argv[]){
             PRINT_MEMTRACK_STATS(__LINE__, __FILE__, __FUNCTION__);
             instTool->print(Print_Code_Instrumentation);
             TIMER(t2 = timer();PRINT_INFOR("___timer: Instrumentation Step %d Instr   : %.2f seconds",++stepNumber,t2-t1);t1=t2);
-            
-            elfFile.printDynamicLibraries();
+           
+/**************************** Print any extra information *********************/
+            elfFile->printDynamicLibraries();
+            instTool->printRelocatedInsnMaps();
+            instTool->printHiddenFunctions();
             if (inf_arg){
                 instTool->print(printCodes);
                 TIMER(t2 = timer();PRINT_INFOR("___timer: Instrumentation Step %d Print   : %.2f seconds",++stepNumber,t2-t1);t1=t2);
             }
             
+/************************ Dump instrumented binary ****************************/
             // the ludicrous way extensions are handled is to keep faith with the way pmacinst treated them
             if (out_arg){
                 instTool->dump(out_arg, false);
@@ -616,11 +662,8 @@ int main(int argc,char* argv[]){
                 instTool->dump(ext);
             }
             TIMER(t2 = timer();PRINT_INFOR("___timer: Instrumentation Step %d Dump    : %.2f seconds",++stepNumber,t2-t1);t1=t2);
-            if (inf_arg){
-                instTool->print(printCodes);
-                TIMER(t2 = timer();PRINT_INFOR("___timer: Instrumentation Step %d Print   : %.2f seconds",++stepNumber,t2-t1);t1=t2);
-            }
             
+
             printSuccess();
             TIMER(t2 = timer();PRINT_INFOR("___timer: Application %s Total : %.2f seconds", execName, t2-tapp););
             
@@ -628,6 +671,7 @@ int main(int argc,char* argv[]){
         }
 
         delete[] appName;
+        delete elfFile;
     }
 
     TIMER(t2 = timer();PRINT_INFOR("___timer: Total Execution Time          : %.2f seconds",t2-tt););

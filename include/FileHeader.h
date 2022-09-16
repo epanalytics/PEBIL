@@ -56,7 +56,7 @@ public:
 
     FileHeader32() { sizeInBytes = Size__32_bit_File_Header; }
     ~FileHeader32() {}
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
 
     char* charStream() { return (char*)&entry; }
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
@@ -72,7 +72,7 @@ public:
 
     FileHeader64() { sizeInBytes = Size__64_bit_File_Header; }
     ~FileHeader64() {}
-    uint32_t read(BinaryInputFile* b);
+    void read(BinaryInputFile* b);
 
     char* charStream() { return (char*)&entry; }
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);

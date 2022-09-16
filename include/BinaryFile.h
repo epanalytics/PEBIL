@@ -24,15 +24,15 @@
 #include <Base.h>
 
 class BinaryInputFile {
-private:
+protected:
     char*        inBufferPointer;
     uint32_t     inBufferSize;
     char*        inBuffer;
 public:
     BinaryInputFile() : inBufferPointer(NULL),inBufferSize(0),inBuffer(NULL) {}
-    ~BinaryInputFile();
+    virtual ~BinaryInputFile();
 
-    void     readFileInMemory(char* f, bool inform=true);
+    virtual void readFileInMemory(char* f, bool inform=true);
 
     char*    copyBytes(void* buff,uint32_t bytes);
     char*    copyBytesIterate(void* buff,uint32_t bytes);
@@ -55,21 +55,55 @@ public:
     uint32_t currentOffset() { return (uint32_t)(inBufferPointer-inBuffer); }
 };
 
+class EmbeddedBinaryInputFile : public BinaryInputFile {
+public:
+    EmbeddedBinaryInputFile(void* file_start, uint64_t size);
+    virtual ~EmbeddedBinaryInputFile();
+    void readFileInMemory(char* f, bool inform=true) { /* Do Nothing */ }
+};
 
 class BinaryOutputFile {
 private:
     FILE* outFile;
     char* fileName;
+    static const uint32_t BUFFER_SIZE = 65536;
+    char* buffer;
+    uint32_t written_size;
+    uint32_t buffer_start;
 public:
 
-    BinaryOutputFile() : outFile(NULL),fileName(NULL) {}
-    ~BinaryOutputFile();
+    BinaryOutputFile();
+    virtual ~BinaryOutputFile();
 
-    void open(char* flnm);
-    bool operator!();
+    virtual void open(char* flnm);
+    virtual bool operator!();
+    virtual void copyBytes(char* buffer,uint32_t size,uint32_t offset);
+    virtual void close();
+    virtual void flushBuffer();
+};
+
+// Writes to growing in-memory buffer instead of file
+class EmbeddedBinaryOutputFile : public BinaryOutputFile {
+private:
+    static const uint32_t INITIAL_BUFFER_SIZE = 1024;
+    char* buffer;
+    uint32_t buffer_size;
+    uint32_t written_size;
+
+public:
+    EmbeddedBinaryOutputFile();
+    virtual ~EmbeddedBinaryOutputFile();
+
+    void open(char* flnm) { /* Do nothing */ }
+    bool operator!() { return false; }
+
+    // copy size bytes from buffer to this->buffer + offset
     void copyBytes(char* buffer,uint32_t size,uint32_t offset);
-    uint32_t alreadyWritten();
     void close();
+
+    char* charStream() { return buffer; }
+    uint32_t size() { return written_size; }
+   
 };
 
 #endif

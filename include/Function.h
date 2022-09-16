@@ -58,7 +58,7 @@ protected:
 
     Vector<X86Instruction*>* digestRecursive();
 public:
-    Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz);
+    Function(TextSection* text, uint32_t idx, Symbol* sym, uint32_t sz, bool sanitize);
     ~Function();
 
     void wedge(uint32_t shamt);
@@ -73,6 +73,7 @@ public:
 
     void computeDefUse();
     bool doneDefUse() { return defUse; }
+    void computeVectorMasks();
 
     bool isRecursiveDisasm()          { return (flags & recursivedisasmMask); }
     bool isInstrumentationFunction()  { return (flags & instrumentationfuncMask); }
@@ -93,19 +94,23 @@ public:
 
     bool hasCompleteDisassembly();
     bool containsCallToRange(uint64_t lowAddr, uint64_t highAddr);
+    bool isInRange(uint64_t addr);
 
     bool callsSelf();
     bool hasSelfDataReference();
     bool refersToInstruction();
     bool containsReturn();
 
-    uint32_t bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* instPoints);
-    uint32_t addSafetyJump(X86Instruction* tgtInstruction);
+    uint32_t bloatBasicBlocks(Vector<Vector<InstrumentationPoint*>*>* 
+      instPoints, Vector<Vector<uint64_t>*>* oldInsnAddresses, 
+      Vector<uint64_t>* oldInsns, Vector<uint64_t>* newInsns);
+    void addSafetyJump(X86Instruction* tgtInstruction);
 
     void setBaseAddress(uint64_t newBaseAddress);
 
     Symbol* getFunctionSymbol() { return symbol; }
-    uint32_t generateCFG(Vector<X86Instruction*>* instructions, Vector<AddressAnchor*>* addressAnchors);
+    void generateCFG(Vector<X86Instruction*>* instructions, 
+      Vector<AddressAnchor*>* addressAnchors);
 
     FlowGraph* getFlowGraph() { return flowGraph; }
     uint32_t getNumberOfBasicBlocks();

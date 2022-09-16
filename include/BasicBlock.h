@@ -25,6 +25,7 @@
 #include <BitSet.h>
 #include <FlowGraph.h>
 #include <Vector.h>
+#include <string>
 
 class Function;
 class X86Instruction;
@@ -71,6 +72,7 @@ public:
     X86Instruction* getInstructionAtAddress(uint64_t addr);
 
     uint64_t getProgramAddress();
+    bool inRange(uint64_t addr);
 
     uint32_t getAllInstructions(X86Instruction** allinsts, uint32_t nexti);
     uint32_t getNumberOfInstructions() { return instructions.size(); }
@@ -123,9 +125,9 @@ public:
     ~BasicBlock() {}
 
     X86Instruction* findBestInstPoint(InstLocations* loc, BitSet<uint32_t>* unusableRegs, BitSet<uint32_t>* useRegs, bool attendFlags);
-    uint32_t bloat(Vector<InstrumentationPoint*>* instPoints);
-
-    uint32_t searchForArgsPrep(bool is64Bit);
+    uint32_t bloat(Vector<InstrumentationPoint*>* instPoints, 
+      Vector<uint64_t>* oldInsnAddresses, Vector<uint64_t>* oldInsns, 
+      Vector<uint64_t>* newInsns);
 
     bool containsOnlyControl();
     bool containsCallToRange(uint64_t lowAddr, uint64_t highAddr);
@@ -133,6 +135,7 @@ public:
     void print();
     void printSourceBlocks();
     void printTargetBlocks();
+    std::string toDot();
 
     uint32_t addSourceBlock(BasicBlock* srcBlock);
     uint32_t addTargetBlock(BasicBlock* tgtBlock);
@@ -143,6 +146,7 @@ public:
 
     uint32_t getNumberOfSources() { return sourceBlocks.size(); }
     uint32_t getNumberOfTargets() { return targetBlocks.size(); }
+    uint32_t getNumberOfSWPrefetches();
     uint32_t getNumberOfMemoryOps();
     uint32_t getNumberOfMemoryBytes();
     uint32_t getNumberOfFloatOps();
@@ -155,6 +159,9 @@ public:
     uint32_t getNumberOfSyscalls();
     uint32_t getNumberOfSpecialRegOps();
     uint32_t getNumberOfLogicOps();
+    uint32_t getNumberOfScatterGatherOps();
+    uint32_t getNumberOfVectorMaskOps();
+    uint32_t getNumberOfHelperMoves();
 
     uint32_t getNumberOfBinMem();
     uint32_t getNumberOfBinSystem();
@@ -163,6 +170,7 @@ public:
     uint32_t getNumberOfBinFloat();
     uint32_t getNumberOfBinIntv();
     uint32_t getNumberOfBinInt();
+    uint32_t getNumberOfBinInts();
     uint32_t getNumberOfBinBin();
     uint32_t getNumberOfBinBinv();
     uint32_t getNumberOfBinUncond();
@@ -194,7 +202,6 @@ public:
     bool findExitInstruction();
 
     uint64_t findInstrumentationPoint(uint64_t addr, uint32_t size, InstLocations loc);
-    bool inRange(uint64_t addr);
 
     bool verify();
     Function* getFunction() { ASSERT(flowGraph); return flowGraph->getFunction(); }
@@ -226,6 +233,7 @@ public:
     bool isReachable() { return !isNoPath(); }
     bool endsWithCall();
     bool endsWithReturn();
+    bool endsWithUnconditionalBranch();
     bool endsWithControl();
 
     HashCode getHashCode() { return hashCode; }

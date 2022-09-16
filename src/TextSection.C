@@ -54,13 +54,23 @@ uint32_t FreeText::getNumberOfInstructions(){
 }
 
 char* TextObject::getName(){
+    if (sanitizeName[0]=='\0'){
+        if (symbol){
+            return symbol->getSymbolName();
+        }
+        return symbol_without_name;
+    } else {
+        return sanitizeName;
+    }
+}
+char* TextObject::getRealName(){
     if (symbol){
         return symbol->getSymbolName();
     }
     return symbol_without_name;
 }
 
-uint32_t TextSection::printDisassembly(bool instructionDetail){
+void TextSection::printDisassembly(bool instructionDetail){
     ASSERT(elfFile && "Text section should be linked to its corresponding ElfFile object");
 
     fprintf(stdout, "Disassembly of section %s\n\n", getSectionHeader()->getSectionNamePtr());
@@ -79,6 +89,20 @@ void FreeText::printDisassembly(bool instructionDetail){
     }
 }
 
+X86Instruction* FreeText::getInstructionAtAddress(uint32_t addr)
+{
+    for(uint32_t i = 0; i < blocks.size(); ++i) {
+        if(blocks[i]->getType() == PebilClassType_BasicBlock ||
+           blocks[i]->getType() == PebilClassType_CodeBlock) {
+            CodeBlock* bb = (CodeBlock*)blocks[i];
+            if(bb->inRange(addr)) {
+                return bb->getInstructionAtAddress(addr);
+            }
+        }
+    }
+    return NULL;
+}
+
 uint32_t FreeText::getAllInstructions(X86Instruction** allinsts, uint32_t nexti){
     uint32_t instructionCount = 0;
 
@@ -94,6 +118,15 @@ uint32_t FreeText::getAllInstructions(X86Instruction** allinsts, uint32_t nexti)
         }
     }
     return instructionCount;
+}
+
+TextObject* TextSection::getObjectWithAddress(uint64_t addr){
+    for (uint32_t i = 0; i < sortedTextObjects.size(); i++){
+        if(sortedTextObjects[i]->inRange(addr)) {
+            return sortedTextObjects[i];
+        }
+    }
+    return NULL;
 }
 
 uint32_t TextSection::getAllInstructions(X86Instruction** allinsts, uint32_t nexti){
@@ -158,14 +191,12 @@ ByteSources TextSection::getByteSource(){
     return source;
 }
 
-uint32_t TextSection::buildLoops(){
-    uint32_t numberOfLoops = 0;
+void TextSection::buildLoops(){
     for (uint32_t i = 0; i < sortedTextObjects.size(); i++){
         if (sortedTextObjects[i]->isFunction()){
-            numberOfLoops += ((Function*)sortedTextObjects[i])->getFlowGraph()->buildLoops();
+            ((Function*)sortedTextObjects[i])->getFlowGraph()->buildLoops();
         }
     }
-    return numberOfLoops;
 }
 
 void FreeText::print(){
@@ -191,7 +222,6 @@ Vector<Symbol*> TextSection::discoverTextObjects(){
     ASSERT(!functionSymbols.size() && "This array should be empty since it is loaded by this function");
 
     // count the number of symbols for this text section
-    uint32_t numberOfSymbols = 0;
     for (uint32_t i = 0; i < elfFile->getNumberOfSymbolTables(); i++){
         SymbolTable* symbolTable = elfFile->getSymbolTable(i);
         if (!symbolTable->isDynamic()){
@@ -207,7 +237,7 @@ Vector<Symbol*> TextSection::discoverTextObjects(){
     }
 
     // sort text symbols in decreasing order
-    qsort(&functionSymbols,functionSymbols.size(),sizeof(Symbol*),compareSymbolValue);
+    qsort(functionSymbols.array(), functionSymbols.size(), sizeof(Symbol*), compareSymbolValue);
 
     // delete symbol values that have duplicate values
     functionSymbols.reverse();
@@ -234,15 +264,12 @@ Vector<X86Instruction*>* TextObject::digestLinear(){
     Vector<X86Instruction*>* allInstructions = new Vector<X86Instruction*>();
 
     uint32_t currByte = 0;
-    uint32_t instructionLength = 0;
-    uint64_t instructionAddress;
 
     PRINT_DEBUG_CFG("Digesting textobject linearly");
 
     uint32_t numberOfInstructions = 0;
     while (currByte < sizeInBytes){
 
-        instructionAddress = (uint64_t)((uint64_t)charStream() + currByte);
         X86Instruction* newInstruction = new X86Instruction(this, getBaseAddress() + currByte, charStream() + currByte, ByteSource_Application_FreeText, numberOfInstructions++);
         PRINT_DEBUG_CFG("linear cfg: instruction at %#llx with %d bytes", newInstruction->getBaseAddress(), newInstruction->getSizeInBytes());
 
@@ -334,6 +361,7 @@ TextObject::TextObject(PebilClassTypes typ, TextSection* text, uint32_t idx, Sym
     index = idx;
     baseAddress = addr;
     sizeInBytes = sz;
+    sprintf(sanitizeName,"%s","");
 }
 
 
@@ -352,12 +380,27 @@ TextSection::TextSection(char* filePtr, uint64_t size, uint16_t scnIdx, uint32_t
     source = src;
 }
 
-uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile){
+uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile, 
+  bool sanitize){
     SectionHeader* sectionHeader = elfFile->getSectionHeader(getSectionIndex());
 
     Vector<Symbol*> textSymbols = discoverTextObjects();
 
     if (textSymbols.size()){
+        // In every compiler, the _init and _fini symbols have size 0 in the
+        // symbol table EXCEPT for cray's fortran compiler, which sets the 
+        // size of _fini to 16. Since this is larger than the actual function
+        // size, pebil gets confused during instrumentation.
+        // Here, we hardcode _fini's symbol size to 0 to avoid the issue
+        Symbol* lastSymbol = textSymbols.back();
+        char* lastSymbolName = lastSymbol->getSymbolName();
+        const char* finiName = "_fini";
+        if (!(strncmp(lastSymbolName, finiName, strlen(finiName)))) {
+              if (strlen(lastSymbolName) == strlen(finiName)) {
+                  lastSymbol->SET(st_size, 0);
+              }
+        }
+
         uint32_t i;
 
         for (i = 0; i < textSymbols.size()-1; i++){
@@ -369,13 +412,21 @@ uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile){
             }
 
             if (textSymbols[i]->isFunctionSymbol(this)){
-                sortedTextObjects.append(new Function(this, i, textSymbols[i], size));
+                sortedTextObjects.append(new Function(this, i, textSymbols[i], size,sanitize)); 
                 ASSERT(sortedTextObjects.back()->isFunction());
 #ifdef GENERATE_BLACKLIST
                 fprintf(stdout, "pebil_function_list %s\n", ((Function*)sortedTextObjects.back())->getName());
 #endif
             } else if (textSymbols[i]->isTextObjectSymbol(this)){
-                sortedTextObjects.append(new FreeText(this, i, textSymbols[i], textSymbols[i]->GET(st_value), size, false));
+                bool hasInstructions = false;
+                // FIXME How can we reliably discern between code and data in non-typed sections?
+                //if(textSymbols[i]->getSymbolType() == STT_NOTYPE &&
+                //  (textSymbols[i]->getSymbolBinding() == STB_LOCAL || textSymbols[i]->getSymbolBinding() == STB_GLOBAL)) {
+                //    hasInstructions = true;
+                //} else {
+                //    hasInstructions = false;
+                //}
+                sortedTextObjects.append(new FreeText(this, i, textSymbols[i], textSymbols[i]->GET(st_value), size, hasInstructions));
                 ASSERT(!sortedTextObjects.back()->isFunction());
             } else {
                 PRINT_ERROR("Unknown symbol type found to be associated with text section");
@@ -388,7 +439,7 @@ uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile){
             size = textSymbols[i]->GET(st_size);
         }
         if (textSymbols.back()->isFunctionSymbol(this)){
-            sortedTextObjects.append(new Function(this, i, textSymbols.back(), size));
+            sortedTextObjects.append(new Function(this, i, textSymbols.back(), size,sanitize));
         } else {
             sortedTextObjects.append(new FreeText(this, i, textSymbols.back(), textSymbols.back()->GET(st_value), size, false));
         }
@@ -404,7 +455,7 @@ uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile){
     return sortedTextObjects.size();
 }
 
-uint32_t TextSection::generateCFGs(Vector<AddressAnchor*>* addressAnchors){
+void TextSection::generateCFGs(Vector<AddressAnchor*>* addressAnchors){
     for (uint32_t i = 0; i < sortedTextObjects.size(); i++){
         if (sortedTextObjects[i]->isFunction()){
             PRINT_DEBUG_CFG("Digesting function object at %#llx", sortedTextObjects[i]->getBaseAddress());
@@ -417,8 +468,8 @@ uint32_t TextSection::generateCFGs(Vector<AddressAnchor*>* addressAnchors){
     verify();
 }
 
-uint32_t TextSection::read(BinaryInputFile* binaryInputFile){
-    return 0;
+void TextSection::read(BinaryInputFile* binaryInputFile){
+    return;
 }
 
 
@@ -534,7 +585,7 @@ bool TextSection::verify(){
                 sortedTextObjects[i]->print();
                 sectionHeader->print();
                 PRINT_INFOR("Section range [0x%016llx,0x%016llx]", sectionHeader->GET(sh_addr), sectionHeader->GET(sh_addr) + sectionHeader->GET(sh_size));
-                PRINT_ERROR("The function exit address 0x%016llx is not in the range of section %d", exitAddr, sectionHeader->getIndex());
+                PRINT_INFOR("The function exit address 0x%016llx is not in the range of section %d", exitAddr, sectionHeader->getIndex());
                 return false;
             }
         }
@@ -555,8 +606,8 @@ bool TextSection::verify(){
             
             // check that the first function is at the section beginning
             if (sortedTextObjects[0]->getBaseAddress() != sectionHeader->GET(sh_addr)){
-                PRINT_ERROR("First function in section %d should be at the beginning of the section", getSectionIndex());
-                return false;
+                //PRINT_ERROR("First function in section %d should be at the beginning of the section", getSectionIndex());
+                //FIXME return false;
             }
         }
     }
@@ -574,7 +625,7 @@ void TextSection::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
     delete[] buff;
 
     if (sortedTextObjects.size()){
-        for (int32_t i = 0; i < sortedTextObjects.size() - 1; i++){
+        for (uint32_t i = 0; i < sortedTextObjects.size() - 1; i++){
             ASSERT(sortedTextObjects[i] && "The functions in this text section should be initialized");
             sortedTextObjects[i]->dump(binaryOutputFile, offset + currByte);
             

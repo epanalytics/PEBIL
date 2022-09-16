@@ -27,6 +27,7 @@
 #include <map>
 
 #include <Metasim.hpp>
+#include <EncryptTool.h>
 
 class InstrumentationPoint;
 
@@ -36,8 +37,8 @@ typedef struct {
     uint64_t id;
     uint64_t data;
 } ThreadData;
-#define ThreadHashShift (12)
-#define ThreadHashMod   (0xffff)
+#define ThreadHashShift (16)
+#define ThreadHashMod   (0x3ffff)
 
 struct DynamicInstInternal {
     InstrumentationPoint* Point;
@@ -51,11 +52,35 @@ struct DynamicInstInternal {
     }
 };
 
+enum ThreadRegisterMapType {
+  ThreadRegisterMapType_None,
+  ThreadRegisterMapType_Func,
+  ThreadRegisterMapType_Loop
+};
+
+class ThreadRegisterMap {
+public:
+    ThreadRegisterMap();
+    ThreadRegisterMap(uint32_t reg);
+    uint32_t getThreadRegister(BasicBlock* bb);
+    void setThreadRegister(Loop* l, uint32_t reg);
+private:
+    ThreadRegisterMapType type;
+    uint32_t reg;
+    std::map<Loop*, uint32_t> loopRegisters;
+};
+
 class InstrumentationTool : public ElfFileInst {
 private:
     char* extension;
+    bool isMaster;
+
     bool singleArgCheck(void* arg, uint32_t mask, const char* name);
     bool hasThreadEvidence();
+
+    InstrumentationTool* (*maker)(ElfFile*);
+
+    EncryptTool encryptTool;
 
 protected:
     uint64_t imageKey;
@@ -64,6 +89,8 @@ protected:
     Vector<X86Instruction*>* atomicIncrement(uint32_t dest, uint32_t scratch, uint32_t count, uint64_t memaddr, Vector<X86Instruction*>* insns);
 
     void printStaticFile(const char* extension, Vector<Base*>* allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* allBlockLineInfos, uint32_t bufferSize);
+    void printCallTreeInfo(const char* extension, Vector<Base*>* allBlocks, Vector<uint32_t>* allBlockIds, Vector<LineInfo*>* allBlockLineInfos, uint32_t bufferSize);
+    
     void printStaticFilePerInstruction(const char* extension, Vector<Base*>* allInstructions, Vector<uint32_t>* allInstructionIds, Vector<LineInfo*>* allInstructionLineInfos, uint32_t bufferSize);
 
     InstrumentationPoint* insertBlockCounter(uint64_t, Base*);
@@ -78,12 +105,15 @@ protected:
     Vector<X86Instruction*>* storeThreadData(uint32_t scratch, uint32_t dest, bool storeToStack, uint32_t stackPatch);
     void threadAllEntryPoints(Function* f, uint32_t threadReg);
 
-    std::map<uint64_t, uint32_t>* threadReadyCode(std::set<Base*>& objectsToInst);
-    uint32_t instrumentForThreading(Function* func);
+    std::map<uint64_t, ThreadRegisterMap*>* threadReadyCode(std::set<Base*>& objectsToInst);
+    void setThreadingRegister(uint32_t d, X86Instruction* ins, InstLocations loc, bool borrow=false);
+    ThreadRegisterMap* instrumentForThreading(Function* func);
 
     InstrumentationFunction* imageInit;
     InstrumentationFunction* initWrapperC;
     InstrumentationFunction* initWrapperF;
+    InstrumentationFunction* initTWrapperC;
+    InstrumentationFunction* initTWrapperF;
 
     uint32_t phaseNo;
     bool loopIncl;
@@ -92,6 +122,7 @@ protected:
     char* dfpFile;
     char* trackFile;
     bool doIntro;
+    char* inv_reg;
 
 #define PEBIL_OPT_ALL 0xffffffff
 #define PEBIL_OPT_NON 0x00000000
@@ -108,13 +139,16 @@ protected:
 
     uint64_t dynamicPointArray;
     uint64_t dynamicSize;
+    bool isThreadedModeFlag;
+    bool encrypt;
 
 public:
     InstrumentationTool(ElfFile* elf);
     virtual ~InstrumentationTool() { }
 
     void init(char* ext);
-    void initToolArgs(bool lpi, bool dtl, bool doi, uint32_t phase, char* inp, char* dfp, char* trk);
+    void initToolArgs(bool lpi, bool dtl, bool doi, uint32_t phase, char* inp, char* dfp, char* trk, char* inv);
+    void setMaker(InstrumentationTool* (*maker)(ElfFile*)) { this->maker = maker; };
 
     virtual void declare();
     virtual void instrument();
@@ -129,6 +163,11 @@ public:
     bool verifyArgs();
     virtual uint32_t allowsArgs() { return PEBIL_OPT_ALL; }
     virtual uint32_t requiresArgs() { return PEBIL_OPT_NON; }
+    bool isMasterImage();
+    void setMasterImage(bool isMaster);
+    void setSanitize(bool);
+    void printSanitizeTranslationFile(std::map<char*,std::string> lineInfo);
+    bool sanitize=false;
 };
 
 

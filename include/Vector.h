@@ -91,7 +91,7 @@ public:
 
     uint32_t insertSorted(T elt, int (*comparator) (const void*, const void*)){
         int l = 0, m = 0, h = numberOfElements, res;
-        
+ 
         while (l < h){
             res = (*comparator)(&(elements[m]), &elt);
             // in upper half
@@ -105,12 +105,13 @@ public:
             }
             m = (l + h) / 2;
         }
+
         uint32_t x = insert(elt, m);
         //ASSERT(isSorted(comparator));
         return x;
     }
 
-    inline T* operator&(){ return elements; }
+    inline T* array() { return elements; }
     uint32_t getCapacity() { return capacity; }
     uint32_t size() { return numberOfElements; }
     bool empty(){ return (numberOfElements == 0); }
@@ -176,7 +177,7 @@ public:
         return numberOfElements;
     }
 
-    uint32_t assign(T elt, uint32_t idx){
+    void assign(T elt, uint32_t idx){
         ASSERT(idx < numberOfElements);
         elements[idx] = elt;
     }

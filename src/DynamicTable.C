@@ -157,9 +157,7 @@ DynamicTable::DynamicTable(char* rawPtr, uint32_t size, uint16_t scnIdx, uint16_
 
 void DynamicTable::relocateStringTable(uint64_t newAddr){
     for (uint32_t i = 0; i < dynamics.size(); i++){
-        if (elfFile->is64Bit()){
-            Dynamic64* dyn = (Dynamic64*)dynamics[i];
-        } else {
+        if (!elfFile->is64Bit()){
             Dynamic32* dyn = (Dynamic32*)dynamics[i];
             if (dyn->GET(d_tag) == DT_STRTAB){
                 Elf32_Dyn dynEntry;
@@ -327,21 +325,7 @@ bool DynamicTable::verify(){
     }
 
     // enforce an order on the addresses of certain sections
-    if (gnuHashTableAddress >= symbolTableAddress){
-        PRINT_ERROR("The dynamic table indicates that sections are in a different order than we expect");
-        return false;
-    }
-    /* libpthread.so fails this
-    if (sysvHashTableAddress >= symbolTableAddress){
-        PRINT_ERROR("The dynamic table indicates that sections are in a different order than we expect");
-        return false;
-    }
-    */
     if (symbolTableAddress >= stringTableAddress){
-        PRINT_ERROR("The dynamic table indicates that sections are in a different order than we expect");
-        return false;
-    }
-    if (stringTableAddress >= versymAddress){
         PRINT_ERROR("The dynamic table indicates that sections are in a different order than we expect");
         return false;
     }
@@ -374,18 +358,26 @@ bool DynamicTable::verify(){
     }
 
     for (uint32_t i = 0; i < elfFile->getNumberOfHashTables(); i++){
-        if (elfFile->getHashTable(i)->getSectionHeader()->GET(sh_type) == SHT_HASH){
+        if (elfFile->getHashTable(i)->getSectionHeader()->GET(sh_type) == 
+          SHT_HASH){
             uint16_t scnIdx = elfFile->getHashTable(i)->getSectionIndex();
-            if (sysvHashTableAddress != elfFile->getSectionHeader(scnIdx)->GET(sh_addr)){
-                PRINT_ERROR("(Sysv) Hash table address in the dynamic table is inconsistent with the hash table address found in the section header");
+            if (sysvHashTableAddress != elfFile->getSectionHeader(scnIdx)->
+              GET(sh_addr)){
+                PRINT_ERROR("(Sysv) Hash table address in the dynamic table "
+                  "is inconsistent with the hash table address found in the "
+                  "section header");
                 return false;
             }
         }
 
-        if (elfFile->getHashTable(i)->getSectionHeader()->GET(sh_type) == SHT_GNU_HASH){
+        if (elfFile->getHashTable(i)->getSectionHeader()->GET(sh_type) == 
+          SHT_GNU_HASH){
             uint16_t scnIdx = elfFile->getHashTable(i)->getSectionIndex();
-            if (gnuHashTableAddress != elfFile->getSectionHeader(scnIdx)->GET(sh_addr)){
-                PRINT_ERROR("(Gnu) Hash table address in the dynamic table is inconsistent with the hash table address found in the section header");
+            if (gnuHashTableAddress != elfFile->getSectionHeader(scnIdx)->
+              GET(sh_addr)){
+                PRINT_ERROR("(Gnu) Hash table address in the dynamic table "
+                  "is inconsistent with the hash table address found in the "
+                  "section header");
                 return false;
             }
         }
@@ -571,11 +563,9 @@ void DynamicTable::print(){
 
 }
 
-uint32_t DynamicTable::read(BinaryInputFile* binaryInputFile){
+void DynamicTable::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(rawDataPtr);
     setFileOffset(binaryInputFile->currentOffset());
-
-    uint32_t totalBytesRead = 0;
 
     uint32_t numberOfDynamics = sizeInBytes / dynamicSize;
     for (uint32_t i = 0; i < numberOfDynamics; i++){
@@ -584,34 +574,28 @@ uint32_t DynamicTable::read(BinaryInputFile* binaryInputFile){
         } else {
             dynamics.append(new Dynamic32(getFilePointer() + (i * Size__32_bit_Dynamic_Entry), i));
         }
-        totalBytesRead += dynamics[i]->read(binaryInputFile);
+        dynamics[i]->read(binaryInputFile);
     }
-    ASSERT(sizeInBytes == totalBytesRead && "size read from file does not match theorietical size of Dynamic Table");
 
     verify();
-    return sizeInBytes;
 }
 
-uint32_t Dynamic32::read(BinaryInputFile* binaryInputFile){
+void Dynamic32::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(dynPtr);
     setFileOffset(binaryInputFile->currentOffset());
     
     if (!binaryInputFile->copyBytesIterate(&entry,Size__32_bit_Dynamic_Entry)){
         PRINT_ERROR("Dynamic Entry (32) cannot be read");
     }
-
-    return Size__32_bit_Dynamic_Entry;
 }
 
-uint32_t Dynamic64::read(BinaryInputFile* binaryInputFile){
+void Dynamic64::read(BinaryInputFile* binaryInputFile){
     binaryInputFile->setInPointer(dynPtr);
     setFileOffset(binaryInputFile->currentOffset());
     
     if (!binaryInputFile->copyBytesIterate(&entry,Size__64_bit_Dynamic_Entry)){
         PRINT_ERROR("Dynamic Entry (64) cannot be read");
     }
-    
-    return Size__64_bit_Dynamic_Entry;
 }
 
 
@@ -622,11 +606,12 @@ Dynamic::Dynamic(char* dPtr, uint32_t idx) :
     index = idx;
 }
 
-const char* DTagNames[] = { "NULL", "NEEDED", "PLTRELSZ", "PLTGOT", "HASH", "STRTAB", "SYMTAB", 
-                            "RELA", "RELASZ", "RELAENT", "STRSZ", "SYMENT", "INIT", "FINI", "SONAME", 
-                            "RPATH", "SYMBOLIC", "REL", "RELSZ", "RELENT", "PLTREL", "DEBUG", "TEXTREL",
-                            "JMPREL", "BIND_NOW", "INIT_ARRAY", "FINI_ARRAY", "INIT_ARRAYSZ", "FINI_ARRAYSZ", 
-                            "RUNPATH", "FLAGS", "UNK31", "ENCODING", "PREINIT_ARRAYSZ", "NUM" };
+const char* DTagNames[] = { "NULL", "NEEDED", "PLTRELSZ", "PLTGOT", "HASH", 
+  "STRTAB", "SYMTAB", "RELA", "RELASZ", "RELAENT", "STRSZ", "SYMENT", "INIT", 
+  "FINI", "SONAME", "RPATH", "SYMBOLIC", "REL", "RELSZ", "RELENT", "PLTREL", 
+  "DEBUG", "TEXTREL", "JMPREL", "BIND_NOW", "INIT_ARRAY", "FINI_ARRAY", 
+  "INIT_ARRAYSZ", "FINI_ARRAYSZ", "RUNPATH", "FLAGS", "UNK31", "ENCODING", 
+  "PREINIT_ARRAY", "PREINIT_ARRAYSZ", "NUM" };
 
 uint8_t Dynamic::getValueType(){
     uint8_t treatDun = DynamicValueType_pointer;
@@ -638,35 +623,42 @@ uint8_t Dynamic::getValueType(){
     if (false){}
 
     MAP_TAG_TO_TYPE(DT_NULL, DynamicValueType_ignored)
-    MAP_TAG_TO_TYPE(DT_TEXTREL, DynamicValueType_ignored)
     MAP_TAG_TO_TYPE(DT_SYMBOLIC, DynamicValueType_ignored)
+    MAP_TAG_TO_TYPE(DT_TEXTREL, DynamicValueType_ignored)
 
-    MAP_TAG_TO_TYPE(DT_RELASZ, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_RELAENT, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_STRSZ, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_SYMENT, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_FINI_ARRAYSZ, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_FLAGS, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_FLAGS_1, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_INIT_ARRAYSZ, DynamicValueType_value)
     MAP_TAG_TO_TYPE(DT_NEEDED, DynamicValueType_value)
     MAP_TAG_TO_TYPE(DT_PLTRELSZ, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_SONAME, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_RPATH, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_RELSZ, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_RELENT, DynamicValueType_value)
     MAP_TAG_TO_TYPE(DT_PLTREL, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELACOUNT, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELAENT, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELASZ, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELCOUNT, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELENT, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RELSZ, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RPATH, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_RUNPATH, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_SONAME, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_STRSZ, DynamicValueType_value)
+    MAP_TAG_TO_TYPE(DT_SYMENT, DynamicValueType_value)
     MAP_TAG_TO_TYPE(DT_VERDEFNUM, DynamicValueType_value)
     MAP_TAG_TO_TYPE(DT_VERNEEDNUM, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_RELACOUNT, DynamicValueType_value)
-    MAP_TAG_TO_TYPE(DT_RELCOUNT, DynamicValueType_value)
 
-    MAP_TAG_TO_TYPE(DT_PLTGOT, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_DEBUG, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_FINI, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_FINI_ARRAY, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_HASH, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_INIT, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_INIT_ARRAY, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_JMPREL, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_PLTGOT, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_REL, DynamicValueType_pointer)
+    MAP_TAG_TO_TYPE(DT_RELA, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_STRTAB, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_SYMTAB, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_RELA, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_INIT, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_FINI, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_REL, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_DEBUG, DynamicValueType_pointer)
-    MAP_TAG_TO_TYPE(DT_JMPREL, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_VERDEF, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_VERNEED, DynamicValueType_pointer)
     MAP_TAG_TO_TYPE(DT_VERSYM, DynamicValueType_pointer)

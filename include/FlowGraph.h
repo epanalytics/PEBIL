@@ -25,6 +25,8 @@
 #include <Function.h>
 #include <LinkedList.h>
 #include <Vector.h>
+#include <map>
+#include <string>
 
 class BasicBlock;
 class Block;
@@ -38,9 +40,13 @@ protected:
 
     Vector<Block*> blocks; // contains both BasicBlocks and RawBlocks
     Vector<BasicBlock*> basicBlocks; // only BasicBlocks
-    Vector<Loop*> loops;
+    Vector<Loop*> loops;  // Natural loops (by definition)
+    Vector<Loop*> artificialLoops; // User-friendly loops (merged natural loops)
+    // ArtificialLoops are copies of their natural loops, and their loop 
+    // indices start with loops.size()
 
     Vector<BasicBlock**> blockCopies;
+    std::map<uint32_t, std::map<uint32_t, BasicBlock*>* > interposedBlocks;
 public:
     FlowGraph(Function* f) : function(f) {}
     ~FlowGraph();
@@ -48,10 +54,12 @@ public:
     void setBaseAddress(uint64_t newBaseAddress);
     void computeLiveness();
     void computeDefUseDist();
+    void computeVectorMasks();
 
     uint32_t getNumberOfInstructions();
     TextSection* getTextSection();
     void print();
+    std::string toDot();
     uint32_t getIndex();
     Function* getFunction() { return function; }
     void connectGraph(BasicBlock* entry);
@@ -75,28 +83,33 @@ public:
     Vector<BasicBlock*>* getExitBlocks();
 
     Loop* getLoop(uint32_t idx) { return loops[idx]; }
+    Loop* getArtificialLoop(uint32_t idx) { return artificialLoops[idx]; }
     uint32_t getLoopDepth(Loop* loop);
     uint32_t getLoopDepth(uint32_t idx);
     uint32_t getNumberOfLoops() { return loops.size(); }
-    uint32_t buildLoops();
+    uint32_t getNumberOfArtificialLoops() { return artificialLoops.size(); }
+    void buildLoops();
     void printInnerLoops();
     void printLoops();
     bool isBlockInLoop(uint32_t idx);
     Loop* getInnermostLoopForBlock(uint32_t idx);
+    Loop* getInnermostArtificialLoopForBlock(uint32_t idx);
     Loop* getOuterMostLoopForLoop(uint32_t idx);
     Loop* getParentLoop(uint32_t idx);
     Loop* getOuterLoop(uint32_t idx);
+    bool isArtificialLoop(Loop* l);
 
     void addBlock(Block* block);    
     
     BasicBlock** getAllBlocks();
-    uint32_t getAllBlocks(uint32_t sz, BasicBlock** arr);
+    void getAllBlocks(uint32_t sz, BasicBlock** arr);
     
     void depthFirstSearch(BasicBlock* root,BitSet<BasicBlock*>* visitedSet,bool set,
                           BitSet<BasicBlock*>* completedSet=NULL,LinkedList<BasicBlock*>* backEdges=NULL);
     
     void setImmDominatorBlocks(BasicBlock* root=NULL);
     void interposeBlock(BasicBlock* bb);
+    BasicBlock* getInterposedBlock(uint32_t srcidx, uint32_t tgtidx, bool& created);
 
     bool verify();
     void wedge(uint32_t shamt);

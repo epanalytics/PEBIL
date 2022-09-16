@@ -23,6 +23,15 @@
 #include <Base.h>
 #include <ElfFile.h>
 
+EmbeddedBinaryInputFile::EmbeddedBinaryInputFile(void* file_start, uint64_t size) {
+    inBufferPointer = inBuffer = (char*)file_start;
+    inBufferSize = size;
+}
+
+EmbeddedBinaryInputFile::~EmbeddedBinaryInputFile() {
+    // Do nothing
+}
+
 void BinaryInputFile::readFileInMemory(char* fileName, bool inform) {
 
     if(inBuffer){
@@ -67,7 +76,7 @@ BinaryInputFile::~BinaryInputFile(){
     }
 }
 
-
+// Copy bytes to buff
 char* BinaryInputFile::copyBytes(void* buff,uint32_t bytes) 
 { 
 
@@ -87,6 +96,7 @@ char* BinaryInputFile::copyBytes(void* buff,uint32_t bytes)
     return inBufferPointer;
 }
 
+// Copy bytes to buff and advance buffer pointer
 char* BinaryInputFile::copyBytesIterate(void* buff,uint32_t bytes)
 { 
 
@@ -98,6 +108,7 @@ char* BinaryInputFile::copyBytesIterate(void* buff,uint32_t bytes)
     return inBufferPointer;
 }
 
+// Advance buffer pointer by bytes
 char* BinaryInputFile::onlyIterate(uint32_t bytes){
     char* last = inBuffer + inBufferSize;
     char* next = inBufferPointer + bytes;
@@ -110,6 +121,7 @@ char* BinaryInputFile::onlyIterate(uint32_t bytes){
     return inBufferPointer;
 }
 
+// Get current buffer pointer
 char* BinaryInputFile::moreBytes(){
     char* last = inBuffer + inBufferSize;
     if(inBufferPointer >= last){
@@ -118,7 +130,7 @@ char* BinaryInputFile::moreBytes(){
     return inBufferPointer;
 }
 
-
+// Return a pointer to buffer+fileOffset
 char* BinaryInputFile::fileOffsetToPointer(uint64_t fileOffset){
     char* last = inBuffer + inBufferSize;
     char* next = inBuffer + fileOffset;
@@ -129,6 +141,7 @@ char* BinaryInputFile::fileOffsetToPointer(uint64_t fileOffset){
     return next;
 }
 
+// Set current buffer pointer to buffer+fileOffset
 void BinaryInputFile::setInBufferPointer(uint64_t fileOffset){
     char* next = fileOffsetToPointer(fileOffset);
     if(next){
@@ -136,6 +149,7 @@ void BinaryInputFile::setInBufferPointer(uint64_t fileOffset){
     }
 }
 
+// Return ptr iff it is a valid location in buffer
 char* BinaryInputFile::isInBuffer(char* ptr){
     char* last = inBuffer + inBufferSize;
 
@@ -145,6 +159,7 @@ char* BinaryInputFile::isInBuffer(char* ptr){
     return ptr;
 }
 
+// Set current buffer pointer to ptr iff valid
 void BinaryInputFile::setInPointer(char* ptr){
     if(isInBuffer(ptr)){
         inBufferPointer = ptr;
@@ -153,32 +168,75 @@ void BinaryInputFile::setInPointer(char* ptr){
     }
 }
 
+// Return number of remaining bytes in buffer from current buffer pointer
 uint32_t BinaryInputFile::bytesLeftInBuffer(){
     char* last = inBuffer + inBufferSize;
     return (uint32_t)(last-inBufferPointer);
 }
 
-void BinaryOutputFile::copyBytes(char* buffer,uint32_t size,uint32_t offset) {
-    //    PRINT_INFOR("Writing %d bytes to offset %x in file", size, offset);
-    int32_t error_code = fseek(outFile,offset,SEEK_SET);
-    if(error_code){
+BinaryOutputFile::BinaryOutputFile()
+    : outFile(NULL), fileName(NULL)
+{
+    buffer = new char[BUFFER_SIZE];
+    buffer_start = 0;
+    written_size = 0;
+}
+
+void BinaryOutputFile::flushBuffer()
+{
+    if(written_size == 0)
+        return;
+
+    int32_t error_code = fseek(outFile, buffer_start, SEEK_SET);
+    if(error_code) {
         PRINT_ERROR("Error seeking to the output file");
     }
-    error_code = fwrite(buffer,sizeof(char),size,outFile);
-    if((uint32_t)error_code != size){
-        PRINT_ERROR("Error writing to the output file");
+    error_code = fwrite(buffer, sizeof(char), written_size, outFile);
+    if((uint32_t)error_code != written_size) {
+        PRINT_ERROR("Error writing to output file");
     }
+    written_size = 0;
 }
 
-uint32_t BinaryOutputFile::alreadyWritten(){
-    return (uint32_t)ftell(outFile);
+void BinaryOutputFile::copyBytes(char* bytes, uint32_t size, uint32_t offset) {
+
+    // check if we need to flush buffer
+    if(offset != buffer_start+written_size ||
+       written_size+size > BUFFER_SIZE) {
+        flushBuffer();
+        buffer_start = offset;
+    }
+    // write these bytes to buffer
+    do {
+        uint32_t toWrite = size < BUFFER_SIZE ? size : BUFFER_SIZE;
+        memcpy(buffer+written_size, bytes, toWrite);
+        written_size += toWrite;
+        size -= toWrite;
+        if(size > 0) {
+            flushBuffer();
+            buffer_start += toWrite;
+            bytes += toWrite;
+        }
+    } while(size > 0);
 }
+
+//void BinaryOutputFile::copyBytes(char* buffer,uint32_t size,uint32_t offset) {
+//    //    PRINT_INFOR("Writing %d bytes to offset %x in file", size, offset);
+//    int32_t error_code = fseek(outFile,offset,SEEK_SET);
+//    if(error_code){
+//        PRINT_ERROR("Error seeking to the output file");
+//    }
+//    error_code = fwrite(buffer,sizeof(char),size,outFile);
+//    if((uint32_t)error_code != size){
+//        PRINT_ERROR("Error writing to the output file");
+//    }
+//}
 
 void BinaryOutputFile::open(char* filenm) { 
-    uint32_t namelen = strlen(filenm);
+    uint32_t namelen = strlen(filenm) + 1;  // get \0
     fileName = new char[__MAX_STRING_SIZE];
+    ASSERT(namelen < __MAX_STRING_SIZE);
     strncpy(fileName, filenm, namelen);
-    fileName[namelen] = '\0';
     outFile = fopen(fileName,"w");
     ASSERT(outFile && "Cannot open output file");
 }
@@ -186,6 +244,7 @@ void BinaryOutputFile::open(char* filenm) {
 bool BinaryOutputFile::operator!() { return !outFile; }
 
 void BinaryOutputFile::close() { 
+    flushBuffer();
     fclose(outFile);     
     if (fileName){
         chmod(fileName,0750);
@@ -193,7 +252,54 @@ void BinaryOutputFile::close() {
 }
 
 BinaryOutputFile::~BinaryOutputFile(){
+    flushBuffer();
     if (fileName){
         delete[] fileName;
     }
+    delete[] buffer;
 }
+
+/********************* EmbeddedBinaryOutputFile *****************************/
+EmbeddedBinaryOutputFile::EmbeddedBinaryOutputFile()
+  : buffer_size(INITIAL_BUFFER_SIZE), written_size(0) {
+    this->buffer = new char[INITIAL_BUFFER_SIZE];
+}
+
+EmbeddedBinaryOutputFile::~EmbeddedBinaryOutputFile()
+{
+    close();
+}
+
+void EmbeddedBinaryOutputFile::close(){
+    if(buffer) {
+        delete[] buffer;
+        buffer = NULL;
+    }
+}
+
+void EmbeddedBinaryOutputFile::copyBytes(char* buffer_in, uint32_t size, uint32_t offset)
+{
+    assert(this->buffer != NULL);
+
+    // grow buffer if too small
+    if(offset + size > buffer_size) {
+        uint32_t newsize = buffer_size;
+        do {
+            newsize = newsize << 1;
+        } while(offset + size > newsize);
+        char* old = this->buffer;
+        this->buffer = new char[newsize];
+        memcpy(this->buffer, old, buffer_size);
+        buffer_size = newsize;
+        delete[] old;
+    }
+
+    // copy bytes
+    assert(offset + size <= buffer_size);
+    memcpy(this->buffer + offset, buffer_in, size);
+
+    // update size of file
+    if(offset + size > written_size)
+        written_size = offset + size;
+}
+
