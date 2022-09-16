@@ -103,6 +103,17 @@ else
 fi
 AC_SUBST(PEBIL_DEBUG)
 
+# Pebil Slicer Debug Output
+AC_ARG_ENABLE(verbose-slicer, AC_HELP_STRING([--enable-verbose-slicer], 
+  [PEBIL Slicer should print output in pause/restart]]), 
+  verbose_slicer_ok=$enableval)
+if test "$verbose_slicer_ok" == "yes"; then
+   PEBIL_VERBOSE_SLICER="-DVERBOSE_SLICER"
+else
+   PEBIL_VERBOSE_SLICER=""
+fi
+AC_SUBST(PEBIL_VERBOSE_SLICER)
+
 AC_ARG_ENABLE(static, AC_HELP_STRING([--enable-static], [Build a statically-linked pebil executable in addition to a dynamically-linked executable [yes]]), static_ok=$enableval)
 if test "$static_ok" == "yes"; then
    PEBIL_STATIC_BUILD="yes"

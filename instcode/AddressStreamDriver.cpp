@@ -248,6 +248,12 @@ void AddressStreamDriver::InitializeKeys() {
         ShutOffInstrumentationInAllBlocks();
     }
 
+    // If EPA_SLICER_START_OFF is set then turn instrumentation off
+    uint32_t startOff = 0;
+    (void) parser->ReadEnvUint32("EPA_SLICER_START_OFF", &startOff);
+    if (startOff != 0)
+        SetDynamicPoints(false);
+
 }
 
 // Meant to only be called once per image (thus only one thread should 
@@ -331,6 +337,16 @@ void AddressStreamDriver::InitializeStatsWithNewStreamStats(AddressStreamStats*
       tools->end(); it++) {
           AddressStreamTool* currentTool = (*it);
           currentTool->AddNewStreamStats(stats);
+    }
+}
+
+void AddressStreamDriver::ProcessAllBuffers() {
+    for (set<image_key_t>::iterator iit = allData->allimages.begin();
+      iit != allData->allimages.end(); iit++) {
+        for (set<thread_key_t>::iterator it = allData->allthreads.begin();
+          it != allData->allthreads.end(); it++) {
+            ProcessThreadBuffer((*iit), (*it));
+        }
     }
 }
 
@@ -487,7 +503,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     debug(inform << "Thread " << hex << tid << TAB << "Image " << hex 
       << iid << TAB << "Counter " << dec << numElements << TAB 
       << "Capacity " << dec << capacity << TAB << "Total " << dec 
-      << sampler->AccessCount << ENDL);
+      << sampler->GetAccessCount() << ENDL);
 
     // If there is no more instrumentation, return
     // Thread-Safe call
@@ -529,17 +545,21 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     // Turn sampling on/off
     // Sampler is thread-safe
     if (sampler->SwitchesMode(numElements)){
-        SuspendAllThreads(allData->CountThreads(), 
-          allData->allthreads.begin(), allData->allthreads.end());
-        dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys,
-          !(isSampling));
-        ResumeAllThreads();
+        SetDynamicPoints(!(isSampling));
     }
 
     // Thread-safe
     sampler->IncrementAccessCount(numElements);
 
     DONE_WITH_BUFFER();
+}
+
+// Turn live dynamic points on or off
+void AddressStreamDriver::SetDynamicPoints(bool on) {
+    SuspendAllThreads(allData->CountThreads(),
+      allData->allthreads.begin(), allData->allthreads.end());
+    dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys, on);
+    ResumeAllThreads();
 }
 
 void AddressStreamDriver::SetUpTools() {

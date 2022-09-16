@@ -113,6 +113,7 @@ class AddressStreamDriver {
     bool IsSpatialLocality() { return runSpatialLocality; }
     bool IsSpatialLocalityPerMemOp() { return runSpatialLocalityPerMemOp; }
 
+    void ProcessAllBuffers();
     uint64_t ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
@@ -120,6 +121,7 @@ class AddressStreamDriver {
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
     void SetDynamicPoints(DynamicInstrumentation* d) { dynamicPoints = d; }
+    void SetDynamicPoints(bool on);
 
     virtual void SetUpTools();
 
