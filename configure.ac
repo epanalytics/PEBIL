@@ -165,7 +165,7 @@ AC_SUBST(THROTTLER_FLAGS)
 #  epa_tools_ok=$enableval, epa_tools_ok=yes)
 
 AC_ARG_WITH(epa_tools, [AS_HELP_STRING([--with-epa-tools=<path>],
-  [specify path to epa tools])], [epa_tools=$withval], [epa_tools=default])
+  [specify path to epa tools])], [epa_tools=$withval], [epa_tools=no])
 
 if test "x$epa_tools" != "xno"; then
         PEBIL_EPA_TOOLS_AVAILABLE="yes"

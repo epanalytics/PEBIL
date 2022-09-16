@@ -6273,7 +6273,7 @@ fi
 if test "${with_epa_tools+set}" = set; then :
   withval=$with_epa_tools; epa_tools=$withval
 else
-  epa_tools=default
+  epa_tools=no
 fi
 
 
