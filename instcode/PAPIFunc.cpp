@@ -245,11 +245,12 @@ extern "C"
           // No error checking to minimize overhead
           int error = PAPI_read(eventSet, counters->tmpValues[funcIndex]);
       
-          // Uncomment error checking for debugging purposes 
-          //if (error != PAPI_OK){
-          //    fprintf(stderr, "Error reading the values!\n");
-          //    exit(1);
-          //}
+          DEBUG({
+              if (error != PAPI_OK){
+                  fprintf(stderr, "Error reading the values!\n");
+                  exit(1);
+              }
+          });
   
           // associate the counter values to all the active functions
           for (std::set<int>::iterator it = counters->activeFunctions.begin();
@@ -332,11 +333,12 @@ extern "C"
           // No error checking to minimize overhead
           int error = PAPI_start(eventSet);
 
-          // uncomment for debugging purposes
-          //if (error != PAPI_OK) {
-          //    fprintf(stderr, "Error in PAPI start!\n");
-          //    exit(1);
-          //}
+          DEBUG({
+              if (error != PAPI_OK) {
+                  fprintf(stderr, "Error in PAPI start!\n");
+                  exit(1);
+              }
+          });
 
           // indicate that the measurements have started 
           counters->papiMeasurementsStarted = 1;
@@ -344,11 +346,12 @@ extern "C"
           // else reset the counters (again doing it without the check)
           int error = PAPI_reset(eventSet);
 
-          // uncomment for debugging purposes
-          //if (error != PAPI_OK) {
-          //    fprintf(stderr, "Error in PAPI reset!\n");
-          //    exit(1);
-          //}
+          DEBUG({
+              if (error != PAPI_OK) {
+                  fprintf(stderr, "Error in PAPI reset!\n");
+                  exit(1);
+              }
+          });
       }
       counters->eventSet = eventSet;
       counters->functionTimerLast[funcIndex] = read_timestamp_counter();
