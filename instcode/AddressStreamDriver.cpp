@@ -418,6 +418,8 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             }// for num of indices
         }// end of if vector entry
 
+        debug(assert(length <= maxNumAddresses));
+
         // Process for each memory handler
         for (uint32_t handlerIndex = 0; handlerIndex < GetNumMemoryHandlers(); 
           handlerIndex++) {
@@ -426,7 +428,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             // maxNumAddresses is the allocated size of the array when it was 
             // created, the length is the number of actual elements used
             (void) handler->Process((void*)ss, memSeq, ldstFlag, addresses, 
-              maxNumAddresses, length, memvecFlag);
+              length, memvecFlag);
         }// for number of handlers
 
         // 0 out addresses array to prevent passing stale data

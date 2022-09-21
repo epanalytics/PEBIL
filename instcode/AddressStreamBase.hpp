@@ -99,7 +99,7 @@ class MemoryStreamHandler {
 
     virtual void Print(std::ofstream& f) = 0;
     virtual uint32_t Process(void* stats, uint64_t memSeq, bool ldstFlag,
-      uint64_t* addresses, uint64_t arrLen, uint64_t length, bool memvecFlag) 
+      uint64_t* addresses, uint64_t length, bool memvecFlag) 
       = 0;
     // Number of addresses that appeared but aren't processed
     virtual void SkipAddresses(uint32_t numToSkip) {};
