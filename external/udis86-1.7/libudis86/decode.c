@@ -558,9 +558,10 @@ static int search_itab( struct ud * u )
         if ( !( u->dis_mode == 64 && REX_B( u->pfx_rex ) ) ) {
             if ( u->pfx_rep ) {
                 u->pfx_rep = 0;
-                e = & ie_pause;
+                u->pfx_repe = 0;
+                e = &(ie_pause);
             } else {
-                e = & ie_nop;
+                e = &(ie_nop);
             }
             goto found_entry;
         }
@@ -1025,6 +1026,7 @@ static unsigned int resolve_operand_size( const struct ud * u, unsigned int s )
 
 static int resolve_mnemonic( struct ud* u )
 {
+    PEBIL_DEBUG("Resolve Mnemonic");
     /* far/near flags */
     u->br_far = 0;
     u->br_near = 0;
