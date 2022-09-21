@@ -401,7 +401,9 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             length = 0;
             memvecFlag = true;
             uint32_t loopCheck = (reference->vectorAddress).numIndices;
-            assert(maxNumAddresses <= loopCheck);
+            // if this is false, we won't have space to store all of the
+            // addresses in the addresses array.
+            assert(loopCheck <= maxNumAddresses);
             for (int i = 0; i < loopCheck; i++) {
                 if (mask % 2 == 1) {
                     currAddr = (reference->vectorAddress).base
