@@ -34,6 +34,7 @@ typedef struct {
     uint64_t* loopTimerAccum;
     uint64_t* loopTimerLast;
     uint64_t* entryCounts;
+    uint64_t* loopShutoff;
 } LoopTimers;
 
 #define KILO (1024)

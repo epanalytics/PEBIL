@@ -179,8 +179,10 @@ FunctionTimers* GenerateFunctionTimers(FunctionTimers* timers, uint32_t typ, ima
         }
 
         //warn << "Dynamic Turning off of Function Timers is enabled." << ENDL;
-        //warn << "Number of iterations to consider before averaging time per visit: " << shutoffIters << ENDL;
-        //warn << "Timer per visit threshold is at: " << timingThreshold << " micro-seconds. " << ENDL;
+        //warn << "Number of iterations to consider before averaging time per visit: " 
+        //  << shutoffIters << ENDL;
+        //warn << "Timer per visit threshold is at: " << timingThreshold 
+        //  << " micro-seconds. " << ENDL;
 
     }
 
@@ -238,12 +240,16 @@ extern "C"
             timers->functionTimerLast[funcIndex] = read_timestamp_counter();
 
             if(GetTaskId() == 0) {
-                    //warn << "Thread " << AllData->GetThreadSequence(tid) << " Entering function " << funcIndex << ":" << timers->functionNames[funcIndex] << ENDL;
-                    //print_backtrace();
+                /*warn << "Thread " << AllData->GetThreadSequence(tid) 
+                  << " Entering function " << funcIndex << ":" 
+                  << timers->functionNames[funcIndex] << ENDL;*/
+                //print_backtrace();
             }
 
         } else if(GetTaskId() == 0) {
-            //warn << "Thread " << AllData->GetThreadSequence(tid) << " Re-entering function " << timers->functionNames[funcIndex] << ENDL;
+            /*warn << "Thread " << AllData->GetThreadSequence(tid) 
+              << " Re-entering function " << timers->functionNames[funcIndex] 
+              << ENDL;*/
         }
         ++timers->inFunction[funcIndex];
 
@@ -307,7 +313,8 @@ extern "C"
             timers->functionTimerLast[funcIndex] = now;
 
             if(GetTaskId() == 0) {
-                //warn << "Leaving function " << timers->functionNames[funcIndex] << ENDL;
+                //warn << "Leaving function " << timers->functionNames[funcIndex] 
+                //  << ENDL;
             }
         }
         timers->inFunction[funcIndex] = recDepth;
@@ -328,7 +335,15 @@ extern "C"
                     uint64_t corresponding_entry_key = GENERATE_UNIQUE_KEY(
                       funcIndex, imageSeq, PointType_functionEntry);
 
-                    //warn << "Shutting off timing for function " << timers->functionNames[funcIndex] << "; time per visit averaged over " << timers->functionEntryCounts[funcIndex] << " entries is " << timePerVisit << "s; specified cut-off threshold is " << (((double)timingThreshold)/1000000.0) << "s." << ENDL;
+                    //warn << "Shutting off timing for function " 
+                    //  << timers->functionNames[funcIndex] 
+                    //  << "; time per visit averaged over " 
+                    //  << timers->functionEntryCounts[funcIndex] 
+                    //  << " entries is " << timePerVisit 
+                    //  << "s; specified cut-off threshold is " 
+                    //  << (((double)timingThreshold)/1000000.0) 
+                    //  << "s." << ENDL;
+
                     set<uint64_t> inits;
                     inits.insert(this_key);
                     inits.insert(corresponding_entry_key);
@@ -340,7 +355,6 @@ extern "C"
         }
         return 0;
     }
-
 
     // Just after MPI_Init is called
     void* tool_mpi_init() {
@@ -370,6 +384,7 @@ extern "C"
     // initialize dynamic instrumentation
     void* tool_dynamic_init(uint64_t* count, DynamicInst** dyn, bool* 
       isThreadedModeFlag) {
+
         pthread_mutex_lock(&dynamic_init_mutex);
         if (DynamicPoints == NULL) {
             DynamicPoints = new DynamicInstrumentation();
@@ -430,9 +445,9 @@ extern "C"
         // If EPA_SLICER_START_OFF is set, then turn inst off
         uint32_t startOff = 0;
         (void) ReadEnvUint32("EPA_SLICER_START_OFF", &startOff);
-        if (startOff != 0)
+        if (startOff != 0) {
             DynamicPoints->SetDynamicPoints(EntryExitKeys, false);
-
+        }
 
         pthread_mutex_unlock(&image_init_mutex);
         return NULL;
@@ -501,18 +516,23 @@ extern "C"
         }
 
         fprintf(outFile, "App timestamp time: %lld %lld %f\n", 
-          timers->appTimeStart, appTimeEnd, (double)(appTimeEnd - timers->appTimeStart) / timerCPUFreq);
+          timers->appTimeStart, appTimeEnd, 
+          (double)(appTimeEnd - timers->appTimeStart) / timerCPUFreq);
         fprintf(outFile, "App timeofday time: %lld %lld %f\n", 
-          timers->appTimeOfDayStart.tv_sec, tvEnd.tv_sec, diffTime(timers->appTimeOfDayStart, tvEnd));
+          timers->appTimeOfDayStart.tv_sec, tvEnd.tv_sec, 
+          diffTime(timers->appTimeOfDayStart, tvEnd));
         // for each image
         //   for each function
         //     for each thread
         //       print time
-        for (set<image_key_t>::iterator iit = AllData->allimages.begin(); iit != AllData->allimages.end(); ++iit) {
+        for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
+          iit != AllData->allimages.end(); ++iit) {
+
             FunctionTimers* imageData = AllData->GetData(*iit, pthread_self());
 
             char** functionNames = imageData->functionNames;
             uint64_t functionCount = imageData->functionCount;
+
             for (uint64_t funcIndex = 0; funcIndex < functionCount; ++funcIndex)            {
                 char* fname;
                 bool unentered = false;
@@ -520,27 +540,27 @@ extern "C"
                 fprintf(outFile, "\n%s:\t", fname);
                 if (trackUnenteredFuncs)
                     fprintf(unOutFile, "\n%s:\t", fname);
+
                 for (set<thread_key_t>::iterator tit = 
                   AllData->allthreads.begin(); tit != 
                   AllData->allthreads.end(); ++tit) {
+
                     FunctionTimers* timers = AllData->GetData(*iit, *tit);
 
+                    thread_key_t thread = AllData->GetThreadSequence(*tit);
+                    double time = (double)(timers->functionTimerAccum[funcIndex]) 
+                      / timerCPUFreq;
+                    uint64_t entries = timers->functionEntryCounts[funcIndex];
+                    uint64_t funcHash = timers-> functionHashes[funcIndex];
+                    uint64_t imgHash = AllData->GetImageSequence(*iit);
                     if(timers->functionShutoff[funcIndex]==1) {
                         fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
                           "%lld\tHash: 0x%llx\tImage: %d*\t", 
-                          AllData->GetThreadSequence(*tit), (double)(timers->
-                          functionTimerAccum[funcIndex]) / timerCPUFreq, 
-                          timers->functionEntryCounts[funcIndex], timers->
-                          functionHashes[funcIndex],
-                          AllData->GetImageSequence(*iit));
+                          thread, time, entries, funcHash, imgHash);
                     } else {
                         fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
                           "%lld\tHash: 0x%llx\tImage: %d\t", 
-                          AllData->GetThreadSequence(*tit), (double)(timers->
-                          functionTimerAccum[funcIndex]) / timerCPUFreq, 
-                          timers->functionEntryCounts[funcIndex], timers->
-                          functionHashes[funcIndex],
-                          AllData->GetImageSequence(*iit));
+                          thread, time, entries, funcHash, imgHash);
                     }
                     // If tracking unentered functions, then print each function
                     // and number of "warnings" per thread
@@ -562,6 +582,7 @@ extern "C"
                     fprintf(unOutFile, "%s\n", fname);
             }
         }
+
         fflush(outFile);
         fclose(outFile);
         fflush(unOutFile);
