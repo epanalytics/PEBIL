@@ -81,8 +81,6 @@ using namespace std;
 #define CLOCK_RATE_HZ 3200000000
 static uint32_t timerCPUFreq = CLOCK_RATE_HZ;
 
-DynamicInstrumentation* DynamicPoints = NULL;
-
 static uint32_t hwcSetNumber = 0;
 
 // Set with FPAPI_SHUTOFF - enables function shutoff
@@ -104,6 +102,9 @@ inline uint64_t read_timestamp_counter() {
 }
 
 DataManager<FunctionPAPI*>* AllData = NULL;
+DynamicInstrumentation* DynamicPoints = NULL;
+static std::set<uint64_t> EntryExitKeys;
+
 
 FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ, 
   image_key_t iid, thread_key_t tid, image_key_t firstimage) {
@@ -198,6 +199,28 @@ uint64_t ReferenceFunctionPAPI(FunctionPAPI* counters){
 extern "C"
 {
 
+    void pebil_slicer_verbose_start(const char*);
+    void pebil_slicer_verbose_pause(const char*);
+    void epa_pebil_start() {
+#ifdef VERBOSE_SLICER
+        pebil_slicer_verbose_start("PAPI-FTMINST");
+#endif
+        DynamicPoints->SetDynamicPoints(EntryExitKeys, true);
+        return;
+    }
+
+    void epa_pebil_start_() { epa_pebil_start(); return; }
+
+    void epa_pebil_pause() {
+#ifdef VERBOSE_SLICER
+        pebil_slicer_verbose_pause("PAPI-FTMINST");
+#endif
+        DynamicPoints->SetDynamicPoints(EntryExitKeys, false);
+        return;
+    }
+
+    void epa_pebil_pause_() { epa_pebil_pause(); return; }
+
   // function entry instrumentation
   int32_t function_entry(uint32_t funcIndex, image_key_t* key) {
     thread_key_t tid = pthread_self();
@@ -220,13 +243,14 @@ extern "C"
       // Read the counters and update all active functions
       if (counters->currentlyMeasuring != 0) {
           // No error checking to minimize overhead
-          PAPI_read(eventSet, counters->tmpValues[funcIndex]);
+          int error = PAPI_read(eventSet, counters->tmpValues[funcIndex]);
       
-          // Uncomment error checking for debugging purposes 
-          //if (PAPI_read(eventSet, counters->tmpValues[funcIndex]) != PAPI_OK){
-          //    fprintf(stderr, "Error reading the values!\n");
-          //    exit(1);
-          //}
+          DEBUG({
+              if (error != PAPI_OK){
+                  fprintf(stderr, "Error reading the values!\n");
+                  exit(1);
+              }
+          });
   
           // associate the counter values to all the active functions
           for (std::set<int>::iterator it = counters->activeFunctions.begin();
@@ -246,9 +270,9 @@ extern "C"
   
       //initialize PAPI for each thread (if not already).
       if (!counters->num) { 
-          int retval = PAPI_library_init(PAPI_VER_CURRENT);
-          if (retval != PAPI_VER_CURRENT) {
-              fprintf(stderr, "PAPI library init error!\n");
+          int retval = PAPI_register_thread();
+          if (retval != PAPI_OK) {
+              fprintf(stderr, "PAPI thread reg error!\n");
               exit(1);
           }
   
@@ -288,7 +312,7 @@ extern "C"
                   if (counters->num == 0) {
                       fprintf(stderr, "No counters defined in the env. Adding "
                         "PAPI_TOT_CYC as default. \n");
-                      PAPI_add_event(eventSet, PAPI_TOT_CYC);
+                      int error = PAPI_add_event(eventSet, PAPI_TOT_CYC);
                       *(counters->events+counters->num) = PAPI_TOT_CYC;
                       ++counters->num;
                   } else {
@@ -307,19 +331,27 @@ extern "C"
       // if this is the first entry, start the measurements
       if (counters->papiMeasurementsStarted == 0) {
           // No error checking to minimize overhead
-          PAPI_start(eventSet);
+          int error = PAPI_start(eventSet);
 
-          // uncomment for debugging purposes
-          //if (PAPI_start(eventSet) != PAPI_OK) {
-          //    fprintf(stderr, "Error in PAPI start!\n");
-          //    exit(1);
-          //}
+          DEBUG({
+              if (error != PAPI_OK) {
+                  fprintf(stderr, "Error in PAPI start!\n");
+                  exit(1);
+              }
+          });
 
           // indicate that the measurements have started 
           counters->papiMeasurementsStarted = 1;
       } else {
           // else reset the counters (again doing it without the check)
-            PAPI_reset(eventSet);
+          int error = PAPI_reset(eventSet);
+
+          DEBUG({
+              if (error != PAPI_OK) {
+                  fprintf(stderr, "Error in PAPI reset!\n");
+                  exit(1);
+              }
+          });
       }
       counters->eventSet = eventSet;
       counters->functionTimerLast[funcIndex] = read_timestamp_counter();
@@ -333,7 +365,7 @@ extern "C"
       thread_key_t tid = pthread_self();
       FunctionPAPI* counters = AllData->GetData(*key, pthread_self());
       int eventSet = counters->eventSet;
-      PAPI_read(eventSet, counters->tmpValues[funcIndex]);
+      int error = PAPI_read(eventSet, counters->tmpValues[funcIndex]);
       uint32_t recDepth = counters->inFunctionP[funcIndex];
       
       if (recDepth == 0) {
@@ -376,7 +408,7 @@ extern "C"
           // if there are active functions remaining, we need to reset the 
           // counters
           if (counters->currentlyMeasuring != 0) {
-              PAPI_reset(eventSet);
+              int error = PAPI_reset(eventSet);
           }
       }
     
@@ -458,15 +490,42 @@ extern "C"
       AllData->AddImage(counters, td, *key);
     
       counters = AllData->GetData(*key, pthread_self());
-    
-      if (PAPI_num_hwctrs() < PAPI_OK) {
-          fprintf(stderr, "PAPI initialization failed");
-          return NULL;
+      int error = PAPI_library_init(PAPI_VER_CURRENT);
+      if (error != PAPI_VER_CURRENT) {
+          fprintf(stderr, "PAPI lib initialization failed with %d\n", error);
+          exit(1);
+      }
+
+      error = PAPI_thread_init(pthread_self);
+      if (error != PAPI_OK) {
+          fprintf(stderr, "PAPI thread initialization failed with %d\n", error);
+          exit(1);
       }
 
       set<uint64_t> inits;
       inits.insert(GENERATE_KEY(*key, PointType_inits));
       DynamicPoints->SetDynamicPoints(inits, false);
+
+      // Get all func entry and func exit instrumentation points so that the 
+      // user can turn them on/off
+      std::set<uint64_t> keys;
+      DynamicPoints->GetAllDynamicKeys(keys);
+      assert(EntryExitKeys.empty());
+      for (auto it = keys.begin(); it != keys.end(); it++) {
+          uint64_t k = (*it);
+          if (GET_TYPE(k) == PointType_functionEntry ||
+            GET_TYPE(k) == PointType_functionExit) {
+              EntryExitKeys.insert(k);
+          }
+      }
+
+      // If EPA_SLICER_START_OFF is set, then turn inst off
+      uint32_t startOff = 0;
+      (void) ReadEnvUint32("EPA_SLICER_START_OFF", &startOff);
+      if (startOff != 0)
+          DynamicPoints->SetDynamicPoints(EntryExitKeys, false);
+
+
  
       pthread_mutex_unlock(&image_init_mutex);
     

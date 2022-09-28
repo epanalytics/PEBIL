@@ -302,31 +302,20 @@ void AddressRangeHandler::Print(ofstream& f){
     f << "AddressRangeHandler" << ENDL;
 }
 
-uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
+uint32_t AddressRangeHandler::Process(void* stats, uint64_t memSeq, 
+  bool ldstFlag, uint64_t* addresses, uint64_t length, bool memvecFlag) {
 
-    if (access->type == MEM_ENTRY) {
-        uint32_t memid = (uint32_t)access->memseq;
-        uint64_t addr = access->address;
-        RangeStats* rs = (RangeStats*)stats;
-        rs->Update(memid, addr);
-        return 0;
-    } else if (access->type == VECTOR_ENTRY) {
-        uint64_t currAddr;
-        uint32_t memid = (uint32_t)access->memseq;
-        uint16_t mask = (access->vectorAddress).mask;
-        RangeStats* rs = (RangeStats*)stats;
-
-        for (int i = 0; i < (access->vectorAddress).numIndices; i++) {
-            if(mask % 2 == 1) {
-                currAddr = (access->vectorAddress).base + 
-                  (access->vectorAddress).indexVector[i] * 
-                  (access->vectorAddress).scale;
-                rs->Update(memid, currAddr);
-            }
-            mask = (mask >> 1);
+    // TODO should this fail or error out if length > arrLen?
+    for(int i=0;i<length;i++) {
+        uint64_t addr = addresses[i];
+        if (addr != 0) {
+            uint32_t memId = (uint32_t)memSeq;
+            RangeStats* rs = (RangeStats*)stats;
+            rs->Update(memSeq, addr);
         }
-        return 0;
     }
+    return 0;
+    
     // TODO To be implemented later
     /*} else if(access->type == PREFETCH_ENTRY) {
         uint32_t memid = (uint32_t)access->memseq;
@@ -336,7 +325,7 @@ uint32_t AddressRangeHandler::Process(void* stats, BufferEntry* access){
           rs->Update(memid, addr);
         }
         return 0;
-   }*/
-   return 0;
+   }
+   return 0;*/
 }
                 

@@ -56,6 +56,10 @@ class AddressStreamDriver {
 
     // Holds the tools that are being run
     std::vector<AddressStreamTool*>* tools = NULL;
+    // Used for passing addresses from vectorized instruction to the tools
+    // TODO make thread safe when merging with DataCentric
+    uint64_t* addresses = NULL;
+    uint64_t maxNumAddresses;
 
     uint32_t numMemoryHandlers;
 
@@ -109,6 +113,7 @@ class AddressStreamDriver {
     bool IsSpatialLocality() { return runSpatialLocality; }
     bool IsSpatialLocalityPerMemOp() { return runSpatialLocalityPerMemOp; }
 
+    void ProcessAllBuffers();
     uint64_t ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
@@ -116,6 +121,7 @@ class AddressStreamDriver {
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
     void SetDynamicPoints(DynamicInstrumentation* d) { dynamicPoints = d; }
+    void SetDynamicPoints(bool on);
 
     virtual void SetUpTools();
 
