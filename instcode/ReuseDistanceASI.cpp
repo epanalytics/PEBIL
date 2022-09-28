@@ -152,12 +152,19 @@ void ReuseDistanceHandler::Print(ofstream& f) {
     internalHandler->Print(f, true);
 }
 
-uint32_t ReuseDistanceHandler::Process(void* stats, BufferEntry* access) {
+uint32_t ReuseDistanceHandler::Process(void* stats, uint64_t memSeq,
+  bool ldstFlag, uint64_t* addresses, uint64_t length, bool memvecFlag) {
+
     ReuseStreamStats* s = (ReuseStreamStats*)stats;
     ReuseEntry entry = ReuseEntry();
-    entry.id = s->GetHash(access->memseq);
-    entry.address = access->address;
-    internalHandler->Process(entry);
+    for(int i=0;i<length;i++) {
+        uint64_t addr = addresses[i];
+        if (addr != 0) {
+            entry.id = s->GetHash(memSeq);
+            entry.address = addr;
+            internalHandler->Process(entry);
+        }
+    }
     return 0;
 }
 

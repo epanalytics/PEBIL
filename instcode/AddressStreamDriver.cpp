@@ -69,6 +69,8 @@ AddressStreamDriver::AddressStreamDriver() {
 
     // Create the vector to store the tools
     tools = new vector<AddressStreamTool*>();
+    maxNumAddresses = 64;
+    addresses = (uint64_t *)malloc(sizeof(uint64_t)*maxNumAddresses);
 
     numMemoryHandlers = 0;
 
@@ -91,8 +93,10 @@ AddressStreamDriver::~AddressStreamDriver() {
       tools->end(); it++) {
           delete (*it);
     }
+    if (addresses != NULL) 
+        free(addresses);
     tools->clear();
-    delete tools;
+    delete tools; 
     delete fastData;
 }
 
@@ -372,23 +376,66 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
         }
         assert(stats != NULL);
 
+        BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
+        if (reference->imageid == 0){
+            debug(assert(AllData->CountThreads() > 1));
+            continue;
+        }
+        uint64_t memSeq = reference->memseq;
+        bool ldstFlag = reference->loadstoreflag;
+        // I have a hunch most will be false so default to that
+        bool memvecFlag = false; 
+        // for single memory entry, length is one
+        uint64_t length = 1;
+        if (reference->type == MEM_ENTRY) {
+            if (reference->address != 0) { 
+                addresses[0]  = reference->address;
+            } else {
+                inform << "found address 0, skipping\n";
+            }
+        // end of if memory entry 
+        } else if (reference->type == VECTOR_ENTRY ) {
+            uint64_t currAddr;
+            uint16_t mask = (reference->vectorAddress).mask;
+            // for vec entry, length is determined by the mask.
+            length = 0;
+            memvecFlag = true;
+            uint32_t loopCheck = (reference->vectorAddress).numIndices;
+            // if this is false, we won't have space to store all of the
+            // addresses in the addresses array.
+            assert(loopCheck <= maxNumAddresses);
+            for (int i = 0; i < loopCheck; i++) {
+                if (mask % 2 == 1) {
+                    currAddr = (reference->vectorAddress).base
+                      + (reference->vectorAddress).indexVector[i]
+                      * (reference->vectorAddress).scale;
+                    //we start at 0 for length and increment when there
+                    //is an address we are accessing so we can use that
+                    //to keep track of where we are in the array as well
+                    //as its final length
+                    addresses[length] = currAddr;
+                    length++;
+                }// mask check 
+                mask = (mask >> 1);
+            }// for num of indices
+        }// end of if vector entry
+
+        debug(assert(length <= maxNumAddresses));
+
         // Process for each memory handler
         for (uint32_t handlerIndex = 0; handlerIndex < GetNumMemoryHandlers(); 
           handlerIndex++) {
             MemoryStreamHandler* handler = stats->Handlers[handlerIndex];
             StreamStats* ss = stats->Stats[handlerIndex];
+            // maxNumAddresses is the allocated size of the array when it was 
+            // created, the length is the number of actual elements used
+            (void) handler->Process((void*)ss, memSeq, ldstFlag, addresses, 
+              length, memvecFlag);
+        }// for number of handlers
 
-            BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
-
-            if (reference->imageid == 0){
-                debug(assert(AllData->CountThreads() > 1));
-                continue;
-            }
-
-            (void) handler->Process((void*)ss, reference);
-      //      numProcessed++;
-        }
-    }
+        // 0 out addresses array to prevent passing stale data
+        memset(addresses, 0, sizeof(uint64_t)*maxNumAddresses);
+    }// for elements in the buffer
 
     return numSkipped;
 }
@@ -582,9 +629,8 @@ void AddressStreamDriver::SetUpTools() {
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 
       tools->end(); it++) {
         AddressStreamTool* currentTool = (*it);
-        StringParser parser;
         uint32_t handlersAdded = currentTool->CreateHandlers(
-          GetNumMemoryHandlers(), &parser);
+          GetNumMemoryHandlers(), parser);
         assert(handlersAdded > 0);
         numMemoryHandlers += handlersAdded;
     }
