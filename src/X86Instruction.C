@@ -1623,10 +1623,10 @@ uint32_t OperandX86::getBytesUsed(){
 
 uint32_t X86Instruction::getDstSizeInBytes(){
     OperandX86* op;
-    if((op = getOperand(0)))
-        return op->GET(size) >> 3;
-    else
-        return 0;
+    uint32_t size = 0;
+    if ((op = getOperand(0)))
+        size = (op->GET(size) >> 3);
+    return size;
 }
 
 /* Get value of literal */
@@ -2203,7 +2203,45 @@ bool X86Instruction::isIndirectBranch(){
     return (isBranch() && usesIndirectAddress());
 }
 
-bool X86Instruction::isBinUnknown() { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_unknown; }
+bool X86Instruction::isBinUnknown() { 
+    if (isBinMove())
+        return false;
+    if ((X86InstructionClassifier::getInstructionBin(this) == 
+      X86InstructionBin_int) && 
+      (X86InstructionClassifier::getInstructionMemSize(this) == 0))
+        return true;
+    if ((X86InstructionClassifier::getInstructionBin(this) == 
+      X86InstructionBin_int) && 
+      (X86InstructionClassifier::getInstructionMemSize(this) > 8))
+        return true;
+    if ((X86InstructionClassifier::getInstructionBin(this) == 
+      X86InstructionBin_intv) && 
+      (X86InstructionClassifier::getInstructionMemSize(this) == 0))
+        return true;
+    if ((X86InstructionClassifier::getInstructionBin(this) == 
+      X86InstructionBin_intv) && 
+      (X86InstructionClassifier::getInstructionMemSize(this) > 8))
+        return true;
+    if (isBinInts() && 
+      (X86InstructionClassifier::getInstructionMemSize(this) == 0))
+        return true;
+    if (isBinInts() && 
+      (X86InstructionClassifier::getInstructionMemSize(this) > 8))
+        return true;
+    if ((X86InstructionClassifier::getInstructionBin(this) == 
+      X86InstructionBin_float) && !(isBinSingle()) && !(isBinDouble()))
+        return true;
+    if ((X86InstructionClassifier::getInstructionBin(this) == 
+      X86InstructionBin_floatv) && !(isBinSinglev()) && !(isBinDoublev()))
+        return true;
+    if ((X86InstructionClassifier::getInstructionBin(this) == 
+      X86InstructionBin_floats) && !(isBinSingles()) && !(isBinDoubles()))
+        return true;
+    
+
+    return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_unknown; 
+}
+
 bool X86Instruction::isBinInvalid() { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_invalid; }
 bool X86Instruction::isBinCond()    { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_cond;    }
 bool X86Instruction::isBinUncond()  { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_uncond;  }
@@ -2215,19 +2253,24 @@ bool X86Instruction::isBinInts()    { return  X86InstructionClassifier::getInstr
 bool X86Instruction::isBinFloat()   { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_float;   }
 bool X86Instruction::isBinFloatv()  { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_floatv;  }
 bool X86Instruction::isBinFloats()  { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_floats;  }
-bool X86Instruction::isBinMove()    { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_move;    }
+
+bool X86Instruction::isBinMove() {
+    return (X86InstructionClassifier::getInstructionBin(this) == 
+      X86InstructionBin_move) || (isMoveOperation());
+}
+
 bool X86Instruction::isBinSystem()  { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_system;  }
 bool X86Instruction::isBinStack()   { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_stack;   }
 bool X86Instruction::isBinOther()   { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_other;   }
 bool X86Instruction::isBinCache()   { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_cache;   }
 bool X86Instruction::isBinString()  { return  X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_string;  }
-bool X86Instruction::isBinByte()    { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int)    && (X86InstructionClassifier::getInstructionMemSize(this)) == 1; }
+bool X86Instruction::isBinByte()    { return ((X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int) || isBinInts()) && (X86InstructionClassifier::getInstructionMemSize(this) == 1); }
 bool X86Instruction::isBinBytev()   { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_intv)   && (X86InstructionClassifier::getInstructionMemSize(this)) == 1; }
-bool X86Instruction::isBinWord()    { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int)    && (X86InstructionClassifier::getInstructionMemSize(this)) == 2; }
+bool X86Instruction::isBinWord()    { return ((X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int) || isBinInts()) && (X86InstructionClassifier::getInstructionMemSize(this) == 2); }
 bool X86Instruction::isBinWordv()   { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_intv)   && (X86InstructionClassifier::getInstructionMemSize(this)) == 2; }
-bool X86Instruction::isBinDword()   { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int)    && (X86InstructionClassifier::getInstructionMemSize(this)) == 4; }
+bool X86Instruction::isBinDword()   { return ((X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int) || isBinInts())    && (X86InstructionClassifier::getInstructionMemSize(this) == 4); }
 bool X86Instruction::isBinDwordv()  { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_intv)   && (X86InstructionClassifier::getInstructionMemSize(this)) == 4; }
-bool X86Instruction::isBinQword()   { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int)    && (X86InstructionClassifier::getInstructionMemSize(this)) == 8; }
+bool X86Instruction::isBinQword()   { return ((X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_int) || isBinInts())    && (X86InstructionClassifier::getInstructionMemSize(this) == 8); }
 bool X86Instruction::isBinQwordv()  { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_intv)   && (X86InstructionClassifier::getInstructionMemSize(this)) == 8; }
 bool X86Instruction::isBinSingle()  { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_float)  && (X86InstructionClassifier::getInstructionMemSize(this)) == 4; }
 bool X86Instruction::isBinSinglev() { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_floatv) && (X86InstructionClassifier::getInstructionMemSize(this)) == 4; }
@@ -2235,40 +2278,41 @@ bool X86Instruction::isBinSingles() { return (X86InstructionClassifier::getInstr
 bool X86Instruction::isBinDouble()  { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_float)  && (X86InstructionClassifier::getInstructionMemSize(this)) == 8; }
 bool X86Instruction::isBinDoublev() { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_floatv) && (X86InstructionClassifier::getInstructionMemSize(this)) == 8; }
 bool X86Instruction::isBinDoubles() { return (X86InstructionClassifier::getInstructionBin(this) == X86InstructionBin_floats) && (X86InstructionClassifier::getInstructionMemSize(this)) == 8; }
-bool X86Instruction::isBinMem()     { return (X86InstructionClassifier::getInstructionMemLocation(this) != 0); }
+bool X86Instruction::isBinMem() { return (X86InstructionClassifier::getInstructionMemLocation(this) != 0); }
 
 void X86Instruction::printBin(){
-    if(isBinUnknown())      printf("Unknown");
-    else if(isBinInvalid()) printf("Invalid");
-    else if(isBinCond())    printf("Cond");
-    else if(isBinUncond())  printf("Uncond");
-    else if(isBinBin())     printf("Bin");
-    else if(isBinBinv())    printf("Binv");
-    else if(isBinInt())     printf("Int");
-    else if(isBinIntv())    printf("Intv");
-    else if(isBinFloat())   printf("Float");
-    else if(isBinFloatv())  printf("Floatv");
-    else if(isBinFloats())  printf("Floats");
-    else if(isBinMove())    printf("Move");
-    else if(isBinSystem())  printf("System");
-    else if(isBinStack())   printf("Stack");
-    else if(isBinOther())   printf("Other");
-    else if(isBinCache())   printf("Cache");
-    else if(isBinString())  printf("String");
-    else if(isBinByte())    printf("Byte");
-    else if(isBinBytev())   printf("Bytev");
-    else if(isBinWord())    printf("Word");
-    else if(isBinWordv())   printf("Wordv");
-    else if(isBinDword())   printf("Dword");
-    else if(isBinDwordv())  printf("Dwordv");
-    else if(isBinQword())   printf("Qword");
-    else if(isBinQwordv())  printf("Qwordv");
-    else if(isBinSingle())  printf("Single");
-    else if(isBinSinglev()) printf("Singlev");
-    else if(isBinSingles()) printf("Singles");
-    else if(isBinDouble())  printf("Double");
-    else if(isBinDoublev()) printf("Doublev");
-    else if(isBinDoubles()) printf("Doubles");
+    if(isBinUnknown()) printf("Unknown\t");
+    if(isBinInvalid()) printf("Invalid\t");
+    if(isBinCond())    printf("Cond\t");
+    if(isBinUncond())  printf("Uncond\t");
+    if(isBinBin())     printf("Bin\t");
+    if(isBinBinv())    printf("Binv\t");
+    if(isBinInt())     printf("Int\t");
+    if(isBinIntv())    printf("Intv\t");
+    if(isBinByte())    printf("Byte\t");
+    if(isBinBytev())   printf("Bytev\t");
+    if(isBinWord())    printf("Word\t");
+    if(isBinWordv())   printf("Wordv\t");
+    if(isBinDword())   printf("Dword\t");
+    if(isBinDwordv())  printf("Dwordv\t");
+    if(isBinQword())   printf("Qword\t");
+    if(isBinQwordv())  printf("Qwordv\t");
+    if(isBinFloat())   printf("Float\t");
+    if(isBinFloatv())  printf("Floatv\t");
+    if(isBinFloats())  printf("Floats\t");
+    if(isBinSingle())  printf("Single\t");
+    if(isBinSinglev()) printf("Singlev\t");
+    if(isBinSingles()) printf("Singles\t");
+    if(isBinDouble())  printf("Double\t");
+    if(isBinDoublev()) printf("Doublev\t");
+    if(isBinDoubles()) printf("Doubles\t");
+    if(isBinMove())    printf("Move\t");
+    if(isBinStack())   printf("Stack\t");
+    if(isBinSystem())  printf("System\t");
+    if(isBinOther())   printf("Other\t");
+    if(isBinCache())   printf("Cache\t");
+    if(isBinString())  printf("String\t");
+    if(isBinMem())     printf("Mem\t");
     printf("\n");
 }
 
@@ -2512,6 +2556,9 @@ void X86Instruction::print(){
     for (uint32_t i = 0; i < sizeInBytes; i++){
         sprintf(hexcode + (2*i), "%02hhx", GET(insn_bytes)[i]);
     }
+
+    X86InstructionClassifier::print(this);
+    printBin();
 
     //PRINT_INFOR("%#llx:\t%16s\t%s\tflgs:[%10s]\t-> %#llx", getBaseAddress(), hexcode, GET(insn_buffer), flags, getTargetAddress());
 
@@ -2903,9 +2950,13 @@ struct x86class {
     uint8_t elementSize;
 };
 
-    /* macros to make the table assignment statements easier to write + more concise */
+// macros to make the table assignment statements easier to write and more 
+// concise
+// __bin: For +bin line --> operations
 #define xbin(__bin) X86InstructionBin_ ## __bin
+// __typ: For +cnt line --> instruction types
 #define xtyp(__typ) X86InstructionType_ ## __typ
+// __fmt: For implicit memory operations
 #define xfmt(__fmt) X86OperandFormat_ ## __fmt
 #define xsiz(__bits) (__bits >> 3)
 #define X86InstructionBin_0 X86InstructionBin_unknown
@@ -2913,6 +2964,9 @@ struct x86class {
 #define MEM_SZ_VARIABLE (0xf)
 #define VRSZ (MEM_SZ_VARIABLE << 3)
 
+// __mem: Size of memory --> used to classify int/float type
+// __loc: For +bin line --> mem operations
+// __elem: For +vec line --> vector element size
 #define mkclass(__mne, __typ, __bin, __fmt, __mem, __loc, __elem) \
     classifications[UD_I ## __mne] = (struct x86class) { UD_I ## __mne, xtyp(__typ), xbin(__bin), xfmt(__fmt), xsiz(__mem), (__loc >> 8), xsiz(__elem)};
 
@@ -3119,9 +3173,10 @@ void X86InstructionClassifier::generateTable(){
     mkclass(          fncstp,    float,   other,   0,    0,    0,           0)
     mkclass(          fninit,    float,   other,   0,    0,    0,           0)
     mkclass(            fnop,      nop,   other,   0,    0,    0,           0)
-    mkclass(          fnsave,  special,   stack,   0,    0,    BinFrame,    0)
-    mkclass(          fnstcw,  special,   stack,   0,    0,    BinFrame,    0)
-    mkclass(         fnstenv,  special,   stack,   0,    0,    BinFrame,    0)
+    // Unsure if fnsave, fnstcw, fnstenv are obviously a memop
+    //mkclass(          fnsave,  special,   stack,   0,    0,    BinFrame,    0)
+    //mkclass(          fnstcw,  special,   stack,   0,    0,    BinFrame,    0)
+    //mkclass(         fnstenv,  special,   stack,   0,    0,    BinFrame,    0)
     mkclass(          fnstsw,  special,   stack,   0,    0,    BinFrame,    0)
     mkclass(          fpatan,    float,   float,   0, VRSZ,    0,           0)
     mkclass(           fprem,    float,   float,   0, VRSZ,    0,           0)
@@ -3890,7 +3945,7 @@ void X86InstructionClassifier::generateTable(){
     mkclass(     vinserti64x4,  simdMove,     intv,    0,     256,    0,    64)
     mkclass(       vinsertps,   simdMove,   floats,    0,      32,    0,    32)
     mkclass(          vlddqu,      move,         0,    0,    VRSZ,    0,    0)
-    mkclass(        vldmxcsr,      move,         0,    0,       0,    0,    0)
+    mkclass(        vldmxcsr,      move,      move,    0,       0,    0,    0)
     mkclass(   vloadunpackhd,  simdMove,      intv,    0,    VRSZ,    0,    32)
     mkclass(  vloadunpackhpd,  simdMove,    floatv,    0,    VRSZ,    0,    64)
     mkclass(  vloadunpackhps,  simdMove,    floatv,    0,    VRSZ,    0,    32)
@@ -4323,7 +4378,7 @@ void X86InstructionClassifier::generateTable(){
     mkclass(         vsqrtps,  simdFloat,  floatv,    0,    VRSZ,    0,    32)
     mkclass(         vsqrtsd,      float,  floats,    0,      64,    0,    64)
     mkclass(         vsqrtss,      float,  floats,    0,      32,    0,    32)
-    mkclass(        vstmxcsr,       move,       0,    0,       0,    0,     0)
+    mkclass(        vstmxcsr,       move,    move,    0,       0,    0,     0)
     mkclass(          vsubpd,  simdFloat,  floatv,    0,    VRSZ,    0,    64)
     mkclass(          vsubps,  simdFloat,  floatv,    0,    VRSZ,    0,    32)
     mkclass(         vsubrpd,  simdFloat,  floatv,    0,    VRSZ,    0,    64)
@@ -4340,7 +4395,7 @@ void X86InstructionClassifier::generateTable(){
     mkclass(       vunpcklps,  simdFloat,  floatv,    0,    VRSZ,    0,    32)
     mkclass(          vxorpd,  simdFloat,    binv,    0,    VRSZ,    0,    64)
     mkclass(          vxorps,  simdFloat,    binv,    0,    VRSZ,    0,    32)
-    mkclass(        vzeroall,    special,       0,    0,       0,    0,    0)
+    mkclass(        vzeroall,    special,     bin,    0,       0,    0,    0)
     mkclass(            wait,    special,   other,    0,       0,    0,    0)
     mkclass(          wbinvd,    special,   other,    0,       0,    0,    0)
     mkclass(           wrmsr,    special,   other,    0,       0,    0,    0)
@@ -4392,6 +4447,6 @@ X86OperandFormat X86InstructionClassifier::getInstructionFormat(X86Instruction* 
 }
 
 void X86InstructionClassifier::print(X86Instruction* x){
-    PRINT_INFOR("Instruciton %s: %hhd %hhd %hhd %hhd %hhd", ud_mnemonics_str[x->GET(mnemonic)], getInstructionBin(x), getInstructionMemLocation(x), getInstructionMemSize(x), getInstructionType(x), getInstructionFormat(x));
+    PRINT_INFOR("Instruction %s: %hhd %hhd %hhd %hhd %hhd", ud_mnemonics_str[x->GET(mnemonic)], getInstructionBin(x), getInstructionMemLocation(x), getInstructionMemSize(x), getInstructionType(x), getInstructionFormat(x));
 }
 

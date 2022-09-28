@@ -178,7 +178,7 @@ public:
     uint32_t getNumberOfBinInvalid();
     uint32_t getNumberOfBinUnknown();
     uint32_t getNumberOfBinFloats();
-    uint32_t getNumberOfBinStack();
+    uint32_t getNumberOfBinStackFrame();
     uint32_t getNumberOfBinString();
     uint32_t getNumberOfBinCache();
     uint32_t getNumberOfBinOther();
