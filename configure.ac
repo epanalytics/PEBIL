@@ -230,12 +230,12 @@ AC_CHECK_FUNCS([bzero memset])
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  tools/Makefile
-                 instcode/Makefile
+                 external/epa-inst-libs/Makefile
                  scripts/blacklist.sh
                  cshrc
                  bashrc])
 AC_CONFIG_SUBDIRS([external/udis86-1.7])
-AC_CONFIG_SUBDIRS([instcode/ReuseDistance])
+AC_CONFIG_SUBDIRS([external/epa-inst-libs/ReuseDistance])
 AC_OUTPUT
 chmod +x scripts/blacklist.sh
 

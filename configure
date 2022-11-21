@@ -737,7 +737,7 @@ MPICXX
 PAPI_PATH'
 ac_subdirs_all='external/epa-pebil-tools
 external/udis86-1.7
-instcode/ReuseDistance'
+external/epa-inst-libs/ReuseDistance'
 
 # Initialize some variables set by options.
 ac_init_help=
@@ -6685,11 +6685,11 @@ fi
 done
 
 
-ac_config_files="$ac_config_files Makefile src/Makefile tools/Makefile instcode/Makefile scripts/blacklist.sh cshrc bashrc"
+ac_config_files="$ac_config_files Makefile src/Makefile tools/Makefile external/epa-inst-libs/Makefile scripts/blacklist.sh cshrc bashrc"
 
 subdirs="$subdirs external/udis86-1.7"
 
-subdirs="$subdirs instcode/ReuseDistance"
+subdirs="$subdirs external/epa-inst-libs/ReuseDistance"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -7399,7 +7399,7 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "tools/Makefile") CONFIG_FILES="$CONFIG_FILES tools/Makefile" ;;
-    "instcode/Makefile") CONFIG_FILES="$CONFIG_FILES instcode/Makefile" ;;
+    "external/epa-inst-libs/Makefile") CONFIG_FILES="$CONFIG_FILES external/epa-inst-libs/Makefile" ;;
     "scripts/blacklist.sh") CONFIG_FILES="$CONFIG_FILES scripts/blacklist.sh" ;;
     "cshrc") CONFIG_FILES="$CONFIG_FILES cshrc" ;;
     "bashrc") CONFIG_FILES="$CONFIG_FILES bashrc" ;;

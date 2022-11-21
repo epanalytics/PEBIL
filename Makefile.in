@@ -29,14 +29,14 @@ DOXYGEN = doxygen
 # order here matters
 PREREQ = .CLEAN .DEPEND
 
-SUBDIRS = external/udis86-1.7 instcode/ReuseDistance instcode src tools
+SUBDIRS = external/udis86-1.7 external/epa-inst-libs/ReuseDistance external/epa-inst-libs src tools
 ifeq ($(BUILD_EPA_TOOLS),yes)
     SUBDIRS += $(PEBIL_TOOLS_PATH)
     CLEANS += clean-pebil-tools
     PREREQ += pebil-tools-deps
 endif
 
-COPY_LIBS = cp instcode/ReuseDistance/libReuseDistance.so lib
+COPY_LIBS = cp external/epa-inst-libs/ReuseDistance/libReuseDistance.so lib
 
 BLACKLIST = scripts/inputlist/autogen-system.func
 
@@ -46,8 +46,8 @@ DISTDIR = PEBIL-$(PEBIL_FULL_VER)
 .PHONY: subdirs $(SUBDIRS) clean all install blacklist depend docs
 
 # specify some explicit dependencies to order operations
-tools: src external/udis86-1.7 instcode/ReuseDistance
-install: instcode tools blacklist
+tools: src external/udis86-1.7 external/epa-inst-libs/ReuseDistance
+install: external/epa-inst-libs tools blacklist
 
 ifneq (,$(findstring clean,$(MAKECMDGOALS)))
 .CLEAN: clean
@@ -65,9 +65,9 @@ clean-pebil-tools:
 
 clean-subdirs:
 	$(MAKE) -C external/udis86-1.7 clean
-	$(MAKE) -C instcode/ReuseDistance clean
+	$(MAKE) -C external/epa-inst-libs/ReuseDistance clean
 	$(MAKE) -C src clean
-	$(MAKE) -C instcode clean
+	$(MAKE) -C external/epa-inst-libs clean
 	$(MAKE) -C tools clean
 
 clean: $(CLEANS)
@@ -93,7 +93,7 @@ $(SUBDIRS): $(PREREQ)
 install: $(PREREQ)
 	$(MAKE) -C src install
 	$(MAKE) -C tools install
-	$(MAKE) -C instcode install
+	$(MAKE) -C external/epa-inst-libs install
 	$(COPY_LIBS)
 
 docs: $(PREREQ)
