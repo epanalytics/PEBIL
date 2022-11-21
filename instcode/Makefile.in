@@ -53,8 +53,8 @@ EXTRA_FLAGS = $(SHARED_OPT)
 SHARED_LIB  = -shared
 AR          = ar rcs
 
-REUSE_LIBS  = -L../external/ReuseDistance -lReuseDistance
-EXTRA_INC   = -I../instcode -I../external/ReuseDistance
+REUSE_LIBS  = -L../instcode/ReuseDistance -lReuseDistance
+EXTRA_INC   = -I../instcode -I../instcode/ReuseDistance
 
 ifeq ($(PEBIL_PAPI_BUILD),yes)
 	EXTRA_INC += -I$(PAPI_PATH)/include

@@ -737,7 +737,7 @@ MPICXX
 PAPI_PATH'
 ac_subdirs_all='external/epa-pebil-tools
 external/udis86-1.7
-external/ReuseDistance'
+instcode/ReuseDistance'
 
 # Initialize some variables set by options.
 ac_init_help=
@@ -6689,7 +6689,7 @@ ac_config_files="$ac_config_files Makefile src/Makefile tools/Makefile instcode/
 
 subdirs="$subdirs external/udis86-1.7"
 
-subdirs="$subdirs external/ReuseDistance"
+subdirs="$subdirs instcode/ReuseDistance"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
