@@ -119,14 +119,6 @@ else
 fi
 AC_SUBST(PEBIL_CXX_BINDINGS)
 
-AC_CHECK_PROG(OPENMPI_IS_NEW, mpifort, "yes")
-if test x"$OPENMPI_IS_NEW" == x"yes"; then
-  PEBIL_MPIFC_OPENMPI_LIB="-lmpi_mpifh"
-else
-  PEBIL_MPIFC_OPENMPI_LIB="-lmpi_f77 -lmpi_f90"
-fi
-AC_SUBST(PEBIL_MPIFC_OPENMPI_LIB)
-
 AC_ARG_ENABLE(adamant, AC_HELP_STRING([--enable-adamant], [enable adamant [yes]]), adamant_ok=$enableval)
 AC_CHECK_HEADERS([adm.h],
   [
@@ -147,18 +139,9 @@ AC_ARG_ENABLE(mpiinit_check, AC_HELP_STRING([--enable-mpiinit-check], [Disable o
 if test "$mpiinit_check_ok" = "yes"; then
    MPI_FLAGS="$MPI_FLAGS -DMPI_INIT_REQUIRED"
 fi
-
 AC_SUBST(MPI_FLAGS)
 AC_SUBST(MPI_CXXFLAGS)
 
-AC_ARG_WITH(throttler_headers,
-            [AS_HELP_STRING([--with-throttler-headers=<path>],[specify path to throttler headers])],
-            [throttler_headers=$withval
-             AC_CHECK_HEADER([$throttler_headers/throttler.h],
-                             [THROTTLER_FLAGS="-DHAVE_THROTTLER_H -I$throttler_headers"],
-                             [AC_MSG_ERROR(throttler.h not found using $throttler_headers)])],
-            [throttler_headers=no])
-AC_SUBST(THROTTLER_FLAGS)
 
 #AC_ARG_ENABLE(epa_tools, [AC_HELP_STRING([--disable-epa-tools], 
 #  [do not use/compile EP Analytics tools @<:@default=yes@:>@])], 
@@ -212,6 +195,20 @@ AC_CHECK_HEADERS([cpufreq.h],
         CPUFREQ_FLAGS="-DHAVE_CPUFREQ_H")
 AC_SUBST(CPUFREQ_FLAGS)
 
+# Export flags to subprojects
+export MPICC
+export MPICXX
+export CFLAGS
+export CXXFLAGS
+export MPI_FLAGS
+export MPI_CXXFLAGS
+export PEBIL_PAPI_BUILD
+export PAPI_PATH
+export PEBIL_EPA_TOOLS_AVAILABLE
+export PEBIL_EPA_TOOLS_PATH
+export PEBIL_DEBUG
+export CPUFREQ_FLAGS
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
 AC_C_INLINE
@@ -230,12 +227,11 @@ AC_CHECK_FUNCS([bzero memset])
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  tools/Makefile
-                 external/epa-inst-libs/Makefile
                  scripts/blacklist.sh
                  cshrc
                  bashrc])
+AC_CONFIG_SUBDIRS([external/epa-inst-libs])
 AC_CONFIG_SUBDIRS([external/udis86-1.7])
-AC_CONFIG_SUBDIRS([external/epa-inst-libs/ReuseDistance])
 AC_OUTPUT
 chmod +x scripts/blacklist.sh
 
