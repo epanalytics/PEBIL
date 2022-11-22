@@ -8,7 +8,11 @@ Direct any questions or comments to allysonc@epanalytics.com
    Binary Format           Elf
    Architecture            ia32 or x86_64
 
-2. PEBIL can be built using autoconf configure script and the resulting makefile.
+2. Make sure you have all the files. PEBIL uses git submodules:
+
+  $ git submodule init
+
+3. PEBIL can be built using autoconf configure script and the resulting makefile.
    A. run the configure script using the flags to define MPICC, MPICXX, CC, & CXX.
    Other useful flags:
        --disable-mpicxxbind if using openmpi gnu
@@ -18,11 +22,11 @@ Direct any questions or comments to allysonc@epanalytics.com
    $./configure MPICC=mpiicc MPICXX=mpiicpc CC=icc CXX=icpc
 
 
-3. set up environment
+4. set up environment
 
    $ source bashrc
 
-4. build
+5. build
 
    $ make clean all install
 
@@ -39,5 +43,5 @@ Direct any questions or comments to allysonc@epanalytics.com
       MPI::Init(argc, argv); MPI::Finalize();
 
 
-5. run PEBIL - see the README
+6. run PEBIL - see the README
 
