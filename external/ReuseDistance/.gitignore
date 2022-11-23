@@ -1,8 +1,0 @@
-# Configuration
-config.log
-config.status
-Makefile
-
-# Compiled files
-*.o
-*.so
