@@ -1,4 +1,4 @@
 [submodule "external/epa-pebil-tools"]
 	path = external/epa-pebil-tools
 	url = git@bitbucket.org:epanalyticsrepos/epa-pebil-tools.git
-	branch = bugfix/Issue171_development_array
+	branch = release/3.1.x
