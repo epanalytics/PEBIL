@@ -160,7 +160,7 @@ void Classification::instrument(){
         addInt_Store(bufferDumpInstructions, bb->getNumberOfBinDoublev(), tmpBufferStore); tmpBufferStore += sizeof(uint64_t);
         addInt_Store(bufferDumpInstructions, bb->getNumberOfBinDoubles(), tmpBufferStore); tmpBufferStore += sizeof(uint64_t);
         addInt_Store(bufferDumpInstructions, bb->getNumberOfBinMove(), tmpBufferStore); tmpBufferStore += sizeof(uint64_t);
-        addInt_Store(bufferDumpInstructions, bb->getNumberOfBinStack(), tmpBufferStore); tmpBufferStore += sizeof(uint64_t);
+        addInt_Store(bufferDumpInstructions, bb->getNumberOfBinStackFrame(), tmpBufferStore); tmpBufferStore += sizeof(uint64_t);
         addInt_Store(bufferDumpInstructions, bb->getNumberOfBinString(), tmpBufferStore); tmpBufferStore += sizeof(uint64_t);
         addInt_Store(bufferDumpInstructions, bb->getNumberOfBinSystem(), tmpBufferStore); tmpBufferStore += sizeof(uint64_t);
         addInt_Store(bufferDumpInstructions, bb->getNumberOfBinCache(), tmpBufferStore); tmpBufferStore += sizeof(uint64_t);

@@ -1278,7 +1278,7 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
         fprintf(staticFD, "# +bin <unknown> <invalid> <cond> <uncond> <bin> "
           "<binv> <intb> <intbv> <intw> <intwv> <intd> <intdv> <intq> <intqv> "
           "<floats> <floatsv> <floatss> <floatd> <floatdv> <floatds> <move> "
-          "<stack> <string> <system> <cache> <mem> <other>\n");
+          "<stack/frame> <string> <system> <cache> <mem> <other>\n");
         fprintf(staticFD, "# +vec <#elem>x<elemSize>:<#fp>:<#int> ...\n");
         fprintf(staticFD, "# +mvc <#elem>x<elemSize>:<#fp>:<#int>:<#load>:" 
           "<#store>:<#dups> ...\n");
@@ -1488,10 +1488,34 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
               bb->getNumberOfBinSinglev(), bb->getNumberOfBinSingles(), 
               bb->getNumberOfBinDouble(), bb->getNumberOfBinDoublev(), 
               bb->getNumberOfBinDoubles(), bb->getNumberOfBinMove(),
-              bb->getNumberOfBinStack(), bb->getNumberOfBinString(), 
+              bb->getNumberOfBinStackFrame(), bb->getNumberOfBinString(), 
               bb->getNumberOfBinSystem(), bb->getNumberOfBinCache(),
               bb->getNumberOfBinMem(), bb->getNumberOfBinOther(), 
               bb->getHashCode().getValue());
+
+            uint64_t numPEBILOps = bb->getNumberOfBinUnknown() + 
+              bb->getNumberOfBinInvalid() + bb->getNumberOfBinCond() + 
+              bb->getNumberOfBinUncond() + bb->getNumberOfBinBin() + 
+              bb->getNumberOfBinBinv() + bb->getNumberOfBinByte() + 
+              bb->getNumberOfBinBytev() + bb->getNumberOfBinWord() + 
+              bb->getNumberOfBinWordv() + bb->getNumberOfBinDword() +
+              bb->getNumberOfBinDwordv() + bb->getNumberOfBinQword() + 
+              bb->getNumberOfBinQwordv() + bb->getNumberOfBinSingle() + 
+              bb->getNumberOfBinSinglev() + bb->getNumberOfBinSingles() + 
+              bb->getNumberOfBinDouble() + bb->getNumberOfBinDoublev() + 
+              bb->getNumberOfBinDoubles() + bb->getNumberOfBinMove() +
+              bb->getNumberOfBinStackFrame() + bb->getNumberOfBinString() + 
+              bb->getNumberOfBinSystem() + bb->getNumberOfBinCache() +
+              bb->getNumberOfBinMem() + bb->getNumberOfBinOther();
+
+            //bb->print();
+
+            if (bb->getNumberOfInstructions() > numPEBILOps) {
+                fprintf(stderr, "Block %#llx has %lld insns and %lld ops\n",
+                  bb->getHashCode().getValue(), bb->getNumberOfInstructions(),
+                  numPEBILOps);
+                //PRINT_ERROR("Found block that has more instructions than ops");
+            }
 
             // matrix to store counts elemsInVec X bytesInElem
             uint32_t fpvecs[65][16];

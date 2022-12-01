@@ -128,6 +128,9 @@ AddressStreamDriver::AddressStreamDriver() {
     numMemoryHandlers = 0;
     numCodeCentricMemoryHandlers = 0;
 
+    maxNumAddresses = 64;
+    addresses = (uint64_t *)malloc(sizeof(uint64_t)*maxNumAddresses);
+
     // Create a parser for parsing
     parser = new StringParser();
 
@@ -150,8 +153,10 @@ AddressStreamDriver::~AddressStreamDriver() {
       tools->end(); it++) {
           delete (*it);
     }
+    if (addresses != NULL) 
+        free(addresses);
     tools->clear();
-    delete tools;
+    delete tools; 
     delete fastData;
 
     DELETE_MODULE(dataStructureModule);
@@ -352,6 +357,16 @@ void AddressStreamDriver::InitializeKeys() {
         ShutOffInstrumentationInAllBlocks();
     }
 
+    // If EPA_SLICER_START_OFF is set then turn instrumentation off
+    uint32_t startOff = 0;
+    (void) parser->ReadEnvUint32("EPA_SLICER_START_OFF", &startOff);
+    if (startOff != 0) {
+        sampler->WriteLock();
+        //SetDynamicPoints(false);
+        dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys, false);
+        sampler->UnLock();
+    }
+
 }
 
 // Meant to only be called once per image (thus only one thread should 
@@ -502,6 +517,16 @@ void AddressStreamDriver::ProcessAllBuffers() {
     ExitTool(entered);
 }
 
+//void AddressStreamDriver::ProcessAllBuffers() {
+//    for (set<image_key_t>::iterator iit = allData->allimages.begin();
+//      iit != allData->allimages.end(); iit++) {
+//        for (set<thread_key_t>::iterator it = allData->allthreads.begin();
+//          it != allData->allthreads.end(); it++) {
+//            ProcessThreadBuffer((*iit), (*it));
+//        }
+//    }
+//}
+
 // Thread-safe function
 // Returns number of elements skipped
 uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid, 
@@ -529,35 +554,92 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
         }
         assert(stats != NULL);
 
+        BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
+        if (reference->imageid == 0){
+            debug(assert(AllData->CountThreads() > 1));
+            continue;
+        }
+        uint64_t memSeq = reference->memseq;
+        uint64_t codeCentricSeq = reference->memseq;
+        bool ldstFlag = reference->loadstoreflag;
+        // I have a hunch most will be false so default to that
+        bool memvecFlag = false; 
+        // for single memory entry, length is one
+        uint64_t length = 1;
+        if (reference->type == MEM_ENTRY) {
+            if (reference->address != 0) { 
+                addresses[0]  = reference->address;
+                codeCentricSeq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
+                  reference->address, false);
+            } else {
+                inform << "found address 0, skipping\n";
+            }
+        // end of if memory entry 
+        } else if (reference->type == VECTOR_ENTRY ) {
+            uint64_t currAddr;
+            uint16_t mask = (reference->vectorAddress).mask;
+            // for vec entry, length is determined by the mask.
+            length = 0;
+            memvecFlag = true;
+            uint32_t loopCheck = (reference->vectorAddress).numIndices;
+            // if this is false, we won't have space to store all of the
+            // addresses in the addresses array.
+            assert(loopCheck <= maxNumAddresses);
+            for (int i = 0; i < loopCheck; i++) {
+                if (mask % 2 == 1) {
+                    currAddr = (reference->vectorAddress).base
+                      + (reference->vectorAddress).indexVector[i]
+                      * (reference->vectorAddress).scale;
+                    //we start at 0 for length and increment when there
+                    //is an address we are accessing so we can use that
+                    //to keep track of where we are in the array as well
+                    //as its final length
+                    addresses[length] = currAddr;
+                    length++;
+                }// mask check 
+                mask = (mask >> 1);
+            }// for num of indices
+            codeCentricSeq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
+              addresses[0], false);
+            // Check if we have addresses from different data structures --
+            // If so, we're gonna need to refactor
+            for (int i = 1; i < length; i++) {
+                if (codeCentricSeq != GET_DATA_STRUCTURE_ID(dataStructureModule,
+                  addresses[i], false))
+                    fprintf(stderr, "WARNING: Multiple data structures in a "
+                      "vector...data will be a little off. The fix will "
+                      "require a small refactor.\n");
+            }
+        }// end of if vector entry
+
+        debug(assert(length <= maxNumAddresses));
+
         // Process for each memory handler
         for (uint32_t handlerIndex = 0; handlerIndex < GetNumMemoryHandlers(); 
           handlerIndex++) {
             MemoryStreamHandler* handler = stats->Handlers[handlerIndex];
             StreamStats* ss = stats->Stats[handlerIndex];
 
-            BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
-
-            if (reference->imageid == 0){
-                debug(assert(AllData->CountThreads(lock) > 1));
-                continue;
-            }
-
             // If this is the first data-centric handler, then change the 
             // memop ID to the data structure ID
             if (handlerIndex == numCodeCentricMemoryHandlers) {
-                // TODO: change to correct address
-                // TODO: This address is WRONG OMG *facepalm*
-                reference->memseq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
-                  reference->address, false);
+                memSeq = codeCentricSeq; 
             }
+
             if (handlerIndex >= numCodeCentricMemoryHandlers) {
                 ss->SetIsCodeCentric(false);
             }
 
-            (void) handler->Process((void*)ss, reference);
-        }
-    }
-  
+            // maxNumAddresses is the allocated size of the array when it was 
+            // created, the length is the number of actual elements used
+            (void) handler->Process((void*)ss, memSeq, ldstFlag, addresses, 
+              length, memvecFlag);
+        }// for number of handlers
+
+        // 0 out addresses array to prevent passing stale data
+        memset(addresses, 0, sizeof(uint64_t)*maxNumAddresses);
+    }// for elements in the buffer
+
     return numSkipped;
 }
 
@@ -629,7 +711,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     debug(inform << "Thread " << hex << tid << TAB << "Image " << hex 
       << iid << TAB << "Counter " << dec << numElements << TAB 
       << "Capacity " << dec << capacity << TAB << "Total " << dec 
-      << sampler->AccessCount << ENDL);
+      << sampler->GetAccessCount() << ENDL);
 
     // If there is no more instrumentation, return
     // Thread-Safe call
@@ -836,9 +918,8 @@ void AddressStreamDriver::SetUpTools() {
     for (vector<AddressStreamTool*>::iterator it = tools->begin(); it != 
       tools->end(); it++) {
         AddressStreamTool* currentTool = (*it);
-        StringParser parser;
         uint32_t handlersAdded = currentTool->CreateHandlers(
-          GetNumMemoryHandlers(), &parser);
+          GetNumMemoryHandlers(), parser);
         assert(handlersAdded > 0);
         numMemoryHandlers += handlersAdded;
         if (toolIndex < numCodeCentricTools)

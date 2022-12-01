@@ -155,32 +155,22 @@ void ReuseDistanceHandler::Print(ofstream& f) {
     internalHandler->Print(f, true);
 }
 
-uint32_t ReuseDistanceHandler::Process(void* stats, BufferEntry* access) {
+uint32_t ReuseDistanceHandler::Process(void* stats, uint64_t memSeq,
+  bool ldstFlag, uint64_t* addresses, uint64_t length, bool memvecFlag) {
+
     ReuseStreamStats* s = (ReuseStreamStats*)stats;
     ReuseEntry entry = ReuseEntry();
     if (s->GetIsCodeCentric()) {
-        entry.id = s->GetHash(access->memseq);
+        entry.id = s->GetHash(memSeq);
     } else {
-        entry.id = access->memseq;
+        entry.id = memSeq;
     }
-    if (access->type == MEM_ENTRY) {
-        entry.address = access->address;
-        if (access->address != 0)
-            internalHandler->Process(entry);
-    } else if (access->type == VECTOR_ENTRY) {
-        uint64_t currAddr;
-        uint16_t mask = (access->vectorAddress).mask;
 
-        for (int i = 0; i < (access->vectorAddress).numIndices; i++) {
-            if(mask % 2 == 1) {
-                currAddr = (access->vectorAddress).base +
-                  (access->vectorAddress).indexVector[i] *
-                  (access->vectorAddress).scale;
-                entry.address = currAddr;
-                if (access->address != 0)
-                    internalHandler->Process(entry);
-            }
-            mask = (mask >> 1);
+    for(int i = 0; i < length; i++) {
+        uint64_t addr = addresses[i];
+        if (addr != 0) {
+            entry.address = addr;
+            internalHandler->Process(entry);
         }
     }
     return 0;

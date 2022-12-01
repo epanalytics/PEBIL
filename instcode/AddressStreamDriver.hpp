@@ -71,6 +71,12 @@ class AddressStreamDriver {
     uint32_t numMemoryHandlers;
     uint32_t numCodeCentricMemoryHandlers;
 
+    // Used for passing addresses from vectorized instruction to the tools
+    // TODO make thread safe when merging with DataCentric
+    uint64_t maxNumAddresses;
+    uint64_t* addresses = NULL;
+
+
     DynamicInstrumentation* dynamicPoints = NULL;
     SamplingMethod* sampler = NULL;
     DataManager<AddressStreamStats*>* allData = NULL;
@@ -152,6 +158,7 @@ class AddressStreamDriver {
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
     void SetDynamicPoints(DynamicInstrumentation* d) { dynamicPoints = d; }
+    void SetDynamicPoints(bool on);
 
     virtual void SetUpDataStructureModule();
     virtual void SetUpTools();

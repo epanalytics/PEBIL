@@ -444,9 +444,18 @@ uint32_t BasicBlock::getNumberOfBranches(){
 uint32_t BasicBlock::getNumberOfBinMem(){
     uint32_t binCount = 0;
     for (uint32_t i = 0; i < instructions.size(); i++){
-        if (instructions[i]->isBinMem()){
+        // Only include instrumentable memory operations. Others go in 
+        // stack/frame
+        if (instructions[i]->isBinMem() &&
+          (instructions[i]->isMemoryOperation())) {
             binCount++;
-        }
+            if (instructions[i]->isLoad() && instructions[i]->isStore())
+                binCount++;
+        } else if (instructions[i]->isMemoryOperation()) {
+            fprintf(stderr, "Instruction %#llx is a memory operation but is "
+              "not labeled as BinMem.\n", instructions[i]->getBaseAddress());
+            PRINT_ERROR("We may be undercounting memory ops");
+        }  
     }
     return binCount;
 }
@@ -741,10 +750,16 @@ uint32_t BasicBlock::getNumberOfBinString(){
     return binCount;
 }
 
-uint32_t BasicBlock::getNumberOfBinStack(){
+uint32_t BasicBlock::getNumberOfBinStackFrame(){
     uint32_t binCount = 0;
     for (uint32_t i = 0; i < instructions.size(); i++){
-        if (instructions[i]->isBinStack()){
+        // Do not include memory operations. They belong in GetNumberOfBinMem
+        if (instructions[i]->isMemoryOperation())
+            continue;
+        if (instructions[i]->isBinStack()) {
+            binCount++;
+        // For BinFrame and BinStack that are not labeled as stack
+        } else if (instructions[i]->isBinMem()) {
             binCount++;
         }
     }
@@ -764,7 +779,7 @@ uint32_t BasicBlock::getNumberOfBinOther(){
 uint32_t BasicBlock::getNumberOfBinUnknown(){
     uint32_t binCount = 0;
     for (uint32_t i = 0; i < instructions.size(); i++){
-        if (instructions[i]->isBinUnknown()){
+        if (instructions[i]->isBinUnknown()) {
             binCount++;
         }
     }
@@ -1110,7 +1125,7 @@ void BasicBlock::print(){
         }
         PRINT_OUT("\n");
     }
-    //    printInstructions();
+        printInstructions();
 }
 
 std::string BasicBlock::toDot()
