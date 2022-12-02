@@ -46,8 +46,7 @@ extern "C" {
 #ifdef VERBOSE_SLICER
         pebil_slicer_verbose_start("ADDSTRINST");
 #endif
-        Driver->ProcessAllBuffers();
-        Driver->SetDynamicPoints(true);
+        Driver->ProcessAllBuffers(ProcessBuffersExtra_setDynamicOn);
         return;
     }
 
@@ -57,8 +56,7 @@ extern "C" {
 #ifdef VERBOSE_SLICER
         pebil_slicer_verbose_pause("ADDSTRINST");
 #endif
-        Driver->ProcessAllBuffers();
-        Driver->SetDynamicPoints(false);
+        Driver->ProcessAllBuffers(ProcessBuffersExtra_setDynamicOff);
         return;
     }
 

@@ -486,7 +486,7 @@ void AddressStreamDriver::PauseApplicationWrappers() {
 // all threads so that they cannot add to their buffers. We grab all other 
 // locks that are required for processing the buffer so that another thread 
 // is not suspended while holding a required lock
-void AddressStreamDriver::ProcessAllBuffers() {
+void AddressStreamDriver::ProcessAllBuffers(ProcessBuffersExtra extra) {
 
     //Suspend all threads
     bool entered = EnterTool();
@@ -506,6 +506,13 @@ void AddressStreamDriver::ProcessAllBuffers() {
           it != allData->allthreads.end(); it++) {
             ProcessThreadBuffer((*iit), (*it), false);
         }
+    }
+
+    // Do we need to turn instrumentation on/off after processing?
+    if (extra == ProcessBuffersExtra_setDynamicOn) {
+        dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys, true);
+    } else if (extra == ProcessBuffersExtra_setDynamicOff) {
+        dynamicPoints->SetDynamicPoints(*liveMemoryAccessInstPointKeys, false);
     }
 
     // resume all threads

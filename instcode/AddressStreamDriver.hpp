@@ -45,6 +45,12 @@ class DataStructureModule;
 #define DEFAULT_SAMPLE_OFF 10000000
 #define DEFAULT_SAMPLE_MAX 0
 
+typedef enum {
+    ProcessBuffersExtra_doNothing = 0,
+    ProcessBuffersExtra_setDynamicOff,
+    ProcessBuffersExtra_setDynamicOn
+} ProcessBuffersExtra;
+
 // Class to hold important variables and functions together
 class AddressStreamDriver {
   private:
@@ -149,7 +155,8 @@ class AddressStreamDriver {
     bool IsDataCentric() { return runDataCentric; }
 
     void PauseApplicationWrappers();
-    void ProcessAllBuffers();
+    void ProcessAllBuffers(ProcessBuffersExtra extra = 
+      ProcessBuffersExtra_doNothing);
     uint64_t ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
       uint32_t numElementsInBuffer, bool lock);
     void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid, bool suspend=
@@ -158,7 +165,7 @@ class AddressStreamDriver {
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
     void SetDynamicPoints(DynamicInstrumentation* d) { dynamicPoints = d; }
-    void SetDynamicPoints(bool on);
+    //void SetDynamicPoints(bool on);
 
     virtual void SetUpDataStructureModule();
     virtual void SetUpTools();

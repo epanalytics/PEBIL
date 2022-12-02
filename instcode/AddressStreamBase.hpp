@@ -54,7 +54,7 @@ class StreamStats {
   public:
     virtual uint64_t GetAccessCount(uint32_t memid) = 0;
     virtual bool Verify() = 0;
-    bool GetIsCodeCentric() { return isCodeCentric; }
+    virtual bool GetIsCodeCentric() { return isCodeCentric; }
     void SetIsCodeCentric(bool codeCentric) { isCodeCentric = codeCentric; }
 };
 
