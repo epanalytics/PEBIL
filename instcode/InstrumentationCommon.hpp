@@ -54,6 +54,8 @@ extern "C" {
       isThreadedModeFlag);
 
     extern void* tool_mpi_init();
+    extern void* tool_pre_mpi_fini();
+    extern void* tool_pre_mpi_init();
 
     // Entry function when a thread is created by pthread_create
     // However, there may already be threads in existence if this library was loaded late

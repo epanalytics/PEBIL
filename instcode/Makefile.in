@@ -65,17 +65,28 @@ SHARED_COMMON_OBJS = $(LIBDIR)/InstrumentationCommon.O $(LIBDIR)/ThreadedCommon.
 
 ASL_OBJS = $(LIBDIR)/AddressStreamBase.O $(LIBDIR)/AddressRange.O $(LIBDIR)/CacheSimulation.O $(LIBDIR)/ReuseDistanceASI.O $(LIBDIR)/ScatterGatherLength.O $(LIBDIR)/SpatialLocality.O $(LIBDIR)/AddressStreamDriver.O
 
+ifeq ($(ADAMANT_LIBS_BUILD),yes)
+	EXTRA_LIBS = -ldl -lpthread -ladm
+else
+	EXTRA_LIBS = -ldl -lpthread
+endif
+
 ifeq ($(EPA_TOOLS_AVAILABLE),yes)
   ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/PrefetchSimulation.o
   ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/SpatialLocalityPerMemOp.o
   EXTRA_FLAGS += -DHAS_EPA_TOOLS
   EXTRA_INC += -I$(EPA_TOOLS_PATH)/instcode
-endif
-
-ifeq ($(ADAMANT_LIBS_BUILD),yes)
-	EXTRA_LIBS = -ldl -lpthread -ladm
-else
-	EXTRA_LIBS = -ldl -lpthread
+  # If the Data Structure Module is available
+  ifneq ("$(wildcard $(EPA_TOOLS_PATH)/instcode/libdatastructuremodule.so)", "")
+    ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricAddressRange.o
+    ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricSpatialLocality.o
+    ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricCacheSimulation.o
+    ASL_OBJS += $(EPA_TOOLS_PATH)/instcode/DataCentricReuseDistance.o
+    EXTRA_FLAGS += -DHAS_DATA_STRUCTURE_MODULE
+    ASL_LIBS = -L$(EPA_TOOLS_PATH)/instcode -ldatastructuremodule
+    ASL_LIBS += -lunwind
+    ASL_LIBS += -L$(EPA_TOOLS_PATH)/external/memory-container/src -lMemContainer
+  endif
 endif
 
 # opempi does not automatically link fortran mpi
@@ -106,7 +117,7 @@ $(LIBDIR)/libcounter.a : $(LIBDIR)/CounterFunctions.o $(COMMON_OBJS)
 	$(AR) $@ $(LIBDIR)/CounterFunctions.o $(COMMON_OBJS)
 
 $(LIBDIR)/libaddressstream.so : $(LIBDIR)/AddressStreamLibrary.O $(ASL_OBJS) $(SHARED_COMMON_OBJS)
-	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
+	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(ASL_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
 
 $(LIBDIR)/liblooptimer.so : $(LIBDIR)/LoopTimer.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)

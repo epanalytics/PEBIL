@@ -51,7 +51,7 @@ class ReuseStreamStats : public StreamStats {
 
     // FIXME
     uint64_t GetAccessCount(uint32_t memop) { return 0; }
-    uint64_t GetBlock(uint32_t memop);
+    virtual uint64_t GetBlock(uint32_t memop);
     virtual uint64_t GetHash(uint32_t memop);
 
     bool Verify() { return true; }

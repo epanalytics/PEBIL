@@ -37,9 +37,10 @@ using namespace std;
 extern "C" {
     const int SuspendSignal = SIGUSR2;
     uint32_t CountSuspended = 0;
-    pthread_mutex_t countlock;
-    pthread_mutex_t leader;
-    pthread_mutex_t pauser;
+    // TODO: Can we use a condition variable for can suspend?
+    pthread_mutex_t countlock = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_t leader = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_t pauser = PTHREAD_MUTEX_INITIALIZER;
     bool CanSuspend = false;
 
     void SuspendHandler(int signum){
@@ -65,16 +66,10 @@ extern "C" {
         if (CanSuspend){
             return;
         }
-        debug(inform << "Thread " << hex << pthread_self() << 
-          " initializing Suspension handling" << ENDL);
-
-        CountSuspended = 0;
-        pthread_mutex_init(&pauser, NULL);
-        pthread_mutex_init(&leader, NULL);
-        pthread_mutex_init(&countlock, NULL);
-
         CanSuspend = true;
 
+        debug(inform << "Thread " << hex << pthread_self() << 
+          " initializing Suspension handling" << ENDL);
         struct sigaction NewAction, OldAction;
         NewAction.sa_handler = SuspendHandler;
         sigemptyset(&NewAction.sa_mask);
@@ -97,14 +92,16 @@ extern "C" {
         assert(CountSuspended == 0);
         pthread_mutex_lock(&pauser);
 
+        uint32_t ksize = size - 1;
         for (set<thread_key_t>::iterator tit = b; tit != e; tit++){
             if ((*tit) != pthread_self()){
-                pthread_kill((*tit), SuspendSignal);
+                int ret = pthread_kill((*tit), SuspendSignal);
+                if (ret != 0)
+                    ksize = ksize - 1;
             }
         }
 
         // wait for all other threads to reach paused state
-        uint32_t ksize = size - 1;
         while (CountSuspended < ksize){
             pthread_yield();
         }

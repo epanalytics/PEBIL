@@ -37,9 +37,19 @@ template <class T, class V> class FastData;
 typedef struct AddressStreamStats_s AddressStreamStats;
 typedef struct BufferEntry_s BufferEntry;
 
+#ifdef HAS_DATA_STRUCTURE_MODULE
+class DataStructureModule;
+#endif
+
 #define DEFAULT_SAMPLE_ON  1000000
 #define DEFAULT_SAMPLE_OFF 10000000
 #define DEFAULT_SAMPLE_MAX 0
+
+typedef enum {
+    ProcessBuffersExtra_doNothing = 0,
+    ProcessBuffersExtra_setDynamicOff,
+    ProcessBuffersExtra_setDynamicOn
+} ProcessBuffersExtra;
 
 // Class to hold important variables and functions together
 class AddressStreamDriver {
@@ -54,14 +64,24 @@ class AddressStreamDriver {
     bool runSpatialLocality;
     bool runSpatialLocalityPerMemOp;
 
+    // Which tool versions are we running?
+    bool runCodeCentric;
+    bool runDataCentric;
+
     // Holds the tools that are being run
+    // First tools are code centric. Data centric will be after.
     std::vector<AddressStreamTool*>* tools = NULL;
+    uint32_t numCodeCentricTools;
+
+    // Code Centric Handlers will be first. Then the Data Centric Handlers.
+    uint32_t numMemoryHandlers;
+    uint32_t numCodeCentricMemoryHandlers;
+
     // Used for passing addresses from vectorized instruction to the tools
     // TODO make thread safe when merging with DataCentric
-    uint64_t* addresses = NULL;
     uint64_t maxNumAddresses;
+    uint64_t* addresses = NULL;
 
-    uint32_t numMemoryHandlers;
 
     DynamicInstrumentation* dynamicPoints = NULL;
     SamplingMethod* sampler = NULL;
@@ -71,18 +91,33 @@ class AddressStreamDriver {
     std::set<uint64_t>* liveMemoryAccessInstPointKeys = NULL;  
 
     StringParser* parser = NULL;
+
+    std::string variableNameFile; // For data structure module
+
+  #ifdef HAS_DATA_STRUCTURE_MODULE
+    DataStructureModule* dataStructureModule = NULL;
+  #else
+    int dataStructureModule = 0;  // placeholder to make .cpp code cleaner
+  #endif
   public:
     AddressStreamDriver();
     virtual ~AddressStreamDriver();
+
+    bool BuiltWithDataStructureModule();
+    bool BuiltWithEPATools();
 
     void CreateFastData(uint64_t capacity);
     virtual void CreateSamplingMethod();
 
     void DeleteAllData();
 
+    bool EnterTool();
+    void ExitTool(bool needToExit);
+
     void* FinalizeImage(image_key_t*);
 
     DataManager<AddressStreamStats*>* GetAllData() { return allData; }
+    void GetAndSetVariableNameFile();
     DynamicInstrumentation* GetDynamicPoints() { return dynamicPoints; }
     FastData<AddressStreamStats*, BufferEntry*>* GetFastData() { 
       return fastData; }
@@ -90,12 +125,15 @@ class AddressStreamDriver {
       liveMemoryAccessInstPointKeys; }
     SamplingMethod* GetSamplingMethod() { return sampler; }
     StringParser* GetStringParser() { return parser; }
+    std::string GetVariableNameFile() { return variableNameFile; }
 
+    uint32_t GetNumCodeCentricTools() { return numCodeCentricTools; }
+    uint32_t GetNumCodeCentricMemoryHandlers() { return 
+      numCodeCentricMemoryHandlers; }
     uint32_t GetNumMemoryHandlers() { return numMemoryHandlers; }
     uint32_t GetNumTools() { return tools->size(); }
-    AddressStreamTool* GetTool(uint32_t index);
 
-    bool HasLiveInstrumentationPoints();
+    bool HasLiveInstrumentationPoints(bool lock=true);
 
     void InitializeAddressStreamDriver(DataManager<AddressStreamStats*>* d);
     void InitializeKeys();
@@ -113,26 +151,41 @@ class AddressStreamDriver {
     bool IsSpatialLocality() { return runSpatialLocality; }
     bool IsSpatialLocalityPerMemOp() { return runSpatialLocalityPerMemOp; }
 
-    void ProcessAllBuffers();
+    bool IsCodeCentric() { return runCodeCentric; }
+    bool IsDataCentric() { return runDataCentric; }
+
+    void PauseApplicationWrappers();
+    void ProcessAllBuffers(ProcessBuffersExtra extra = 
+      ProcessBuffersExtra_doNothing);
     uint64_t ProcessBufferForEachHandler(image_key_t iid, thread_key_t tid, 
-      uint32_t numElementsInBuffer);
-    void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid);
+      uint32_t numElementsInBuffer, bool lock);
+    void* ProcessThreadBuffer(image_key_t iid, thread_key_t tid, bool suspend=
+      true);
 
     void SetFastData(FastData<AddressStreamStats*, BufferEntry*>* f) { 
       fastData = f; }
     void SetDynamicPoints(DynamicInstrumentation* d) { dynamicPoints = d; }
-    void SetDynamicPoints(bool on);
+    //void SetDynamicPoints(bool on);
 
+    virtual void SetUpDataStructureModule();
     virtual void SetUpTools();
 
     void ShutOffInstrumentationInAllBlocks();
     void ShutOffInstrumentationInBlock(uint64_t blockID, uint64_t imageSeq);
     void ShutOffInstrumentationInBlocks(std::set<uint64_t>& blocks, image_key_t 
-      iid);
-    void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t);
+      iid, bool suspend = true);
+    void ShutOffInstrumentationInMaxedGroups(image_key_t, thread_key_t, bool
+      suspend=true);
+
+    void ReadLockDSM(bool lock=true);
+    void RegisterThreadInDynamicTool();
+    void UnpauseApplicationWrappers();
+    void UnLockDSM(bool lock=true);
+    void WriteLockDSM(bool lock=true);
 
     // For Testing Purposes
     void AddTool(AddressStreamTool* t) { tools->push_back(t); }
+    AddressStreamTool* GetTool(uint32_t index);
     void SetAddressRange(bool b) { runAddressRange = b; }
     void SetCacheSimulation(bool b) { runCacheSimulation = b; }
     void SetHardwarePrefetching(bool b) { runHardwarePrefetching = b; }
@@ -140,7 +193,12 @@ class AddressStreamDriver {
     void SetScatterLength(bool b) { runScatterLength = b; }
     void SetSpatialLocality(bool b) { runSpatialLocality = b; }
 
+    void SetCodeCentric(bool b) { runCodeCentric = b; }
+    void SetDataCentric(bool b) { runDataCentric = b; }
+
     void SetNumMemoryHandlers(uint32_t n) { numMemoryHandlers = n; }
+    void SetNumCodeCentricMemoryHandlers(uint32_t n) { 
+      numCodeCentricMemoryHandlers = n; }
     void SetParser(StringParser* p);
     void SetSampler(SamplingMethod* s);
 };

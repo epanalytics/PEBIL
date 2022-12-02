@@ -128,7 +128,7 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
     PrintApplicationHeaders(AllData, Sampler, totalMemop, sampledCount);
     PrintOverallStatistics(AllData);
 
-    PrintReportHeaders();
+    PrintReportHeaders(true);
 
     for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
       iit != AllData->allimages.end(); iit++) {
@@ -211,7 +211,8 @@ void CacheSimulationTool::FinalizeTool(DataManager<AddressStreamStats*>*
                     idx = st->Counters[bbid];
                 }
 
-                PrintPerBlockData(AllData, *iit, st->threadid, aggstats, bbid);
+                PrintPerBlockData(AllData, *iit, st->threadid, aggstats, bbid,
+                  true);
             } // for each block
 
             // Delete aggregated stats
@@ -427,7 +428,7 @@ void CacheSimulationTool::PrintApplicationHeader(ofstream& file,
   DataManager<AddressStreamStats*>* AllData, SamplingMethod* Sampler, 
   uint64_t totalMemop, uint64_t sampledCount) {
 
-    AddressStreamStats* stats = AllData->GetData(pthread_self());
+    AddressStreamStats* stats = AllData->GetData();
     uint32_t numCaches = handlers.size();
     // Print the application and address stream information
     file << "# appname       = " << stats->Application << ENDL
@@ -524,7 +525,6 @@ void CacheSimulationTool::PrintOverallStatistics(
         assert(s);
 
         CacheStats* c = (CacheStats*)s->Stats[sysidIndex];
-        assert(c->Capacity == s->AllocCount);
 
         // Sanity check the cache structure
         if(!c->Verify()) {
@@ -579,14 +579,21 @@ void CacheSimulationTool::PrintOverallStatistics(CacheStats* cacheStats,
 
 void CacheSimulationTool::PrintPerBlockData(DataManager<AddressStreamStats*>* 
   AllData, image_key_t imageid, thread_key_t threadid, CacheStats** 
-  aggregatedStats, uint32_t bbid) {
+  aggregatedStats, uint32_t bbid, bool isCodeCentric) {
     uint32_t numCaches = handlers.size();
     CacheStats* root = aggregatedStats[0];
     AddressStreamStats* stats = AllData->GetData(imageid, threadid);
 
+    string identifier;
+    if (isCodeCentric) {
+        identifier = "BLK";
+    } else {
+        identifier = "DS";
+    }
+
     // Print cache sim report info
     // Print block information
-    CacheReportFile << "BLK" << TAB << dec << bbid
+    CacheReportFile << identifier << TAB << dec << bbid
       << TAB << hex << stats->Hashes[bbid]
       << TAB << dec << AllData->GetImageSequence(imageid)
       << TAB << dec << AllData->GetThreadSequence(threadid)
@@ -627,7 +634,7 @@ void CacheSimulationTool::PrintPerBlockData(DataManager<AddressStreamStats*>*
     // Print memory log report info
     if (IsKeepingMemoryLog()) {
     // Print block information
-        MemoryLogFile << "BLK" << TAB << dec << bbid
+        MemoryLogFile << identifier << TAB << dec << bbid
           << TAB << hex << stats->Hashes[bbid]
           << TAB << dec << AllData->GetImageSequence(imageid)
           << TAB << dec << AllData->GetThreadSequence(threadid);
@@ -716,9 +723,15 @@ void CacheSimulationTool::PrintPerBlockData(DataManager<AddressStreamStats*>*
     } // for each cache structure
 };
 
-void CacheSimulationTool::PrintReportHeaders() {
+void CacheSimulationTool::PrintReportHeaders(bool isCodeCentric) {
+    string identifier;
+    if (isCodeCentric) {
+        identifier = "BLK";
+    } else {
+        identifier = "DS";
+    }
     // Print Cache Report Header
-    CacheReportFile << "# " << "BLK" << TAB << "Sequence" << TAB << "Hashcode" 
+    CacheReportFile << "# " << identifier << TAB << "Sequence" << TAB << "Hashcode" 
       << TAB << "ImageSequence" << TAB << "ThreadId " << ENDL;        
     CacheReportFile << "# " << TAB << "SysId" << TAB << "Level" << TAB 
       << "HitCount" << TAB << "MissCount" << TAB << "LoadCount" << TAB 
@@ -726,7 +739,7 @@ void CacheSimulationTool::PrintReportHeaders() {
 
     // Print Memory Log Header
     if(IsKeepingMemoryLog()) {
-        MemoryLogFile << "# " << "BLK" << TAB << "Sequence" << TAB 
+        MemoryLogFile << "# " << identifier << TAB << "Sequence" << TAB 
           << "BlockHash" << TAB << "ImageSequence" << TAB << "ThreadSequence" 
           TAB << "SysId1:Misses" << TAB << "SysId2:Misses ..." << ENDL;
         MemoryLogFile << "# " << "Sequence" << TAB << "SysId" << TAB << "Set" 
@@ -1119,6 +1132,9 @@ void CacheStructureHandler::PostProcessAddress(CacheStats* stats, uint64_t
 
 uint32_t CacheStructureHandler::ProcessAddress(CacheStats* stats, uint64_t 
   address, uint64_t memseq, uint8_t load) {
+
+    if (address == 0)
+        return 0;
 
     EvictionInfo evictInfo;
     evictInfo.level = INVALID_CACHE_LEVEL;

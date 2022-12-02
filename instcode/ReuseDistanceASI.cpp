@@ -86,12 +86,15 @@ void ReuseDistanceTool::FinalizeTool(DataManager<AddressStreamStats*>* AllData,
 
             thread_key_t thread = it->first;
             AddressStreamStats* s = it->second;
-            ReuseDistFile << "IMAGE" << TAB << hex << (*iit) << TAB << "THREAD" << TAB << dec << AllData->GetThreadSequence(thread) << ENDL;
+
+            ReuseDistFile << "IMAGE" << TAB << hex << (*iit) << TAB << "THREAD" 
+              << TAB << dec << AllData->GetThreadSequence(thread) << ENDL;
     
             ReuseDistanceHandler* rd = (ReuseDistanceHandler*)(s->Handlers[
               indexInStats]);
             assert(rd);
-            inform << "Reuse distance bins for " << hex << s->Application << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
+            inform << "Reuse distance bins for " << hex << s->Application 
+              << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
             rd->Print(ReuseDistFile);
         }
     }
@@ -157,10 +160,15 @@ uint32_t ReuseDistanceHandler::Process(void* stats, uint64_t memSeq,
 
     ReuseStreamStats* s = (ReuseStreamStats*)stats;
     ReuseEntry entry = ReuseEntry();
-    for(int i=0;i<length;i++) {
+    if (s->GetIsCodeCentric()) {
+        entry.id = s->GetHash(memSeq);
+    } else {
+        entry.id = memSeq;
+    }
+
+    for(int i = 0; i < length; i++) {
         uint64_t addr = addresses[i];
         if (addr != 0) {
-            entry.id = s->GetHash(memSeq);
             entry.address = addr;
             internalHandler->Process(entry);
         }

@@ -61,7 +61,8 @@ typedef struct BufferEntry_s {
     };
     //uint64_t    threadid;        // Error-checking
 } BufferEntry;
-#define __buf_current  address
+#define __buf_current  vectorAddress.base
+#define __buf_oldPosition  vectorAddress.mask
 #define __buf_capacity memseq
 
 class StreamStats;
