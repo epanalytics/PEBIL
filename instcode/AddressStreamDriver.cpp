@@ -560,7 +560,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             continue;
         }
         uint64_t memSeq = reference->memseq;
-        uint64_t codeCentricSeq = reference->memseq;
+        uint64_t dataCentricSeq = reference->memseq;
         bool ldstFlag = reference->loadstoreflag;
         // I have a hunch most will be false so default to that
         bool memvecFlag = false; 
@@ -569,8 +569,9 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
         if (reference->type == MEM_ENTRY) {
             if (reference->address != 0) { 
                 addresses[0]  = reference->address;
-                codeCentricSeq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
-                  reference->address, false);
+                if (runDataCentric)
+                    dataCentricSeq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
+                      reference->address, false);
             } else {
                 inform << "found address 0, skipping\n";
             }
@@ -599,16 +600,19 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                 }// mask check 
                 mask = (mask >> 1);
             }// for num of indices
-            codeCentricSeq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
-              addresses[0], false);
-            // Check if we have addresses from different data structures --
-            // If so, we're gonna need to refactor
-            for (int i = 1; i < length; i++) {
-                if (codeCentricSeq != GET_DATA_STRUCTURE_ID(dataStructureModule,
-                  addresses[i], false))
-                    fprintf(stderr, "WARNING: Multiple data structures in a "
-                      "vector...data will be a little off. The fix will "
-                      "require a small refactor.\n");
+
+            if (runDataCentric) {
+                dataCentricSeq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
+                  addresses[0], false);
+                // Check if we have addresses from different data structures --
+                // If so, we're gonna need to refactor
+                for (int i = 1; i < length; i++) {
+                    if (dataCentricSeq != GET_DATA_STRUCTURE_ID(
+                      dataStructureModule, addresses[i], false))
+                        fprintf(stderr, "WARNING: Multiple data structures in "
+                          "a vector...data will be a little off. The fix will "
+                          "require a small refactor.\n");
+                }
             }
         }// end of if vector entry
 
@@ -623,7 +627,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             // If this is the first data-centric handler, then change the 
             // memop ID to the data structure ID
             if (handlerIndex == numCodeCentricMemoryHandlers) {
-                memSeq = codeCentricSeq; 
+                memSeq = dataCentricSeq; 
             }
 
             if (handlerIndex >= numCodeCentricMemoryHandlers) {
