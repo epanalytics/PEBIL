@@ -848,7 +848,6 @@ void AddressStreamDriver::SetUpTools() {
     }
 
     // Check for which types of tools to use
-    // TODO: Check that one is set!
     uint32_t doCodeCentric;
     uint32_t doDataCentric;
     if (parser->ReadEnvUint32("METASIM_CODE_CENTRIC", &doCodeCentric)){
@@ -856,6 +855,13 @@ void AddressStreamDriver::SetUpTools() {
     }
     if (parser->ReadEnvUint32("METASIM_DATA_CENTRIC", &doDataCentric)){
         runDataCentric = (doDataCentric == 0) ? false : true;
+    }
+
+    // Check that one is set
+    if (!(runCodeCentric || runDataCentric)) {
+        DISPLAY_ERROR << "Neither Data Centric not Code Centric run is set. "
+          << "Set one. Exitting." << ENDL;
+        exit(0);
     }
 
     // First add code-centric tools.
