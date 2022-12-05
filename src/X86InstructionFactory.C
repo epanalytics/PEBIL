@@ -720,6 +720,64 @@ X86Instruction* X86InstructionFactory64::emitMoveZmmToAlignedRegaddrImm(
     return emitInstructionBase(len, buff);
 }
 /*
+ * vmovdqu32 ymm1, mem
+ */
+// | c5 | R vvvv L pp
+X86Instruction* X86InstructionFactory64::emitMoveYmmToUnalignedRegaddrImm(
+        uint32_t ymm_in,
+        uint32_t base_in,
+        uint32_t disp)
+{
+    assert(ymm_in >= X86_FPREG_YMM0 && ymm_in <= X86_FPREG_YMM15);
+    assert(base_in >= X86_REG_AX && base_in <= X86_REG_R15);
+    assert(base_in != X86_REG_SP && base_in != X86_REG_R12); // need diff modrm
+                                                             // and disp calc
+
+    uint8_t ymm = ymm_in - X86_FPREG_YMM0;
+    uint8_t base = base_in - X86_REG_AX;
+
+    uint32_t len = 8;
+    char* buff = new char[len];
+
+    // addressing mode is [base]+disp32
+    //   mod = 10
+    // base is encoded in ~X:~B:rm
+
+    // R is 1 for 0-7
+    // R is 0 for 9-15
+    uint8_t R = (~ymm & 0x08) << 4;
+    uint8_t RvvvvLpp =  R | 0x7e; // R 1111 1 10
+
+    uint8_t mod = 1 << 7;
+    uint8_t reg = (ymm & 0x07) << 3;
+    uint8_t rm = (base & 0x07);
+    uint8_t modrm = mod | reg | rm;
+
+    buff[0] = 0xc5;
+    buff[1] = RvvvvLpp;
+    buff[2] = 0x7f;       
+    buff[3] = modrm; 
+    memcpy(buff+4, &disp, sizeof(disp));
+
+    return emitInstructionBase(len, buff);
+}
+
+/*
+ * vmovdqu32 zmm1, mem {k}
+ */
+X86Instruction* X86InstructionFactory64::emitMoveZmmToUnalignedRegaddrImm(
+        uint32_t zmm_in,
+        uint32_t kreg_in,
+        uint32_t base_in,
+        uint32_t disp,
+        uint32_t zmm_size)
+{
+    if (zmm_size >= 512)
+        return emitMoveZmmToUnalignedRegaddrImm(zmm_in, kreg_in, base_in, disp);
+    return emitMoveYmmToUnalignedRegaddrImm(zmm_in, base_in, disp);
+}
+
+/*
  * vmovdqu32 zmm1, mem {k}
  */
 // | 62 |R X B R' mmmm|W vvvv 0  pp |E SSS  v' aaa |
