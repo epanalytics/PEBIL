@@ -25,23 +25,25 @@
 using namespace std;
 
 
-typedef struct FunctionTimers_s {
+typedef struct TimerStats_s {
     bool master;
     char* application;
     char* extension;
-    uint64_t functionCount;
-    char** functionNames;
-    uint64_t* functionHashes;
-    uint64_t* functionTimerAccum;
-    uint64_t* functionEntryCounts;
-    uint32_t* functionShutoff;
-    uint64_t* functionTimerLast;
+    uint64_t sectionCount;
+    char** sectionNames;
+    uint64_t* sectionHashes;
+    uint64_t* sectionTimerAccum;
+    uint64_t* sectionEntryCounts;
+    uint32_t* sectionShutoff;
+    uint64_t* sectionTimerLast;
     
-    uint32_t* inFunction;
+    uint32_t* inSection;
     uint64_t appTimeStart;
     struct timeval appTimeOfDayStart;
-    uint64_t* unenteredFunctions;
-} FunctionTimers;
+    uint64_t* unenteredSections;
+    PointTypes entryType;
+    PointTypes exitType;
+} TimerStats;
 
 #endif
 #define KILO (1024)

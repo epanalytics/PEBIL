@@ -29,7 +29,7 @@
 #include <SymbolTable.h>
 #include <map>
 
-#include <LoopTimer.hpp>
+#include <TimerFunctions.hpp>
 
 
 //#define DEBUG_INTERPOSE
@@ -76,13 +76,13 @@ void LoopIntercept::declare(){
     }
 
     // declare any instrumentation functions that will be used
-    loopEntry = declareFunction("loop_entry");
+    loopEntry = declareFunction("section_entry");
     ASSERT(loopEntry);
     /*
     loopEntry->assumeNoFunctionFP();
     loopEntry->setSkipWrapper();
     */
-    loopExit = declareFunction("loop_exit");
+    loopExit = declareFunction("section_exit");
     ASSERT(loopExit);    
     programEntry = declareFunction("tool_image_init");
     ASSERT(programEntry);
@@ -95,35 +95,37 @@ void LoopIntercept::discoverAllLoops(){
     discoveryMode = true;
 
     LineInfoFinder* lineInfoFinder = NULL;
-    if (hasLineInformation()){
+    if (hasLineInformation()) {
         lineInfoFinder = getLineInfoFinder();
     }
     
     PRINT_INFOR("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    PRINT_INFOR("You passed an empty file to --inp, so this tool is running in discovery mode");
+    PRINT_INFOR("You passed an empty file to --inp, so this tool is running in"
+      " discovery mode");
     PRINT_INFOR("Check the file %s.%s.static for a list of loop heads", 
       getFullFileName(), getExtension());
     PRINT_INFOR("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
     
-    if (!lineInfoFinder){
-        PRINT_ERROR("Loop Intercept tool requires line information when running" 
-          " discovery mode (without --inp): recompile  your app with -g?");
+    if (!lineInfoFinder) {
+        PRINT_ERROR("Loop Intercept tool requires line information when "
+          "running discovery mode (without --inp): recompile  your app with "
+          "-g?");
     }
     ASSERT(lineInfoFinder);
     
     // find every loop
     std::map<uint64_t, Loop*> loops;
-    for (uint32_t i = 0; i < getNumberOfExposedBasicBlocks(); i++){
+    for (uint32_t i = 0; i < getNumberOfExposedBasicBlocks(); i++) {
         BasicBlock* bb = getExposedBasicBlock(i);
         Function* function = (Function*)bb->getFunction();
         FlowGraph* fg = bb->getFlowGraph();
-        if (!bb->isInLoop()){
+        if (!bb->isInLoop()) {
             continue;
         }
         Loop* innerMost = fg->getInnermostLoopForBlock(bb->getIndex());
         uint64_t hash = innerMost->getHead()->getHashCode().getValue();
 
-        if (loops.count(hash) == 0){
+        if (loops.count(hash) == 0) {
             loops[hash] = innerMost;
         }
     }
@@ -142,7 +144,7 @@ void LoopIntercept::discoverAllLoops(){
         allBlocks->append(head);
         allBlockIds->append(unq++);
         LineInfo* li = NULL;
-        if (lineInfoFinder){
+        if (lineInfoFinder) {
             li = lineInfoFinder->lookupLineInfo(head, sanitize);
         }
         allLineInfos->append(li);
@@ -156,30 +158,30 @@ void LoopIntercept::discoverAllLoops(){
 }
 
 
-void LoopIntercept::instrument(){
+void LoopIntercept::instrument() {
     InstrumentationTool::instrument();
 
-    if (!loopList->size()){
+    if (!loopList->size()) {
         discoverAllLoops();
         exit(0);
     }
 
     LineInfoFinder* lineInfoFinder = NULL;
-    if (hasLineInformation()){
+    if (hasLineInformation()) {
         lineInfoFinder = getLineInfoFinder();
     }
 
     // Set indices for each loop
     std::map<uint64_t, uint32_t> loops;
     uint32_t numLoops = 0;
-    for (uint32_t i = 0; i < loopList->size(); i++){
+    for (uint32_t i = 0; i < loopList->size(); i++) {
         loops[getLoopHash(i)] = numLoops++;
     }
 
     // pick out all the loops we want to instrument
     std::map<uint64_t, Loop*> loopsFound;
     std::map<uint64_t, Loop*> loopsRejected;
-    for (uint32_t i = 0; i < getNumberOfExposedBasicBlocks(); i++){
+    for (uint32_t i = 0; i < getNumberOfExposedBasicBlocks(); i++) {
         BasicBlock* bb = getExposedBasicBlock(i);
         uint64_t hash = bb->getHashCode().getValue();
 
@@ -201,13 +203,13 @@ void LoopIntercept::instrument(){
         // find inner most loop whose head matches this blocks hashcode
         while (hash != innerMost->getHead()->getHashCode().getValue() 
           && innerMost->getIndex() != fg->getParentLoop(
-          innerMost->getIndex())->getIndex()){
+          innerMost->getIndex())->getIndex()) {
 
             innerMost = fg->getParentLoop(innerMost->getIndex());
             ASSERT(innerMost);
         }
         // Assert fail if we couldn't find the loop
-        if (hash != innerMost->getHead()->getHashCode().getValue()){
+        if (hash != innerMost->getHead()->getHashCode().getValue()) {
             PRINT_INFOR("function %s/%s: %llx != %llx", f->getName(), 
               innerMost->getHead()->getFunction()->getName(), hash, 
               innerMost->getHead()->getHashCode().getValue());
@@ -311,15 +313,15 @@ void LoopIntercept::instrument(){
     }
 
     // Create input struct
-    LoopTimers loopInfo;
-    uint64_t loopInfoStruct = reserveDataOffset(sizeof(LoopTimers));
+    TimerStats loopInfo;
+    uint64_t loopInfoStruct = reserveDataOffset(sizeof(TimerStats));
 
     loopInfo.master = getElfFile()->isExecutable();
 
     char* appName = getElfFile()->getAppName();
     uint64_t app = reserveDataOffset(strlen(appName)+1);
     initializeReservedPointer(app, loopInfoStruct + 
-      offsetof(LoopTimers, application));
+      offsetof(TimerStats, application));
     initializeReservedData(getInstDataAddress() + app, strlen(appName)+1, 
       (void*)appName);
 
@@ -327,21 +329,27 @@ void LoopIntercept::instrument(){
     sprintf(extName, "%s\0", getExtension());
     uint64_t ext = reserveDataOffset(strlen(extName)+1);
     initializeReservedPointer(ext, loopInfoStruct + 
-      offsetof(LoopTimers, extension));
+      offsetof(TimerStats, extension));
     initializeReservedData(getInstDataAddress() + ext, strlen(extName) + 1, 
       (void*)extName);
 
-    loopInfo.loopCount = numLoops;
+    loopInfo.sectionCount = numLoops;
+
+    uint64_t loopNameArray = reserveDataOffset(numLoops * sizeof(char*));
+    initializeReservedPointer(loopNameArray, loopInfoStruct + offsetof(
+      TimerStats, sectionNames));
 
     uint64_t loopHashes = reserveDataOffset(numLoops * sizeof(uint64_t));
     initializeReservedPointer(loopHashes, loopInfoStruct + 
-      offsetof(LoopTimers, loopHashes));
+      offsetof(TimerStats, sectionHashes));
 
-    loopInfo.loopTimerAccum = NULL;
-    loopInfo.loopTimerLast = NULL;
+    loopInfo.sectionTimerAccum = NULL;
+    loopInfo.sectionTimerLast = NULL;
+    loopInfo.entryType = PointType_loopEntry;
+    loopInfo.exitType = PointType_loopExit;
 
     initializeReservedData(getInstDataAddress() + loopInfoStruct, 
-      sizeof(LoopTimers), (void*)&loopInfo);
+      sizeof(TimerStats), (void*)&loopInfo);
 
     // Add arguments to instrumentation functions
     programEntry->addArgument(loopInfoStruct);
@@ -390,6 +398,17 @@ void LoopIntercept::instrument(){
       ii != loopsFound.end(); ii++){
 
         uint64_t hash = (*ii).first;
+        char hashString[20];
+        sprintf(hashString, "%#lx", hash);
+
+        uint64_t loopName = reserveDataOffset(strlen(hashString) + 1);
+        initializeReservedPointer(loopName, loopNameArray + sizeof(char*) *
+          loops[hash]);
+        initializeReservedData(getInstDataAddress() + loopName,
+          strlen(hashString) + 1, (void*)hashString);
+        uint64_t loopHash = reserveDataOffset(sizeof(uint64_t));
+        initializeReservedData(getInstDataAddress() + loopHashes +
+          sizeof(uint64_t) * loops[hash], sizeof(uint64_t), &hash);
 
         Loop* loop = (*ii).second;
         BasicBlock* head = loop->getHead();
@@ -403,8 +422,6 @@ void LoopIntercept::instrument(){
         Function* f = head->getFunction();
         FlowGraph* fg = head->getFlowGraph();
         uint32_t site = loops[hash];
-        initializeReservedData(getInstDataAddress() + loopHashes + 
-          (site * sizeof(uint64_t)), sizeof(uint64_t), &hash);
 
         allBlocks->append(head);
         allBlockIds->append(site);
@@ -438,8 +455,8 @@ void LoopIntercept::instrument(){
                     InstrumentationPoint* pt = addInstrumentationPoint(
                       source->getExitInstruction(), loopEntry, 
                       InstrumentationMode_trampinline, InstLocation_after);
-                    dynamicPoint(pt, GENERATE_UNIQUE_KEY(
-                      loop->getHead()->getHashCode().getValue(), 0, PointType_loopEntry), true);
+                    dynamicPoint(pt, GENERATE_UNIQUE_KEY(site, 0,
+                      PointType_loopEntry), true);
                     assignStoragePrior(pt, site, loopEntryIndexRegister);
                     PRINT_INFOR("\tENTR-FALLTHRU(%d)\tBLK:%#llx --> BLK:%#llx", 
                       site, source->getBaseAddress(), head->getBaseAddress());
@@ -466,8 +483,8 @@ void LoopIntercept::instrument(){
                 InstrumentationPoint* pt = addInstrumentationPoint(
                   bb->getExitInstruction(), loopExit, 
                   InstrumentationMode_trampinline, InstLocation_prior);
-                dynamicPoint(pt, GENERATE_UNIQUE_KEY(
-                  loop->getHead()->getHashCode().getValue(), 0, PointType_loopExit), true);
+                dynamicPoint(pt, GENERATE_UNIQUE_KEY(site, 0,
+                  PointType_loopExit), true);
                 assignStoragePrior(pt, site, loopExitIndexRegister);
                 
                 PRINT_INFOR("\tEXIT-FNRETURN(%d)\tBLK:%#llx --> ?", site, 
@@ -490,8 +507,8 @@ void LoopIntercept::instrument(){
                    InstrumentationPoint* pt = addInstrumentationPoint(
                      bb->getExitInstruction(), loopExit, 
                      InstrumentationMode_trampinline, InstLocation_after);
-                    dynamicPoint(pt, GENERATE_UNIQUE_KEY(
-                      loop->getHead()->getHashCode().getValue(), 0, PointType_loopExit), true);
+                    dynamicPoint(pt, GENERATE_UNIQUE_KEY(site, 0,
+                      PointType_loopExit), true);
                    assignStoragePrior(pt, site, loopExitIndexRegister);
 
                     PRINT_INFOR("\tEXIT-FALLTHRU(%d)\tBLK:%#llx --> BLK:%#llx", 
@@ -517,15 +534,13 @@ void LoopIntercept::instrument(){
                 BasicBlock* interb = exitInterpositions[m];
                 bool linkFound = false;
 
-                for (uint32_t xyz = 0; xyz < bb->getNumberOfTargets(); xyz++){
-
-                    if (bb->getTargetBlock(xyz)->getIndex() 
-                      == interb->getIndex()){
-
+                for (uint32_t targetNum = 0; targetNum <
+                  bb->getNumberOfTargets(); targetNum++) {
+                    if (bb->getTargetBlock(targetNum)->getIndex()
+                      == interb->getIndex())
                         linkFound = true;
-                    }
                 }
-                if (!linkFound){
+                if (!linkFound) {
                     bb->print();
                     interb->print();
                 }
@@ -535,8 +550,8 @@ void LoopIntercept::instrument(){
 
                 InstrumentationPoint* pt = addInstrumentationPoint(
                   interposed, loopExit, InstrumentationMode_trampinline);
-                dynamicPoint(pt, GENERATE_UNIQUE_KEY(
-                  loop->getHead()->getHashCode().getValue(), 0, PointType_loopExit), true);
+                dynamicPoint(pt, GENERATE_UNIQUE_KEY(site, 0,
+                  PointType_loopExit), true);
                 assignStoragePrior(pt, site, loopExitIndexRegister);
                 
                 PRINT_INFOR("\tEXIT-INTERPOS(%d)\tBLK:%#llx --> BLK:%#llx", 
@@ -571,14 +586,13 @@ void LoopIntercept::instrument(){
             ASSERT(loopEntry);
             InstrumentationPoint* pt = addInstrumentationPoint(
               interposed, loopEntry, InstrumentationMode_trampinline);
-            dynamicPoint(pt, GENERATE_UNIQUE_KEY(
-              loop->getHead()->getHashCode().getValue(), 0, PointType_loopEntry), true);
+            dynamicPoint(pt, GENERATE_UNIQUE_KEY(site, 0, PointType_loopEntry),
+              true);
             assignStoragePrior(pt, site, loopEntryIndexRegister);
 
             PRINT_INFOR("\tENTR-INTERPOS(%d)\tBLK:%#llx --> BLK:%#llx", site, 
               interb->getBaseAddress(), head->getBaseAddress());
         }
-
     }
 
     printStaticFile(getExtension(), allBlocks, allBlockIds, allLineInfos, 

@@ -61,10 +61,10 @@ void FunctionTimer::declare(){
     programExit = declareFunction("tool_image_fini");
     ASSERT(programExit);
 
-    functionEntry = declareFunction("function_entry");
+    functionEntry = declareFunction("section_entry");
     ASSERT(functionEntry);
 
-    functionExit = declareFunction("function_exit");
+    functionExit = declareFunction("section_exit");
     ASSERT(functionExit);
 }
 
@@ -102,15 +102,15 @@ void FunctionTimer::instrument(){
      * Create input for function timer instrumentation
      */
 
-    FunctionTimers funcInfo;
-    uint64_t functionInfoStruct = reserveDataOffset(sizeof(FunctionTimers));
+    TimerStats funcInfo;
+    uint64_t functionInfoStruct = reserveDataOffset(sizeof(TimerStats));
 
     funcInfo.master = getElfFile()->isExecutable();
 
     char* appName = getElfFile()->getAppName();
     uint64_t app = reserveDataOffset(strlen(appName) + 1);
     initializeReservedPointer(app, functionInfoStruct + 
-      offsetof(FunctionTimers, application));
+      offsetof(TimerStats, application));
     initializeReservedData(getInstDataAddress() + app, strlen(appName) + 1, 
       (void*)appName);
 
@@ -118,16 +118,16 @@ void FunctionTimer::instrument(){
     sprintf(extName, "%s\0", getExtension());
     uint64_t ext = reserveDataOffset(strlen(extName) + 1);
     initializeReservedPointer(ext, functionInfoStruct + 
-      offsetof(FunctionTimers, extension));
+      offsetof(TimerStats, extension));
     initializeReservedData(getInstDataAddress() + ext, strlen(extName) + 1, 
       (void*)extName);
 
-    funcInfo.functionCount = getNumberOfExposedFunctions();
+    funcInfo.sectionCount = getNumberOfExposedFunctions();
 
     uint64_t funcNameArray = reserveDataOffset(
       getNumberOfExposedFunctions() * sizeof(char*));
     initializeReservedPointer(funcNameArray, functionInfoStruct + 
-      offsetof(FunctionTimers, functionNames));
+      offsetof(TimerStats, sectionNames));
 
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
         Function* f = getExposedFunction(i);
@@ -140,10 +140,10 @@ void FunctionTimer::instrument(){
     }
 
     // Adding the base address
-    uint64_t functionHashes = reserveDataOffset(
+    uint64_t sectionHashes = reserveDataOffset(
       getNumberOfExposedFunctions() * sizeof(uint64_t));
-    initializeReservedPointer(functionHashes, functionInfoStruct + 
-      offsetof(FunctionTimers, functionHashes));
+    initializeReservedPointer(sectionHashes, functionInfoStruct + 
+      offsetof(TimerStats, sectionHashes));
 
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
         Function* f = getExposedFunction(i);
@@ -151,16 +151,18 @@ void FunctionTimer::instrument(){
 	temp64=bb->getHashCode().getValue();
 	//temp64=f->getBaseAddress();
 	uint64_t funchash = reserveDataOffset(sizeof(temp64));
-    initializeReservedData(getInstDataAddress() + functionHashes + 
+    initializeReservedData(getInstDataAddress() + sectionHashes + 
       sizeof(uint64_t)*i, (sizeof(uint64_t)), &temp64);
 
     }
 
-    funcInfo.functionTimerAccum = NULL;
-    funcInfo.functionTimerLast = NULL;
+    funcInfo.sectionTimerAccum = NULL;
+    funcInfo.sectionTimerLast = NULL;
+    funcInfo.entryType = PointType_functionEntry;
+    funcInfo.exitType = PointType_functionExit;
 
     initializeReservedData(getInstDataAddress() + functionInfoStruct, 
-      sizeof(FunctionTimers), (void*)&funcInfo);
+      sizeof(TimerStats), (void*)&funcInfo);
    
     // Add arguments to instrumentation functions
     programEntry->addArgument(functionInfoStruct);
