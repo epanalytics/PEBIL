@@ -18,14 +18,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _PAPIInst_hpp_
-#define _PAPIInst_hpp_
+#ifndef _PAPIFunctions_hpp_
+#define _PAPIFunctions_hpp_
 
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <string>
-
-using namespace std;
 
 #define MAX_HWC 32
 
@@ -35,29 +33,34 @@ using namespace std;
 
 typedef long long values_t[MAX_HWC];
 
-typedef struct {
-  bool master;
-  char* application;
-  char* extension;
-  uint64_t loopCount;
-  uint64_t* loopHashes;
-  uint64_t* loopTimerAccum;
-  uint64_t* loopTimerLast;
-  int events[MAX_HWC];
-  values_t* tmpValues;
-  values_t* accumValues;
-  int num;
-  int papiMeasurementsStarted;
-  int currentlyMeasuring;
-  int eventSet;
-  int eventCode;
-  std::set<int> activeLoops;
-} PAPIInst;
+typedef struct PAPIStats_s {
+    TimerStats timerStats;
+  //bool master;
+  //char* application;
+  //char* extension;
+  //uint64_t functionCount;
+  //char** functionNames;
+  //uint64_t* functionHashes;
+  //uint64_t* functionTimerAccum;
+  //uint64_t* functionTimerLast;
+  //uint64_t* functionEntryCounts;
+  //uint32_t* functionShutoff;
+  //uint32_t* inFunctionP;
+    int events[MAX_HWC];
+    values_t* tmpValues;
+    values_t* accumValues;
+    int num;
+    int papiMeasurementsStarted;
+    int currentlyMeasuring;
+    int eventSet;
+    int eventCode;
+    std::set<int> activeFunctions;
+} PAPIStats;
 
-static char ToLowerCase(char c);
-static bool ParsePositiveInt32(std::string token, uint32_t* value);
-static bool ParseInt32(std::string token, uint32_t* value, uint32_t min);
-static bool ParsePositiveInt32Hex(std::string token, uint32_t* value);
-static bool ReadEnvUint32(std::string name, uint32_t* var);
+//static char ToLowerCase(char c);
+//static bool ParsePositiveInt32(std::string token, uint32_t* value);
+//static bool ParseInt32(std::string token, uint32_t* value, uint32_t min);
+//static bool ParsePositiveInt32Hex(std::string token, uint32_t* value);
+//static bool ReadEnvUint32(std::string name, uint32_t* var);
 
 #endif

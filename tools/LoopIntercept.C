@@ -30,6 +30,7 @@
 #include <map>
 
 #include <TimerFunctions.hpp>
+#include <PAPIFunctions.hpp>
 
 
 //#define DEBUG_INTERPOSE
@@ -313,10 +314,10 @@ void LoopIntercept::instrument() {
     }
 
     // Create input struct
-    TimerStats loopInfo;
-    uint64_t loopInfoStruct = reserveDataOffset(sizeof(TimerStats));
+    PAPIStats loopInfo;
+    uint64_t loopInfoStruct = reserveDataOffset(sizeof(PAPIStats));
 
-    loopInfo.master = getElfFile()->isExecutable();
+    loopInfo.timerStats.master = getElfFile()->isExecutable();
 
     char* appName = getElfFile()->getAppName();
     uint64_t app = reserveDataOffset(strlen(appName)+1);
@@ -333,7 +334,7 @@ void LoopIntercept::instrument() {
     initializeReservedData(getInstDataAddress() + ext, strlen(extName) + 1, 
       (void*)extName);
 
-    loopInfo.sectionCount = numLoops;
+    loopInfo.timerStats.sectionCount = numLoops;
 
     uint64_t loopNameArray = reserveDataOffset(numLoops * sizeof(char*));
     initializeReservedPointer(loopNameArray, loopInfoStruct + offsetof(
@@ -343,10 +344,10 @@ void LoopIntercept::instrument() {
     initializeReservedPointer(loopHashes, loopInfoStruct + 
       offsetof(TimerStats, sectionHashes));
 
-    loopInfo.sectionTimerAccum = NULL;
-    loopInfo.sectionTimerLast = NULL;
-    loopInfo.entryType = PointType_loopEntry;
-    loopInfo.exitType = PointType_loopExit;
+    loopInfo.timerStats.sectionTimerAccum = NULL;
+    loopInfo.timerStats.sectionTimerLast = NULL;
+    loopInfo.timerStats.entryType = PointType_loopEntry;
+    loopInfo.timerStats.exitType = PointType_loopExit;
 
     initializeReservedData(getInstDataAddress() + loopInfoStruct, 
       sizeof(TimerStats), (void*)&loopInfo);

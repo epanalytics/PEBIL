@@ -29,6 +29,7 @@
 #include <string>
 
 #include <TimerFunctions.hpp>
+#include <PAPIFunctions.hpp>
 
 #define INST_LIB_NAME "libtimer.so"
 
@@ -102,10 +103,10 @@ void FunctionTimer::instrument(){
      * Create input for function timer instrumentation
      */
 
-    TimerStats funcInfo;
-    uint64_t functionInfoStruct = reserveDataOffset(sizeof(TimerStats));
+    PAPIStats funcInfo;
+    uint64_t functionInfoStruct = reserveDataOffset(sizeof(PAPIStats));
 
-    funcInfo.master = getElfFile()->isExecutable();
+    funcInfo.timerStats.master = getElfFile()->isExecutable();
 
     char* appName = getElfFile()->getAppName();
     uint64_t app = reserveDataOffset(strlen(appName) + 1);
@@ -122,7 +123,7 @@ void FunctionTimer::instrument(){
     initializeReservedData(getInstDataAddress() + ext, strlen(extName) + 1, 
       (void*)extName);
 
-    funcInfo.sectionCount = getNumberOfExposedFunctions();
+    funcInfo.timerStats.sectionCount = getNumberOfExposedFunctions();
 
     uint64_t funcNameArray = reserveDataOffset(
       getNumberOfExposedFunctions() * sizeof(char*));
@@ -156,13 +157,13 @@ void FunctionTimer::instrument(){
 
     }
 
-    funcInfo.sectionTimerAccum = NULL;
-    funcInfo.sectionTimerLast = NULL;
-    funcInfo.entryType = PointType_functionEntry;
-    funcInfo.exitType = PointType_functionExit;
+    funcInfo.timerStats.sectionTimerAccum = NULL;
+    funcInfo.timerStats.sectionTimerLast = NULL;
+    funcInfo.timerStats.entryType = PointType_functionEntry;
+    funcInfo.timerStats.exitType = PointType_functionExit;
 
     initializeReservedData(getInstDataAddress() + functionInfoStruct, 
-      sizeof(TimerStats), (void*)&funcInfo);
+      sizeof(PAPIStats), (void*)&funcInfo);
    
     // Add arguments to instrumentation functions
     programEntry->addArgument(functionInfoStruct);
