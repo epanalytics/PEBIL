@@ -577,4 +577,4 @@ void LoopIntercept::instrument() {
     delete allBlocks;
     delete allBlockIds;
     delete allLineInfos;
-
+}
