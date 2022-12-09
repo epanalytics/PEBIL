@@ -113,7 +113,7 @@ PAPIStats* GeneratePAPIStats(PAPIStats* counters, uint32_t typ,
     PAPIStats* retval;
     retval = new PAPIStats();
     uint64_t sectionCount = counters->timerStats.sectionCount;
-    retval->timerStats.master = (counters->timerStats.master && 
+    retval->timerStats.master = (counters->timerStats.master &&
       typ == DataManagerType_Image);
     retval->timerStats.application = counters->timerStats.application;
     retval->timerStats.extension = counters->timerStats.extension;
@@ -228,7 +228,7 @@ extern "C"
     void epa_pebil_pause_() { epa_pebil_pause(); return; }
 
   // section entry instrumentation
-  int32_t section_entry(uint32_t funcIndex, image_key_t* key) {
+  int32_t section_entry(uint32_t sectionIndex, image_key_t* key) {
       thread_key_t tid = pthread_self();
   
       PAPIStats* counters = AllData->GetData(*key, pthread_self());
@@ -240,9 +240,9 @@ extern "C"
       
       // if its a recursive call increment the recursion depth and 
       // entry count and return
-      if (counterStats.inSection[funcIndex] != 0) {
-          counterStats.inSection[funcIndex]++;
-          counterStats.sectionEntryCounts[funcIndex]++;
+      if (counterStats.inSection[sectionIndex] != 0) {
+          counterStats.inSection[sectionIndex]++;
+          counterStats.sectionEntryCounts[sectionIndex]++;
           return 0;
       }
   
@@ -250,7 +250,7 @@ extern "C"
       // Read the counters and update all active functions
       if (counters->currentlyMeasuring != 0) {
           // No error checking to minimize overhead
-          int error = PAPI_read(eventSet, counters->tmpValues[funcIndex]);
+          int error = PAPI_read(eventSet, counters->tmpValues[sectionIndex]);
       
           DEBUG({
               if (error != PAPI_OK){
@@ -264,7 +264,7 @@ extern "C"
             it != counters->activeFunctions.end(); ++it) {
               for (int i = 0; i < counters->num; i++) {
                   counters->accumValues[*it][i] += 
-                    counters->tmpValues[funcIndex][i];
+                    counters->tmpValues[sectionIndex][i];
               }
           }
       }
@@ -273,7 +273,7 @@ extern "C"
       counters->currentlyMeasuring++;
   
       // insert this function to the actively measuring set
-      counters->activeFunctions.insert(funcIndex);
+      counters->activeFunctions.insert(sectionIndex);
   
       //initialize PAPI for each thread (if not already).
       if (!counters->num) { 
@@ -331,8 +331,8 @@ extern "C"
           }
       }
 
-      counterStats.inSection[funcIndex]++;
-      counterStats.sectionEntryCounts[funcIndex]++;
+      counterStats.inSection[sectionIndex]++;
+      counterStats.sectionEntryCounts[sectionIndex]++;
       
   
       // if this is the first entry, start the measurements
@@ -361,57 +361,57 @@ extern "C"
           });
       }
       counters->eventSet = eventSet;
-      counterStats.sectionTimerLast[funcIndex] = read_timestamp_counter();
+      counterStats.sectionTimerLast[sectionIndex] = read_timestamp_counter();
       return 0;
   }
 
   //section exit instrumentation
-  int32_t section_exit(uint32_t funcIndex, image_key_t* key) {
+  int32_t section_exit(uint32_t sectionIndex, image_key_t* key) {
     
       uint64_t now = read_timestamp_counter();
       thread_key_t tid = pthread_self();
       PAPIStats* counters = AllData->GetData(*key, pthread_self());
       int eventSet = counters->eventSet;
-      int error = PAPI_read(eventSet, counters->tmpValues[funcIndex]);
+      int error = PAPI_read(eventSet, counters->tmpValues[sectionIndex]);
       TimerStats counterStats = counters->timerStats;
-      uint32_t recDepth = counterStats.inSection[funcIndex];
+      uint32_t recDepth = counterStats.inSection[sectionIndex];
       
       if (recDepth == 0) {
           if (GetTaskId() == 0) {
               warn << "Thread " << AllData->GetThreadSequence(tid) << " Leaving"
-                " never entered function " << funcIndex << ":" << 
-                counterStats.sectionNames[funcIndex] << ENDL;
+                " never entered function " << sectionIndex << ":" << 
+                counterStats.sectionNames[sectionIndex] << ENDL;
               print_backtrace();
           }
-          counterStats.inSection[funcIndex] = 0;
+          counterStats.inSection[sectionIndex] = 0;
           return 0; 
       } else if (recDepth < 0) {
           if (GetTaskId() == 0) {
               warn << "Negative call depth for " << 
-                counterStats.sectionNames[funcIndex] << ENDL;
+                counterStats.sectionNames[sectionIndex] << ENDL;
           }
-          counterStats.inSection[funcIndex] = 0;
+          counterStats.inSection[sectionIndex] = 0;
           return 0;
       }
       
       --recDepth;
       if (recDepth == 0) {
-          uint64_t last = counterStats.sectionTimerLast[funcIndex];
+          uint64_t last = counterStats.sectionTimerLast[sectionIndex];
         
-          counterStats.sectionTimerAccum[funcIndex] += now - last;
-          counterStats.sectionTimerLast[funcIndex] = now;
+          counterStats.sectionTimerAccum[sectionIndex] += now - last;
+          counterStats.sectionTimerLast[sectionIndex] = now;
           for (std::set<int>::iterator it=counters->activeFunctions.begin();
             it!=counters->activeFunctions.end(); ++it) {
   
               for (int i = 0; i < counters->num; i++) {
                   counters->accumValues[*it][i] += 
-                    counters->tmpValues[funcIndex][i];
+                    counters->tmpValues[sectionIndex][i];
               }
           }
      
           counters->currentlyMeasuring--;
           // remove this function from the active function set.
-          counters->activeFunctions.erase(funcIndex);
+          counters->activeFunctions.erase(sectionIndex);
       
           // if there are active functions remaining, we need to reset the 
           // counters
@@ -420,28 +420,29 @@ extern "C"
           }
       }
     
-      counterStats.inSection[funcIndex] = recDepth;
+      counterStats.inSection[sectionIndex] = recDepth;
 
       // Shutoff counters for this function?
       if (shutoffCounters) {
-          if (counterStats.sectionEntryCounts[funcIndex] % shutoffIters == 0) {
+          if (counterStats.sectionEntryCounts[sectionIndex] %
+            shutoffIters == 0) {
               double timePerVisit = ((double)counterStats.sectionTimerAccum[
-                funcIndex]) / ((double)counterStats.sectionEntryCounts[
-                funcIndex]) / timerCPUFreq;
+                sectionIndex]) / ((double)counterStats.sectionEntryCounts[
+                sectionIndex]) / timerCPUFreq;
 
               if (timePerVisit < (((double)timingThreshold) / 1000000.0)) {
                   uint64_t imageSeq = AllData->GetImageSequence(*key);
                   AllData->WriteLock();
-                  uint64_t this_key = GENERATE_UNIQUE_KEY(funcIndex, imageSeq,
-                    counterStats.exitType);
+                  uint64_t this_key = GENERATE_UNIQUE_KEY(sectionIndex,
+                    imageSeq, counterStats.exitType);
                   uint64_t corresponding_entry_key = GENERATE_UNIQUE_KEY(
-                    funcIndex, imageSeq, counterStats.entryType);
+                    sectionIndex, imageSeq, counterStats.entryType);
   
                   set<uint64_t> inits;
                   inits.insert(this_key);
                   inits.insert(corresponding_entry_key);
                   DynamicPoints->SetDynamicPoints(inits, false);
-                  counterStats.sectionShutoff[funcIndex] = 1;
+                  counterStats.sectionShutoff[sectionIndex] = 1;
                   AllData->UnLock();
               }
           }
@@ -573,7 +574,7 @@ extern "C"
       }
   
       char outFileName[1024];
-      if (counters->timerStats.entryType == PointType_loopEntry)
+      if (counterStats.entryType == PointType_loopEntry)
           sprintf(outFileName, "%s.set_%0d.meta_%0d.%s",
             counterStats.application, hwcSetNumber, GetTaskId(), "lpipapiinst");
       else
@@ -618,8 +619,9 @@ extern "C"
           char** sectionNames = timerData.sectionNames;
           uint64_t sectionCount = timerData.sectionCount;
   
-          for (uint64_t funcIndex = 0; funcIndex < sectionCount; ++funcIndex) {
-              char* fname = sectionNames[funcIndex];
+          for (uint64_t sectionIndex = 0; sectionIndex < sectionCount;
+            ++sectionIndex) {
+              char* fname = sectionNames[sectionIndex];
               fprintf(outFile, "%s:\n", fname);
               for (set<thread_key_t>::iterator tit = 
                 AllData->allthreads.begin(); tit != AllData->allthreads.end(); 
@@ -629,11 +631,11 @@ extern "C"
                   
                   fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
                     "%lld\tHash: 0x%llx\t", AllData->GetThreadSequence(*tit),
-                    (double)(itimer.sectionTimerAccum[funcIndex]) / 
-                    timerCPUFreq, itimer.sectionEntryCounts[funcIndex], 
-                    itimer.sectionHashes[funcIndex]);
+                    (double)(itimer.sectionTimerAccum[sectionIndex]) / 
+                    timerCPUFreq, itimer.sectionEntryCounts[sectionIndex], 
+                    itimer.sectionHashes[sectionIndex]);
                   // Add * if function was shutoff
-                  if (itimer.sectionShutoff[funcIndex] == 1) {
+                  if (itimer.sectionShutoff[sectionIndex] == 1) {
                       fprintf(outFile, "*\t");
                   }
   
@@ -650,14 +652,14 @@ extern "C"
                       }
                       if (strstr(units[hwc],"nJ")) {
                           scaledValue = (double)(icounters->accumValues[
-                            funcIndex][hwc]/(1.0e9));
+                            sectionIndex][hwc]/(1.0e9));
                           double watts = scaledValue / 
-                            ((double)(itimer.sectionTimerAccum[funcIndex])
+                            ((double)(itimer.sectionTimerAccum[sectionIndex])
                             / timerCPUFreq);
                           fprintf(outFile, "%.4f ", watts);
                       } else {
                           fprintf(outFile, "%lld ", 
-                            icounters->accumValues[funcIndex][hwc]);
+                            icounters->accumValues[sectionIndex][hwc]);
                       }
                   }
                   fprintf(outFile, "\n");

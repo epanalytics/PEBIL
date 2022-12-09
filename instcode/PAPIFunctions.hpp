@@ -35,17 +35,6 @@ typedef long long values_t[MAX_HWC];
 
 typedef struct PAPIStats_s {
     TimerStats timerStats;
-  //bool master;
-  //char* application;
-  //char* extension;
-  //uint64_t functionCount;
-  //char** functionNames;
-  //uint64_t* functionHashes;
-  //uint64_t* functionTimerAccum;
-  //uint64_t* functionTimerLast;
-  //uint64_t* functionEntryCounts;
-  //uint32_t* functionShutoff;
-  //uint32_t* inFunctionP;
     int events[MAX_HWC];
     values_t* tmpValues;
     values_t* accumValues;
@@ -56,11 +45,5 @@ typedef struct PAPIStats_s {
     int eventCode;
     std::set<int> activeFunctions;
 } PAPIStats;
-
-//static char ToLowerCase(char c);
-//static bool ParsePositiveInt32(std::string token, uint32_t* value);
-//static bool ParseInt32(std::string token, uint32_t* value, uint32_t min);
-//static bool ParsePositiveInt32Hex(std::string token, uint32_t* value);
-//static bool ReadEnvUint32(std::string name, uint32_t* var);
 
 #endif
