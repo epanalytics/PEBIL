@@ -49,9 +49,13 @@ class AddressStreamTool {
 };
 
 class StreamStats {
+  protected:
+    bool isCodeCentric = true;
   public:
     virtual uint64_t GetAccessCount(uint32_t memid) = 0;
     virtual bool Verify() = 0;
+    virtual bool GetIsCodeCentric() { return isCodeCentric; }
+    void SetIsCodeCentric(bool codeCentric) { isCodeCentric = codeCentric; }
 };
 
 // Note: User required to check if limit is hit
@@ -67,26 +71,26 @@ class SamplingMethod {
     pthread_rwlock_t sampling_rwlock;
     pthread_rwlockattr_t sampling_rwlock_attr;
 
-    bool CurrentlySampling(uint64_t count);
+    bool CurrentlySampling(uint64_t count, bool lock);
 
   public:
     SamplingMethod(uint32_t limit, uint32_t on, uint32_t off);
     virtual ~SamplingMethod();
 
-    virtual bool CurrentlySampling();
-    virtual bool ExceedsAccessLimit(uint64_t count);
+    virtual bool CurrentlySampling(bool lock);
+    virtual bool ExceedsAccessLimit(uint64_t count, bool lock=true);
     virtual uint64_t GetAccessCount() { return AccessCount; }
     uint64_t GetAccessLimit() { return AccessLimit; }
     virtual double GetSamplingFrequency();
     uint32_t GetSampleOn() { return SampleOn; }
     uint32_t GetSampleOff() { return SampleOff; }
-    void IncrementAccessCount(uint64_t count);
-    virtual bool SwitchesMode(uint64_t count);
+    void IncrementAccessCount(uint64_t count, bool lock=true);
+    virtual bool SwitchesMode(uint64_t count, bool lock=true);
     void Print();
 
-    bool ReadLock();
-    bool UnLock();
-    bool WriteLock();
+    void ReadLock(bool lock=true);
+    void UnLock(bool lock=true);
+    void WriteLock(bool lock=true);
 };
 
 // DFP and other interesting memory things extend this class.
@@ -98,12 +102,14 @@ class MemoryStreamHandler {
     virtual ~MemoryStreamHandler();
 
     virtual void Print(std::ofstream& f) = 0;
-    virtual uint32_t Process(void* stats, BufferEntry* access) = 0;
+    virtual uint32_t Process(void* stats, uint64_t memSeq, bool ldstFlag,
+      uint64_t* addresses, uint64_t length, bool memvecFlag) 
+      = 0;
     // Number of addresses that appeared but aren't processed
     virtual void SkipAddresses(uint32_t numToSkip) {};
     virtual bool Verify() = 0;
-    bool Lock();
-    bool UnLock();
+    void Lock();
+    void UnLock();
     bool TryLock();
 
 };
@@ -118,6 +124,7 @@ class StringParser {
     virtual bool IsEmptyComment(std::string str);
     virtual bool ParseInt32(std::string token, int32_t* value, int32_t min);
     virtual bool ParsePositiveInt32(std::string token, uint32_t* value);
+    virtual bool ReadEnvInt32(std::string name, int32_t* var);
     virtual bool ReadEnvUint32(std::string name, uint32_t* var);
     virtual char ToLowerCase(char c);
 };

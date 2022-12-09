@@ -57,18 +57,18 @@ SamplingMethod::SamplingMethod(uint32_t limit, uint32_t on, uint32_t off){
 SamplingMethod::~SamplingMethod(){
 }
 
-bool SamplingMethod::CurrentlySampling(){
-    return CurrentlySampling(0);
+bool SamplingMethod::CurrentlySampling(bool lock){
+    return CurrentlySampling(0, lock);
 }
 
 // Returns if would be sampling after "count" samples
-bool SamplingMethod::CurrentlySampling(uint64_t count){
-    ReadLock();
+bool SamplingMethod::CurrentlySampling(uint64_t count, bool lock){
+    ReadLock(lock);
     uint32_t PeriodLength = SampleOn + SampleOff;
 
     bool res = false;
     if (SampleOn == 0){
-        UnLock();
+        UnLock(lock);
         return res;
     }
 
@@ -80,17 +80,17 @@ bool SamplingMethod::CurrentlySampling(uint64_t count){
         res = true;
     }
     
-    UnLock();
+    UnLock(lock);
     return res;
 }
 
-bool SamplingMethod::ExceedsAccessLimit(uint64_t count){
-    ReadLock();
+bool SamplingMethod::ExceedsAccessLimit(uint64_t count, bool lock){
+    ReadLock(lock);
     bool res = false;
     if (AccessLimit > 0 && count > AccessLimit){
         res = true;
     }
-    UnLock();
+    UnLock(lock);
     return res;
 }
 
@@ -105,14 +105,14 @@ double SamplingMethod::GetSamplingFrequency() {
     return frequency;
 }
 
-void SamplingMethod::IncrementAccessCount(uint64_t count){
-    WriteLock();
+void SamplingMethod::IncrementAccessCount(uint64_t count, bool lock){
+    WriteLock(lock);
     AccessCount += count;
-    UnLock();
+    UnLock(lock);
 }
 
-bool SamplingMethod::SwitchesMode(uint64_t count){
-    return (CurrentlySampling(0) != CurrentlySampling(count));
+bool SamplingMethod::SwitchesMode(uint64_t count, bool lock){
+    return (CurrentlySampling(0, lock) != CurrentlySampling(count, lock));
 }
 
 void SamplingMethod::Print(){
@@ -121,19 +121,22 @@ void SamplingMethod::Print(){
     UnLock();
 }
 
-bool SamplingMethod::ReadLock() {
-    bool res = (pthread_rwlock_rdlock(&sampling_rwlock) == 0);
-    return res;
+void SamplingMethod::ReadLock(bool lock) {
+    if (lock)
+        bool res = (pthread_rwlock_rdlock(&sampling_rwlock) == 0);
+    return;
 }
 
-bool SamplingMethod::UnLock() {
-    bool res = (pthread_rwlock_unlock(&sampling_rwlock) == 0);
-    return res;
+void SamplingMethod::UnLock(bool lock) {
+    if (lock)
+        bool res = (pthread_rwlock_unlock(&sampling_rwlock) == 0);
+    return;
 }
 
-bool SamplingMethod::WriteLock() {
-    bool res = (pthread_rwlock_wrlock(&sampling_rwlock) == 0);
-    return res;
+void SamplingMethod::WriteLock(bool lock) {
+    if (lock)
+        bool res = (pthread_rwlock_wrlock(&sampling_rwlock) == 0);
+    return;
 }
 
 MemoryStreamHandler::MemoryStreamHandler(){
@@ -146,12 +149,14 @@ bool MemoryStreamHandler::TryLock(){
     return (pthread_mutex_trylock(&mlock) == 0);
 }
 
-bool MemoryStreamHandler::Lock(){
-    return (pthread_mutex_lock(&mlock) == 0);
+void MemoryStreamHandler::Lock(){
+    bool res = (pthread_mutex_lock(&mlock) == 0);
+    return;
 }
 
-bool MemoryStreamHandler::UnLock(){
-    return (pthread_mutex_unlock(&mlock) == 0);
+void MemoryStreamHandler::UnLock(){
+    bool res = (pthread_mutex_unlock(&mlock) == 0);
+    return;
 }
 
 char* StringParser::GetEnv(const char* variable){
@@ -214,6 +219,18 @@ bool StringParser::ParsePositiveInt32(string token, uint32_t* value){
     bool ret = ParseInt32(token, (int32_t*)value, 1);
     assert((int32_t)(*value) == (uint32_t)(*value));
     return ret;
+}
+
+bool StringParser::ReadEnvInt32(string name, int32_t* var){
+    char* e = getenv(name.c_str());
+    if (e == NULL){
+        debug(inform << "unable to find " << name << " in environment" << ENDL;)
+        return false;
+    }
+    string s (e);
+    // Min argument does not matter since we do not capture returned value
+    (void) ParseInt32(s, (int32_t*)var, 0);
+    return true;
 }
 
 bool StringParser::ReadEnvUint32(string name, uint32_t* var){

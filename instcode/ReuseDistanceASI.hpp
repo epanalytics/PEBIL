@@ -51,7 +51,7 @@ class ReuseStreamStats : public StreamStats {
 
     // FIXME
     uint64_t GetAccessCount(uint32_t memop) { return 0; }
-    uint64_t GetBlock(uint32_t memop);
+    virtual uint64_t GetBlock(uint32_t memop);
     virtual uint64_t GetHash(uint32_t memop);
 
     bool Verify() { return true; }
@@ -66,7 +66,8 @@ class ReuseDistanceHandler : public MemoryStreamHandler {
     virtual ~ReuseDistanceHandler();
 
     void Print(std::ofstream& f);
-    uint32_t Process(void* stats, BufferEntry* access);
+    uint32_t Process(void* stats, uint64_t memSeq, bool ldstFlag, 
+      uint64_t* addresses, uint64_t length, bool memvecFlag);
 
     virtual void SkipAddresses(uint32_t numToSkip);
     bool Verify() { return true; }

@@ -81,7 +81,8 @@ class CacheSimulationTool : public AddressStreamTool {
     CacheSimulationTool() : AddressStreamTool() {}
     virtual void AddNewHandlers(AddressStreamStats* stats);
     virtual void AddNewStreamStats(AddressStreamStats* stats);
-    void CacheSimulationFileName(AddressStreamStats* stats, std::string& oFile);
+    virtual void CacheSimulationFileName(AddressStreamStats* stats, 
+      std::string& oFile);
     virtual uint32_t CreateHandlers(uint32_t index, StringParser* parser);
     virtual void FinalizeTool(DataManager<AddressStreamStats*>* AllData,
       SamplingMethod* Sampler);
@@ -93,7 +94,8 @@ class CacheSimulationTool : public AddressStreamTool {
     virtual void HandleEnvVariables(StringParser* parser);
     bool IsKeepingMemoryLog() { return KeepMemoryLog; }
     bool IsTrackingDirtyStatus() { return TrackDirtyStatus; }
-    void MemoryLogFileName(AddressStreamStats* stats, std::string& oFile);
+    virtual void MemoryLogFileName(AddressStreamStats* stats, 
+      std::string& oFile);
     virtual uint32_t ReadCacheDescription(std::istream& cacheStream, 
       StringParser* parser);
 
@@ -128,8 +130,8 @@ class CacheSimulationTool : public AddressStreamTool {
       threadid);
     virtual void PrintPerBlockData(DataManager<AddressStreamStats*>* AllData, 
       image_key_t imageid, thread_key_t threadid, CacheStats** aggregatedStats, 
-      uint32_t bbid);
-    virtual void PrintReportHeaders();
+      uint32_t bbid, bool isCodeCentric);
+    virtual void PrintReportHeaders(bool isCodeCentric);
     virtual void PrintSysIdHeader(uint32_t sysid, image_key_t imageid);
     void PrintThreadidInfo(std::ofstream& file, thread_key_t thread, 
       DataManager<AddressStreamStats*>* AllData);
@@ -234,7 +236,8 @@ class CacheStructureHandler : public MemoryStreamHandler {
     bool IsTrackingDirtyStatus() {return CacheSimTool->IsTrackingDirtyStatus();}
 
     void Print(std::ofstream& f);
-    uint32_t Process(void* stats, BufferEntry* access);
+    uint32_t Process(void* stats, uint64_t memSeq, bool ldstFlag,
+      uint64_t* addresses, uint64_t length, bool memvecFlag);
     bool Verify();
 };
 

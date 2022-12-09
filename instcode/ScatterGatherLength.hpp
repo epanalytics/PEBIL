@@ -74,7 +74,8 @@ public:
     ~VectorLengthHandler();
 
     void Print(std::ofstream& f);
-    uint32_t Process(void* stats, BufferEntry* access);
+    uint32_t Process(void* stats, uint64_t memSeq, bool ldstFlag,
+      uint64_t* addresses, uint64_t length, bool memvecFlag);
     bool Verify() { return true; }
 };
 

@@ -250,13 +250,14 @@ extern "C"
       // Read the counters and update all active functions
       if (counters->currentlyMeasuring != 0) {
           // No error checking to minimize overhead
-          PAPI_read(eventSet, counters->tmpValues[funcIndex]);
+          int error = PAPI_read(eventSet, counters->tmpValues[funcIndex]);
       
-          // Uncomment error checking for debugging purposes 
-          //if (PAPI_read(eventSet, counters->tmpValues[funcIndex]) != PAPI_OK){
-          //    fprintf(stderr, "Error reading the values!\n");
-          //    exit(1);
-          //}
+          DEBUG({
+              if (error != PAPI_OK){
+                  fprintf(stderr, "Error reading the values!\n");
+                  exit(1);
+              }
+          });
   
           // associate the counter values to all the active functions
           for (std::set<int>::iterator it = counters->activeFunctions.begin();
@@ -276,9 +277,9 @@ extern "C"
   
       //initialize PAPI for each thread (if not already).
       if (!counters->num) { 
-          int retval = PAPI_library_init(PAPI_VER_CURRENT);
-          if (retval != PAPI_VER_CURRENT) {
-              fprintf(stderr, "PAPI library init error!\n");
+          int retval = PAPI_register_thread();
+          if (retval != PAPI_OK) {
+              fprintf(stderr, "PAPI thread reg error!\n");
               exit(1);
           }
   
@@ -318,7 +319,7 @@ extern "C"
                   if (counters->num == 0) {
                       fprintf(stderr, "No counters defined in the env. Adding "
                         "PAPI_TOT_CYC as default. \n");
-                      PAPI_add_event(eventSet, PAPI_TOT_CYC);
+                      int error = PAPI_add_event(eventSet, PAPI_TOT_CYC);
                       *(counters->events+counters->num) = PAPI_TOT_CYC;
                       ++counters->num;
                   } else {
@@ -337,19 +338,27 @@ extern "C"
       // if this is the first entry, start the measurements
       if (counters->papiMeasurementsStarted == 0) {
           // No error checking to minimize overhead
-          PAPI_start(eventSet);
+          int error = PAPI_start(eventSet);
 
-          // uncomment for debugging purposes
-          //if (PAPI_start(eventSet) != PAPI_OK) {
-          //    fprintf(stderr, "Error in PAPI start!\n");
-          //    exit(1);
-          //}
+          DEBUG({
+              if (error != PAPI_OK) {
+                  fprintf(stderr, "Error in PAPI start!\n");
+                  exit(1);
+              }
+          });
 
           // indicate that the measurements have started 
           counters->papiMeasurementsStarted = 1;
       } else {
           // else reset the counters (again doing it without the check)
-            PAPI_reset(eventSet);
+          int error = PAPI_reset(eventSet);
+
+          DEBUG({
+              if (error != PAPI_OK) {
+                  fprintf(stderr, "Error in PAPI reset!\n");
+                  exit(1);
+              }
+          });
       }
       counters->eventSet = eventSet;
       counterStats.sectionTimerLast[funcIndex] = read_timestamp_counter();
@@ -363,7 +372,7 @@ extern "C"
       thread_key_t tid = pthread_self();
       PAPIStats* counters = AllData->GetData(*key, pthread_self());
       int eventSet = counters->eventSet;
-      PAPI_read(eventSet, counters->tmpValues[funcIndex]);
+      int error = PAPI_read(eventSet, counters->tmpValues[funcIndex]);
       TimerStats counterStats = counters->timerStats;
       uint32_t recDepth = counterStats.inSection[funcIndex];
       
@@ -407,7 +416,7 @@ extern "C"
           // if there are active functions remaining, we need to reset the 
           // counters
           if (counters->currentlyMeasuring != 0) {
-              PAPI_reset(eventSet);
+              int error = PAPI_reset(eventSet);
           }
       }
     
@@ -489,10 +498,16 @@ extern "C"
       AllData->AddImage(counters, td, *key);
     
       counters = AllData->GetData(*key, pthread_self());
-    
-      if (PAPI_num_hwctrs() < PAPI_OK) {
-          fprintf(stderr, "PAPI initialization failed");
-          return NULL;
+      int error = PAPI_library_init(PAPI_VER_CURRENT);
+      if (error != PAPI_VER_CURRENT) {
+          fprintf(stderr, "PAPI lib initialization failed with %d\n", error);
+          exit(1);
+      }
+
+      error = PAPI_thread_init(pthread_self);
+      if (error != PAPI_OK) {
+          fprintf(stderr, "PAPI thread initialization failed with %d\n", error);
+          exit(1);
       }
 
       set<uint64_t> inits;

@@ -132,11 +132,10 @@ void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction*
     }
 
     // Set sr2 to point to the location of our buffer entry. For performance,
-    // we already have increased __buf_current, so we must keep track of 
-    // which memop we are isntrumenting AND the index must go backwards.
-    uint32_t memopsInBlock = getNumberOfMemopsToInstrument(bb);
-    ASSERT(memopIdInBlock < memopsInBlock);
-    int32_t bufferIndex = memopIdInBlock - memopsInBlock + 1;
+    // we already have increased __buf_current. We set __buf_oldPosition to
+    // be where __buf_current was before the increase. This makes assembly 
+    // a little easier and makes threading (with ProcessAllBuffers) possible
+    int32_t bufferIndex = memopIdInBlock + 1;
     setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, bufferIndex);
 
     writeBufferEntry(snip, memopSeq, sr2, sr3, MEM_ENTRY, swpfflag,
@@ -221,7 +220,8 @@ uint64_t AddressStreamIntercept::getNumberOfMemopsToInstrument(){
     for (uint32_t blockInd = 0; blockInd < blocksToInst.size(); blockInd++){
         BasicBlock* bb = blocksToInst[blockInd];
         ASSERT(blocksToInstHash.get(bb->getHashCode().getValue()));
-        numMemops += getNumberOfMemopsToInstrument(bb);
+        uint64_t curMemops = getNumberOfMemopsToInstrument(bb);
+        numMemops += curMemops;
     }
 
     return numMemops;
@@ -441,7 +441,8 @@ void AddressStreamIntercept::initializeBlocksToInst(){
 // Initialize special buffer entry
 void AddressStreamIntercept::initializeFirstBufferEntry(BufferEntry& intro){
     intro.__buf_current = 0;
-    intro.__buf_capacity = BUFFER_ENTRIES;
+    intro.__buf_oldPosition = 0;
+    intro.__buf_capacity = GetBufferEntries();
 }
 
 // Initialize groups for sampling (blocks that are turned on and off together)
@@ -740,7 +741,7 @@ void AddressStreamIntercept::initializeAddressStreamStats(AddressStreamStats&
     BufferEntry intro;
     initializeFirstBufferEntry(intro);
     stats.Buffer = (BufferEntry*)reserveDataOffset((sizeof(BufferEntry) * 
-      (BUFFER_ENTRIES + 1)));
+      (GetBufferEntries() + 1)));
     initializeReservedData(getInstDataAddress() + (uint64_t)stats.Buffer,
                            sizeof(BufferEntry),
                            &intro);
@@ -850,9 +851,10 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
   InstLocations loc, uint32_t threadReg, AddressStreamStats& stats,
   uint64_t blockSeq, uint32_t numMemops) {
 
-    // grab 2 scratch registers
+    // grab 3 scratch registers
     // TODO ACC: Is there a way to clean up the registers?
     uint32_t sr1 = X86_REG_INVALID, sr2 = X86_REG_INVALID;
+    uint32_t sr3 = X86_REG_INVALID;
     BitSet<uint32_t>* inv = new BitSet<uint32_t>(X86_ALU_REGS);
     inv->insert(X86_REG_AX);
     inv->insert(X86_REG_SP);
@@ -868,19 +870,22 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
     for (uint32_t k = X86_64BIT_GPRS; k < X86_ALU_REGS; k++){
         inv->insert(k);
     }
-    BitSet<uint32_t>* dead = inst->getDeadRegIn(inv, 2);
-    ASSERT(dead->size() >= 2);
+    BitSet<uint32_t>* dead = inst->getDeadRegIn(inv, 3);
+    ASSERT(dead->size() >= 3);
     for (uint32_t k = 0; k < X86_64BIT_GPRS; k++){
         if (dead->contains(k)){
-            if (sr1 == X86_REG_INVALID){
+            if (sr1 == X86_REG_INVALID) {
                 sr1 = k;
-            } else if (sr2 == X86_REG_INVALID){
+            } else if (sr2 == X86_REG_INVALID) {
                 sr2 = k;
+            } else if (sr3 == X86_REG_INVALID) {
+                sr3 = k;
                 break;
             }
         }
     }
-    ASSERT(sr1 != X86_REG_INVALID && sr2 != X86_REG_INVALID);
+    ASSERT(sr1 != X86_REG_INVALID && sr2 != X86_REG_INVALID && sr3 !=
+      X86_REG_INVALID);
     delete inv;
     delete dead;
 
@@ -920,8 +925,9 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
     bufferDumpInstructions->append(X86InstructionFactory64::
       emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_current), sr2));                            
     // compare current buffer+blockMemops to buffer max
+    uint64_t bufEnts = GetBufferEntries();
     bufferDumpInstructions->append(X86InstructionFactory64::emitCompareImmReg(
-      BUFFER_ENTRIES - numMemops, sr2));
+      bufEnts - numMemops, sr2));
 
     // jump to non-buffer-jump code
     bufferDumpInstructions->append(X86InstructionFactory::emitBranchJL(
@@ -939,6 +945,7 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
     // If we include the buffer increment as part of the buffer check, it 
     // increments the buffer pointer even when we try to disable this point 
     // during buffer clearing. So, create a new snippet to increment it
+    // Let's also set buf_oldPosition to buf_current
     InstrumentationSnippet* snip = addInstrumentationSnippet();
     pt = addInstrumentationPoint(inst, snip, InstrumentationMode_inline, loc);
     pt->setPriority(InstPriority_regular);
@@ -960,11 +967,35 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
           emitMoveRegaddrImmToReg(sr1, offsetof(AddressStreamStats, Buffer), 
           sr2));
 
+        // First set oldPosition to current
+        // sr3 = ((BufferEntry*)sr2)->__buf_current
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_current), 
+          sr3));
+
+        // ((BufferEntry*)sr2)->__buf_oldPosition = sr3
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, 
+            __buf_oldPosition), true));
+        
+        // Then increment the buffer
         // ((BufferEntry*)sr2)->__buf_current++
         snip->addSnippetInstruction(X86InstructionFactory64::
           emitAddImmToRegaddrImm(numMemops, sr2, offsetof(BufferEntry, 
           __buf_current)));
     } else {
+        // sr2 = &(stats.Buffer[0])
+        snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImmToReg(
+          getInstDataAddress() + (uint64_t)stats.Buffer, sr2));
+        // First set oldPosition to current
+        // sr3 = ((BufferEntry*)sr2)->__buf_current
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_current), 
+          sr3));
+        // ((BufferEntry*)sr2)->__buf_oldPosition = sr3
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, 
+            __buf_oldPosition), true));
         // stats.Buffer[0].__buf_current++
         uint64_t currentOffset = (uint64_t)stats.Buffer + 
           offsetof(BufferEntry, __buf_current);
@@ -1144,6 +1175,10 @@ void AddressStreamIntercept::instrument(){
     ASSERT(currentPhase == ElfInstPhase_user_reserve && "Instrumentation phase order must be observed"); 
 }
 
+uint64_t AddressStreamIntercept::GetBufferEntries() {
+    return BUFFER_ENTRIES;
+}
+
 // Instrument the program entry with a function to initialize the Address 
 // stream tool
 void AddressStreamIntercept::instrumentEntryPoint() {
@@ -1281,9 +1316,10 @@ void AddressStreamIntercept::setSr2ToBufferEntry(AddressStreamStats& stats,
           emitMoveImmToReg(getInstDataAddress() + (uint64_t)stats.Buffer, sr2));
     }
 
-    // sr3 = ((BufferEntry*)sr2)->__buf_current;
+    // sr3 = ((BufferEntry*)sr2)->__buf_oldPosition;
     snip->addSnippetInstruction(X86InstructionFactory64::
-      emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_current), sr3));
+      emitMoveRegaddrImmToReg(sr2, offsetof(BufferEntry, __buf_oldPosition), 
+        sr3));
 
     // sr3 = sr3 * sizeof(BufferEntry)
     // sr3 holds the offset (in bytes) of the access
@@ -1457,13 +1493,11 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
     }
 
     // Set sr2 to point to the location of our buffer entry. For performance,
-    // we already have increased __buf_current, so we must keep track of 
-    // which memop we are isntrumenting AND the index must go backwards.
-    uint32_t memopsInBlock = getNumberOfMemopsToInstrument(bb);
-    ASSERT(memopIdInBlock < memopsInBlock);
-    int32_t bufferIndex = memopIdInBlock - memopsInBlock + 1;
+    // we already have increased __buf_current. We set __buf_oldPosition to
+    // be where __buf_current was before the increase. This makes assembly 
+    // a little easier and makes threading (with ProcessAllBuffers) possible
+    int32_t bufferIndex = memopIdInBlock + 1;
     setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, bufferIndex);
-    //setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, 0);
     int8_t loadstoreflag;
     if(vectorIns->isLoad())
         loadstoreflag = LOAD;
@@ -1565,9 +1599,15 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
       offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, mask),
       true));
     // write index vector
-    snip->addSnippetInstruction(X86InstructionFactory64::
-      emitMoveZmmToUnalignedRegaddrImm(zmmReg, X86_REG_K0, sr2, 
-      offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, 
-      indexVector)));
+    if (vectorOp->isIndexRegZMM())
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveZmmToUnalignedRegaddrImm(zmmReg, X86_REG_K0, sr2, 
+          offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, 
+          indexVector), 512));
+    else
+        snip->addSnippetInstruction(X86InstructionFactory64::
+          emitMoveZmmToUnalignedRegaddrImm(zmmReg, X86_REG_K0, sr2, 
+          offsetof(BufferEntry, vectorAddress) + offsetof(VectorAddress, 
+          indexVector), 256));
 
 } 

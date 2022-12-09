@@ -72,17 +72,23 @@ void SpatialLocalityTool::FinalizeTool(DataManager<AddressStreamStats*>*
     inform << "Printing spatial locality results to " << fileName << ENDL;
     TryOpen(SpatialLocFile, fileName);
 
-    for (set<image_key_t>::iterator iit = AllData->allimages.begin(); iit != AllData->allimages.end(); iit++){
-        for(DataManager<AddressStreamStats*>::iterator it = AllData->begin(*iit); it != AllData->end(*iit); ++it){
+    for (set<image_key_t>::iterator iit = AllData->allimages.begin(); 
+      iit != AllData->allimages.end(); iit++){
+
+        for(DataManager<AddressStreamStats*>::iterator it = 
+          AllData->begin(*iit); it != AllData->end(*iit); ++it){
+
             thread_key_t thread = it->first;
             AddressStreamStats* s = it->second;
 
-            SpatialLocFile << "IMAGE" << TAB << hex << (*iit) << TAB << "THREAD" << TAB << dec << AllData->GetThreadSequence(thread) << ENDL;
+            SpatialLocFile << "IMAGE" << TAB << hex << (*iit) << TAB << "THREAD" 
+              << TAB << dec << AllData->GetThreadSequence(thread) << ENDL;
 
             SpatialLocalityHandler* sd = (SpatialLocalityHandler*)(s->Handlers[
               indexInStats]);
             assert(sd);
-            inform << "Spatial locality bins for " << hex << s->Application << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
+            inform << "Spatial locality bins for " << hex << s->Application 
+              << " Thread " << AllData->GetThreadSequence(thread) << ENDL;
             sd->Print(SpatialLocFile);
         }
     }

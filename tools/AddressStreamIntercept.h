@@ -117,6 +117,7 @@ public:
     void declare();
     void instrument();
 
+    uint64_t GetBufferEntries();
     const char* briefName() { return "AddressStreamIntercept"; }
     const char* defaultExtension() { return "addstrinst"; }
     uint32_t allowsArgs() { return PEBIL_OPT_LPI | PEBIL_OPT_DTL | PEBIL_OPT_PHS | PEBIL_OPT_DFP; }
