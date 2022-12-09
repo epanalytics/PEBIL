@@ -126,6 +126,8 @@ TimerStats* GenerateTimerStats(TimerStats* timers, uint32_t typ, image_key_t iid
     retval->sectionEntryCounts = new uint64_t[retval->sectionCount];
     retval->sectionShutoff = new uint32_t[retval->sectionCount]; 
     retval->unenteredSections = new uint64_t[retval->sectionCount];
+    retval->entryType = timers->entryType;
+    retval->exitType = timers->exitType;
 
     memset(retval->sectionTimerAccum, 0, sizeof(*retval->sectionTimerAccum) *       retval->sectionCount);
     memset(retval->sectionTimerLast, 0, sizeof(*retval->sectionTimerLast) *         retval->sectionCount);

@@ -125,6 +125,8 @@ PAPIStats* GeneratePAPIStats(PAPIStats* counters, uint32_t typ,
     retval->timerStats.sectionEntryCounts = new uint64_t[sectionCount];
     retval->timerStats.sectionShutoff = new uint32_t[sectionCount];
     retval->timerStats.inSection = new uint32_t[sectionCount];
+    retval->timerStats.entryType = counters->timerStats.entryType;
+    retval->timerStats.exitType = counters->timerStats.exitType;
 
     retval->tmpValues = new values_t[sectionCount];
     retval->accumValues = new values_t[sectionCount];
@@ -556,8 +558,12 @@ extern "C"
       }
   
       char outFileName[1024];
-      sprintf(outFileName, "%s.set_%0d.meta_%0d.%s", counterStats.application, 
-        hwcSetNumber, GetTaskId(), "ftpapiinst");
+      if (counters->timerStats.entryType == PointType_loopEntry)
+          sprintf(outFileName, "%s.set_%0d.meta_%0d.%s",
+            counterStats.application, hwcSetNumber, GetTaskId(), "lpipapiinst");
+      else
+          sprintf(outFileName, "%s.set_%0d.meta_%0d.%s",
+            counterStats.application, hwcSetNumber, GetTaskId(), "ftpapiinst");
   
       FILE* outFile = fopen(outFileName, "w");
       if (!outFile) {
