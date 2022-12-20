@@ -467,6 +467,14 @@ extern "C"
   void* tool_mpi_init() {
       return NULL;
   }
+
+  void* tool_pre_mpi_fini() {
+      return NULL;
+  }
+
+  void* tool_pre_mpi_init() {
+      return NULL;
+  }
   
   void* tool_thread_init(thread_key_t tid) {
       if (AllData) {
