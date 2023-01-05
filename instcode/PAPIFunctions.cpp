@@ -59,7 +59,8 @@
 #include <DynamicInstrumentation.hpp>
 #include <Metasim.hpp>
 #include <ThreadedCommon.hpp>
-#include <PAPIFunc.hpp>
+#include <TimerFunctions.hpp>
+#include <PAPIFunctions.hpp>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,42 +102,47 @@ inline uint64_t read_timestamp_counter() {
     return ((unsigned long long)low | (((unsigned long long)high) << 32));
 }
 
-DataManager<FunctionPAPI*>* AllData = NULL;
+DataManager<PAPIStats*>* AllData = NULL;
 DynamicInstrumentation* DynamicPoints = NULL;
 static std::set<uint64_t> EntryExitKeys;
 
 
-FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ, 
+PAPIStats* GeneratePAPIStats(PAPIStats* counters, uint32_t typ, 
   image_key_t iid, thread_key_t tid, image_key_t firstimage) {
 
-    FunctionPAPI* retval;
-    retval = new FunctionPAPI();
-    retval->master = counters->master && typ == DataManagerType_Image;
-    retval->application = counters->application;
-    retval->extension = counters->extension;
-    retval->functionCount = counters->functionCount;
-    retval->functionNames = counters->functionNames;
-    retval->functionHashes = counters->functionHashes;
-    retval->tmpValues = new values_t[retval->functionCount];
-    retval->accumValues = new values_t[retval->functionCount];
+    PAPIStats* retval;
+    retval = new PAPIStats();
+    uint64_t sectionCount = counters->timerStats.sectionCount;
+    retval->timerStats.master = (counters->timerStats.master &&
+      typ == DataManagerType_Image);
+    retval->timerStats.application = counters->timerStats.application;
+    retval->timerStats.extension = counters->timerStats.extension;
+    retval->timerStats.sectionCount = counters->timerStats.sectionCount;
+    retval->timerStats.sectionNames = counters->timerStats.sectionNames;
+    retval->timerStats.sectionHashes = counters->timerStats.sectionHashes;
+    retval->timerStats.sectionTimerAccum = new uint64_t[sectionCount];
+    retval->timerStats.sectionTimerLast = new uint64_t[sectionCount];
+    retval->timerStats.sectionEntryCounts = new uint64_t[sectionCount];
+    retval->timerStats.sectionShutoff = new uint32_t[sectionCount];
+    retval->timerStats.inSection = new uint32_t[sectionCount];
+    retval->timerStats.entryType = counters->timerStats.entryType;
+    retval->timerStats.exitType = counters->timerStats.exitType;
+
+    retval->tmpValues = new values_t[sectionCount];
+    retval->accumValues = new values_t[sectionCount];
     retval->num = 0;
     retval->currentlyMeasuring = 0;
     retval->eventSet = PAPI_NULL;
-    retval->functionTimerAccum = new uint64_t[retval->functionCount];
-    retval->functionTimerLast = new uint64_t[retval->functionCount];
-    retval->inFunctionP = new uint32_t[retval->functionCount];
-    retval->functionEntryCounts = new uint64_t[retval->functionCount];
-    retval->functionShutoff = new uint32_t[retval->functionCount];
     
-    memset(retval->functionTimerAccum, 0, sizeof(uint64_t) * 
-      retval->functionCount);
-    memset(retval->functionTimerLast, 0, sizeof(uint64_t) *
-      retval->functionCount);
-    memset(retval->inFunctionP, 0, sizeof(uint32_t) * retval->functionCount);
-    memset(retval->functionEntryCounts, 0, sizeof(uint64_t) * 
-      retval->functionCount);
-    memset(retval->functionShutoff, 0, sizeof(uint32_t) * 
-      retval->functionCount);
+    memset(retval->timerStats.sectionTimerAccum, 0, sizeof(uint64_t) *
+      sectionCount);
+    memset(retval->timerStats.sectionTimerLast, 0, sizeof(uint64_t) *
+      sectionCount);
+    memset(retval->timerStats.sectionEntryCounts, 0, sizeof(uint64_t) *
+      sectionCount);
+    memset(retval->timerStats.sectionShutoff, 0, sizeof(uint32_t) *
+      sectionCount);
+    memset(retval->timerStats.inSection, 0, sizeof(uint32_t) * sectionCount);
     
     /* The CPU clock frequency can either be hard-coded (see the CLOCK_RATE_HZ 
      * above) or it can be passed on as an env variable -- i.e., by defining 
@@ -167,7 +173,7 @@ FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ,
         shutoffCounters = SHUTOFF_SET;
     }
 
-    // If function shutoff is set, check for shutoff configuration vars
+    // If shutoff is set, check for shutoff configuration vars
     if (shutoffCounters) {
         if (!ReadEnvUint32("FPAPI_ITERS", &shutoffIters)) {
             shutoffIters = SHUTOFF_ITERS;
@@ -184,15 +190,15 @@ FunctionPAPI* GenerateFunctionPAPI(FunctionPAPI* counters, uint32_t typ,
 #undef SHUTOFF_ITERS
 #undef SHUTOFF_THRESHOLD
 
-void DeleteFunctionPAPI(FunctionPAPI* counters){
-    delete counters->functionTimerAccum;
-    delete counters->functionTimerLast;
-    delete counters->inFunctionP;
-    delete counters->functionEntryCounts;
-    delete counters->functionShutoff;
+void DeletePAPIStats(PAPIStats* counters){
+    delete counters->timerStats.sectionTimerAccum;
+    delete counters->timerStats.sectionTimerLast;
+    delete counters->timerStats.sectionEntryCounts;
+    delete counters->timerStats.sectionShutoff;
+    delete counters->timerStats.inSection;
 }
 
-uint64_t ReferenceFunctionPAPI(FunctionPAPI* counters){
+uint64_t ReferencePAPIStats(PAPIStats* counters){
     return (uint64_t)counters;
 }
 
@@ -221,21 +227,22 @@ extern "C"
 
     void epa_pebil_pause_() { epa_pebil_pause(); return; }
 
-  // function entry instrumentation
-  int32_t function_entry(uint32_t funcIndex, image_key_t* key) {
-    thread_key_t tid = pthread_self();
+  // section entry instrumentation
+  int32_t section_entry(uint32_t sectionIndex, image_key_t* key) {
+      thread_key_t tid = pthread_self();
   
-      FunctionPAPI* counters = AllData->GetData(*key, pthread_self());
+      PAPIStats* counters = AllData->GetData(*key, pthread_self());
+      TimerStats counterStats = counters->timerStats;
       assert(counters != NULL);
-      assert(counters->functionTimerLast != NULL);
+      assert(counterStats.sectionTimerLast != NULL);
   
       int eventSet = counters->eventSet;
       
-      // if its a recursive function call increment the recursion depth and 
+      // if its a recursive call increment the recursion depth and 
       // entry count and return
-      if (counters->inFunctionP[funcIndex] != 0) {
-          counters->inFunctionP[funcIndex]++;
-          counters->functionEntryCounts[funcIndex]++;
+      if (counterStats.inSection[sectionIndex] != 0) {
+          counterStats.inSection[sectionIndex]++;
+          counterStats.sectionEntryCounts[sectionIndex]++;
           return 0;
       }
   
@@ -243,10 +250,10 @@ extern "C"
       // Read the counters and update all active functions
       if (counters->currentlyMeasuring != 0) {
           // No error checking to minimize overhead
-          int error = PAPI_read(eventSet, counters->tmpValues[funcIndex]);
+          int error = PAPI_read(eventSet, counters->tmpValues[sectionIndex]);
       
           #ifdef PEBIL_DEBUG
-          if (error != PAPI_OK){
+          if (error != PAPI_OK) {
               fprintf(stderr, "Error reading the values!\n");
               exit(1);
           }
@@ -257,7 +264,7 @@ extern "C"
             it != counters->activeFunctions.end(); ++it) {
               for (int i = 0; i < counters->num; i++) {
                   counters->accumValues[*it][i] += 
-                    counters->tmpValues[funcIndex][i];
+                    counters->tmpValues[sectionIndex][i];
               }
           }
       }
@@ -266,7 +273,7 @@ extern "C"
       counters->currentlyMeasuring++;
   
       // insert this function to the actively measuring set
-      counters->activeFunctions.insert(funcIndex);
+      counters->activeFunctions.insert(sectionIndex);
   
       //initialize PAPI for each thread (if not already).
       if (!counters->num) { 
@@ -324,8 +331,8 @@ extern "C"
           }
       }
 
-      counters->inFunctionP[funcIndex]++;
-      counters->functionEntryCounts[funcIndex]++;
+      counterStats.inSection[sectionIndex]++;
+      counterStats.sectionEntryCounts[sectionIndex]++;
       
   
       // if this is the first entry, start the measurements
@@ -354,56 +361,57 @@ extern "C"
           #endif
       }
       counters->eventSet = eventSet;
-      counters->functionTimerLast[funcIndex] = read_timestamp_counter();
+      counterStats.sectionTimerLast[sectionIndex] = read_timestamp_counter();
       return 0;
   }
 
-  //function exit instrumentation
-  int32_t function_exit(uint32_t funcIndex, image_key_t* key) {
+  //section exit instrumentation
+  int32_t section_exit(uint32_t sectionIndex, image_key_t* key) {
     
       uint64_t now = read_timestamp_counter();
       thread_key_t tid = pthread_self();
-      FunctionPAPI* counters = AllData->GetData(*key, pthread_self());
+      PAPIStats* counters = AllData->GetData(*key, pthread_self());
       int eventSet = counters->eventSet;
-      int error = PAPI_read(eventSet, counters->tmpValues[funcIndex]);
-      uint32_t recDepth = counters->inFunctionP[funcIndex];
+      int error = PAPI_read(eventSet, counters->tmpValues[sectionIndex]);
+      TimerStats counterStats = counters->timerStats;
+      uint32_t recDepth = counterStats.inSection[sectionIndex];
       
       if (recDepth == 0) {
           if (GetTaskId() == 0) {
               warn << "Thread " << AllData->GetThreadSequence(tid) << " Leaving"
-                " never entered function " << funcIndex << ":" << 
-                counters->functionNames[funcIndex] << ENDL;
+                " never entered function " << sectionIndex << ":" << 
+                counterStats.sectionNames[sectionIndex] << ENDL;
               print_backtrace();
           }
-          counters->inFunctionP[funcIndex] = 0;
+          counterStats.inSection[sectionIndex] = 0;
           return 0; 
       } else if (recDepth < 0) {
           if (GetTaskId() == 0) {
               warn << "Negative call depth for " << 
-                counters->functionNames[funcIndex] << ENDL;
+                counterStats.sectionNames[sectionIndex] << ENDL;
           }
-          counters->inFunctionP[funcIndex] = 0;
+          counterStats.inSection[sectionIndex] = 0;
           return 0;
       }
       
       --recDepth;
       if (recDepth == 0) {
-          uint64_t last = counters->functionTimerLast[funcIndex];
+          uint64_t last = counterStats.sectionTimerLast[sectionIndex];
         
-          counters->functionTimerAccum[funcIndex] += now - last;
-          counters->functionTimerLast[funcIndex] = now;
+          counterStats.sectionTimerAccum[sectionIndex] += now - last;
+          counterStats.sectionTimerLast[sectionIndex] = now;
           for (std::set<int>::iterator it=counters->activeFunctions.begin();
             it!=counters->activeFunctions.end(); ++it) {
   
               for (int i = 0; i < counters->num; i++) {
                   counters->accumValues[*it][i] += 
-                    counters->tmpValues[funcIndex][i];
+                    counters->tmpValues[sectionIndex][i];
               }
           }
      
           counters->currentlyMeasuring--;
           // remove this function from the active function set.
-          counters->activeFunctions.erase(funcIndex);
+          counters->activeFunctions.erase(sectionIndex);
       
           // if there are active functions remaining, we need to reset the 
           // counters
@@ -412,28 +420,29 @@ extern "C"
           }
       }
     
-      counters->inFunctionP[funcIndex] = recDepth;
+      counterStats.inSection[sectionIndex] = recDepth;
 
       // Shutoff counters for this function?
       if (shutoffCounters) {
-          if (counters->functionEntryCounts[funcIndex] % shutoffIters == 0) {
-              double timePerVisit = ((double)counters->functionTimerAccum[
-                funcIndex]) / ((double)counters->functionEntryCounts[funcIndex])
-                / timerCPUFreq;
+          if (counterStats.sectionEntryCounts[sectionIndex] %
+            shutoffIters == 0) {
+              double timePerVisit = ((double)counterStats.sectionTimerAccum[
+                sectionIndex]) / ((double)counterStats.sectionEntryCounts[
+                sectionIndex]) / timerCPUFreq;
 
               if (timePerVisit < (((double)timingThreshold) / 1000000.0)) {
                   uint64_t imageSeq = AllData->GetImageSequence(*key);
                   AllData->WriteLock();
-                  uint64_t this_key = GENERATE_UNIQUE_KEY(funcIndex, imageSeq,
-                    PointType_functionExit);
+                  uint64_t this_key = GENERATE_UNIQUE_KEY(sectionIndex,
+                    imageSeq, counterStats.exitType);
                   uint64_t corresponding_entry_key = GENERATE_UNIQUE_KEY(
-                    funcIndex, imageSeq, PointType_functionEntry);
+                    sectionIndex, imageSeq, counterStats.entryType);
   
                   set<uint64_t> inits;
                   inits.insert(this_key);
                   inits.insert(corresponding_entry_key);
                   DynamicPoints->SetDynamicPoints(inits, false);
-                  counters->functionShutoff[funcIndex] = 1;
+                  counterStats.sectionShutoff[sectionIndex] = 1;
                   AllData->UnLock();
               }
           }
@@ -458,6 +467,14 @@ extern "C"
   void* tool_mpi_init() {
       return NULL;
   }
+
+  void* tool_pre_mpi_fini() {
+      return NULL;
+  }
+
+  void* tool_pre_mpi_init() {
+      return NULL;
+  }
   
   void* tool_thread_init(thread_key_t tid) {
       if (AllData) {
@@ -480,11 +497,11 @@ extern "C"
   void* tool_image_init(void* args, image_key_t* key, ThreadData* td) {
   
       pthread_mutex_lock(&image_init_mutex);
-      FunctionPAPI* counters = (FunctionPAPI*)args;
+      PAPIStats* counters = (PAPIStats*)args;
     
       if (AllData == NULL) {
-          AllData = new DataManager<FunctionPAPI*>(GenerateFunctionPAPI, 
-            DeleteFunctionPAPI, ReferenceFunctionPAPI);
+          AllData = new DataManager<PAPIStats*>(GeneratePAPIStats, 
+            DeletePAPIStats, ReferencePAPIStats);
       }
     
       AllData->AddImage(counters, td, *key);
@@ -513,8 +530,8 @@ extern "C"
       assert(EntryExitKeys.empty());
       for (auto it = keys.begin(); it != keys.end(); it++) {
           uint64_t k = (*it);
-          if (GET_TYPE(k) == PointType_functionEntry ||
-            GET_TYPE(k) == PointType_functionExit) {
+          if (GET_TYPE(k) == counters->timerStats.entryType ||
+            GET_TYPE(k) == counters->timerStats.exitType) {
               EntryExitKeys.insert(k);
           }
       }
@@ -551,21 +568,26 @@ extern "C"
           return NULL;
       }
   
-      FunctionPAPI* counters = AllData->GetData(iid, pthread_self());
+      PAPIStats* counters = AllData->GetData(iid, pthread_self());
+      TimerStats counterStats = counters->timerStats;
       if (counters == NULL) {
           ErrorExit("Cannot retrieve image data using key " << dec << (*key), 
             MetasimError_NoImage);
           return NULL;
       }
   
-      if (!counters->master) {
+      if (!counterStats.master) {
           printf("Image is not master, skipping\n");
           return NULL;
       }
   
       char outFileName[1024];
-      sprintf(outFileName, "%s.set_%0d.meta_%0d.%s", counters->application, 
-        hwcSetNumber, GetTaskId(), "ftpapiinst");
+      if (counterStats.entryType == PointType_loopEntry)
+          sprintf(outFileName, "%s.set_%0d.meta_%0d.%s",
+            counterStats.application, hwcSetNumber, GetTaskId(), "lpipapiinst");
+      else
+          sprintf(outFileName, "%s.set_%0d.meta_%0d.%s",
+            counterStats.application, hwcSetNumber, GetTaskId(), "ftpapiinst");
   
       FILE* outFile = fopen(outFileName, "w");
       if (!outFile) {
@@ -599,26 +621,29 @@ extern "C"
       //to match lppapiinst style
       for (set<image_key_t>::iterator iit = AllData->allimages.begin(); iit != 
         AllData->allimages.end(); ++iit) {
-          FunctionPAPI* imageData = AllData->GetData(*iit, pthread_self());
+          PAPIStats* imageData = AllData->GetData(*iit, pthread_self());
+          TimerStats timerData = imageData->timerStats;
           //uint64_t imgHash = *iit;
-          char** functionNames = imageData->functionNames;
-          uint64_t functionCount = imageData->functionCount;
+          char** sectionNames = timerData.sectionNames;
+          uint64_t sectionCount = timerData.sectionCount;
   
-          for (uint64_t funcIndex = 0; funcIndex < functionCount; ++funcIndex) {
-              char* fname = functionNames[funcIndex];
+          for (uint64_t sectionIndex = 0; sectionIndex < sectionCount;
+            ++sectionIndex) {
+              char* fname = sectionNames[sectionIndex];
               fprintf(outFile, "%s:\n", fname);
               for (set<thread_key_t>::iterator tit = 
                 AllData->allthreads.begin(); tit != AllData->allthreads.end(); 
                 ++tit) {
-                  FunctionPAPI* icounters = AllData->GetData(*iit, *tit);
+                  PAPIStats* icounters = AllData->GetData(*iit, *tit);
+                  TimerStats itimer = icounters->timerStats;
                   
                   fprintf(outFile, "\tThread: %d\tTime: %f\tEntries: "
-                    "%lld\tHash: 0x%llx\t", 
-                    AllData->GetThreadSequence(*tit), (double)(icounters->functionTimerAccum[funcIndex]) / 
-                    timerCPUFreq, icounters->functionEntryCounts[funcIndex], 
-                    icounters->functionHashes[funcIndex]);
+                    "%lld\tHash: 0x%llx\t", AllData->GetThreadSequence(*tit),
+                    (double)(itimer.sectionTimerAccum[sectionIndex]) / 
+                    timerCPUFreq, itimer.sectionEntryCounts[sectionIndex], 
+                    itimer.sectionHashes[sectionIndex]);
                   // Add * if function was shutoff
-                  if (icounters->functionShutoff[funcIndex] == 1) {
+                  if (itimer.sectionShutoff[sectionIndex] == 1) {
                       fprintf(outFile, "*\t");
                   }
   
@@ -635,14 +660,14 @@ extern "C"
                       }
                       if (strstr(units[hwc],"nJ")) {
                           scaledValue = (double)(icounters->accumValues[
-                            funcIndex][hwc]/(1.0e9));
+                            sectionIndex][hwc]/(1.0e9));
                           double watts = scaledValue / 
-                            ((double)(icounters->functionTimerAccum[funcIndex])
+                            ((double)(itimer.sectionTimerAccum[sectionIndex])
                             / timerCPUFreq);
                           fprintf(outFile, "%.4f ", watts);
                       } else {
                           fprintf(outFile, "%lld ", 
-                            icounters->accumValues[funcIndex][hwc]);
+                            icounters->accumValues[sectionIndex][hwc]);
                       }
                   }
                   fprintf(outFile, "\n");

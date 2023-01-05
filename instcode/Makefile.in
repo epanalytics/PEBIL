@@ -31,9 +31,9 @@ ifeq ($(STATIC_INST_LIB),yes)
 		PEBIL_LIBS += libpapiinst.a libpapifunc.a
 	endif
 else
-	PEBIL_LIBS = libpebilruntime.so libtimer.so libclassifier.so libpfreq.so libtautrace.so liblooptimer.so libcounter.so libaddressstream.so libpebilslicer.so
+	PEBIL_LIBS = libpebilruntime.so libtimer.so libclassifier.so libpfreq.so libtautrace.so libcounter.so libaddressstream.so libpebilslicer.so
 	ifeq ($(PEBIL_PAPI_BUILD),yes)
-		PEBIL_LIBS += libpapiinst.so libpapifunc.so
+		PEBIL_LIBS += libpapifunc.so
 	endif
 endif
 
@@ -119,13 +119,7 @@ $(LIBDIR)/libcounter.a : $(LIBDIR)/CounterFunctions.o $(COMMON_OBJS)
 $(LIBDIR)/libaddressstream.so : $(LIBDIR)/AddressStreamLibrary.O $(ASL_OBJS) $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(ASL_LIBS) $(REUSE_LIBS) $(CXXFLAGS)
 
-$(LIBDIR)/liblooptimer.so : $(LIBDIR)/LoopTimer.O $(SHARED_COMMON_OBJS)
-	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
-
 $(LIBDIR)/libfrequencyconfig.so : $(LIBDIR)/FrequencyConfig.O
-	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
-
-$(LIBDIR)/libpapiinst.so : $(LIBDIR)/PAPIInst.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 
 $(LIBDIR)/libtimer.so : $(LIBDIR)/TimerFunctions.O $(SHARED_COMMON_OBJS)
@@ -133,7 +127,7 @@ $(LIBDIR)/libtimer.so : $(LIBDIR)/TimerFunctions.O $(SHARED_COMMON_OBJS)
 $(LIBDIR)/libtimer.a : $(LIBDIR)/TimerFunctions.o $(COMMON_OBJS) 
 	$(AR) $@ $(LIBDIR)/TimerFunctions.o $(COMMON_OBJS)
 
-$(LIBDIR)/libpapifunc.so : $(LIBDIR)/PAPIFunc.O $(SHARED_COMMON_OBJS)
+$(LIBDIR)/libpapifunc.so : $(LIBDIR)/PAPIFunctions.O $(SHARED_COMMON_OBJS)
 	$(MPICXX) $(SHARED_LIB) -o $@ $^ $(EXTRA_LIBS) $(CXXFLAGS)
 
 $(LIBDIR)/libclassifier.so : $(LIBDIR)/ClassifierFunctions.o $(COMMON_OBJS)

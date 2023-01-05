@@ -57,6 +57,8 @@ typedef enum {
     PointType_buffercheck,
     PointType_bufferinc,
     PointType_bufferfill,
+    PointType_loopEntry,
+    PointType_loopExit,
     PointType_functionEntry,
     PointType_functionExit,
     PointType_inits,
