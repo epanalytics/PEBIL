@@ -27,6 +27,7 @@
 #include <Loop.h>
 #include <TextSection.h>
 #include <X86InstructionFactory.h>
+#include <Version.h>
 
 #include <algorithm>
 #include <vector>
@@ -1256,7 +1257,8 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     for (uint32_t i = 0; i < getNumberOfInstrumentationLibraries(); i++){
         fprintf(staticFD, "# library   = %s\n", getInstrumentationLibrary(i));
     }
-    fprintf(staticFD, "# libTag    = %s\n", "revision REVISION");
+    fprintf(staticFD, "# libTag    = %s %s\n", "version", 
+      PEBIL_getGitVersion());
     fprintf(staticFD, "# %s\n", "<no additional info>");
     fprintf(staticFD, "# <sequence> <block_unqid> <memop> <fpop> <insn> <line> "
       "<fname> # <hex_unq_id> <vaddr>\n");
@@ -1881,7 +1883,7 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
   for (uint32_t i = 0; i < getNumberOfInstrumentationLibraries(); i++){
     fprintf(staticFD, "# library   = %s\n", getInstrumentationLibrary(i));
   }
-  fprintf(staticFD, "# libTag    = %s\n", "revision REVISION");
+  fprintf(staticFD, "# libTag    = %s %s\n", "version", PEBIL_getGitVersion());
   fprintf(staticFD, "# %s\n", "<no additional info>");
   fprintf(staticFD, "# <sequence> <block_unqid> <memop> <fpop> <insn> <line> <fname> # <hex_unq_id> <vaddr>\n");
   
