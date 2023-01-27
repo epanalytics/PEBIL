@@ -687,8 +687,6 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
     // Thread-safe: Sampling method protected with lock
     bool isSampling;
     isSampling = sampler->CurrentlySampling(lock);
-    bool hasSampleMax;
-    hasSampleMax = sampler->HasAccessLimit(lock);
 
     assert(iid);
     if (allData == NULL){
@@ -750,8 +748,7 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
         // Shut off any instrumentation if sample max is hit
         // Thread-safe: Calls thread-safe functions
-     //   if (hasSampleMax)
-            ShutOffInstrumentationInMaxedGroups(iid, tid, suspend);
+        ShutOffInstrumentationInMaxedGroups(iid, tid, suspend);
 
     // if not sampling            
     } else {
@@ -785,6 +782,10 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
     // Thread-safe
     sampler->IncrementAccessCount(numElements, lock);
+
+    // Wipe the buffer before exitting to prevent use of stale addresses later
+    // on. Start with element 1, since the 0 element has metadata
+    memset(&(stats->Buffer[1]), 0, sizeof(BufferEntry) * capacity);
 
     UnLockDSM(lock);
     DONE_WITH_BUFFER();
