@@ -79,6 +79,7 @@ class SamplingMethod {
 
     virtual bool CurrentlySampling(bool lock);
     virtual bool ExceedsAccessLimit(uint64_t count, bool lock=true);
+    virtual bool HasAccessLimit(bool lock=true);
     virtual uint64_t GetAccessCount() { return AccessCount; }
     uint64_t GetAccessLimit() { return AccessLimit; }
     virtual double GetSamplingFrequency();

@@ -94,6 +94,15 @@ bool SamplingMethod::ExceedsAccessLimit(uint64_t count, bool lock){
     return res;
 }
 
+bool SamplingMethod::HasAccessLimit(bool lock){
+    ReadLock(lock);
+    bool res = false;
+    if (AccessLimit > 0)
+        res = true;
+    UnLock(lock);
+    return res;
+}
+
 double SamplingMethod::GetSamplingFrequency() {
     ReadLock();
     if (SampleOn == 0) {

@@ -202,6 +202,11 @@ void DeleteStreamStats(AddressStreamStats* stats){
     }
     stats->Stats = NULL;
 
+    // Delete memory allocated for processing addresses (every image/thread)
+    if (stats->addressesForProcessing != NULL)
+        free(stats->addressesForProcessing);
+    stats->addressesForProcessing = NULL;
+
     // Next, delete memory allocated for and shared by each thread
     // Only delete it once per thread, so have the first image delete it
     if (stats->FirstImage) {
@@ -278,6 +283,11 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
 
     // Initialize Stream Stats
     Driver->InitializeStatsWithNewStreamStats(stats);
+
+    // Initialize with other run data
+    stats->maxNumAddresses = 64;
+    stats->addressesForProcessing = (uint64_t*)malloc((sizeof(uint64_t) *
+      stats->maxNumAddresses));
 
     // Initialize Memory Handlers
     // Modified data generation (from DataManager) to always begin with the 
