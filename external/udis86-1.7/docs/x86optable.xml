@@ -5892,6 +5892,7 @@ MAL MISSING PRE SSE?
   </instruction>
 
   <instruction mnemonic="vpgatherdq">
+    <opcode> rexr rexx rexb rexw ; avxC4 sse66 0f /3byte=38 90 /W=1 ; V ZVM X ; d:rf ; </opcode>
     <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 90 /W=1 ; ZR ZVM ; d:rf ; </opcode>
   </instruction>
 
@@ -5901,6 +5902,7 @@ MAL MISSING PRE SSE?
   </instruction>
 
   <instruction mnemonic="vpgatherqq">
+    <opcode> rexr rexx rexb rexw ; avxC4 sse66 0f /3byte=38 91 /W=1 ; V ZVM X ; d:rf ; </opcode>
     <opcode> rexr rexx rexb rexw ; mvex sse66 0f /3byte=38 91 /W=1 ; ZR ZVM ; ; </opcode>
   </instruction>
 
