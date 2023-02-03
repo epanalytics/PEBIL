@@ -128,9 +128,6 @@ AddressStreamDriver::AddressStreamDriver() {
     numMemoryHandlers = 0;
     numCodeCentricMemoryHandlers = 0;
 
-    maxNumAddresses = 64;
-    addresses = (uint64_t *)malloc(sizeof(uint64_t)*maxNumAddresses);
-
     // Create a parser for parsing
     parser = new StringParser();
 
@@ -153,8 +150,6 @@ AddressStreamDriver::~AddressStreamDriver() {
       tools->end(); it++) {
           delete (*it);
     }
-    if (addresses != NULL) 
-        free(addresses);
     tools->clear();
     delete tools; 
     delete fastData;
@@ -560,6 +555,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
             continue;
         }
         assert(stats != NULL);
+        uint64_t maxNumAddresses = stats->maxNumAddresses;
 
         BufferEntry* reference = BUFFER_ENTRY(stats, elementIndex);
         if (reference->imageid == 0){
@@ -575,7 +571,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
         uint64_t length = 1;
         if (reference->type == MEM_ENTRY) {
             if (reference->address != 0) { 
-                addresses[0]  = reference->address;
+                stats->addressesForProcessing[0] = reference->address;
                 if (runDataCentric)
                     dataCentricSeq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
                       reference->address, false);
@@ -602,7 +598,7 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
                     //is an address we are accessing so we can use that
                     //to keep track of where we are in the array as well
                     //as its final length
-                    addresses[length] = currAddr;
+                    stats->addressesForProcessing[length] = currAddr;
                     length++;
                 }// mask check 
                 mask = (mask >> 1);
@@ -610,12 +606,13 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
 
             if (runDataCentric) {
                 dataCentricSeq = GET_DATA_STRUCTURE_ID(dataStructureModule, 
-                  addresses[0], false);
+                  stats->addressesForProcessing[0], false);
                 // Check if we have addresses from different data structures --
                 // If so, we're gonna need to refactor
                 for (int i = 1; i < length; i++) {
                     if (dataCentricSeq != GET_DATA_STRUCTURE_ID(
-                      dataStructureModule, addresses[i], false))
+                      dataStructureModule, stats->addressesForProcessing[i],
+                        false))
                         fprintf(stderr, "WARNING: Multiple data structures in "
                           "a vector...data will be a little off. The fix will "
                           "require a small refactor.\n");
@@ -643,12 +640,13 @@ uint64_t AddressStreamDriver::ProcessBufferForEachHandler(image_key_t iid,
 
             // maxNumAddresses is the allocated size of the array when it was 
             // created, the length is the number of actual elements used
-            (void) handler->Process((void*)ss, memSeq, ldstFlag, addresses, 
-              length, memvecFlag);
+            (void) handler->Process((void*)ss, memSeq, ldstFlag,
+              stats->addressesForProcessing, length, memvecFlag);
         }// for number of handlers
 
         // 0 out addresses array to prevent passing stale data
-        memset(addresses, 0, sizeof(uint64_t)*maxNumAddresses);
+        memset(stats->addressesForProcessing, 0, sizeof(uint64_t) *
+          maxNumAddresses);
     }// for elements in the buffer
 
     return numSkipped;
@@ -784,6 +782,10 @@ void* AddressStreamDriver::ProcessThreadBuffer(image_key_t iid, thread_key_t
 
     // Thread-safe
     sampler->IncrementAccessCount(numElements, lock);
+
+    // Wipe the buffer before exitting to prevent use of stale addresses later
+    // on. Start with element 1, since the 0 element has metadata
+    memset(&(stats->Buffer[1]), 0, sizeof(BufferEntry) * capacity);
 
     UnLockDSM(lock);
     DONE_WITH_BUFFER();

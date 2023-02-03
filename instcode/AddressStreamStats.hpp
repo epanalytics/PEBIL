@@ -114,6 +114,10 @@ typedef struct AddressStreamStats_s {
     // per-group data
     uint64_t* GroupCounters;
 
+    // run data
+    uint64_t maxNumAddresses;
+    uint64_t* addressesForProcessing;
+
 } AddressStreamStats;
 
 #define BUFFER_ENTRY(__stats, __n) (&(__stats->Buffer[__n+1]))
