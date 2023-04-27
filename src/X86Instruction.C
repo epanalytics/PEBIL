@@ -3016,7 +3016,7 @@ void X86InstructionClassifier::generateTable(){
     mkclass(           andpd,simdFloat,    binv,   0,  128,    0,          64)
     mkclass(           andps,simdFloat,    binv,   0,  128,    0,          32)
     mkclass(            arpl,  special,   other,   0,    0,    0,          0)
-    mkclass(           bextr,      int,     bin,   0, VRSZ,    0,          0)
+    mkclass(           bextr,     move,     bin,   0, VRSZ,    0,          0)
     mkclass(         blendpd,simdFloat,       0,   0,  128,    0,          64) // FIXME shouldn't be int...
     mkclass(         blendps,simdFloat,       0,   0,  128,    0,          32) //
     mkclass(        blendvpd,simdFloat,       0,   0,  128,    0,          64) //
@@ -3029,7 +3029,7 @@ void X86InstructionClassifier::generateTable(){
     mkclass(             btc,      int,     bin,   0, VRSZ,    0,          0)
     mkclass(             btr,      int,     bin,   0, VRSZ,    0,          0)
     mkclass(             bts,      int,     bin,   0, VRSZ,    0,          0)
-    mkclass(            bzhi,      int,     bin,   0, VRSZ,    0,          0)
+    mkclass(            bzhi,     move,     bin,   0, VRSZ,    0,          0)
     mkclass(            call,     call,  uncond,   0,    0,    BinFrame,   0)
     mkclass(             cbw,  special,     bin,   0,   16,    0,          0)
     mkclass(             cdq,  special,     bin,   0,   64,    0,          0)
@@ -3708,7 +3708,6 @@ void X86InstructionClassifier::generateTable(){
     mkclass(         vandnps,    simdFloat, floatv, 0, VRSZ, 0,       32)
     mkclass(          vandpd,    simdFloat, floatv, 0, VRSZ, 0,       64)
     mkclass(          vandps,    simdFloat, floatv, 0, VRSZ, 0,       32)
-    mkclass(          vbextr,    int,       binv,   0,    0,    0,     0)
     mkclass(       vblendmpd,    simdFloat,    floatv,    0,    VRSZ,    0,    64)
     mkclass(       vblendmpd,    simdFloat,    floatv,    0,    VRSZ,    0,    64)
     mkclass(       vblendmps,    simdFloat,    floatv,    0,    VRSZ,    0,    32)
