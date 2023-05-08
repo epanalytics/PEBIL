@@ -948,7 +948,9 @@ static unsigned int resolve_operand_size( const struct ud * u, unsigned int s )
             return u->adr_mode; // FIXME
         }
 
-        if(u->mnemonic == UD_Imov) {
+        // FIXME We'll use this workaround for now until we have more time to
+        // fix the disassembler
+        if(u->mnemonic == UD_Imov || u->mnemonic == UD_Ilzcnt) {
             return u->opr_mode;
         }
 
