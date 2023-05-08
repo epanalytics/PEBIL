@@ -112,7 +112,8 @@ FunctionTimer.o: FunctionTimer.C FunctionTimer.h \
  ../instcode/Metasim.hpp ../include/EncryptTool.h ../include/BasicBlock.h \
  ../include/FlowGraph.h ../include/Function.h ../include/TextSection.h \
  ../include/SymbolTable.h ../include/defines/SymbolTable.d \
- ../include/X86InstructionFactory.h ../instcode/TimerFunctions.hpp
+ ../include/X86InstructionFactory.h ../instcode/TimerFunctions.hpp \
+ ../instcode/PAPIFunctions.hpp
 Minimal.o: Minimal.C Minimal.h ../include/InstrumentationTool.h \
  ../include/ElfFileInst.h ../include/Base.h ../include/CStructuresElf.h \
  ../include/CStructuresDwarf.h ../include/Debug.h ../include/Vector.h \
@@ -146,7 +147,7 @@ LoopIntercept.o: LoopIntercept.C LoopIntercept.h \
  ../include/SymbolTable.h ../include/defines/SymbolTable.d \
  ../include/LineInformation.h ../include/defines/LineInformation.d \
  ../include/Loop.h ../include/X86InstructionFactory.h \
- ../instcode/LoopTimer.hpp
+ ../instcode/TimerFunctions.hpp ../instcode/PAPIFunctions.hpp
 TauFunctionTrace.o: TauFunctionTrace.C TauFunctionTrace.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
  ../include/Base.h ../include/CStructuresElf.h \

@@ -210,6 +210,14 @@ extern "C"
         return NULL;
     }
 
+    void* tool_pre_mpi_fini(){
+        return NULL;
+    }
+
+    void* tool_pre_mpi_init(){
+        return NULL;
+    }
+
     /*
      * tool_image_init
      * For executables, this function is called by the initialization routine

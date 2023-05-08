@@ -23,8 +23,13 @@ DEBUGFLAGS    = -D SWAP_MOD=$(PEBIL_SWAP_MOD) -D SWAP_MOD_OFF=$(PEBIL_SWAP_OFF)
 endif
 endif
 
+# Create GIT version name
+GIT_BRANCH := $(shell git symbolic-ref HEAD)
+GIT_HASH := $(shell git rev-parse HEAD)
+PEBIL_REVISION := "\"$(GIT_BRANCH) $(GIT_HASH)\""
+
 CXX         = g++
-CXXFLAGS    = -g -O2 -std=gnu++0x -DHAVE_UNORDERED_MAP @MPI_FLAGS@ -w $(DEBUGFLAGS) @PEBIL_BUILD_FOR_AVX512@ -fopenmp @PEBIL_DEBUG@
+CXXFLAGS    = -g -O2 -std=gnu++0x -DHAVE_UNORDERED_MAP @MPI_FLAGS@ -w $(DEBUGFLAGS) @PEBIL_BUILD_FOR_AVX512@ -fopenmp @PEBIL_DEBUG@ -DREVISION=$(PEBIL_REVISION)
 
 AR          = ar cru
 EXTRA_FLAGS =
@@ -36,12 +41,14 @@ LIBDIR      = ../lib
 EXTDIR      = ../external
 INCLUDE     = -I../include -I$(EXTDIR)/udis86-1.7/ -I../instcode -I$(EXTDIR)/lib/include
 
-NAMES = AddressAnchor Base BasicBlock BinaryFile DynamicTable DwarfSection ElfFile ElfFileInst FileHeader FlowGraph Function GlobalOffsetTable GnuVersion HashTable Instrumentation InstrumentationTool LengauerTarjan LineInformation Loop MemTrack NoteSection ProgramHeader RawSection RelocationTable SectionHeader StringTable SymbolTable TextSection X86Instruction X86InstructionFactory EncryptTool
+NAMES = AddressAnchor Base BasicBlock BinaryFile DynamicTable DwarfSection ElfFile ElfFileInst FileHeader FlowGraph Function GlobalOffsetTable GnuVersion HashTable Instrumentation InstrumentationTool LengauerTarjan LineInformation Loop MemTrack NoteSection ProgramHeader RawSection RelocationTable SectionHeader StringTable SymbolTable TextSection X86Instruction X86InstructionFactory EncryptTool Version
 
 SRCS = $(foreach var,$(NAMES),$(var).C)
 OBJS = $(foreach var,$(NAMES),$(var).o)
 
 TARGETS  = libpebilinst.so libpebilinst.a
+
+.PHONY: Version.o
 
 all: $(TARGETS)
 
@@ -50,6 +57,10 @@ libpebilinst.so: $(OBJS)
 
 libpebilinst.a: $(OBJS)
 	$(AR) $@ $(OBJS)
+
+# Force update of REVISION within pebil by making this phony
+Version.o: Version.C
+	$(CXX) $(CXXFLAGS) $(EXTRA_FLAGS) $(SHARED_OPT) $(INCLUDE) -c -o $@ $<
 
 %.o: %.C
 	$(CXX) $(CXXFLAGS) $(EXTRA_FLAGS) $(SHARED_OPT) $(INCLUDE) -c -o $@ $<

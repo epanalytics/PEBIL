@@ -200,6 +200,7 @@ class TextObject;
 
 // YMM and ZMM regs are same as XMM
 #define X86_FPREG_YMM0 X86_FPREG_XMM0
+#define X86_FPREG_YMM15 X86_FPREG_XMM15
 // FIXME fill in copies for rest of regs?
 #define X86_FPREG_ZMM0 X86_FPREG_XMM0
 #define X86_FPREG_ZMM31 X86_FPREG_XMM31

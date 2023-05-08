@@ -218,6 +218,7 @@ void AddressRangeTool::FinalizeTool(DataManager<AddressStreamStats*>* AllData,
                   << TAB << hex << (aggRange->GetMaximum(bbid) -
                     aggRange->GetMinimum(bbid))<<ENDL;
             } // For each block
+            delete aggRange;
         } // For each data manager
     } // For each image
 
@@ -260,6 +261,10 @@ RangeStats::~RangeStats(){
 }
 
 bool RangeStats::HasMemId(uint32_t memid){
+    if (memid >= Capacity) {
+        fprintf(stderr, "memid not found, if this issues is causing an error"
+          " try setting METASIM_DS_SIZE bigger than %d\n", Capacity);
+    }
     return (memid < Capacity);
 }
 
@@ -305,8 +310,7 @@ void AddressRangeHandler::Print(ofstream& f){
 uint32_t AddressRangeHandler::Process(void* stats, uint64_t memSeq, 
   bool ldstFlag, uint64_t* addresses, uint64_t length, bool memvecFlag) {
 
-    // TODO should this fail or error out if length > arrLen?
-    for(int i=0;i<length;i++) {
+    for(int i = 0; i < length; i++) {
         uint64_t addr = addresses[i];
         if (addr != 0) {
             uint32_t memId = (uint32_t)memSeq;
@@ -315,17 +319,5 @@ uint32_t AddressRangeHandler::Process(void* stats, uint64_t memSeq,
         }
     }
     return 0;
-    
-    // TODO To be implemented later
-    /*} else if(access->type == PREFETCH_ENTRY) {
-        uint32_t memid = (uint32_t)access->memseq;
-        uint64_t addr = access->address;
-        if (ExecuteSoftwarePrefetches) {
-          RangeStats* rs = (RangeStats*)stats;
-          rs->Update(memid, addr);
-        }
-        return 0;
-   }
-   return 0;*/
 }
                 

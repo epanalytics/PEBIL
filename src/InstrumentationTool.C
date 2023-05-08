@@ -27,6 +27,7 @@
 #include <Loop.h>
 #include <TextSection.h>
 #include <X86InstructionFactory.h>
+#include <Version.h>
 
 #include <algorithm>
 #include <vector>
@@ -39,10 +40,16 @@
 #define MPI_INIT_WRAPPER_CBIND   "MPI_Init_pebil_wrapper"
 #define MPI_INIT_LIST_CBIND_PREF "PMPI_Init"
 #define MPI_INIT_LIST_CBIND      "MPI_Init"
+#define MPI_FINI_WRAPPER_CBIND   "MPI_Finalize_pebil_wrapper"
+#define MPI_FINI_LIST_CBIND_PREF "PMPI_Finalize"
+#define MPI_FINI_LIST_CBIND      "MPI_Finalize"
 
 #define MPI_INIT_WRAPPER_FBIND   "mpi_init__pebil_wrapper"
 #define MPI_INIT_LIST_FBIND_PREF "pmpi_init_"
 #define MPI_INIT_LIST_FBIND      "mpi_init_:MPI_INIT"
+#define MPI_FINI_WRAPPER_FBIND   "mpi_finalize__pebil_wrapper"
+#define MPI_FINI_LIST_FBIND_PREF "pmpi_finalize_"
+#define MPI_FINI_LIST_FBIND      "mpi_finalize_:MPI_FINALIZE"
 
 #define MPI_INIT_THREAD_WRAPPER_CBIND   "MPI_Init_thread_pebil_wrapper"
 #define MPI_INIT_THREAD_LIST_CBIND_PREF "PMPI_Init_thread"
@@ -677,6 +684,8 @@ InstrumentationTool::InstrumentationTool(ElfFile* elf)
 
 void InstrumentationTool::declare(){
 #ifdef HAVE_MPI
+    finiWrapperC = declareFunction(MPI_FINI_WRAPPER_CBIND);
+    finiWrapperF = declareFunction(MPI_FINI_WRAPPER_FBIND);
     initWrapperC = declareFunction(MPI_INIT_WRAPPER_CBIND);
     initWrapperF = declareFunction(MPI_INIT_WRAPPER_FBIND);
     initTWrapperC = declareFunction(MPI_INIT_THREAD_WRAPPER_CBIND);
@@ -736,6 +745,67 @@ void InstrumentationTool::instrument(){
     }
 
 #ifdef HAVE_MPI
+    int finiFound = 0;
+
+    // wrap any call to MPI_Finalize
+    Vector<X86Instruction*>* mpiFiniCalls = findAllCalls(
+      MPI_FINI_LIST_CBIND_PREF);
+    finiWrapperC->setSkipWrapper();
+    for (uint32_t i = 0; i < (*mpiFiniCalls).size(); i++){
+        ASSERT((*mpiFiniCalls)[i]->isFunctionCall());
+        ASSERT((*mpiFiniCalls)[i]->getSizeInBytes() == Size__uncond_jump);
+        PRINT_INFOR("Adding MPI_Fini wrapper @ %#llx", 
+          (*mpiFiniCalls)[i]->getBaseAddress());
+        InstrumentationPoint* pt = addInstrumentationPoint((*mpiFiniCalls)[i], 
+          finiWrapperC, InstrumentationMode_tramp, InstLocation_replace);
+        finiFound++;
+    }
+    delete mpiFiniCalls;
+
+    mpiFiniCalls = findAllCalls(MPI_FINI_LIST_FBIND_PREF);
+    finiWrapperF->setSkipWrapper();
+    for (uint32_t i = 0; i < (*mpiFiniCalls).size(); i++){
+        ASSERT((*mpiFiniCalls)[i]->isFunctionCall());
+        ASSERT((*mpiFiniCalls)[i]->getSizeInBytes() == Size__uncond_jump);
+        PRINT_INFOR("Adding mpi_finalize_ wrapper @ %#llx", 
+          (*mpiFiniCalls)[i]->getBaseAddress());
+        InstrumentationPoint* pt = addInstrumentationPoint((*mpiFiniCalls)[i], 
+          finiWrapperF, InstrumentationMode_tramp, InstLocation_replace);
+        finiFound++;
+    }
+    delete mpiFiniCalls;
+
+    if (!finiFound) {
+        mpiFiniCalls = findAllCalls(MPI_FINI_LIST_CBIND);
+        finiWrapperC->setSkipWrapper();
+        for (uint32_t i = 0; i < (*mpiFiniCalls).size(); i++){
+            ASSERT((*mpiFiniCalls)[i]->isFunctionCall());
+            ASSERT((*mpiFiniCalls)[i]->getSizeInBytes() == Size__uncond_jump);
+            PRINT_INFOR("Adding MPI_Finalize wrapper @ %#llx", 
+              (*mpiFiniCalls)[i]->getBaseAddress());
+            InstrumentationPoint* pt = addInstrumentationPoint(
+              (*mpiFiniCalls)[i], finiWrapperC, InstrumentationMode_tramp, 
+              InstLocation_replace);
+            finiFound++;
+        }
+        delete mpiFiniCalls;
+
+        mpiFiniCalls = findAllCalls(MPI_FINI_LIST_FBIND);
+        finiWrapperF->setSkipWrapper();
+        for (uint32_t i = 0; i < (*mpiFiniCalls).size(); i++){
+            ASSERT((*mpiFiniCalls)[i]->isFunctionCall());
+            ASSERT((*mpiFiniCalls)[i]->getSizeInBytes() == Size__uncond_jump);
+            PRINT_INFOR("Adding mpi_finalize_ wrapper @ %#llx", 
+              (*mpiFiniCalls)[i]->getBaseAddress());
+            InstrumentationPoint* pt = addInstrumentationPoint(
+              (*mpiFiniCalls)[i], finiWrapperF, InstrumentationMode_tramp, 
+              InstLocation_replace);
+            finiFound++;
+        }
+        delete mpiFiniCalls;
+    }
+
+
     int initFound = 0;
 
     // wrap any call to MPI_Init
@@ -1187,7 +1257,8 @@ void InstrumentationTool::printStaticFile(const char* extension, Vector<Base*>*
     for (uint32_t i = 0; i < getNumberOfInstrumentationLibraries(); i++){
         fprintf(staticFD, "# library   = %s\n", getInstrumentationLibrary(i));
     }
-    fprintf(staticFD, "# libTag    = %s\n", "revision REVISION");
+    fprintf(staticFD, "# libTag    = %s %s\n", "version", 
+      PEBIL_getGitVersion());
     fprintf(staticFD, "# %s\n", "<no additional info>");
     fprintf(staticFD, "# <sequence> <block_unqid> <memop> <fpop> <insn> <line> "
       "<fname> # <hex_unq_id> <vaddr>\n");
@@ -1812,7 +1883,7 @@ void InstrumentationTool::printStaticFilePerInstruction(const char* extension, V
   for (uint32_t i = 0; i < getNumberOfInstrumentationLibraries(); i++){
     fprintf(staticFD, "# library   = %s\n", getInstrumentationLibrary(i));
   }
-  fprintf(staticFD, "# libTag    = %s\n", "revision REVISION");
+  fprintf(staticFD, "# libTag    = %s %s\n", "version", PEBIL_getGitVersion());
   fprintf(staticFD, "# %s\n", "<no additional info>");
   fprintf(staticFD, "# <sequence> <block_unqid> <memop> <fpop> <insn> <line> <fname> # <hex_unq_id> <vaddr>\n");
   

@@ -61,7 +61,8 @@ typedef struct BufferEntry_s {
     };
     //uint64_t    threadid;        // Error-checking
 } BufferEntry;
-#define __buf_current  address
+#define __buf_current  vectorAddress.base
+#define __buf_oldPosition  vectorAddress.mask
 #define __buf_capacity memseq
 
 class StreamStats;
@@ -112,6 +113,10 @@ typedef struct AddressStreamStats_s {
 
     // per-group data
     uint64_t* GroupCounters;
+
+    // run data
+    uint64_t maxNumAddresses;
+    uint64_t* addressesForProcessing;
 
 } AddressStreamStats;
 

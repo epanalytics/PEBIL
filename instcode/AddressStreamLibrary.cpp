@@ -46,8 +46,7 @@ extern "C" {
 #ifdef VERBOSE_SLICER
         pebil_slicer_verbose_start("ADDSTRINST");
 #endif
-        Driver->ProcessAllBuffers();
-        Driver->SetDynamicPoints(true);
+        Driver->ProcessAllBuffers(ProcessBuffersExtra_setDynamicOn);
         return;
     }
 
@@ -57,8 +56,7 @@ extern "C" {
 #ifdef VERBOSE_SLICER
         pebil_slicer_verbose_pause("ADDSTRINST");
 #endif
-        Driver->ProcessAllBuffers();
-        Driver->SetDynamicPoints(false);
+        Driver->ProcessAllBuffers(ProcessBuffersExtra_setDynamicOff);
         return;
     }
 
@@ -86,14 +84,35 @@ extern "C" {
         return NULL;
     }
 
+    // MPI_Init and MPI_Finalize do a lot of dynamic memory allocation. 
+    // Currently, we do not want to collect this data. Pause application 
+    // wrappers before entering MPI_Init and MPI_Finalize. Unpause them 
+    // after MPI_Init is finished.
+    // Could also unpause after MPI_Finalize, but applications should not 
+    // be doing anything after MPI_Finalize.
+
+    // Called before MPI_Finalize is called
+    void* tool_pre_mpi_fini() {
+        Driver->PauseApplicationWrappers();
+        return NULL;
+    }
+
+    // Called before MPI_Init is called
+    void* tool_pre_mpi_init() {
+        Driver->PauseApplicationWrappers();
+        return NULL;
+    }
+
+    // Called after MPI_Init is called
     void* tool_mpi_init(){
+        Driver->UnpauseApplicationWrappers();
         return NULL;
     }
 
     void* tool_thread_init(thread_key_t tid){
         init_signal_handlers(true);
         if(Driver != NULL)
-          return Driver->InitializeNewThread(tid);
+            Driver->InitializeNewThread(tid);
         return NULL;
     }
 
@@ -121,13 +140,15 @@ extern "C" {
         if (Driver->GetAllData() == NULL){
             init_signal_handlers(true);
             DataManager<AddressStreamStats*>* AllData;
-            AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats, 
+            AllData = new DataManager<AddressStreamStats*>(GenerateStreamStats,
               DeleteStreamStats, ReferenceStreamStats);
             Driver->InitializeAddressStreamDriver(AllData);
         }
         assert(Driver);
 
+        bool entered = Driver->EnterTool();
         (void) Driver->InitializeNewImage(key, stats, td);
+        Driver->ExitTool(entered);
 
         pthread_rwlock_unlock(&dynamic_init_rwlock);
 
@@ -141,7 +162,9 @@ extern "C" {
         SAVE_STREAM_FLAGS(cout);
 
         image_key_t iid = *key;
+        bool entered = Driver->EnterTool();
         Driver->ProcessThreadBuffer(iid, pthread_self());
+        Driver->ExitTool(entered);
 
         RESTORE_STREAM_FLAGS(cout);
         return NULL;
@@ -150,13 +173,14 @@ extern "C" {
     // Called when the application exits. Collect the rest of the addresses in
     // the buffer and create the reports
     void* tool_image_fini(image_key_t* key){
+        Driver->PauseApplicationWrappers();
         // Only finalize images once
         static bool finalized = false;
         if (finalized)
             return NULL;
 
         finalized = true;
-        Driver->FinalizeImage(key);
+        (void) Driver->FinalizeImage(key);
         Driver->DeleteAllData();
         delete Driver;
         return NULL;
@@ -177,6 +201,11 @@ void DeleteStreamStats(AddressStreamStats* stats){
         delete[] stats->Stats;
     }
     stats->Stats = NULL;
+
+    // Delete memory allocated for processing addresses (every image/thread)
+    if (stats->addressesForProcessing != NULL)
+        free(stats->addressesForProcessing);
+    stats->addressesForProcessing = NULL;
 
     // Next, delete memory allocated for and shared by each thread
     // Only delete it once per thread, so have the first image delete it
@@ -223,10 +252,10 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
  
     assert(stats);
     AddressStreamStats* s = stats;
+    if (Driver == nullptr) {
+        exit(1);
+    }
     DataManager<AddressStreamStats*>* allData = Driver->GetAllData();
-
-//    // Make sure that the write lock was held
-//    assert(allData->IsWriteLockHeld());
     
     // every thread and image gets its own statistics
 
@@ -255,6 +284,11 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     // Initialize Stream Stats
     Driver->InitializeStatsWithNewStreamStats(stats);
 
+    // Initialize with other run data
+    stats->maxNumAddresses = 64;
+    stats->addressesForProcessing = (uint64_t*)malloc((sizeof(uint64_t) *
+      stats->maxNumAddresses));
+
     // Initialize Memory Handlers
     // Modified data generation (from DataManager) to always begin with the 
     // first image. Even if another image spawns the thread, pebil will 
@@ -266,9 +300,9 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
     } else {
         // Other images would share the handlers
         // Calls ReadLock - Release lock
-        allData->UnLock();
-        AddressStreamStats* fs = allData->GetData(tid);
-        allData->WriteLock();
+        //allData->UnLock();
+        AddressStreamStats* fs = allData->GetData(firstimage, tid, false);
+        //allData->WriteLock();
         stats->Handlers = fs->Handlers;
     }
 
@@ -282,9 +316,9 @@ AddressStreamStats* GenerateStreamStats(AddressStreamStats* stats, uint32_t typ,
         BUFFER_CURRENT(stats) = 0;
     } else if (iid != firstimage) {
         // Calls ReadLock - Release lock
-        allData->UnLock();
-        AddressStreamStats* fs = allData->GetData(tid);
-        allData->WriteLock();
+        //allData->UnLock();
+        AddressStreamStats* fs = allData->GetData(firstimage, tid, false);
+        //allData->WriteLock();
         stats->Buffer = fs->Buffer;
     }
 

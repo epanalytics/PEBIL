@@ -1,4 +1,4 @@
-#!/bin/env python2
+#!/bin/env python3 
 
 import os
 import sys
@@ -277,11 +277,11 @@ def centry(i, defmap):
         mnm    = "UD_I" + defmap["name"]
         opr    = defmap["opr"]
         flg    = defmap["flags"]
-        flg_use = string.join(['F_' + f.upper() for f in flg['use']], ' | ')
-        flg_def = string.join(['F_' + f.upper() for f in flg['def']], ' | ')
+        flg_use = ' | '.join(['F_' + f.upper() for f in flg['use']])
+        flg_def = ' | '.join(['F_' + f.upper() for f in flg['def']])
         imp    = defmap["implied"]
-        imp_use = string.join(['R_' + j.upper() for j in imp['use']], ' | ')
-        imp_def = string.join(['R_' + j.upper() for j in imp['def']], ' | ')
+        imp_use = ' | '.join(['R_' + j.upper() for j in imp['use']])
+        imp_def = ' | '.join(['R_' + j.upper() for j in imp['def']])
         pfx    = defmap["pfx"]
         if len(mnm) == 0: mnm = "UD_Ina"
         if len(opr) == 0: opr = default_opr
@@ -322,7 +322,7 @@ for node in tlNode.childNodes:
 
      # we need the mnemonic attribute
     if not ('mnemonic' in node.attributes.keys()):
-        print "error: no mnemonic given in <instruction>."
+        print("error: no mnemonic given in <instruction>.")
         sys.exit(-1) 
 
     # check if this instruction was already defined.
@@ -363,8 +363,8 @@ for node in tlNode.childNodes:
         if 'cast' in n.attributes.keys():
             pfx_c.append( "P_c" + n.attributes['cast'].value )
 
-	# get implicit addressing attribute, if given
-	if 'imp_addr' in n.attributes.keys():
+        # get implicit addressing attribute, if given
+        if 'imp_addr' in n.attributes.keys():
             if int( n.attributes['imp_addr'].value ):
                 pfx_c.append( "P_ImpAddr" )
 
@@ -374,7 +374,7 @@ for node in tlNode.childNodes:
             modef = v.split();
             for m in modef:
                 if not (m in pfx_dict):
-                    print "warning: unrecognized mode attribute '%s'" % m
+                    print("warning: unrecognized mode attribute '%s'" % m)
                 else:
                      pfx_c.append(pfx_dict[m])
 
@@ -394,7 +394,7 @@ for node in tlNode.childNodes:
             flg = parts[3].split()
             imp = parts[4].split()
         else:
-            print "error: invalid opcode definition of 3 %s\n" % mnemonic
+            print("error: invalid opcode definition of 3 %s\n" % mnemonic)
             sys.exit(-1)
         # Convert opcodes to upper case
         for i in range(len(opc)):
@@ -407,7 +407,7 @@ for node in tlNode.childNodes:
         for i in range(len(flg)):
             tks = flg[i].split(':')
             if len(tks) != 2 or (tks[0] != 'u' and tks[0] != 'd'):
-                print "error: invalid flags declaration %s" % flg[i]
+                print("error: invalid flags declaration %s" % flg[i])
                 sys.exit(-1) 
             [usedef, f] = tks
             if usedef == 'u':
@@ -421,7 +421,7 @@ for node in tlNode.childNodes:
         for i in range(len(imp)):
             tks = imp[i].split(':')
             if len(tks) != 2 or (tks[0] != 'u' and tks[0] != 'd'):
-                print "error: invalid implied reg declaration %s" % imp[i]
+                print("error: invalid implied reg declaration %s" % imp[i])
                 sys.exit(-1) 
             [usedef, f] = tks
             if usedef == 'u':
@@ -445,7 +445,7 @@ for node in tlNode.childNodes:
         #
         for p in pfx:
             if not ( p in pfx_dict.keys() ):
-                print "error: invalid prefix specification: %s \n" % pfx
+                print("error: invalid prefix specification: %s \n" % pfx)
                 sys.exit(-1) 
             pfx_c.append( pfx_dict[p] )
         if len(pfx) == 0:
@@ -458,7 +458,7 @@ for node in tlNode.childNodes:
         opr_c = [ "O_NONE", "O_NONE", "O_NONE", "O_NONE" ]
         for i in range(len(opr)): 
             if not (opr[i] in operand_dict.keys()):
-                print "error: invalid operand declaration: %s\n" % opr[i]
+                print("error: invalid operand declaration: %s\n" % opr[i])
                 sys.exit(-1)
             opr_c[i] = "O_" + opr[i]
         opr = "%-8s %-8s %-8s %s" % (opr_c[0] + ",", opr_c[1] + ",", opr_c[2] + ",", opr_c[3])
@@ -671,8 +671,7 @@ f.write("};\n\n")
 #
 # Generate enumeration of the tables
 #
-table_names = tables.keys()
-table_names.sort();
+table_names = sorted(tables.keys())
 
 f.write( "\nenum ud_itab_index {\n" )
 for name in table_names:
