@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # This file is part of the pebil project.
 #
@@ -38,21 +38,21 @@ OUTPUT_OPCOUNT_NAME = 'opcounts.dat'
 # util functions
 def print_error(err):
     if err != '':
-        print 'Error: ' + str(err)
+        print('Error: ' + str(err))
     sys.exit(1)
 
 def print_usage(err=''):
-    print "usage : " + sys.argv[0]
-    print "[Optional Arguments]:"
-    print "        --blockmin <block_minimum_to_include> [default = " + str(DEFAULT_BLOCK_MIN) + "]"
-    print "[Positional Arguments]:"
-    print "        (optional) a .jbbinst.static file, followed by..."
-    print "        a list of .jbbinst trace files"
-    print ""
-    print "Example: " + sys.argv[0] + " --blockmin 1000 dynTest.r*.jbbinst"
-    print ""
-    print "Outputs a file containing a list of important blocks"
-    print "If a static file is included, an opcount file of (insns, fpops, memops) is also output"
+    print( "usage : " + sys.argv[0])
+    print( "[Optional Arguments]:")
+    print( "        --blockmin <block_minimum_to_include> [default = " + str(DEFAULT_BLOCK_MIN) + "]")
+    print( "[Positional Arguments]:")
+    print( "        (optional) a .jbbinst.static file, followed by...")
+    print( "        a list of .jbbinst trace files")
+    print( "")
+    print( "Example: " + sys.argv[0] + " --blockmin 1000 dynTest.r*.jbbinst")
+    print( "")
+    print( "Outputs a file containing a list of important blocks")
+    print( "If a static file is included, an opcount file of (insns, fpops, memops) is also output")
     print_error(err)
 
 def file_exists(filename):
@@ -103,7 +103,7 @@ class CounterLine(object):
         try:
             tseq = int(toks[0])
             tcnt = int(toks[1])
-            if self.threadcounters.has_key(tseq):
+            if tseq in self.threadcounters:
                 print_usage('duplicate thread count for thread ' + tseq + ' in block ' + self.sequence + ' image ' + self.image)
             self.threadcounters[tseq] = tcnt
         except ValueError:
@@ -211,7 +211,7 @@ class StaticFile:
         if not StaticFile.isStaticFile(sfile):
             print_usage('expecting a specific format for file name (' + INPUT_STATIC_NAME_REGEX + '): ' + sfile)
 
-        print 'Reading static file ' + sfile
+        print( 'Reading static file ' + sfile )
         self.image = 0
         self.blocks = {}
         f = open(sfile)
@@ -264,7 +264,7 @@ class JbbTraceFile:
                 if toks[0] == IMAGE_IDENTIFIER:
                     c = ImageLine(toks)
                     i = c.id()
-                    if self.images.has_key(i):
+                    if i in self.images:
                         print_usage('duplicate image: ' + str(i))
                     self.images[i] = c
                     self.rimage[c.sequence] = i
@@ -272,14 +272,14 @@ class JbbTraceFile:
                 elif toks[0] == BLOCK_IDENTIFIER:
                     c = BlockLine(toks)
                     i = c.id()
-                    if self.blocks.has_key(i):
+                    if i in self.blocks:
                         print_usage('duplicate block: ' + str(i))
                     self.blocks[i] = c
 
                 elif toks[0] == LOOP_IDENTIFIER:
                     c = LoopLine(toks)
                     i = c.id()
-                    if not self.loops.has_key(i):
+                    if not i in self.loops:
                         self.loops[i] = []
                     self.loops[i].append(c)
                 
@@ -294,7 +294,7 @@ def main():
     # handle command line
     try:
         optlist, args = getopt.getopt(sys.argv[1:], '', ['blockmin='])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         print_usage(err)
 
     blockmin = DEFAULT_BLOCK_MIN
@@ -338,12 +338,12 @@ def main():
     # for each jbbinst file
     for f in args:
         index += 1
-        print 'Processing input file ' + str(index) + ' of ' + str(len(args)) + ': ' + f
+        print( 'Processing input file ' + str(index) + ' of ' + str(len(args)) + ': ' + f)
 
         b = JbbTraceFile(f)
 
         # check if mpirank has been used before
-        if blockfiles.has_key(b.mpirank):
+        if b.mpirank in  blockfiles:
             print_usage('duplicate mpi rank found in input files: ' + str(b.mpirank))
         blockfiles[b.mpirank] = 1
 
@@ -386,10 +386,10 @@ def main():
             bb = b.blocks[kb]
             iid = b.rimage[bb.image]
 
-            if not imagecounts.has_key(iid):
+            if not iid in imagecounts:
                 imagecounts[iid] = {}
 
-            if not imagecounts[iid].has_key(bb.hashcode):
+            if not bb.hashcode in imagecounts[iid]:
                 imagecounts[iid][bb.hashcode] = 0
 
             imagecounts[iid][bb.hashcode] += bb.count
@@ -404,11 +404,11 @@ def main():
     for k in imagelist.keys():
         for kb in imagecounts[k].keys():
             if imagecounts[k][kb] >= blockmin:
-                if not imagefiles.has_key(k):
+                if not k in imagefiles:
                     fname = OUTPUT_LBB_NAME % {'application': appname, 'image': k, 'tasks': ntasks }
                     f = open(fname, 'w')
                     imagefiles[k] = f
-                    print 'Writing output file ' + fname
+                    print('Writing output file ' + fname)
                     f.write('# BlockHash ImgHash # TotalBlockCount\n')
                 imagefiles[k].write(('0x%x ' % kb) + ('0x%x' % imagelist[k].hashcode) + ' # ' + str(imagecounts[k][kb]) + '\n')
 
