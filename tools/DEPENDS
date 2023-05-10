@@ -12,12 +12,13 @@ AddressStreamIntercept.o: AddressStreamIntercept.C \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h ../include/SimpleHash.h \
- ../instcode/AddressStreamStats.hpp ../include/BasicBlock.h \
- ../include/FlowGraph.h ../include/Function.h ../include/TextSection.h \
- ../include/SymbolTable.h ../include/defines/SymbolTable.d \
- ../include/X86InstructionFactory.h ../include/LineInformation.h \
- ../include/defines/LineInformation.d ../include/Loop.h
+ ../external/epa-inst-libs/Metasim.hpp ../include/EncryptTool.h \
+ ../include/SimpleHash.h ../external/epa-inst-libs/AddressStreamStats.hpp \
+ ../include/BasicBlock.h ../include/FlowGraph.h ../include/Function.h \
+ ../include/TextSection.h ../include/SymbolTable.h \
+ ../include/defines/SymbolTable.d ../include/X86InstructionFactory.h \
+ ../include/LineInformation.h ../include/defines/LineInformation.d \
+ ../include/Loop.h
 BasicBlockCounter.o: BasicBlockCounter.C BasicBlockCounter.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
  ../include/Base.h ../include/CStructuresElf.h \
@@ -32,12 +33,12 @@ BasicBlockCounter.o: BasicBlockCounter.C BasicBlockCounter.h \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h ../include/BasicBlock.h \
- ../include/FlowGraph.h ../include/Function.h ../include/TextSection.h \
- ../include/SymbolTable.h ../include/defines/SymbolTable.d \
- ../include/X86InstructionFactory.h ../include/LineInformation.h \
- ../include/defines/LineInformation.d ../include/Loop.h \
- ../instcode/CounterFunctions.hpp
+ ../external/epa-inst-libs/Metasim.hpp ../include/EncryptTool.h \
+ ../include/BasicBlock.h ../include/FlowGraph.h ../include/Function.h \
+ ../include/TextSection.h ../include/SymbolTable.h \
+ ../include/defines/SymbolTable.d ../include/X86InstructionFactory.h \
+ ../include/LineInformation.h ../include/defines/LineInformation.d \
+ ../include/Loop.h ../external/epa-inst-libs/CounterFunctions.hpp
 CallReplace.o: CallReplace.C CallReplace.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
  ../include/Base.h ../include/CStructuresElf.h \
@@ -52,11 +53,11 @@ CallReplace.o: CallReplace.C CallReplace.h \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h ../include/BasicBlock.h \
- ../include/FlowGraph.h ../include/Function.h ../include/TextSection.h \
- ../include/SymbolTable.h ../include/defines/SymbolTable.d \
- ../include/LineInformation.h ../include/defines/LineInformation.d \
- ../include/X86InstructionFactory.h
+ ../external/epa-inst-libs/Metasim.hpp ../include/EncryptTool.h \
+ ../include/BasicBlock.h ../include/FlowGraph.h ../include/Function.h \
+ ../include/TextSection.h ../include/SymbolTable.h \
+ ../include/defines/SymbolTable.d ../include/LineInformation.h \
+ ../include/defines/LineInformation.d ../include/X86InstructionFactory.h
 Classification.o: Classification.C Classification.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
  ../include/Base.h ../include/CStructuresElf.h \
@@ -71,11 +72,11 @@ Classification.o: Classification.C Classification.h \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h ../include/BasicBlock.h \
- ../include/FlowGraph.h ../include/Function.h ../include/TextSection.h \
- ../include/SymbolTable.h ../include/defines/SymbolTable.d \
- ../include/X86InstructionFactory.h ../include/LineInformation.h \
- ../include/defines/LineInformation.d
+ ../external/epa-inst-libs/Metasim.hpp ../include/EncryptTool.h \
+ ../include/BasicBlock.h ../include/FlowGraph.h ../include/Function.h \
+ ../include/TextSection.h ../include/SymbolTable.h \
+ ../include/defines/SymbolTable.d ../include/X86InstructionFactory.h \
+ ../include/LineInformation.h ../include/defines/LineInformation.d
 FunctionCounter.o: FunctionCounter.C BasicBlockCounter.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
  ../include/Base.h ../include/CStructuresElf.h \
@@ -90,9 +91,9 @@ FunctionCounter.o: FunctionCounter.C BasicBlockCounter.h \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h FunctionCounter.h \
- ../include/BasicBlock.h ../include/FlowGraph.h ../include/Function.h \
- ../include/TextSection.h ../include/SymbolTable.h \
+ ../external/epa-inst-libs/Metasim.hpp ../include/EncryptTool.h \
+ FunctionCounter.h ../include/BasicBlock.h ../include/FlowGraph.h \
+ ../include/Function.h ../include/TextSection.h ../include/SymbolTable.h \
  ../include/defines/SymbolTable.d ../include/LineInformation.h \
  ../include/defines/LineInformation.d
 FunctionTimer.o: FunctionTimer.C FunctionTimer.h \
@@ -109,11 +110,12 @@ FunctionTimer.o: FunctionTimer.C FunctionTimer.h \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h ../include/BasicBlock.h \
- ../include/FlowGraph.h ../include/Function.h ../include/TextSection.h \
- ../include/SymbolTable.h ../include/defines/SymbolTable.d \
- ../include/X86InstructionFactory.h ../instcode/TimerFunctions.hpp \
- ../instcode/PAPIFunctions.hpp
+ ../external/epa-inst-libs/Metasim.hpp ../include/EncryptTool.h \
+ ../include/BasicBlock.h ../include/FlowGraph.h ../include/Function.h \
+ ../include/TextSection.h ../include/SymbolTable.h \
+ ../include/defines/SymbolTable.d ../include/X86InstructionFactory.h \
+ ../external/epa-inst-libs/TimerFunctions.hpp \
+ ../external/epa-inst-libs/PAPIFunctions.hpp
 Minimal.o: Minimal.C Minimal.h ../include/InstrumentationTool.h \
  ../include/ElfFileInst.h ../include/Base.h ../include/CStructuresElf.h \
  ../include/CStructuresDwarf.h ../include/Debug.h ../include/Vector.h \
@@ -127,7 +129,7 @@ Minimal.o: Minimal.C Minimal.h ../include/InstrumentationTool.h \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h
+ ../external/epa-inst-libs/Metasim.hpp ../include/EncryptTool.h
 LoopIntercept.o: LoopIntercept.C LoopIntercept.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
  ../include/Base.h ../include/CStructuresElf.h \
@@ -142,12 +144,14 @@ LoopIntercept.o: LoopIntercept.C LoopIntercept.h \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h ../include/BasicBlock.h \
- ../include/FlowGraph.h ../include/Function.h ../include/TextSection.h \
- ../include/SymbolTable.h ../include/defines/SymbolTable.d \
- ../include/LineInformation.h ../include/defines/LineInformation.d \
- ../include/Loop.h ../include/X86InstructionFactory.h \
- ../instcode/TimerFunctions.hpp ../instcode/PAPIFunctions.hpp
+ ../external/epa-inst-libs/Metasim.hpp ../include/EncryptTool.h \
+ ../include/BasicBlock.h ../include/FlowGraph.h ../include/Function.h \
+ ../include/TextSection.h ../include/SymbolTable.h \
+ ../include/defines/SymbolTable.d ../include/LineInformation.h \
+ ../include/defines/LineInformation.d ../include/Loop.h \
+ ../include/X86InstructionFactory.h \
+ ../external/epa-inst-libs/TimerFunctions.hpp \
+ ../external/epa-inst-libs/PAPIFunctions.hpp
 TauFunctionTrace.o: TauFunctionTrace.C TauFunctionTrace.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
  ../include/Base.h ../include/CStructuresElf.h \
@@ -162,11 +166,11 @@ TauFunctionTrace.o: TauFunctionTrace.C TauFunctionTrace.h \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h ../include/BasicBlock.h \
- ../include/FlowGraph.h ../include/Function.h ../include/TextSection.h \
- ../include/SymbolTable.h ../include/defines/SymbolTable.d \
- ../include/LineInformation.h ../include/defines/LineInformation.d \
- ../include/Loop.h
+ ../external/epa-inst-libs/Metasim.hpp ../include/EncryptTool.h \
+ ../include/BasicBlock.h ../include/FlowGraph.h ../include/Function.h \
+ ../include/TextSection.h ../include/SymbolTable.h \
+ ../include/defines/SymbolTable.d ../include/LineInformation.h \
+ ../include/defines/LineInformation.d ../include/Loop.h
 DeadRegisterSquasher.o: DeadRegisterSquasher.C DeadRegisterSquasher.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
  ../include/Base.h ../include/CStructuresElf.h \
@@ -181,31 +185,12 @@ DeadRegisterSquasher.o: DeadRegisterSquasher.C DeadRegisterSquasher.h \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h ../include/BasicBlock.h \
- ../include/FlowGraph.h ../include/Function.h ../include/TextSection.h \
- ../include/SymbolTable.h ../include/defines/SymbolTable.d \
- ../include/X86InstructionFactory.h ../include/LineInformation.h \
- ../include/defines/LineInformation.d ../include/Loop.h
-AddressStreamIntercept.o: AddressStreamIntercept.C \
- AddressStreamIntercept.h ../include/InstrumentationTool.h \
- ../include/ElfFileInst.h ../include/Base.h ../include/CStructuresElf.h \
- ../include/CStructuresDwarf.h ../include/Debug.h ../include/Vector.h \
- ../include/ElfFile.h ../include/BinaryFile.h ../include/ProgramHeader.h \
- ../include/defines/ProgramHeader.d ../include/X86Instruction.h \
- ../include/AddressAnchor.h ../include/BitSet.h ../include/LinkedList.h \
- ../include/RawSection.h ../external/udis86-1.7/libudis86/syn.h \
- ../external/udis86-1.7/libudis86/types.h \
- ../external/udis86-1.7/libudis86/itab.h ../external/udis86-1.7/udis86.h \
- ../external/udis86-1.7/libudis86/types.h \
- ../external/udis86-1.7/libudis86/extern.h \
- ../external/udis86-1.7/libudis86/itab.h \
- ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h ../include/SimpleHash.h \
- ../instcode/AddressStreamStats.hpp ../include/BasicBlock.h \
- ../include/FlowGraph.h ../include/Function.h ../include/TextSection.h \
- ../include/SymbolTable.h ../include/defines/SymbolTable.d \
- ../include/X86InstructionFactory.h ../include/LineInformation.h \
- ../include/defines/LineInformation.d ../include/Loop.h
+ ../external/epa-inst-libs/Metasim.hpp ../include/EncryptTool.h \
+ ../include/BasicBlock.h ../include/FlowGraph.h ../include/Function.h \
+ ../include/TextSection.h ../include/SymbolTable.h \
+ ../include/defines/SymbolTable.d ../include/X86InstructionFactory.h \
+ ../include/LineInformation.h ../include/defines/LineInformation.d \
+ ../include/Loop.h
 pebil.o: pebil.C ../include/Base.h ../include/CStructuresElf.h \
  ../include/CStructuresDwarf.h ../include/Debug.h ../include/Vector.h \
  ../include/InstrumentationTool.h ../include/ElfFileInst.h \
@@ -219,4 +204,4 @@ pebil.o: pebil.C ../include/Base.h ../include/CStructuresElf.h \
  ../external/udis86-1.7/libudis86/extern.h \
  ../external/udis86-1.7/libudis86/itab.h \
  ../include/defines/X86Instruction.d ../include/Instrumentation.h \
- ../instcode/Metasim.hpp ../include/EncryptTool.h
+ ../external/epa-inst-libs/Metasim.hpp ../include/EncryptTool.h

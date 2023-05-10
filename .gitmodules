@@ -1,4 +1,8 @@
 [submodule "external/epa-pebil-tools"]
 	path = external/epa-pebil-tools
 	url = git@bitbucket.org:epanalyticsrepos/epa-pebil-tools.git
-	branch = development
+	branch = master_dev_sync
+[submodule "external/epa-inst-libs"]
+	path = external/epa-inst-libs
+	url = git@github.com:epanalytics/epa-inst-libs.git
+	branch = master_dev_sync

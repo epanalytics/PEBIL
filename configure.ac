@@ -130,14 +130,6 @@ else
 fi
 AC_SUBST(PEBIL_CXX_BINDINGS)
 
-AC_CHECK_PROG(OPENMPI_IS_NEW, mpifort, "yes")
-if test x"$OPENMPI_IS_NEW" == x"yes"; then
-  PEBIL_MPIFC_OPENMPI_LIB="-lmpi_mpifh"
-else
-  PEBIL_MPIFC_OPENMPI_LIB="-lmpi_f77 -lmpi_f90"
-fi
-AC_SUBST(PEBIL_MPIFC_OPENMPI_LIB)
-
 AC_ARG_ENABLE(adamant, AC_HELP_STRING([--enable-adamant], [enable adamant [yes]]), adamant_ok=$enableval)
 AC_CHECK_HEADERS([adm.h],
   [
@@ -158,18 +150,9 @@ AC_ARG_ENABLE(mpiinit_check, AC_HELP_STRING([--enable-mpiinit-check], [Disable o
 if test "$mpiinit_check_ok" = "yes"; then
    MPI_FLAGS="$MPI_FLAGS -DMPI_INIT_REQUIRED"
 fi
-
 AC_SUBST(MPI_FLAGS)
 AC_SUBST(MPI_CXXFLAGS)
 
-AC_ARG_WITH(throttler_headers,
-            [AS_HELP_STRING([--with-throttler-headers=<path>],[specify path to throttler headers])],
-            [throttler_headers=$withval
-             AC_CHECK_HEADER([$throttler_headers/throttler.h],
-                             [THROTTLER_FLAGS="-DHAVE_THROTTLER_H -I$throttler_headers"],
-                             [AC_MSG_ERROR(throttler.h not found using $throttler_headers)])],
-            [throttler_headers=no])
-AC_SUBST(THROTTLER_FLAGS)
 
 #AC_ARG_ENABLE(epa_tools, [AC_HELP_STRING([--disable-epa-tools], 
 #  [do not use/compile EP Analytics tools @<:@default=yes@:>@])], 
@@ -198,7 +181,7 @@ AC_SUBST(PEBIL_EPA_TOOLS_AVAILABLE)
 AC_SUBST(PEBIL_EPA_TOOLS_PATH)
 
 if test "x$epa_tools" = "xdefault"; then 
-    PEBIL_SUBDIR_EPA_TOOLS_PATH="../${PEBIL_EPA_TOOLS_PATH}"
+    PEBIL_SUBDIR_EPA_TOOLS_PATH="../../${PEBIL_EPA_TOOLS_PATH}"
     PEBIL_ENV_EPA_TOOLS_PATH="\${pebildir}/${PEBIL_EPA_TOOLS_PATH}"
 else
     PEBIL_SUBDIR_EPA_TOOLS_PATH="${PEBIL_EPA_TOOLS_PATH}"
@@ -207,21 +190,48 @@ fi
 AC_SUBST(PEBIL_SUBDIR_EPA_TOOLS_PATH)
 AC_SUBST(PEBIL_ENV_EPA_TOOLS_PATH)
 
-AC_ARG_ENABLE(papi, AC_HELP_STRING([--enable-papi], [Build with PAPI hardware counter support [yes]]), enable_papi_ok=$enableval)
-if test "$enable_papi_ok" = "yes"; then
-  PEBIL_PAPI_BUILD="yes"
+AC_ARG_ENABLE(papi, AC_HELP_STRING([--with-papi=<path>], [Build with PAPI hardware counter support [yes]]), [papi=$withval], [papi=no])
+PEBIL_PAPI_PATH=""
+if test "x$papi" != "xno"; then
+    PEBIL_PAPI_BUILD="yes"
+    if test "x$papi" != "xyes"; then  # If not sing default papi
+        PEBIL_PAPI_PATH="$papi"
+    fi
 else
   PEBIL_PAPI_BUILD="no"
 fi
 AC_SUBST(PEBIL_PAPI_BUILD)
+AC_SUBST(PEBIL_PAPI_PATH)
 
-AC_ARG_VAR(PAPI_PATH,[path to PAPI folder])
+# Set where to place bins and libs produced by epa-inst-libs
+EPA_INST_LIBS_PATH="$(pwd)/external/epa-inst-libs"
+AC_SUBST(EPA_INST_LIBS_PATH)
+INST_LIBS_LIBDIR="\$(PEBIL_ROOT)/lib"
+INST_LIBS_BINDIR="\$(PEBIL_ROOT)/bin"
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdint.h stdlib.h string.h strings.h unistd.h])
 AC_CHECK_HEADERS([cpufreq.h],
         CPUFREQ_FLAGS="-DHAVE_CPUFREQ_H")
 AC_SUBST(CPUFREQ_FLAGS)
+
+# Export flags to subprojects
+export MPICC
+export MPICXX
+export CFLAGS
+export CXXFLAGS
+export MPI_FLAGS
+export MPI_CXXFLAGS
+export PEBIL_PAPI_BUILD
+export PEBIL_PAPI_PATH
+export PEBIL_EPA_TOOLS_AVAILABLE
+export PEBIL_SUBDIR_EPA_TOOLS_PATH
+export PEBIL_EPA_TOOLS_PATH
+export PEBIL_DEBUG
+export CPUFREQ_FLAGS
+export INST_LIBS_LIBDIR
+export INST_LIBS_BINDIR
+export PEBIL_VERBOSE_SLICER
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
@@ -241,12 +251,11 @@ AC_CHECK_FUNCS([bzero memset])
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  tools/Makefile
-                 instcode/Makefile
                  scripts/blacklist.sh
                  cshrc
                  bashrc])
+AC_CONFIG_SUBDIRS([external/epa-inst-libs])
 AC_CONFIG_SUBDIRS([external/udis86-1.7])
-AC_CONFIG_SUBDIRS([external/ReuseDistance])
 AC_OUTPUT
 chmod +x scripts/blacklist.sh
 
