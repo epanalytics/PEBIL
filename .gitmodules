@@ -4,5 +4,5 @@
 	branch = master_dev_sync
 [submodule "external/epa-inst-libs"]
 	path = external/epa-inst-libs
-	url = git@github.com:epanalytics/epa-inst-libs.git
+	url = git@bitbucket.org:epanalyticsrepos/epa-inst-libs.git
 	branch = master_dev_sync
