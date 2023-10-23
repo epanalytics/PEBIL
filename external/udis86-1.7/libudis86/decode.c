@@ -1206,6 +1206,7 @@ static void decode_vex_vvvv(struct ud* u,
     op->size = resolve_operand_size(u, size);
 
     size = op->size;
+    PEBIL_DEBUG("\tdecode_vex_vvvv: size = %d", size);
     if(type == T_XMM && size == SZ_Y) {
         type = T_YMM;
     }

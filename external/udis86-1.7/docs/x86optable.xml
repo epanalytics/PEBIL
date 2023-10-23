@@ -6002,8 +6002,13 @@ MAL MISSING PRE SSE?
   </instruction>
 
   <instruction mnemonic="vpmaskmovd">
-    <opcode> rexr rexx rexb rexw ; avxC4 sse66 0f /3byte=38 8C /W=0 ; Vx X Wx ; ; </opcode>
-    <opcode> rexr rexx rexb rexw ; avxC4 sse66 0f /3byte=38 8E /W=0 ; Wx X Vx ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; avxC4 sse66 0f /3byte=38 8C /W=0 ; V X W ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; avxC4 sse66 0f /3byte=38 8E /W=0 ; W X V ; ; </opcode>
+  </instruction>
+
+  <instruction mnemonic="vpmaskmovq">
+    <opcode> rexr rexx rexb rexw ; avxC4 sse66 0f /3byte=38 8C /W=1 ; V X W ; ; </opcode>
+    <opcode> rexr rexx rexb rexw ; avxC4 sse66 0f /3byte=38 8E /W=1 ; W X V ; ; </opcode>
   </instruction>
 
   <instruction mnemonic="vpmaxud">
