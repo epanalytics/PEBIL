@@ -398,6 +398,20 @@ uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile) {
               }
         }
 
+        // If, for whatever reason, the first sybmol does not begin at the
+	// beginning of the section (see Issue #186), then we need to create
+        // a filler text object
+        uint32_t startOfSection = sectionHeader->GET(sh_addr);
+        uint32_t firstSymbolAddr = textSymbols[0]->GET(st_value);
+        uint32_t indexOffset = 0;
+        if (startOfSection < firstSymbolAddr) {
+            PRINT_WARN(10, "The first symbol does not begin at the start of "
+              "the section. Adding filler object");
+            indexOffset++;
+            sortedTextObjects.append(new FreeText(this, 0, NULL,
+              startOfSection, firstSymbolAddr - startOfSection, true));
+        }
+
         uint32_t i;
         for (i = 0; i < textSymbols.size() - 1; i++) {
             // use the max of: the size listed in the symbol table and the size
@@ -410,8 +424,8 @@ uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile) {
             }
 
             if (textSymbols[i]->isFunctionSymbol(this)) {
-                sortedTextObjects.append(new Function(this, i, textSymbols[i], 
-                  size)); 
+                sortedTextObjects.append(new Function(this, i + indexOffset,
+                  textSymbols[i], size)); 
                 ASSERT(sortedTextObjects.back()->isFunction());
 #ifdef GENERATE_BLACKLIST
                 fprintf(stdout, "pebil_function_list %s\n", 
@@ -427,8 +441,9 @@ uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile) {
                 //} else {
                 //    hasInstructions = false;
                 //}
-                sortedTextObjects.append(new FreeText(this, i, textSymbols[i], 
-                  textSymbols[i]->GET(st_value), size, hasInstructions));
+                sortedTextObjects.append(new FreeText(this, i + indexOffset,
+                  textSymbols[i], textSymbols[i]->GET(st_value), size,
+                  hasInstructions));
                 ASSERT(!sortedTextObjects.back()->isFunction());
             } else {
                 PRINT_ERROR("Unknown symbol type found to be associated with "
@@ -443,11 +458,12 @@ uint32_t TextSection::disassemble(BinaryInputFile* binaryInputFile) {
             size = textSymbols[i]->GET(st_size);
         }
         if (textSymbols.back()->isFunctionSymbol(this)) {
-            sortedTextObjects.append(new Function(this, i, textSymbols.back(), 
-              size));
+            sortedTextObjects.append(new Function(this, i + indexOffset,
+              textSymbols.back(), size));
         } else {
-            sortedTextObjects.append(new FreeText(this, i, textSymbols.back(),
-              textSymbols.back()->GET(st_value), size, false));
+            sortedTextObjects.append(new FreeText(this, i + indexOffset,
+              textSymbols.back(), textSymbols.back()->GET(st_value), size,
+              false));
         }
     }
 
@@ -631,13 +647,22 @@ void TextSection::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
     binaryOutputFile->copyBytes(buff, getSizeInBytes(), offset);
     delete[] buff;
 
-    if (sortedTextObjects.size()){
+    if (sortedTextObjects.size()) {
         for (uint32_t i = 0; i < sortedTextObjects.size() - 1; i++){
             ASSERT(sortedTextObjects[i] && "The functions in this text section should be initialized");
             sortedTextObjects[i]->dump(binaryOutputFile, offset + currByte);
             
-            // functions can overlap! this puts the function in the correct original spot
-            uint32_t actualFunctionSize = sortedTextObjects[i+1]->getSymbolValue() - sortedTextObjects[i]->getSymbolValue();
+            // functions can overlap! this puts the function in the correct
+            // original spot
+	    // If the very first object is not a function (sometimes there
+            // are nops at the beginning that are not in an actual function)
+            // just use the given size 
+            uint32_t actualFunctionSize = 0;
+            if (sortedTextObjects[i]->isFunction())
+                actualFunctionSize = sortedTextObjects[i+1]->getSymbolValue() -
+                  sortedTextObjects[i]->getSymbolValue();
+            else
+                actualFunctionSize = sortedTextObjects[i]->getSizeInBytes();
             currByte += actualFunctionSize;
         }
         sortedTextObjects.back()->dump(binaryOutputFile, offset + currByte);
