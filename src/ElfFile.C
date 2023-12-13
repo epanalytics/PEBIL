@@ -85,7 +85,6 @@ bool ElfFile::isDataWedgeAddress(uint64_t addr){
 
     // The textSegmentIdx and dataSegmentIdx may have changed!
     // See the verify function for more information
-    ASSERT(false);
 
     //PRINT_INFOR("Checking %lx", addr);
 
@@ -140,7 +139,8 @@ void ElfFile::prepareWedge(){
     wedgeInstructionCount = 0;
 
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
-        wedgeInstructionCount += getTextSection(i)->getAllInstructions(wedgeInstructions, wedgeInstructionCount);
+        wedgeInstructionCount += getTextSection(i)->getAllInstructions(
+          wedgeInstructions, wedgeInstructionCount);
     }
     qsort(wedgeInstructions, wedgeInstructionCount, sizeof(X86Instruction*), compareBaseAddress);
 
@@ -383,11 +383,13 @@ void ElfFile::getLoadSegments(Vector<ProgramHeader*>* vec) {
 }
 
 uint16_t ElfFile::getELFStructuresSegmentIdx(){
-    // We assume the the first LOAD segment is the 3rd segment overall
-    // if this assumption fails a nonsense value is returned that should 
-    // alert us if that doesn't happen
-    if (getProgramHeader(2)->GET(p_type) == PT_LOAD) {
-        return 2;
+    // Returns the first LOAD segment (should be first or third for the most
+    // part, return a nonsense value to alert if this has gone wrong.
+    uint32_t numOfPHs = getNumberOfPrograms();
+    for (uint32_t i = 0;i< numOfPHs;i++){
+        if (getProgramHeader(i)->GET(p_type) == PT_LOAD) {
+            return i;
+        }
     }
     return (uint16_t)-1;
 }
@@ -513,23 +515,16 @@ bool ElfFile::verify(){
     bool flag = false;
     for (uint32_t i = 0; i < getNumberOfPrograms(); i++) {
         ProgramHeader* phdr = getProgramHeader(i);
-        if (i < 2 && phdr->GET(p_type) == PT_LOAD){
-            PRINT_ERROR("LOAD Segments do not start at index 2");
-            return false;
-        }
-        if (i == 2 && phdr->GET(p_type) != PT_LOAD) {
-            PRINT_ERROR("LOAD Segments do not start at index 2");
-            return false;
-        } else {
+        if (phdr->GET(p_type) == PT_LOAD){
             flag = true;
         }
-        if (i > 2 && flag == true){
+        if (flag == true){
             if (phdr->GET(p_type) != PT_LOAD){
                 flag = false;
                 continue;
             }
         }
-        if (i > 2 && flag == false) {
+        if (flag == false) {
             if (phdr->GET(p_type) == PT_LOAD) {
                 PRINT_ERROR("LOAD Segments not all continous");
             }

@@ -1592,7 +1592,6 @@ uint64_t ElfFileInst::addPLTRelocationEntry(uint32_t symbolIndex, uint64_t gotOf
 }
 
 void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
-
     ASSERT(currentPhase == ElfInstPhase_extend_space 
       && "Instrumentation phase order must be observed");
 
@@ -1665,9 +1664,7 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     // for each segment that is contained within the ELF Section segment, 
     // update its address to reflect the new base address of the ELF Section 
     // segment
-
     for (uint32_t i = 0; i < elfFile->getNumberOfPrograms(); i++){
-
         ProgramHeader* subHeader = elfFile->getProgramHeader(i);
 
         if (ELFSectionSegment->inRange(subHeader->GET(p_vaddr))
@@ -1677,7 +1674,8 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
                 PRINT_WARN(20, 
                   "Unable to extend text section by 0x%llx bytes: the maximum size of a text extension for this binary is 0x%llx bytes", 
                   totalSize, subHeader->GET(p_vaddr)); 
-                PRINT_WARN(20, "Try using the --wedge flag");
+                // EEO Are we removing this?
+                //PRINT_WARN(20, "Try using the --wedge flag");
             }
             
             ASSERT(subHeader->GET(p_vaddr) >= totalSize 
