@@ -92,22 +92,27 @@ bool ElfFile::isDataWedgeAddress(uint64_t addr){
 
     // if addr falls either in the TEXT segment outside of actual text, or
     // falls in the DATA segment
+    //fprintf(stderr, "EEO\t dataSegmentIdx: %u\n", dataSegmentIdx);
     ProgramHeader* p = programHeaders[dataSegmentIdx];
     //PRINT_INFOR("Valid data range: [%#lx, %#lx]", p->GET(p_vaddr), p->GET(p_vaddr) + p->GET(p_memsz));
     if (IN_RANGE(p->GET(p_vaddr), p->GET(p_vaddr) + p->GET(p_memsz), addr)){
+        //fprintf(stderr, "\t first true return\n");
         return true;
     }
 
+    //fprintf(stderr, "EEO\t textSegmentIdx: %u\n", textSegmentIdx);
     p = programHeaders[textSegmentIdx];
     SectionHeader* s = getDotFiniSection()->getSectionHeader();
     //PRINT_INFOR("Valid text range: [%#lx, %#lx]", s->GET(sh_addr), p->GET(p_vaddr) + p->GET(p_memsz));
     if (IN_RANGE(s->GET(sh_addr), p->GET(p_vaddr) + p->GET(p_memsz), addr)){
+        //fprintf(stderr, "\t second true return\n");
         return true;
     }
 
     // if addr is the 1st instruction in a function
     uint64_t searchAddr = addr;
-    void* link = bsearch(&searchAddr, wedgeInstructions, wedgeInstructionCount, sizeof(X86Instruction*), searchBaseAddressExact);
+    void* link = bsearch(&searchAddr, wedgeInstructions, wedgeInstructionCount, 
+      sizeof(X86Instruction*), searchBaseAddressExact);
     if (link != NULL){
         X86Instruction* x = *(X86Instruction**)link;
         TextObject* container = x->getContainer();
@@ -116,12 +121,14 @@ bool ElfFile::isDataWedgeAddress(uint64_t addr){
             return true;
         } else if (container->isFunction()){
             Function* f = (Function*)x->getContainer();
-            //PRINT_INFOR("\t\tComparing function %#lx to instruction %#lx", f->getBaseAddress(), x->getBaseAddress());
+            //PRINT_INFOR("\t\tComparing function %#lx to instruction %#lx", 
+            //  f->getBaseAddress(), x->getBaseAddress());
             if (f->getBaseAddress() == x->getBaseAddress()){
                 return true;
             }
         } else {
-            PRINT_ERROR("Cannot have container type %s", PebilClassTypeNames[container->getType()]);
+            PRINT_ERROR("Cannot have container type %s", 
+              PebilClassTypeNames[container->getType()]);
         }
     }
 
@@ -161,7 +168,9 @@ void ElfFile::wedge(uint32_t shamt){
         programHeaders[i]->wedge(this, shamt);
     }
 
+    fprintf(stderr, "EEO\t sh count: %u\n", sectionHeaders.size());
     for (uint32_t i = 1; i < sectionHeaders.size(); i++){
+        fprintf(stderr, "\t i: %u\n", i);
         sectionHeaders[i]->wedge(this, shamt);
         rawSections[i]->wedge(shamt);
     }
