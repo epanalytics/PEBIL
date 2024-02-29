@@ -26,6 +26,7 @@
 #include <RawSection.h>
 #include <SymbolTable.h>
 #include <Vector.h>
+#include <set>
 
 class BasicBlock;
 class BinaryInputFile;
@@ -55,11 +56,17 @@ public:
     bool isFunction();
 
     virtual uint32_t getNumberOfInstructions() { __SHOULD_NOT_ARRIVE; }
+
+    virtual uint32_t getNumberOfAnchors() { __SHOULD_NOT_ARRIVE; }
     TextSection* getTextSection() { return textSection; }
     uint64_t getSymbolValue() { return symbol->GET(st_value); }
 
-    virtual uint32_t getAllInstructions(X86Instruction** allinsts, uint32_t nexti) { __SHOULD_NOT_ARRIVE; }
-    virtual X86Instruction* getInstructionAtAddress(uint64_t addr) { __SHOULD_NOT_ARRIVE; }
+    virtual uint32_t getAllInstructions(X86Instruction** allinsts, uint32_t nexti)
+      { __SHOULD_NOT_ARRIVE; }
+    virtual X86Instruction* getInstructionAtAddress(uint64_t addr)
+      { __SHOULD_NOT_ARRIVE; }
+    virtual void getAllAnchors(std::set<AddressAnchor*>* dest)
+      { __SHOULD_NOT_ARRIVE; }
  
     virtual void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset) { __SHOULD_NOT_ARRIVE; }
     virtual char* getName();
@@ -86,9 +93,11 @@ public:
 
     uint32_t getAllInstructions(X86Instruction** allinsts, uint32_t nexti);
     X86Instruction* getInstructionAtAddress(uint32_t addr);
+    void getAllAnchors(std::set<AddressAnchor*>* dest);
 
     Block* getBlock(uint32_t idx) { return blocks[idx]; }
     uint32_t getNumberOfInstructions();
+    uint32_t getNumberOfAnchors();
     void printDisassembly(bool instructionDetail);
     void wedge(uint32_t shamt);
 
@@ -132,6 +141,7 @@ public:
     BasicBlock* getBasicBlockAtAddress(uint64_t addr);
     X86Instruction* getInstructionAtAddress(uint64_t addr);
     uint32_t getAllInstructions(X86Instruction** allinsts, uint32_t nexti);
+    void getAllAnchors(std::set<AddressAnchor*>* dest);
 
     uint64_t getBaseAddress();
     bool inRange(uint64_t addr);
@@ -144,8 +154,10 @@ public:
     uint32_t getNumberOfMemoryOps();
     uint32_t getNumberOfFloatOps();
     uint32_t getNumberOfInstructions();
+    uint32_t getNumberOfAnchors();
 
-    Vector<X86Instruction*>* swapInstructions(uint64_t addr, Vector<X86Instruction*>* replacements);
+    Vector<X86Instruction*>* swapInstructions(uint64_t addr, 
+      Vector<X86Instruction*>* replacements);
 
     void printLoops();
     void buildLoops();

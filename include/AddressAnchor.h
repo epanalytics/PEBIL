@@ -22,6 +22,7 @@
 #define _AddressAnchor_h_
 
 #include <Base.h>
+#include <ElfFile.h>
 
 extern int searchLinkBaseAddressExact(const void* arg1, const void* arg2);
 extern int searchLinkBaseAddress(const void* arg1, const void* arg2);
@@ -71,6 +72,8 @@ public:
     uint32_t getIndex() { return index; }
 
     void setIndex(uint32_t idx) { index = idx; }
+
+    void wedge(ElfFile* elfFile, uint32_t shamt);
 
     bool verify();
     void print();

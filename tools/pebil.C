@@ -101,6 +101,7 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--dry] : quit before processing any executables\n");
     fprintf(stderr,"\t\t[--threaded] : implement thread safety features and keep statistics per thread\n");
     fprintf(stderr,"\t\t[--images] : prepare for multiple images\n");
+    fprintf(stderr,"\t\t[--pie] : prepare for Position Independent Executables\n");
     fprintf(stderr,"\t\t[--allowstatic] : try to instrument a static-linked executable " DEVELOPER_MESSAGE "\n");
     fprintf(stderr,"\t\t[--disablestatic] : don't print static analysis file\n");
     fprintf(stderr,"\t\t[--lib <shared_lib_dir>] : " DEPRECATED_MESSAGE "\n");
@@ -217,6 +218,7 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(doi);
     DEFINE_FLAG(threaded);
     DEFINE_FLAG(images);
+    DEFINE_FLAG(pie);
     DEFINE_FLAG(perinsn);
     DEFINE_FLAG(saveall);
     DEFINE_FLAG(nosavezmm);
@@ -248,16 +250,22 @@ int main(int argc,char* argv[]){
 #define ARG_OPTION(__name, __char) {#__name, required_argument, 0, __char}
     static struct option pebil_options[] = {
         /* These options set a flag. */
-        FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'),
-        FLAG_OPTION(version, 'V'), FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), FLAG_OPTION(threaded, 'P'),
-        FLAG_OPTION(images, 'M'), FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), FLAG_OPTION(printinsnmaps, 'p'), FLAG_OPTION(disablestatic, 'D'), FLAG_OPTION(sanitize,'a'), //FLAG_OPTION(password,'A'),
+        FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), 
+        FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'), FLAG_OPTION(version, 'V'), 
+        FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), 
+        FLAG_OPTION(threaded, 'P'), FLAG_OPTION(images, 'M'), FLAG_OPTION(pie, 'e'), 
+        FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), 
+        FLAG_OPTION(printinsnmaps, 'p'), FLAG_OPTION(disablestatic, 'D'), 
+        FLAG_OPTION(sanitize,'a'), //FLAG_OPTION(password,'A'),
 
         /* These options take an argument
            We distinguish them by their indices. */
-        ARG_OPTION(typ, 'y'), ARG_OPTION(tool, 't'), ARG_OPTION(tlib, 'O'), ARG_OPTION(inp, 'p'), ARG_OPTION(trk, 'k'), 
-        ARG_OPTION(lnc, 'n'), ARG_OPTION(inf, 'z'), ARG_OPTION(app, 'a'), ARG_OPTION(lib, 'l'),
-        ARG_OPTION(ext, 'x'), ARG_OPTION(fbl, 'b'), ARG_OPTION(dmp, 'm'), ARG_OPTION(phs, 'f'), ARG_OPTION(dfp, 'g'),
-        ARG_OPTION(out, 'o'), ARG_OPTION(inv, 'i'), ARG_OPTION(decrypt,'d'), 
+        ARG_OPTION(typ, 'y'), ARG_OPTION(tool, 't'), ARG_OPTION(tlib, 'O'), 
+        ARG_OPTION(inp, 'p'), ARG_OPTION(trk, 'k'), ARG_OPTION(lnc, 'n'), 
+        ARG_OPTION(inf, 'z'), ARG_OPTION(app, 'a'), ARG_OPTION(lib, 'l'),
+        ARG_OPTION(ext, 'x'), ARG_OPTION(fbl, 'b'), ARG_OPTION(dmp, 'm'), 
+        ARG_OPTION(phs, 'f'), ARG_OPTION(dfp, 'g'), ARG_OPTION(out, 'o'), 
+        ARG_OPTION(inv, 'i'), ARG_OPTION(decrypt,'d'), 
         {0,              0,                 0,              0},
     };
 
@@ -474,7 +482,8 @@ int main(int argc,char* argv[]){
             PRINT_ERROR("cannot open tool library %s, it needs to be in your LD_LIBRARY_PATH", toolLibName);
             return 1;
         }
-        maker = reinterpret_cast<InstrumentationTool*(*)(ElfFile*)>(dlsym(libHandle, toolConstructor));
+        maker = reinterpret_cast<InstrumentationTool*(*)(ElfFile*)>
+          (dlsym(libHandle, toolConstructor));
         dlErr = dlerror();
         if (dlErr){
             PRINT_ERROR("Error from dlsym: %s", dlErr);
@@ -599,6 +608,8 @@ int main(int argc,char* argv[]){
 
             if (lnc_arg){
                 instTool->setLibraryList(lnc_arg);
+                instTool->setMultipleImages();
+                instTool->setMaster();
             }
             
             ASSERT(functionBlackList);
@@ -617,6 +628,12 @@ int main(int argc,char* argv[]){
 
             if (images_flag){
                 instTool->setMultipleImages();
+            } else {
+                instTool->setMaster();
+            }
+
+            if (pie_flag){
+                instTool->setPieMode();
             }
 
             if (perinsn_flag){

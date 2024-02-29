@@ -26,6 +26,7 @@
 #include <ProgramHeader.h>
 #include <Vector.h>
 #include <map>
+#include <set>
 
 class AddressAnchor;
 class BasicBlock;
@@ -82,6 +83,8 @@ private:
     Vector<AddressAnchor*>* addressAnchors;
     bool anchorsAreSorted;
     std::map<uint64_t, DataReference*> specialDataRefs;
+    std::set<AddressAnchor*>* wedgeAnchors;
+    
 
     uint16_t sectionNameStrTabIdx;
     uint16_t dynamicSymtabIdx;

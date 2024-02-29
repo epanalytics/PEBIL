@@ -1722,7 +1722,7 @@ uint64_t X86Instruction::getTargetAddress(){
     if (getInstructionType() == X86InstructionType_uncondbr ||
         getInstructionType() == X86InstructionType_condbr){
         if (addressAnchor){ 
-           tgtAddress = getBaseAddress() + addressAnchor->getLinkValue() + getSizeInBytes();
+            tgtAddress = getBaseAddress() + addressAnchor->getLinkValue() + getSizeInBytes();
 
 
         } else if (operands) {
@@ -1731,7 +1731,10 @@ uint64_t X86Instruction::getTargetAddress(){
                     tgtAddress = getBaseAddress();
                     tgtAddress += operands[idx]->getValue();
                     tgtAddress += getSizeInBytes();
-                    PRINT_DEBUG_OPTARGET("Set next address to 0x%llx = 0x%llx + 0x%llx + %d", tgtAddress, getBaseAddress(), operands[idx]->getValue(), getSizeInBytes());
+                    PRINT_DEBUG_OPTARGET(
+                      "Set next address to 0x%llx = 0x%llx + 0x%llx + %d", 
+                      tgtAddress, getBaseAddress(), operands[idx]->getValue(), 
+                      getSizeInBytes());
                     break;
                 }
             }
@@ -1745,7 +1748,10 @@ uint64_t X86Instruction::getTargetAddress(){
                 tgtAddress = getBaseAddress();
                 tgtAddress += operands[JUMP_TARGET_OPERAND]->getValue();
                 tgtAddress += getSizeInBytes();
-                PRINT_DEBUG_OPTARGET("Set next address to 0x%llx = 0x%llx + 0x%llx + %d", tgtAddress, getBaseAddress(), operands[JUMP_TARGET_OPERAND]->getValue(), getSizeInBytes());
+                PRINT_DEBUG_OPTARGET(
+                  "Set next address to 0x%llx = 0x%llx + 0x%llx + %d", 
+                  tgtAddress, getBaseAddress(), 
+                  operands[JUMP_TARGET_OPERAND]->getValue(), getSizeInBytes());
             } 
         }
     }
@@ -2386,9 +2392,10 @@ OperandX86* X86Instruction::getOperand(uint32_t idx){
 }
 
 
-X86Instruction::X86Instruction(TextObject* cont, uint64_t baseAddr, char* buff, uint8_t src, uint32_t idx, bool is64bit, uint32_t sz)
-    : Base(PebilClassType_X86Instruction)
-{
+X86Instruction::X86Instruction(TextObject* cont, uint64_t baseAddr, char* buff, 
+  uint8_t src, uint32_t idx, bool is64bit, uint32_t sz)
+  : Base(PebilClassType_X86Instruction) {
+
     ud_t ud_obj;
     memcpy(&ud_obj, &ud_blank, sizeof(ud_t));
     ud_set_input_buffer(&ud_obj, (uint8_t*)buff, MAX_X86_INSTRUCTION_LENGTH);
@@ -2400,13 +2407,16 @@ X86Instruction::X86Instruction(TextObject* cont, uint64_t baseAddr, char* buff, 
         PRINT_ERROR("Problem doing instruction disassembly");
     }
     if(ud_obj.error) {
-       PRINT_WARN(1,"Unable to disassemble %d bytes at address 0x%llx\n0x%llx\n", sizeInBytes, baseAddr,*buff);
+       PRINT_WARN(1,"Unable to disassemble %d bytes at address 0x%llx\n0x%llx\n", 
+         sizeInBytes, baseAddr,*buff);
     }
 
     if(sz != sizeInBytes) {
-        fprintf(stderr, "Disassebmly didn't match expected size %d, %d\n", sz, sizeInBytes);
+        fprintf(stderr, "Disassebmly didn't match expected size %d, %d\n", sz, 
+          sizeInBytes);
         binutilsPrint(stderr);
     }
+
     ASSERT(sz == sizeInBytes);
     rawBytes = new char[sizeInBytes];
     memcpy(rawBytes, buff, sizeInBytes);

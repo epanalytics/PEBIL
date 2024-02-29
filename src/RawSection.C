@@ -60,7 +60,6 @@ void RawSection::wedge(uint32_t shamt){
 
     // only wedge raw/data sections from the data segment
     if (!dataSeg->inRange(sec->GET(sh_addr))){
-        fprintf(stderr, "EEO\t RawSection Not being wedged\n");
         return;
     }
 
@@ -70,33 +69,25 @@ void RawSection::wedge(uint32_t shamt){
     }
     //printBufferPretty(charStream(), getSizeInBytes(), getSectionHeader()->GET(sh_offset), 0, 0);
 
-    if (elfFile->is64Bit()){
+    if (elfFile->is64Bit()) {
 
-        // for ACC really don't know what is going on here and I really don't
-        // understand why it segfaults,
+        setShifted();
         uint32_t inc = sizeof(uint64_t);
-        fprintf(stderr, "EEO\t intro: 0x%lx\n", intro);
-        fprintf(stderr, "\t sizeInBytes(): 0x%lx\n", getSizeInBytes());
-        fprintf(stderr, "\t inc: %u\n", inc);
         char* css = charStream();
         uint64_t* weirdPtr = (uint64_t*)css;
-        fprintf(stderr, "\t initial cs: 0x%lx\n", css);
-        fprintf(stderr, "\t *cs: 0x%lx\n", *weirdPtr);
-        fprintf(stderr, "\t shamt: 0x%lx\n", shamt);
         for (uint32_t current = intro; 
           current+sizeof(uint64_t) <= getSizeInBytes(); current += inc){
 
             uint64_t data;
             char* cs = charStream();
-            //fprintf(stderr, "\t current1: 0x%lx\n", current);
             // copy from charStream (+ current offset) the size of uint64_t
             // into data
+            // for ACC this line below was segfaulting but on further reflection
+            // I reverted the change I made as it actualy had huge impacts on
+            // how the code could theoretically execute.
             memcpy(&data, cs + current, sizeof(uint64_t));
             if (data && elfFile->isDataWedgeAddress(data + shamt)){
                 data += shamt;
-                fprintf(stderr, "\t cs: 0x%lx\n", cs);
-                fprintf(stderr, "\t current2: 0x%lx\n", current);
-                fprintf(stderr, "\t data: 0x%lx\n", data);
                 memcpy(cs + current, &data, sizeof(uint64_t));
                 //PRINT_INFOR("\t\tpatching @ %#lx: %#lx -> %#lx", 
                 //  getSectionHeader()->GET(sh_addr) + current, data - shamt, data);
@@ -246,12 +237,15 @@ void DataReference::dump(BinaryOutputFile* b, uint32_t offset){
 }
 
 
-RawSection::RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size, uint16_t scnIdx, ElfFile* elf)
-    : Base(classType),rawDataPtr(rawPtr),sectionIndex(scnIdx),elfFile(elf)
-{ 
+RawSection::RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size, 
+  uint16_t scnIdx, ElfFile* elf)
+  : Base(classType),rawDataPtr(rawPtr),sectionIndex(scnIdx),elfFile(elf) { 
+
+    wasShifted = false;
     sizeInBytes = size; 
     hashCode = HashCode((uint32_t)sectionIndex);
-    PRINT_DEBUG_HASHCODE("Section %d Hashcode: 0x%04llx", (uint32_t)sectionIndex, hashCode.getValue());
+    PRINT_DEBUG_HASHCODE("Section %d Hashcode: 0x%04llx", 
+      (uint32_t)sectionIndex, hashCode.getValue());
 
     verify();
 }

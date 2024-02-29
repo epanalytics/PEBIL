@@ -66,16 +66,20 @@ protected:
     HashCode hashCode;
 
     Vector<DataReference*> dataReferences;
+    bool wasShifted;
 
 public:
-    RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size, uint16_t scnIdx, ElfFile* elf);
+    RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size, 
+      uint16_t scnIdx, ElfFile* elf);
     ~RawSection();
 
     virtual void read(BinaryInputFile* b);
     virtual void print() { __SHOULD_NOT_ARRIVE; }
     virtual bool verify();
 
-    char* charStream(uint32_t offset) { ASSERT(offset < sizeInBytes); return (char*)(rawDataPtr+offset); }
+    char* charStream(uint32_t offset) { 
+        ASSERT(offset < sizeInBytes); return (char*)(rawDataPtr+offset); 
+    }
     virtual char* charStream() { return rawDataPtr; }
     char* getFilePointer() { return rawDataPtr; }
     char* getStreamAtAddress(uint64_t addr);
@@ -93,6 +97,9 @@ public:
 
     HashCode getHashCode() { return hashCode; }
     uint32_t containsIntroString();
+
+    void setShifted() { wasShifted = true; }
+    bool getShifted() { return wasShifted; }
 };
 
 class DataSection : public RawSection {

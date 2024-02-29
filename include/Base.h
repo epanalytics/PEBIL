@@ -385,16 +385,22 @@ public:
     bool includesFileOffset(uint32_t offset);
 
 
-    bool containsProgramBits() { return (type == PebilClassType_X86Instruction          || 
-                                         type == PebilClassType_BasicBlock              || 
-                                         type == PebilClassType_Function                || 
-                                         type == PebilClassType_TextSection             ||
-                                         type == PebilClassType_InstrumentationSnippet  ||
-                                         type == PebilClassType_InstrumentationFunction ||
-                                         type == PebilClassType_DataReference
-                                         ); }
-    virtual Vector<X86Instruction*>* swapInstructions(uint64_t addr, Vector<X86Instruction*>* replacements) { __SHOULD_NOT_ARRIVE; return NULL; }
-    virtual uint64_t findInstrumentationPoint(uint32_t size, InstLocations loc) { __SHOULD_NOT_ARRIVE; return 0; }
+    bool containsProgramBits() { 
+      return (type == PebilClassType_X86Instruction  || 
+      type == PebilClassType_BasicBlock              || 
+      type == PebilClassType_Function                || 
+      type == PebilClassType_TextSection             ||
+      type == PebilClassType_InstrumentationSnippet  ||
+      type == PebilClassType_InstrumentationFunction ||
+      type == PebilClassType_DataReference
+      ); }
+
+    virtual Vector<X86Instruction*>* swapInstructions(uint64_t addr, 
+      Vector<X86Instruction*>* replacements) { __SHOULD_NOT_ARRIVE; return NULL; }
+
+    virtual uint64_t findInstrumentationPoint(uint32_t size, InstLocations loc) 
+      { __SHOULD_NOT_ARRIVE; return 0; }
+
     virtual uint64_t getBaseAddress() { __SHOULD_NOT_ARRIVE; }
 };
 

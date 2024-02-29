@@ -25,6 +25,7 @@
 #include <BitSet.h>
 #include <FlowGraph.h>
 #include <Vector.h>
+#include <set>
 #include <string>
 
 class Function;
@@ -77,6 +78,7 @@ public:
     uint32_t getAllInstructions(X86Instruction** allinsts, uint32_t nexti);
     uint32_t getNumberOfInstructions() { return instructions.size(); }
     X86Instruction* getInstruction(uint32_t idx) { return instructions[idx]; }
+    void getAllAnchors(std::set<AddressAnchor*>* dest);
 
     void dump (BinaryOutputFile* binaryOutputFile, uint32_t offset);
 
@@ -124,7 +126,9 @@ public:
     BasicBlock(uint32_t idx, FlowGraph* cfg);
     ~BasicBlock() {}
 
-    X86Instruction* findBestInstPoint(InstLocations* loc, BitSet<uint32_t>* unusableRegs, BitSet<uint32_t>* useRegs, bool attendFlags);
+    X86Instruction* findBestInstPoint(InstLocations* loc, 
+      BitSet<uint32_t>* unusableRegs, BitSet<uint32_t>* useRegs, 
+      bool attendFlags);
     uint32_t bloat(Vector<InstrumentationPoint*>* instPoints, 
       Vector<uint64_t>* oldInsnAddresses, Vector<uint64_t>* oldInsns, 
       Vector<uint64_t>* newInsns);

@@ -319,10 +319,17 @@ bool Function::isInRange(uint64_t addr){
 uint32_t Function::getAllInstructions(X86Instruction** allinsts, uint32_t nexti){
     uint32_t instructionCount = 0;
     for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++){
-        instructionCount += flowGraph->getBasicBlock(i)->getAllInstructions(allinsts, instructionCount + nexti);
+        instructionCount += flowGraph->getBasicBlock(i)->getAllInstructions(
+          allinsts, instructionCount + nexti);
     }
     ASSERT(instructionCount == getNumberOfInstructions());
     return instructionCount;
+}
+
+void Function::getAllAnchors(std::set<AddressAnchor*>* dest) {
+    for (uint32_t i = 0; i < flowGraph->getNumberOfBasicBlocks(); i++) {
+        getBasicBlock(i)->getAllAnchors(dest);
+    }
 }
 
 Vector<X86Instruction*>* Function::swapInstructions(uint64_t addr, Vector<X86Instruction*>* replacements){

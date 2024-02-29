@@ -248,7 +248,7 @@ void BasicBlockCounter::instrument() {
     entryFunc->addArgument(counterStruct);
     entryFunc->addArgument(imageKey);
     entryFunc->addArgument(threadHash);
-    if (isMultiImage()) {
+    if (isMultiImage() && !isMasterCheck()) {
         for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
             Function* f = getExposedFunction(i);
 
@@ -279,7 +279,7 @@ void BasicBlockCounter::instrument() {
         functionsToInst.insert(getExposedFunction(i));
     }
     bool usePIC = false;
-    if (isThreadedMode() || isMultiImage()){
+    if (isThreadedMode() || isMultiImage() || isPieMode() ){
         usePIC = true;
     }
     std::map<uint64_t, ThreadRegisterMap*>* functionThreading;

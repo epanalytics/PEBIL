@@ -37,11 +37,12 @@ protected:
     PebilClassTypes sectionType;
 
     uint16_t index;
+    bool wasShifted;
 protected:
     SectionHeader() : Base(PebilClassType_SectionHeader),
       relocationPtr(NULL), lineInfoPointer(NULL), numOfRelocations(0),
       numOfLineInfo(0), sectionNamePtr(NULL), 
-      sectionType(PebilClassType_no_type), index(0) {}
+      sectionType(PebilClassType_no_type), index(0), wasShifted(false) {}
 
 public:
     bool verify();
@@ -76,6 +77,9 @@ public:
 
     void setIndex(uint16_t newidx) { index = newidx; }
     void wedge(ElfFile* elfFile, uint32_t shamt);
+
+    void setShifted() { wasShifted = true; }
+    bool getShifted() { return wasShifted; }
 };
 
 class SectionHeader32 : public SectionHeader {

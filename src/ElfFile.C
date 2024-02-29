@@ -92,20 +92,16 @@ bool ElfFile::isDataWedgeAddress(uint64_t addr){
 
     // if addr falls either in the TEXT segment outside of actual text, or
     // falls in the DATA segment
-    //fprintf(stderr, "EEO\t dataSegmentIdx: %u\n", dataSegmentIdx);
     ProgramHeader* p = programHeaders[dataSegmentIdx];
     //PRINT_INFOR("Valid data range: [%#lx, %#lx]", p->GET(p_vaddr), p->GET(p_vaddr) + p->GET(p_memsz));
     if (IN_RANGE(p->GET(p_vaddr), p->GET(p_vaddr) + p->GET(p_memsz), addr)){
-        //fprintf(stderr, "\t first true return\n");
         return true;
     }
 
-    //fprintf(stderr, "EEO\t textSegmentIdx: %u\n", textSegmentIdx);
     p = programHeaders[textSegmentIdx];
     SectionHeader* s = getDotFiniSection()->getSectionHeader();
     //PRINT_INFOR("Valid text range: [%#lx, %#lx]", s->GET(sh_addr), p->GET(p_vaddr) + p->GET(p_memsz));
     if (IN_RANGE(s->GET(sh_addr), p->GET(p_vaddr) + p->GET(p_memsz), addr)){
-        //fprintf(stderr, "\t second true return\n");
         return true;
     }
 
@@ -137,6 +133,7 @@ bool ElfFile::isDataWedgeAddress(uint64_t addr){
 
 void ElfFile::prepareWedge(){
     ASSERT(wedgeInstructions == NULL);
+    ASSERT(wedgeAnchors == NULL);
     wedgeInstructionCount = 0;
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
         wedgeInstructionCount += getTextSection(i)->getNumberOfInstructions();
@@ -144,12 +141,15 @@ void ElfFile::prepareWedge(){
 
     wedgeInstructions = new X86Instruction*[wedgeInstructionCount];
     wedgeInstructionCount = 0;
+    wedgeAnchors = new std::set<AddressAnchor*>();
 
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
         wedgeInstructionCount += getTextSection(i)->getAllInstructions(
           wedgeInstructions, wedgeInstructionCount);
+        getTextSection(i)->getAllAnchors(wedgeAnchors);
     }
     qsort(wedgeInstructions, wedgeInstructionCount, sizeof(X86Instruction*), compareBaseAddress);
+
 
     ASSERT(wedgeInstructions);
 }
@@ -168,12 +168,15 @@ void ElfFile::wedge(uint32_t shamt){
         programHeaders[i]->wedge(this, shamt);
     }
 
-    fprintf(stderr, "EEO\t sh count: %u\n", sectionHeaders.size());
     for (uint32_t i = 1; i < sectionHeaders.size(); i++){
-        fprintf(stderr, "\t i: %u\n", i);
         sectionHeaders[i]->wedge(this, shamt);
         rawSections[i]->wedge(shamt);
     }
+
+    for (auto it = wedgeAnchors->begin();it != wedgeAnchors->end();it++) {
+        (*it)->wedge(this, shamt);
+    }
+
     destroyWedge();
 }
 
@@ -1696,8 +1699,12 @@ Vector<AddressAnchor*>* ElfFile::searchAddressAnchors(uint64_t addr){
 
 #ifdef VALIDATE_ANCHOR_SEARCH
     if ((*binaryUpdate).size() != (*linearUpdate).size()){
-        PRINT_DEBUG_ANCHOR("Mismatch in binary/linear anchor search results for %#llx...", addr);
-        PRINT_DEBUG_ANCHOR("Binary search yields %d hits -- see entry %d", (*binaryUpdate).size(), binIdx);
+        PRINT_DEBUG_ANCHOR(
+          "Mismatch in binary/linear anchor search results for %#llx...", addr);
+        PRINT_DEBUG_ANCHOR(
+          "Binary search yields %d hits -- see entry %d", 
+          (*binaryUpdate).size(), binIdx);
+
         for (uint32_t i = 0; i < (*binaryUpdate).size(); i++){
             PRINT_DEBUG_ANCHOR("\tbinary[%d] = %#llx", i, (*binaryUpdate)[i]->linkBaseAddress);
         }
@@ -1711,8 +1718,8 @@ Vector<AddressAnchor*>* ElfFile::searchAddressAnchors(uint64_t addr){
         }
 
     }
-    ASSERT(0 && (*addressAnchors).isSorted(compareLinkBaseAddress));
-    ASSERT((*binaryUpdate).size() == (*linearUpdate).size());
+    ASSERT(addressAnchors->isSorted(compareLinkBaseAddress) && " not sorted\n");
+    ASSERT(binaryUpdate->size() == linearUpdate->size() && " wrong size\n");
 #endif //VALIDATE_ANCHOR_SEARCH
 
     PRINT_DEBUG_ANCHOR("search done... %#llx", addr);
@@ -1735,7 +1742,9 @@ uint32_t ElfFile::anchorProgramElements(){
     PRINT_DEBUG_ANCHOR("Found %d text sections", getNumberOfTextSections());
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
         instructionCount += getTextSection(i)->getNumberOfInstructions();
-        PRINT_DEBUG_ANCHOR("\tTextSection %d is section %d with %d instructions", i, getTextSection(i)->getSectionIndex(), getTextSection(i)->getNumberOfInstructions());
+        PRINT_DEBUG_ANCHOR("\tTextSection %d is section %d with %d instructions",
+          i, getTextSection(i)->getSectionIndex(),
+          getTextSection(i)->getNumberOfInstructions());
     }
     PRINT_DEBUG_ANCHOR("Found %d instructions in all sections", instructionCount);
 
@@ -1743,7 +1752,8 @@ uint32_t ElfFile::anchorProgramElements(){
     instructionCount = 0;
     PRINT_DEBUG_ANCHOR("allinst address %lx", allInstructions);
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
-        instructionCount += getTextSection(i)->getAllInstructions(allInstructions, instructionCount);
+        instructionCount += getTextSection(i)->getAllInstructions(allInstructions, 
+          instructionCount);
     }
     qsort(allInstructions, instructionCount, sizeof(X86Instruction*), compareBaseAddress);
 
@@ -1767,7 +1777,8 @@ uint32_t ElfFile::anchorProgramElements(){
             allInstructions[i]->print();
             allInstructions[i+1]->print();
         }
-        ASSERT(allInstructions[i]->getBaseAddress() < allInstructions[i+1]->getBaseAddress() && "Problem with qsort");
+        ASSERT(allInstructions[i]->getBaseAddress() 
+          < allInstructions[i+1]->getBaseAddress() && "Problem with qsort");
     }
     )
 
@@ -1788,7 +1799,8 @@ uint32_t ElfFile::anchorProgramElements(){
         for (uint32_t j = 0; j < MAX_OPERANDS; j++){
             OperandX86* op = currentInstruction->getOperand(j);
 
-            // Search for any immediate operands that look like addresses of instructions in this section
+            // Search for any immediate operands that look like addresses of 
+            // instructions in this section
             if (op != NULL &&
                 op->GET(type) == UD_OP_IMM &&
                 op->GET(base) == UD_NONE &&
@@ -1796,13 +1808,17 @@ uint32_t ElfFile::anchorProgramElements(){
                 op->GET(scale) == 0 &&
                 op->GET(offset) == 0 &&
                 textHeader->inRange(op->GET_A(uqword, lval))
-                ){
+            ) {
+
                 uint64_t immAddress = op->GET_A(uqword, lval);
 
                 // search for instructions at that address
-                void* link = bsearch(&immAddress, allInstructions, instructionCount, sizeof(X86Instruction*), searchBaseAddressExact);
+                void* link = bsearch(&immAddress, allInstructions, 
+                  instructionCount, sizeof(X86Instruction*), 
+                  searchBaseAddressExact);
                 if (link != NULL){
-                    // skip the link if the instruction doesn't appear to be in a function or is the first instruction in a function
+                    // skip the link if the instruction doesn't appear to be in 
+                    // a function or is the first instruction in a function
                     X86Instruction* linkedInstruction = *(X86Instruction**)link;
                     if (!linkedInstruction->getContainer()->isFunction()){
                         continue;
