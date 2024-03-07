@@ -699,7 +699,7 @@ void AddressStreamIntercept::initializePerGroupData(AddressStreamStats& stats) {
 
 void AddressStreamIntercept::initializePerMemopData(AddressStreamStats& stats) {
 
-    // Initialize BlockIds
+    // Initialize BlockIds, IsDP, IsFP, and SizeInBytes
     // If perinsn, give each memop a unique ID
     uint64_t blockSeq = 0;
     uint64_t memopSeq = 0;
@@ -715,15 +715,32 @@ void AddressStreamIntercept::initializePerMemopData(AddressStreamStats& stats) {
         // NOTE: Some insns have multiple memops!
         for (uint32_t j = 0; j < bb->getNumberOfInstructions(); j++){
             X86Instruction* memop = bb->getInstruction(j);
+            bool initialIsDP = false;
+            bool initialIsFP = false;
+            if (memop->isFloatPOperation()) {
+                initialIsFP = true;
+                // SST-TODO/STATIC-TODO: Set initialIsDP maybe after static
+                // analysis revamp
+            }
+            uint32_t dataSize = memop->getNumberOfMemoryBytes();
             for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
             {
                 uint64_t initialBlockId = blockSeq;
                 if (isPerInstruction()) {
                     initialBlockId = memopSeq;
                 }
-                initializeReservedData(getInstDataAddress() + 
-                  (uint64_t)stats.BlockIds + memopSeq * sizeof(uint64_t), 
+                initializeReservedData(getInstDataAddress() +
+                  (uint64_t)stats.BlockIds + memopSeq * sizeof(uint64_t),
                   sizeof(uint64_t), &initialBlockId);
+                initializeReservedData(getInstDataAddress() +
+                  (uint64_t)stats.IsDP + memopSeq * sizeof(bool),
+                  sizeof(bool), &initialIsDP);
+                initializeReservedData(getInstDataAddress() +
+                  (uint64_t)stats.IsFP + memopSeq * sizeof(bool),
+                  sizeof(bool), &initialIsFP);
+                initializeReservedData(getInstDataAddress() +
+                  (uint64_t)stats.SizeInBytes + memopSeq * sizeof(uint32_t),
+                  sizeof(uint32_t), &dataSize);
                 memopSeq++;
             }
         }
@@ -801,6 +818,9 @@ void AddressStreamIntercept::initializeAddressStreamStats(AddressStreamStats&
       offsetof(AddressStreamStats, __nam))
 
     INIT_INSN_ELEMENT(uint64_t, BlockIds);
+    INIT_INSN_ELEMENT(bool, IsDP);
+    INIT_INSN_ELEMENT(bool, IsFP);
+    INIT_INSN_ELEMENT(uint32_t, SizeInBytes);
 
     // Initialize per-memop data
     initializePerMemopData(stats);
