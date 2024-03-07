@@ -235,10 +235,13 @@ AddressAnchor::AddressAnchor(Base* lnk, Base* par){
 AddressAnchor::~AddressAnchor(){
 }
 
+// Wedge the AddressAnchors that were missed by other structures wedge calls.
 void AddressAnchor::wedge(ElfFile* elfFile, uint32_t shamt) {
     Base* link = getLink();
     Base* linkedParent = getLinkedParent();
     
+    // link type should either be X86_Instruction or DataRef
+    // Algo for checking DataReference
     if (link->getType() != PebilClassType_X86Instruction) {
         DataReference* linkRef = (DataReference*)link;
         RawSection* section = linkRef->getSection();
@@ -247,29 +250,30 @@ void AddressAnchor::wedge(ElfFile* elfFile, uint32_t shamt) {
         } else if (!section->getShifted()) {
             link->baseAddress += shamt;
         } else {
+            // it was already shifted.
         }
+    // else Algo for checking X86_Instruction
     } else {
         X86Instruction* linkInsn = (X86Instruction*)(link);
-        if (!linkInsn->getContainer()) {
-        }
+        // Update only if function was in shifted section.
         if (linkInsn->getContainer()->isFunction()) {
-            if (!linkInsn->getContainer()->getTextSection()->getShifted()) {
-            } else {
+            if (linkInsn->getContainer()->getTextSection()->getShifted()) {
                 linkInsn->baseAddress += shamt;
             }
         }
     }
+
+    // now for the parent 
+    // for non instructions
     if (linkedParent->getType() != PebilClassType_X86Instruction) {
         linkedParent->baseAddress += shamt;
+    // else for instruction
     } else {
         X86Instruction* parentInsn = (X86Instruction*)(linkedParent);
+        // Update only if function was in shifted section.
         if (parentInsn->getContainer()->isFunction()) {
-            // EEO FIX THIS BACKWARDS IF STATEMENT
-            if (!parentInsn->getContainer()->getTextSection()->getShifted()) {
-                //parentInsn->baseAddress += shamt;
-            } else {
+            if (parentInsn->getContainer()->getTextSection()->getShifted()) {
                 parentInsn->baseAddress += shamt;
-                //fprintf(stderr, "\t shifting\n");
             }
         }
     }
@@ -285,12 +289,8 @@ bool AddressAnchor::verify(){
         return false;
     }
 
-    // EEO CLEAN THIS UP
-    if (link->getType() == PebilClassType_X86Instruction){
-    } else if (link->getType() == PebilClassType_DataReference){
-        DataReference* linkRef = (DataReference*)link;
-        RawSection* section = linkRef->getSection();
-    } else {
+    if ( (link->getType() != PebilClassType_X86Instruction) &&
+         (link->getType() != PebilClassType_DataReference) ) {
         PRINT_ERROR("Address link cannot have type %d", link->getType());
         return false;
     }

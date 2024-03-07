@@ -22,7 +22,8 @@
 #define _AddressAnchor_h_
 
 #include <Base.h>
-#include <ElfFile.h>
+
+class ElfFile;
 
 extern int searchLinkBaseAddressExact(const void* arg1, const void* arg2);
 extern int searchLinkBaseAddress(const void* arg1, const void* arg2);

@@ -74,6 +74,7 @@ uint64_t ElfFile::getProgramBaseAddress(){
     return segmentBase;
 }
 
+// if address is > 0, aka a valid address, return true, else return false.
 bool ElfFile::isWedgeAddress(uint64_t addr){
     if (addr > 0){
         return true;
@@ -81,6 +82,9 @@ bool ElfFile::isWedgeAddress(uint64_t addr){
     return false;
 }
 
+// If the address we are checking falls in the text segment or the Data segment,
+// return true. If the address is the 1st instruction in a function, return 
+// true. Otherwise return false.
 bool ElfFile::isDataWedgeAddress(uint64_t addr){
 
     // The textSegmentIdx and dataSegmentIdx may have changed!
@@ -395,8 +399,8 @@ void ElfFile::getLoadSegments(Vector<ProgramHeader*>* vec) {
 }
 
 uint16_t ElfFile::getELFStructuresSegmentIdx(){
-    // Returns the first LOAD segment (should be first or third for the most
-    // part, return a nonsense value to alert if this has gone wrong.
+    // Returns the first LOAD segment (should be the first or third segment for
+    // the most part, return a nonsense value to alert if this has gone wrong.
     uint32_t numOfPHs = getNumberOfPrograms();
     for (uint32_t i = 0;i< numOfPHs;i++){
         if (getProgramHeader(i)->GET(p_type) == PT_LOAD) {

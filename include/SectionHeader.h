@@ -37,6 +37,8 @@ protected:
     PebilClassTypes sectionType;
 
     uint16_t index;
+    // For keeping track of what sections were shifted and weren't shifted to 
+    // make room for instrumentation code.
     bool wasShifted;
 protected:
     SectionHeader() : Base(PebilClassType_SectionHeader),

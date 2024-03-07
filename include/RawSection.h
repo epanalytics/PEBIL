@@ -66,6 +66,8 @@ protected:
     HashCode hashCode;
 
     Vector<DataReference*> dataReferences;
+    // For keeping track of what sections were shifted and weren't shifted to 
+    // make room for instrumentation code.
     bool wasShifted;
 
 public:
