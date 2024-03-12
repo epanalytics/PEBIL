@@ -152,7 +152,8 @@ void ElfFile::prepareWedge(){
           wedgeInstructions, wedgeInstructionCount);
         getTextSection(i)->getAllAnchors(wedgeAnchors);
     }
-    qsort(wedgeInstructions, wedgeInstructionCount, sizeof(X86Instruction*), compareBaseAddress);
+    qsort(wedgeInstructions, wedgeInstructionCount, sizeof(X86Instruction*), 
+      compareBaseAddress);
 
 
     ASSERT(wedgeInstructions);
@@ -163,6 +164,17 @@ void ElfFile::destroyWedge(){
     }
 }
 
+// The point of wedging is to move parts of the original binary further down in
+// the address space so that we may pace code important for instrumentation 
+// where the move code originally was. This code should be invoked if the 
+// program base address is less then a predetermined amount (currently 
+// 0x200000). However, if the base address is below this amount, that usually 
+// means this image is either a linked library or an image compiled without 
+// no-pie. If this is the case, the binary needs to be instrumented with 
+// --images or --pie respectively. If it is the master image, and the --lnc flag
+// was passed, the --images flag should NOT be passed. Works by going segment 
+// by segment and checking if the start address falls before the wedge amount,
+// and if it is before that to copy the bytes by the wedge amount.
 void ElfFile::wedge(uint32_t shamt){
 
     prepareWedge();

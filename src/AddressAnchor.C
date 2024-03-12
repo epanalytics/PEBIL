@@ -247,7 +247,7 @@ void AddressAnchor::wedge(ElfFile* elfFile, uint32_t shamt) {
         RawSection* section = linkRef->getSection();
         if (section == nullptr) {
             link->baseAddress += shamt;
-        } else if (!section->getShifted()) {
+        } else if (!section->getWasWedged()) {
             link->baseAddress += shamt;
         } else {
             // it was already shifted.
@@ -257,7 +257,7 @@ void AddressAnchor::wedge(ElfFile* elfFile, uint32_t shamt) {
         X86Instruction* linkInsn = (X86Instruction*)(link);
         // Update only if function was in shifted section.
         if (linkInsn->getContainer()->isFunction()) {
-            if (linkInsn->getContainer()->getTextSection()->getShifted()) {
+            if (linkInsn->getContainer()->getTextSection()->getWasWedged()) {
                 linkInsn->baseAddress += shamt;
             }
         }
@@ -272,7 +272,7 @@ void AddressAnchor::wedge(ElfFile* elfFile, uint32_t shamt) {
         X86Instruction* parentInsn = (X86Instruction*)(linkedParent);
         // Update only if function was in shifted section.
         if (parentInsn->getContainer()->isFunction()) {
-            if (parentInsn->getContainer()->getTextSection()->getShifted()) {
+            if (parentInsn->getContainer()->getTextSection()->getWasWedged()) {
                 parentInsn->baseAddress += shamt;
             }
         }

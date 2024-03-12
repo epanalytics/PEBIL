@@ -71,10 +71,8 @@ void RawSection::wedge(uint32_t shamt){
 
     if (elfFile->is64Bit()) {
 
-        setShifted();
+        setWasWedged();
         uint32_t inc = sizeof(uint64_t);
-        char* css = charStream();
-        uint64_t* weirdPtr = (uint64_t*)css;
         for (uint32_t current = intro; 
           current+sizeof(uint64_t) <= getSizeInBytes(); current += inc){
 
@@ -241,7 +239,7 @@ RawSection::RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size,
   uint16_t scnIdx, ElfFile* elf)
   : Base(classType),rawDataPtr(rawPtr),sectionIndex(scnIdx),elfFile(elf) { 
 
-    wasShifted = false;
+    wasWedged = false;
     sizeInBytes = size; 
     hashCode = HashCode((uint32_t)sectionIndex);
     PRINT_DEBUG_HASHCODE("Section %d Hashcode: 0x%04llx", 

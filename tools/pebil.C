@@ -548,13 +548,22 @@ int main(int argc,char* argv[]){
         // if space is needed in front of the binary's elf control, try to shift all binary contents out of the way
         if (elfFile->getProgramBaseAddress() < WEDGE_SHAMT){
             if (!elfFile->isSharedLib()){
-                PRINT_WARN(20, "The base address of this binary is too small, but the binary is an executable.");
-                PRINT_WARN(20, "Will attempt to shift all program addresses, which will probably fail because executables usually contain position-dependent code/data.");
+                PRINT_WARN(20, 
+                  "The base address of this binary is too small, but the binary"
+                  " is an executable.");
+                PRINT_WARN(20, 
+                  "Will attempt to shift all program addresses, which will"
+                  " probably fail because executables usually contain position-"
+                  "dependent code/data.");
             }
-            PRINT_INFOR("Shifting virtual address of all program contents by %#lx", WEDGE_SHAMT);
+            PRINT_INFOR(
+              "Shifting virtual address of all program contents by %#lx", 
+              WEDGE_SHAMT);
             elfFile->wedge(WEDGE_SHAMT);
 
-            TIMER(t2 = timer();PRINT_INFOR("___timer: Step %d Wedge   : %.2f seconds",++stepNumber,t2-t1);t1=t2);
+            TIMER(t2 = timer();PRINT_INFOR(
+              "___timer: Step %d Wedge   : %.2f seconds",++stepNumber,t2-t1);
+              t1=t2);
         }
 
 	/****************** Either instrument or dump original file **********/

@@ -68,7 +68,7 @@ protected:
     Vector<DataReference*> dataReferences;
     // For keeping track of what sections were shifted and weren't shifted to 
     // make room for instrumentation code.
-    bool wasShifted;
+    bool wasWedged;
 
 public:
     RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size, 
@@ -100,8 +100,8 @@ public:
     HashCode getHashCode() { return hashCode; }
     uint32_t containsIntroString();
 
-    void setShifted() { wasShifted = true; }
-    bool getShifted() { return wasShifted; }
+    void setWasWedged() { wasWedged = true; }
+    bool getWasWedged() { return wasWedged; }
 };
 
 class DataSection : public RawSection {

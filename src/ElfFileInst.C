@@ -767,10 +767,11 @@ uint32_t ElfFileInst::generateInstrumentation(){
 #endif
 #ifdef SWAP_VERBOSE
             if (performSwap){
-                PRINT_INFOR(
-"Performing instruction swap at for point (%d/%d) %#llx in %s",
-  i, (*instrumentationPoints).size(), pt->getSourceObject()->getProgramAddress(),
-  ins->getContainer()->getName());
+                PRINT_INFOR( 
+                  "Performing instruction swap at for point (%d/%d) %#llx in %s",
+                  i, (*instrumentationPoints).size(), 
+                  pt->getSourceObject()->getProgramAddress(), 
+                  ins->getContainer()->getName());
             }
 #endif
         }
@@ -1375,6 +1376,7 @@ void ElfFileInst::phasedInstrumentation(){
 
     declare();
     declareLibraryList();
+
     if (!elfFile->isStaticLinked()){
         extendDynamicTable();
     }
@@ -1388,8 +1390,12 @@ void ElfFileInst::phasedInstrumentation(){
     p->setPriority(InstPriority_sysinit);
 
     // Add bootstrap instrumentation to every function for multi-image
-    // EEO doesn't need isPieMode()
-    // EEO ACC ADD issue about linked libraries not having exposed program entry
+    // We use isMultiImage instead of isPieMode as this check is specifically
+    // for wether an image is multi image or not.
+    // NOTE may need to remove the !isMasterCheck for specific issue where 
+    // binary goes into std library code before calling functions in our binary.
+    // Removing the isMasterCheck and adding the --images flag to add image 
+    // initialization to every function entry for this particular case.
     if (isMultiImage() && !isMasterCheck()) {
         
         for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
@@ -1413,7 +1419,6 @@ void ElfFileInst::phasedInstrumentation(){
         dynamicPoint((*instrumentationPoints)[0], GENERATE_KEY(getElfFile()->
           getUniqueId(), PointType_inits), true);
     }
-
 
     // Link instrumenation functions and libraries
     if (!elfFile->isStaticLinked()){
@@ -1590,7 +1595,9 @@ InstrumentationFunction* ElfFileInst::declareFunction(char* funcName){
 }
 
 uint32_t ElfFileInst::declareLibrary(const char* libName){
-    ASSERT(currentPhase == ElfInstPhase_user_declare && "Instrumentation phase order must be observed");
+    ASSERT(currentPhase == ElfInstPhase_user_declare && 
+      "Instrumentation phase order must be observed");
+
     for (uint32_t i = 0; i < instrumentationLibraries.size(); i++){
         if (!strcmp(libName,instrumentationLibraries[i])){
             PRINT_ERROR("Trying to add a library that was already added -- %s", libName);
@@ -1785,8 +1792,8 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
 
             if (subHeader->GET(p_vaddr) < totalSize){
                 PRINT_WARN(20, 
-"Unable to extend text section by 0x%llx bytes: the maximum size of a text "
-"extension for this binary is 0x%llx bytes", 
+                  "Unable to extend text section by 0x%llx bytes: the maximum "
+                  "size of a text extension for this binary is 0x%llx bytes", 
                   totalSize, subHeader->GET(p_vaddr)); 
                 // EEO Are we removing this?
                 //PRINT_WARN(20, "Try using the --wedge flag");
@@ -2490,8 +2497,9 @@ uint32_t ElfFileInst::addSharedLibraryPath(char* path){
     return strOffset;
 }
 
-uint32_t ElfFileInst::addSharedLibrary(const char* libname){
-    ASSERT(currentPhase == ElfInstPhase_user_declare && "Instrumentation phase order must be observed");
+uint32_t ElfFileInst::addSharedLibrary(const char* libname) {
+    ASSERT(currentPhase == ElfInstPhase_user_declare 
+      && "Instrumentation phase order must be observed");
 
     char libraryReal[__MAX_STRING_SIZE];
     bool overwrite = false;
