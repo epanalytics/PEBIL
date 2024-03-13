@@ -719,6 +719,7 @@ void AddressStreamIntercept::initializePerMemopData(AddressStreamStats& stats) {
             bool initialIsFP = false;
             if (memop->isFloatPOperation()) {
                 initialIsFP = true;
+                initialIsDP = true;
                 // SST-TODO/STATIC-TODO: Set initialIsDP maybe after static
                 // analysis revamp
             }
