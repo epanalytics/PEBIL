@@ -35,6 +35,23 @@
 #include <set>  
 #include <sstream>
 
+#define SHMEM_FINI_WRAPPER_CBIND "shmem_finalize_pebil_wrapper"
+#define SHMEM_FINI_LIST_CBIND "shmem_finalize"
+#define SHMEM_FINI_CBIND_PREF "pshmem_finalize"
+
+#define SHMEM_INIT_WRAPPER_CBIND "shmem_init_pebil_wrapper"
+#define SHMEM_INIT_LIST_CBIND "shmem_init:start_pes"
+#define SHMEM_INIT_CBIND_PREF "pshmem_init"
+
+
+#define SHMEM_FINI_WRAPPER_FBIND "shmem_finalize_pebil_wrapper"
+#define SHMEM_FINI_LIST_FBIND "SHMEM_FINALIZE_:SHMEM_FINALIZE_:shmem_finalize_"
+#define SHMEM_FINI_FBIND_PREF "pshmem_finalize_"
+
+#define SHMEM_INIT_WRAPPER_FBIND "shmem_init_pebil_wrapper"
+#define SHMEM_INIT_LIST_FBIND      "START_PES:shmem_init_:SHMEM_INIT_:SHMEM_INIT:start_pes_:START_PES_"
+#define SHMEM_INIT_FBIND_PREF "pshmem_init_"
+
 #define THREAD_EVIDENCE "clone:__clone:__clone2:pthread_.*:omp_.*"
 
 #define MPI_INIT_WRAPPER_CBIND   "MPI_Init_pebil_wrapper"
@@ -59,7 +76,9 @@
 #define MPI_INIT_THREAD_LIST_FBIND_PREF "pmpi_init_"
 #define MPI_INIT_THREAD_LIST_FBIND      "mpi_init_thread_:MPI_INIT_THREAD"
 
+
 #define DYNAMIC_INST_INIT "tool_dynamic_init"
+
 
 void InstrumentationTool::setMasterImage(bool isMaster){
     this->isMaster = isMaster;
@@ -693,7 +712,19 @@ void InstrumentationTool::declare(){
     ASSERT(initWrapperC && "Cannot find MPI_Init function, are you sure it was declared?");
     ASSERT(initWrapperF && "Cannot find MPI_Init function, are you sure it was declared?");
 #endif //HAVE_MPI
+#ifdef HAVE_SHMEM
+    this->declareShmem();
+#endif
     dynamicInit = declareFunction(DYNAMIC_INST_INIT);
+}
+void InstrumentationTool::declareShmem(){
+    sfiniWrapperC = declareFunction(SHMEM_FINI_WRAPPER_CBIND);
+    sfiniWrapperF = declareFunction(SHMEM_FINI_WRAPPER_FBIND);
+    sinitWrapperC = declareFunction(SHMEM_INIT_WRAPPER_CBIND);
+    sinitWrapperF = declareFunction(SHMEM_INIT_WRAPPER_FBIND);
+    ASSERT(sinitWrapperC && "Cannot find SHMEM_Init function, are you sure it was declared?");
+    ASSERT(sinitWrapperF && "Cannot find SHMEM_Init function, are you sure it was declared?");
+    return;
 }
 
 void InstrumentationTool::instrument(){
@@ -743,7 +774,9 @@ void InstrumentationTool::instrument(){
             PRINT_ERROR("Cannot find an instrumentation point at the entry function");
         }
     }
-
+#ifdef HAVE_SHMEM
+    this->wrapShmemCalls();
+#endif
 #ifdef HAVE_MPI
     int finiFound = 0;
 
@@ -915,6 +948,44 @@ void InstrumentationTool::instrument(){
     delete mpiInitCalls;
 
 #endif //HAVE_MPI
+}
+int InstrumentationTool::wrapCall(char* call, InstrumentationFunction*& wrapper){
+    int found = 0;
+
+    // wrap any call
+    Vector<X86Instruction*>* calls = findAllCalls(call);
+    wrapper->setSkipWrapper();
+    for (uint32_t i = 0; i < (*calls).size(); i++){
+        ASSERT((*calls)[i]->isFunctionCall());
+        ASSERT((*calls)[i]->getSizeInBytes() == Size__uncond_jump);
+        PRINT_INFOR("Adding %s wrapper @ %#llx",wrapper->getFunctionName(), 
+          (*calls)[i]->getBaseAddress());
+        InstrumentationPoint* pt = addInstrumentationPoint((*calls)[i], 
+          wrapper, InstrumentationMode_tramp, InstLocation_replace);
+        found++;
+    }
+    delete calls;
+    return found;
+}
+
+void InstrumentationTool::wrapShmemCalls(){
+    int finiFound = 0;
+    finiFound += this->wrapCall(SHMEM_FINI_CBIND_PREF,sfiniWrapperC);
+    finiFound += this->wrapCall(SHMEM_FINI_FBIND_PREF,sfiniWrapperF);
+    if (!finiFound) {
+        finiFound += this->wrapCall(SHMEM_FINI_LIST_CBIND,sfiniWrapperC);
+        finiFound += this->wrapCall(SHMEM_FINI_LIST_FBIND,sfiniWrapperF);
+    }
+
+    int initFound = 0;
+    initFound += this->wrapCall(SHMEM_INIT_CBIND_PREF,sinitWrapperC);
+    initFound += this->wrapCall(SHMEM_INIT_FBIND_PREF,sinitWrapperF);
+    if (!initFound){
+        initFound += this->wrapCall(SHMEM_INIT_LIST_CBIND,sinitWrapperC);
+        initFound += this->wrapCall(SHMEM_INIT_LIST_FBIND,sinitWrapperF);
+
+    }
+    return;
 }
 
 Vector<X86Instruction*>* InstrumentationTool::storeThreadData(uint32_t scratch, uint32_t dest){
