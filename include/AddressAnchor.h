@@ -74,7 +74,7 @@ public:
 
     void setIndex(uint32_t idx) { index = idx; }
 
-    void wedge(ElfFile* elfFile, uint32_t shamt);
+    void updateAnchorsPostWedge(ElfFile* elfFile, uint32_t shamt);
 
     bool verify();
     void print();

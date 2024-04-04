@@ -79,6 +79,7 @@ public:
     virtual void print() { __SHOULD_NOT_ARRIVE; }
     virtual bool verify();
 
+    // is pointer to input file
     char* charStream(uint32_t offset) { 
         ASSERT(offset < sizeInBytes); return (char*)(rawDataPtr+offset); 
     }

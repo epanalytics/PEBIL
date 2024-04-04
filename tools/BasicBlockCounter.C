@@ -278,10 +278,7 @@ void BasicBlockCounter::instrument() {
     for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
         functionsToInst.insert(getExposedFunction(i));
     }
-    bool usePIC = false;
-    if (isThreadedMode() || isMultiImage() || isPieMode() ){
-        usePIC = true;
-    }
+    bool usePIC = getUsePIC();
     std::map<uint64_t, ThreadRegisterMap*>* functionThreading;
     if (usePIC){
         functionThreading = threadReadyCode(functionsToInst);

@@ -235,8 +235,8 @@ AddressAnchor::AddressAnchor(Base* lnk, Base* par){
 AddressAnchor::~AddressAnchor(){
 }
 
-// Wedge the AddressAnchors that were missed by other structures wedge calls.
-void AddressAnchor::wedge(ElfFile* elfFile, uint32_t shamt) {
+// Update AddressAnchors that were missed by other elf structures wedge code
+void AddressAnchor::updateAnchorsPostWedge(ElfFile* elfFile, uint32_t shamt) {
     Base* link = getLink();
     Base* linkedParent = getLinkedParent();
     

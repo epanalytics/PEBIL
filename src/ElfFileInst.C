@@ -67,6 +67,12 @@ X86Instruction* ElfFileInst::linkInstructionToData(X86Instruction* ins,
     return ins;
 }
 
+bool ElfFileInst::getUsePIC() {
+    bool needsWedge = elfFile->getProgramBaseAddress() < WEDGE_SHAMT;
+
+    return (threadedMode || multipleImages || needsWedge);
+}
+
 void ElfFileInst::computeVectorMasks()
 {
     uint16_t e_machine = elfFile->getFileHeader()->GET(e_machine);
@@ -221,9 +227,11 @@ void ElfFileInst::extendDynamicTable(){
     ASSERT(genericDataHdr);
 
     uint32_t newDynamicIdx = elfFile->getNumberOfSections();
-    elfFile->addSection(newDynamicIdx, PebilClassType_DataSection, elfFile->getFileName(), genericDataHdr->GET(sh_name), dynTableHdr->GET(sh_type),
-                        dynTableHdr->GET(sh_flags), oldDynamicAddress, oldDynamicOffset, 0, dynTableHdr->GET(sh_link),
-                        dynTableHdr->GET(sh_info), dynTableHdr->GET(sh_addralign), dynTableHdr->GET(sh_entsize));
+    elfFile->addSection(newDynamicIdx, PebilClassType_DataSection, 
+      elfFile->getFileName(), genericDataHdr->GET(sh_name), 
+      dynTableHdr->GET(sh_type), dynTableHdr->GET(sh_flags), oldDynamicAddress,
+      oldDynamicOffset, 0, dynTableHdr->GET(sh_link), dynTableHdr->GET(sh_info),
+      dynTableHdr->GET(sh_addralign), dynTableHdr->GET(sh_entsize));
 
     elfFile->swapSections(newDynamicIdx, oldDynamicIdx);
     ((DataSection*)elfFile->getRawSection(oldDynamicIdx))->extendSize(oldDynamicSize);
@@ -358,7 +366,8 @@ void ElfFileInst::buildInstrumentationSections(){
       genericTextHdr->GET(sh_addralign), genericTextHdr->GET(sh_entsize));
 
     SectionHeader* instDataHeader = elfFile->getSectionHeader(extraDataIdx);
-    ASSERT(instDataHeader && elfFile->getRawSection(extraDataIdx)->getType() == PebilClassType_DataSection);
+    ASSERT(instDataHeader && elfFile->getRawSection(extraDataIdx)->getType() 
+      == PebilClassType_DataSection);
 
     uint32_t dataInc = 0;
     if (instrumentationDataSize > DATA_EXTENSION_INC){

@@ -233,9 +233,7 @@ public:
     void setMultipleImages() { multipleImages = true; ASSERT(is64Bit() && 
       "Multi-image support not available for IA32"); }
     bool isMultiImage() { return multipleImages; }
-    void setPieMode() { pieMode = true; }
-    bool isPieMode() { return pieMode; }
-    bool getUsePIC() { return (threadedMode || multipleImages || pieMode); }
+    bool getUsePIC();
     void setMaster() { masterImage = true; }
     bool isMasterCheck() { return masterImage; }
     void setPerInstruction() { perInstruction = true; }

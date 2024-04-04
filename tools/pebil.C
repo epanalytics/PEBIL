@@ -101,7 +101,6 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--dry] : quit before processing any executables\n");
     fprintf(stderr,"\t\t[--threaded] : implement thread safety features and keep statistics per thread\n");
     fprintf(stderr,"\t\t[--images] : prepare for multiple images\n");
-    fprintf(stderr,"\t\t[--pie] : prepare for Position Independent Executables\n");
     fprintf(stderr,"\t\t[--allowstatic] : try to instrument a static-linked executable " DEVELOPER_MESSAGE "\n");
     fprintf(stderr,"\t\t[--disablestatic] : don't print static analysis file\n");
     fprintf(stderr,"\t\t[--lib <shared_lib_dir>] : " DEPRECATED_MESSAGE "\n");
@@ -218,7 +217,6 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(doi);
     DEFINE_FLAG(threaded);
     DEFINE_FLAG(images);
-    DEFINE_FLAG(pie);
     DEFINE_FLAG(perinsn);
     DEFINE_FLAG(saveall);
     DEFINE_FLAG(nosavezmm);
@@ -253,7 +251,7 @@ int main(int argc,char* argv[]){
         FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), 
         FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'), FLAG_OPTION(version, 'V'), 
         FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), 
-        FLAG_OPTION(threaded, 'P'), FLAG_OPTION(images, 'M'), FLAG_OPTION(pie, 'e'), 
+        FLAG_OPTION(threaded, 'P'), FLAG_OPTION(images, 'M'),
         FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), 
         FLAG_OPTION(printinsnmaps, 'p'), FLAG_OPTION(disablestatic, 'D'), 
         FLAG_OPTION(sanitize,'a'), //FLAG_OPTION(password,'A'),
@@ -547,6 +545,15 @@ int main(int argc,char* argv[]){
 
         // if space is needed in front of the binary's elf control, try to shift all binary contents out of the way
         if (elfFile->getProgramBaseAddress() < WEDGE_SHAMT){
+            PRINT_WARN(20, "Attempting to wedge this image, program base address: "
+              "%#lx. If this is not a library, and you are not linking any "
+              "libraries, and it is not a threaded binary that you are attempting "
+              "to instrument and you are having issues with wedging, you can try "
+              "recompiling your binary with --no-pie, or your languages "
+              "equivalant, to disable Position Independent Executable functionality"
+              " for simpler instrumentation. If instrumenting with --images, --lnc,"
+              " or --threaded, there is a deeper issue that needs addressing.", 
+              elfFile->getProgramBaseAddress());
             if (!elfFile->isSharedLib()){
                 PRINT_WARN(20, 
                   "The base address of this binary is too small, but the binary"
@@ -639,10 +646,6 @@ int main(int argc,char* argv[]){
                 instTool->setMultipleImages();
             } else {
                 instTool->setMaster();
-            }
-
-            if (pie_flag){
-                instTool->setPieMode();
             }
 
             if (perinsn_flag){

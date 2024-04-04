@@ -158,6 +158,7 @@ void ElfFile::prepareWedge(){
 
     ASSERT(wedgeInstructions);
 }
+
 void ElfFile::destroyWedge(){
     if (wedgeInstructions){
         delete[] wedgeInstructions;
@@ -190,7 +191,7 @@ void ElfFile::wedge(uint32_t shamt){
     }
 
     for (auto it = wedgeAnchors->begin();it != wedgeAnchors->end();it++) {
-        (*it)->wedge(this, shamt);
+        (*it)->updateAnchorsPostWedge(this, shamt);
     }
 
     destroyWedge();
@@ -586,7 +587,8 @@ bool ElfFile::verify(){
         }
     }
 
-    PriorityQueue<uint64_t,uint64_t> addrs = PriorityQueue<uint64_t,uint64_t>(getNumberOfSections()+3);
+    PriorityQueue<uint64_t,uint64_t> addrs = PriorityQueue<uint64_t,uint64_t>(
+     getNumberOfSections()+3);
     addrs.insert(fileHeader->GET(e_ehsize),0); 
     addrs.insert(fileHeader->GET(e_phentsize)*fileHeader->GET(e_phnum),fileHeader->GET(e_phoff));
     addrs.insert(fileHeader->GET(e_shentsize)*fileHeader->GET(e_shnum),fileHeader->GET(e_shoff));
@@ -840,7 +842,8 @@ uint64_t ElfFile::addSection(uint16_t idx, PebilClassTypes classtype,
     sectionHeaders[idx]->setSectionType();
 
     if (classtype == PebilClassType_TextSection){
-        textSections.append(new TextSection(bytes, size, idx, getNumberOfTextSections(), this, ByteSource_Instrumentation));
+        textSections.append(new TextSection(bytes, size, idx, 
+          getNumberOfTextSections(), this, ByteSource_Instrumentation));
         rawSections.insert((RawSection*)textSections.back(), idx);
     } else if (classtype == PebilClassType_DataSection){
         dataSections.append(new DataSection(bytes, size, idx, this));
@@ -904,11 +907,13 @@ void ElfFile::sortSectionHeaders(){
 
 void ElfFile::initSectionFilePointers(bool sanitize){
 
-    char* stringTablePtr = ((StringTable*)rawSections[fileHeader->GET(e_shstrndx)])->getFilePointer();
+    char* stringTablePtr = ((StringTable*)rawSections[fileHeader->
+      GET(e_shstrndx)])->getFilePointer();
 
     // skip first section header since it is reserved and its values are null
     for (uint32_t i = 1; i < getNumberOfSections(); i++){
-        ASSERT(sectionHeaders[i]->getSectionNamePtr() == NULL && "Section Header name shouldn't already be set");
+        ASSERT(sectionHeaders[i]->getSectionNamePtr() == NULL 
+          && "Section Header name shouldn't already be set");
         uint32_t sectionNameOffset = sectionHeaders[i]->GET(sh_name);
         sectionHeaders[i]->setSectionNamePtr(stringTablePtr + sectionNameOffset);
     }
@@ -916,21 +921,28 @@ void ElfFile::initSectionFilePointers(bool sanitize){
     // delineate the various dwarf sections
     uint32_t lineInfoIdx = 0;
     for (uint32_t i = 1; i < getNumberOfSections(); i++){
-        ASSERT(sectionHeaders[i]->getSectionNamePtr() && "Section header name should be set");
-        if (!strcmp(sectionHeaders[i]->getSectionNamePtr(),DWARF_LINE_INFO_SCN_NAME)){
-            ASSERT(!lineInfoIdx && "Cannot have multiple line information sections");
+        ASSERT(sectionHeaders[i]->getSectionNamePtr() 
+          && "Section header name should be set");
+        if (!strcmp(sectionHeaders[i]->getSectionNamePtr(),
+          DWARF_LINE_INFO_SCN_NAME)){
+
+            ASSERT(!lineInfoIdx && 
+              "Cannot have multiple line information sections");
             lineInfoIdx = i;
         }
     }
     if (lineInfoIdx){
-        char* sectionFilePtr = binaryInputFile->fileOffsetToPointer(sectionHeaders[lineInfoIdx]->GET(sh_offset));
+        char* sectionFilePtr = binaryInputFile->fileOffsetToPointer(
+          sectionHeaders[lineInfoIdx]->GET(sh_offset));
         uint64_t sectionSize = (uint64_t)sectionHeaders[lineInfoIdx]->GET(sh_size);
 
-        ASSERT(sectionHeaders[lineInfoIdx]->getSectionType() == PebilClassType_RawSection);
+        ASSERT(sectionHeaders[lineInfoIdx]->getSectionType() 
+          == PebilClassType_RawSection);
         uint32_t dwarfIdx = rawSections[lineInfoIdx]->getSectionIndex();
         delete rawSections[lineInfoIdx];
 
-        lineInfoSection = new DwarfLineInfoSection(sectionFilePtr,sectionSize,lineInfoIdx,dwarfIdx,this);
+        lineInfoSection = new DwarfLineInfoSection(sectionFilePtr, sectionSize,
+          lineInfoIdx,dwarfIdx, this);
         lineInfoSection->read(binaryInputFile);
         rawSections[lineInfoIdx] = lineInfoSection;
     }
@@ -986,12 +998,14 @@ void ElfFile::initDynamicFilePointers(){
     dynamicSymtabIdx = getNumberOfSymbolTables();
     for (uint32_t i = 0; i < getNumberOfSymbolTables(); i++){
         if (getSymbolTable(i)->isDynamic()){
-            ASSERT(dynamicSymtabIdx == getNumberOfSymbolTables() && "Cannot have multiple dynamic symbol tables");
+            ASSERT(dynamicSymtabIdx == getNumberOfSymbolTables() 
+              && "Cannot have multiple dynamic symbol tables");
             dynamicSymtabIdx = i;
         }
 
     }
-    ASSERT(dynamicSymtabIdx != getNumberOfSymbolTables() && "Cannot analyze a file if it doesn't have a dynamic symbol table");
+    ASSERT(dynamicSymtabIdx != getNumberOfSymbolTables() && 
+      "Cannot analyze a file if it doesn't have a dynamic symbol table");
 
     char* sectionFilePtr;
     uint64_t sectionSize;
@@ -1006,7 +1020,9 @@ void ElfFile::initDynamicFilePointers(){
     }
     ASSERT(dynamicSegmentIdx && "Cannot find a segment for the dynamic table");
     dynamicSectionAddress = getProgramHeader(dynamicSegmentIdx)->GET(p_vaddr);
-    ASSERT(getProgramHeader(dynamicSegmentIdx)->GET(p_vaddr) == dynamicSectionAddress && "Dynamic segment address from symbol and programHeader don't match");
+    ASSERT(getProgramHeader(dynamicSegmentIdx)->GET(p_vaddr) 
+      == dynamicSectionAddress && 
+      "Dynamic segment address from symbol and programHeader don't match");
 
     /*
     dynamicSectionAddress = 0;
@@ -1424,7 +1440,9 @@ void ElfFile::parse(){
  
     if (ISELFMAGIC(e_ident[EI_MAG0],e_ident[EI_MAG1],e_ident[EI_MAG2],e_ident[EI_MAG3])){
     } else {
-        PRINT_ERROR("The file magic number [%02hhx%02hhx%02hhx%02hhx] is not a valid one",e_ident[EI_MAG0],e_ident[EI_MAG1],e_ident[EI_MAG2],e_ident[EI_MAG3]);
+        PRINT_ERROR(
+          "The file magic number [%02hhx%02hhx%02hhx%02hhx] is not a valid one",
+          e_ident[EI_MAG0],e_ident[EI_MAG1],e_ident[EI_MAG2],e_ident[EI_MAG3]);
     }
 
     if(ISELF64BIT(e_ident[EI_CLASS])){
@@ -1536,7 +1554,8 @@ void ElfFile::readRawSections(){
     ASSERT(sectionHeaders.size() && "We should have read the section headers already");
 
     for (uint32_t i = 0; i < getNumberOfSections(); i++){
-        char* sectionFilePtr = binaryInputFile->fileOffsetToPointer(sectionHeaders[i]->GET(sh_offset));
+        char* sectionFilePtr = binaryInputFile->fileOffsetToPointer(
+          sectionHeaders[i]->GET(sh_offset));
         uint64_t sectionSize = (uint64_t)sectionHeaders[i]->GET(sh_size);
 
         switch(sectionHeaders[i]->getSectionType()){
@@ -1587,7 +1606,8 @@ void ElfFile::readRawSections(){
             dataSections.append((DataSection*)rawSections.back());
             break;
         default:
-            rawSections.append(new RawSection(PebilClassType_RawSection, sectionFilePtr, sectionSize, i, this));
+            rawSections.append(new RawSection(PebilClassType_RawSection, 
+              sectionFilePtr, sectionSize, i, this));
             break;
         }
     }
@@ -1771,13 +1791,14 @@ uint32_t ElfFile::anchorProgramElements(){
         instructionCount += getTextSection(i)->getAllInstructions(allInstructions, 
           instructionCount);
     }
-    qsort(allInstructions, instructionCount, sizeof(X86Instruction*), compareBaseAddress);
+    qsort(allInstructions, instructionCount, sizeof(X86Instruction*), 
+      compareBaseAddress);
 
     DEBUG_ANCHOR(
     for (uint32_t i = 0; i < instructionCount; i++){
         allInstructions[i]->print();
     }
-    )
+    )// DEBUG_ANCHOR
 
     // Check for any instructions without base addresses
     for (uint32_t i = 0; i < instructionCount; i++){
@@ -1793,6 +1814,7 @@ uint32_t ElfFile::anchorProgramElements(){
             allInstructions[i]->print();
             allInstructions[i+1]->print();
         }
+        // shouldn't this be <=? or should the above be just <?
         ASSERT(allInstructions[i]->getBaseAddress() 
           < allInstructions[i+1]->getBaseAddress() && "Problem with qsort");
     }

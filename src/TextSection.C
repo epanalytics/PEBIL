@@ -429,8 +429,9 @@ bool TextSection::inRange(uint64_t addr) {
     return elfFile->getSectionHeader(sectionIndex)->inRange(addr); 
 }
 
-TextSection::TextSection(char* filePtr, uint64_t size, uint16_t scnIdx, uint32_t idx, ElfFile* elf, ByteSources src) :
-    RawSection(PebilClassType_TextSection,filePtr,size,scnIdx,elf)
+TextSection::TextSection(char* filePtr, uint64_t size, uint16_t scnIdx, 
+  uint32_t idx, ElfFile* elf, ByteSources src) 
+  : RawSection(PebilClassType_TextSection,filePtr,size,scnIdx,elf)
 {
     index = idx;
     source = src;
@@ -707,12 +708,13 @@ void TextSection::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
 
     if (sortedTextObjects.size()) {
         for (uint32_t i = 0; i < sortedTextObjects.size() - 1; i++){
-            ASSERT(sortedTextObjects[i] && "The functions in this text section should be initialized");
+            ASSERT(sortedTextObjects[i] && 
+              "The functions in this text section should be initialized");
             sortedTextObjects[i]->dump(binaryOutputFile, offset + currByte);
             
             // functions can overlap! this puts the function in the correct
             // original spot
-	    // If the very first object is not a function (sometimes there
+            // If the very first object is not a function (sometimes there
             // are nops at the beginning that are not in an actual function)
             // just use the given size 
             uint32_t actualFunctionSize = 0;

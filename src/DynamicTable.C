@@ -29,7 +29,9 @@
 
 void DynamicTable::wedge(uint32_t shamt){
     for (uint32_t i = 0; i < dynamics.size(); i++){
-        if (dynamics[i]->getValueType() == DynamicValueType_pointer && elfFile->isWedgeAddress(dynamics[i]->GET_A(d_ptr, d_un))){
+        if (dynamics[i]->getValueType() == DynamicValueType_pointer 
+          && elfFile->isWedgeAddress(dynamics[i]->GET_A(d_ptr, d_un))){
+
             dynamics[i]->INCREMENT_A(d_ptr, d_un, shamt);
         }
     }
