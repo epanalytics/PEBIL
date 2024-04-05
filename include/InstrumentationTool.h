@@ -120,6 +120,11 @@ protected:
     InstrumentationFunction* initWrapperF;
     InstrumentationFunction* initTWrapperC;
     InstrumentationFunction* initTWrapperF;
+    //shmem
+    InstrumentationFunction* sfiniWrapperC;
+    InstrumentationFunction* sfiniWrapperF;
+    InstrumentationFunction* sinitWrapperC;
+    InstrumentationFunction* sinitWrapperF;
 
     uint32_t phaseNo;
     bool loopIncl;
@@ -157,7 +162,11 @@ public:
     void setMaker(InstrumentationTool* (*maker)(ElfFile*)) { this->maker = maker; };
 
     virtual void declare();
+    virtual void declareShmem();
     virtual void instrument();
+
+    void wrapShmemCalls();
+    int wrapCall(char*, InstrumentationFunction*&);
 
     void dynamicPoint(InstrumentationPoint* pt, uint64_t key, bool enable);
     uint64_t reserveDynamicPoints();
