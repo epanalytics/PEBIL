@@ -545,14 +545,10 @@ int main(int argc,char* argv[]){
 
         elfFile->anchorProgramElements();
 
-        FileHeader* temp = elfFile->getFileHeader();
 
         // if space is needed in front of the binary's elf control, try to shift all binary contents out of the way
-        // ACC gcc issue here.
-        /*fprintf(stderr, "EEO\t program base address: 0x%lx, 0x%lx\n", 
-          elfFile->getProgramBaseAddress(), temp->getE_entry());*/
         if (elfFile->getProgramBaseAddress() < WEDGE_SHAMT){
-            PRINT_WARN(20, "Attempting to wedge this image, program base "
+            PRINT_WARN(20, "Attempting to wedge this image, program start "
               "address: 0x%lx. If this is "
               "not a library, and you are not linking any libraries, and it is "
               "not a threaded binary that you are attempting to instrument and "
@@ -561,7 +557,7 @@ int main(int argc,char* argv[]){
               "Position Independent Executable functionality for simpler "
               "instrumentation. If instrumenting with --images, --lnc, or "
               "--threaded, there is a deeper issue that needs addressing.", 
-              elfFile->getProgramBaseAddress());
+              elfFile->getProgramStartAddress());
             if (!elfFile->isSharedLib()){
                 PRINT_WARN(20, 
                   "The base address of this binary is too small, but the binary"

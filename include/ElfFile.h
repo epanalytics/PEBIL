@@ -23,6 +23,7 @@
 
 #include <Base.h>
 #include <BinaryFile.h>
+#include <FileHeader.h>
 #include <ProgramHeader.h>
 #include <Vector.h>
 #include <map>
@@ -134,6 +135,7 @@ public:
     uint64_t getUniqueId();
     char* getSHA1Sum();
     uint64_t getProgramBaseAddress();
+    uint64_t getProgramStartAddress() { return fileHeader->GET(e_entry); }
 
     bool isMicBinary();
     bool isAVX512Binary();
