@@ -172,6 +172,7 @@ public:
     void sortSectionHeaders();
 
     FileHeader*  getFileHeader() { return fileHeader; }
+    //uint64_t getEntryPoint() { return ((FileHeader64*)fileHeader)->GET(e_entry); }
     ProgramHeader* getProgramHeader(uint32_t idx) { return programHeaders[idx]; }
     ProgramHeader* getProgramHeaderPHDR();
     // getLoadSegments takes in a Vector* to place all LOAD segments into

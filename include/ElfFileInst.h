@@ -96,7 +96,6 @@ private:
     bool allowStatic;
     bool threadedMode;
     bool multipleImages;
-    bool pieMode;
     bool usePIC;
     bool masterImage;
     bool perInstruction;

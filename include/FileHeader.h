@@ -44,6 +44,7 @@ public:
     virtual void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset) { __SHOULD_NOT_ARRIVE; }
     const char* getTypeName();
     void wedge(uint32_t shamt);
+    virtual uint64_t getE_entry() = 0;
 };
 
 class FileHeader32 : public FileHeader {
@@ -60,6 +61,7 @@ public:
 
     char* charStream() { return (char*)&entry; }
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
+    uint64_t getE_entry() override { return (uint64_t)GET(e_entry); }
 };
 
 class FileHeader64 : public FileHeader {
@@ -76,6 +78,7 @@ public:
 
     char* charStream() { return (char*)&entry; }
     void dump(BinaryOutputFile* binaryOutputFile, uint32_t offset);
+    uint64_t getE_entry() override { return GET(e_entry); }
 };
 
 #endif /* _FileHeader_h_ */

@@ -1788,8 +1788,7 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     uint32_t ELFStructuresSegmentIdx = elfFile->getELFStructuresSegmentIdx();
     ProgramHeader* ELFSectionSegment = (*loadSegments)[0];
 
-    // should the first segment in the line below be section?
-    // for each segment that is contained within the ELF Section segment, 
+    // for each section that is contained within the ELF Section segment, 
     // update its address to reflect the new base address of the ELF Section 
     // segment
     // Segments can also be called program headers
@@ -1804,7 +1803,8 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
                   "Unable to extend text section by 0x%llx bytes: the maximum "
                   "size of a text extension for this binary is 0x%llx bytes", 
                   totalSize, subHeader->GET(p_vaddr)); 
-                // EEO Are we removing this?
+                // TODO implement --wedge flag to set the wedgeSize with,
+                // 0x200000 as possible default.
                 //PRINT_WARN(20, "Try using the --wedge flag");
             }
             
@@ -2172,7 +2172,6 @@ ElfFileInst::ElfFileInst(ElfFile* elf){
     allowStatic = false;
     threadedMode = false;
     multipleImages = false;
-    pieMode = false;
     masterImage = false;
     perInstruction = false;
     libraryList = NULL;

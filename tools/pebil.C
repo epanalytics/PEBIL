@@ -100,7 +100,8 @@ void printUsage(const char* msg = NULL){
     fprintf(stderr,"\t\t[--silent] : suppress inform statements\n");
     fprintf(stderr,"\t\t[--dry] : quit before processing any executables\n");
     fprintf(stderr,"\t\t[--threaded] : implement thread safety features and keep statistics per thread\n");
-    fprintf(stderr,"\t\t[--images] : prepare for multiple images\n");
+    fprintf(stderr,"\t\t[--images] : prepare for multiple images, this is for use with linked libraries\n");
+    fprintf(stderr,"\t\t[--main] : prepare for multiple images, this is for use with the main image\n");
     fprintf(stderr,"\t\t[--allowstatic] : try to instrument a static-linked executable " DEVELOPER_MESSAGE "\n");
     fprintf(stderr,"\t\t[--disablestatic] : don't print static analysis file\n");
     fprintf(stderr,"\t\t[--lib <shared_lib_dir>] : " DEPRECATED_MESSAGE "\n");
@@ -217,6 +218,7 @@ int main(int argc,char* argv[]){
     DEFINE_FLAG(doi);
     DEFINE_FLAG(threaded);
     DEFINE_FLAG(images);
+    DEFINE_FLAG(main);
     DEFINE_FLAG(perinsn);
     DEFINE_FLAG(saveall);
     DEFINE_FLAG(nosavezmm);
@@ -251,7 +253,7 @@ int main(int argc,char* argv[]){
         FLAG_OPTION(help, 'h'), FLAG_OPTION(allowstatic, 'w'), 
         FLAG_OPTION(silent, 's'), FLAG_OPTION(dry, 'r'), FLAG_OPTION(version, 'V'), 
         FLAG_OPTION(lpi, 'p'), FLAG_OPTION(dtl, 'd'), FLAG_OPTION(doi, 'i'), 
-        FLAG_OPTION(threaded, 'P'), FLAG_OPTION(images, 'M'),
+        FLAG_OPTION(threaded, 'P'), FLAG_OPTION(images, 'M'), FLAG_OPTION(main, 'c'),
         FLAG_OPTION(perinsn, 'I'), FLAG_OPTION(saveall, 'S'), FLAG_OPTION(nosavezmm, 'Z'), 
         FLAG_OPTION(printinsnmaps, 'p'), FLAG_OPTION(disablestatic, 'D'), 
         FLAG_OPTION(sanitize,'a'), //FLAG_OPTION(password,'A'),
@@ -263,7 +265,7 @@ int main(int argc,char* argv[]){
         ARG_OPTION(inf, 'z'), ARG_OPTION(app, 'a'), ARG_OPTION(lib, 'l'),
         ARG_OPTION(ext, 'x'), ARG_OPTION(fbl, 'b'), ARG_OPTION(dmp, 'm'), 
         ARG_OPTION(phs, 'f'), ARG_OPTION(dfp, 'g'), ARG_OPTION(out, 'o'), 
-        ARG_OPTION(inv, 'i'), ARG_OPTION(decrypt,'d'), 
+        ARG_OPTION(inv, 'i'), ARG_OPTION(decrypt,'d'),
         {0,              0,                 0,              0},
     };
 
@@ -543,16 +545,22 @@ int main(int argc,char* argv[]){
 
         elfFile->anchorProgramElements();
 
+        FileHeader* temp = elfFile->getFileHeader();
+
         // if space is needed in front of the binary's elf control, try to shift all binary contents out of the way
+        // ACC gcc issue here.
+        /*fprintf(stderr, "EEO\t program base address: 0x%lx, 0x%lx\n", 
+          elfFile->getProgramBaseAddress(), temp->getE_entry());*/
         if (elfFile->getProgramBaseAddress() < WEDGE_SHAMT){
-            PRINT_WARN(20, "Attempting to wedge this image, program base address: "
-              "%#lx. If this is not a library, and you are not linking any "
-              "libraries, and it is not a threaded binary that you are attempting "
-              "to instrument and you are having issues with wedging, you can try "
-              "recompiling your binary with --no-pie, or your languages "
-              "equivalant, to disable Position Independent Executable functionality"
-              " for simpler instrumentation. If instrumenting with --images, --lnc,"
-              " or --threaded, there is a deeper issue that needs addressing.", 
+            PRINT_WARN(20, "Attempting to wedge this image, program base "
+              "address: 0x%lx. If this is "
+              "not a library, and you are not linking any libraries, and it is "
+              "not a threaded binary that you are attempting to instrument and "
+              "you are having issues with wedging, you can try recompiling your"
+              " binary with --no-pie, or your languages equivalant, to disable "
+              "Position Independent Executable functionality for simpler "
+              "instrumentation. If instrumenting with --images, --lnc, or "
+              "--threaded, there is a deeper issue that needs addressing.", 
               elfFile->getProgramBaseAddress());
             if (!elfFile->isSharedLib()){
                 PRINT_WARN(20, 
@@ -624,8 +632,9 @@ int main(int argc,char* argv[]){
 
             if (lnc_arg){
                 instTool->setLibraryList(lnc_arg);
-                instTool->setMultipleImages();
-                instTool->setMaster();
+                if (!images_flag) {
+                    instTool->setMaster();
+                }
             }
             
             ASSERT(functionBlackList);
@@ -643,8 +652,19 @@ int main(int argc,char* argv[]){
             }
 
             if (images_flag){
+                if (main_flag) {
+                    // Should not happen error exit
+                    PRINT_ERROR("--images and --main flag should not be used together, exiting\n");
+                }
                 instTool->setMultipleImages();
-            } else {
+            }
+
+            if (main_flag) {
+                if (images_flag){
+                    // Should not happen error exit
+                    PRINT_ERROR("--images and --main flag should not be used together, exiting\n");
+                }
+                instTool->setMultipleImages();
                 instTool->setMaster();
             }
 

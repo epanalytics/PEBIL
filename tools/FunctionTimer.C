@@ -101,8 +101,8 @@ void FunctionTimer::instrument(){
     PAPIStats funcInfo;
     uint64_t functionInfoStruct = reserveDataOffset(sizeof(PAPIStats));
 
-    funcInfo.timerStats.master = getElfFile()->isExecutable();
-
+    funcInfo.timerStats.master = isMasterCheck();
+    
     char* appName = getElfFile()->getAppName();
     uint64_t app = reserveDataOffset(strlen(appName) + 1);
     initializeReservedPointer(app, functionInfoStruct + 

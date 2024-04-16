@@ -315,7 +315,7 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func) {
 
     // If function has a dead register throughough, then use it to store the 
     // thread data at the function entry only 
-    uint32_t d = func->getDeadGPR(X86_REG_AX);
+    uint32_t d = func->getDeadGPR(0);
     if (d < X86_64BIT_GPRS){
         // Initialize thread data register at function entry and after function         // calls and after any writes to the register
         uint32_t numberOfInstructions = func->getNumberOfInstructions();
@@ -749,8 +749,8 @@ void InstrumentationTool::declareShmem(){
 void InstrumentationTool::instrument(){
     if (!isThreadedMode()){
         if (hasThreadEvidence()){
-            PRINT_ERROR(
-"This image shows evidence of being threaded, but you ran pebil without --threaded.");
+            PRINT_ERROR( "This image shows evidence of being threaded, but you "
+              "ran pebil without --threaded.");
         }
     }
 
@@ -1124,7 +1124,7 @@ InstrumentationPoint* InstrumentationTool::insertInlinedTripCounter(
 
     // snippet contents, in this case just increment a counter
     if (is64Bit()) {
-        // any threaded FIXME-- should this include multi image?
+        // any PIC code, includes, threaded, multi image, or wedged code.
         if (getUsePIC()) {
             // load thread data base addr into %sr1
             if (threadReg == (uint32_t)X86_REG_INVALID) {
