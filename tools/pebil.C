@@ -662,6 +662,10 @@ int main(int argc,char* argv[]){
                 }
                 instTool->setMultipleImages();
                 instTool->setMaster();
+            } else {
+                if (!images_flag) {
+                    instTool->setMaster();
+                }
             }
 
             if (perinsn_flag){
