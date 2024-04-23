@@ -75,6 +75,11 @@ uint64_t ElfFile::getProgramBaseAddress(){
     return segmentBase;
 }
 
+uint64_t ElfFile::getProgramStartAddress() {
+    return fileHeader->GET(e_entry);
+}
+
+
 // if address is > 0, aka a valid address, return true, else return false.
 bool ElfFile::isWedgeAddress(uint64_t addr){
     if (addr > 0){

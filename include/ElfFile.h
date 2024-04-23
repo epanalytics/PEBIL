@@ -23,7 +23,6 @@
 
 #include <Base.h>
 #include <BinaryFile.h>
-#include <FileHeader.h>
 #include <ProgramHeader.h>
 #include <Vector.h>
 #include <map>
@@ -138,7 +137,7 @@ public:
 // address for the program)
     uint64_t getProgramBaseAddress();
 // get the first virtual address of the first executable instruction
-    uint64_t getProgramStartAddress() { return fileHeader->GET(e_entry); }
+    uint64_t getProgramStartAddress();
 
     bool isMicBinary();
     bool isAVX512Binary();
