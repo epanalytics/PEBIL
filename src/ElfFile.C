@@ -57,7 +57,8 @@ bool ElfFile::isAVX512Binary() {
 #endif
 }
 
-// get the smallest virtual address of all loadable segments (ie, the base address for the program)
+// get the smallest virtual address of all loadable segments (ie, the base 
+// address for the program)
 uint64_t ElfFile::getProgramBaseAddress(){
     uint64_t segmentBase = -1;
 

@@ -134,7 +134,10 @@ public:
    
     uint64_t getUniqueId();
     char* getSHA1Sum();
+// get the smallest virtual address of all loadable segments (ie, the base 
+// address for the program)
     uint64_t getProgramBaseAddress();
+// get the first virtual address of the first executable instruction
     uint64_t getProgramStartAddress() { return fileHeader->GET(e_entry); }
 
     bool isMicBinary();
