@@ -1788,7 +1788,7 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     uint32_t ELFStructuresSegmentIdx = elfFile->getELFStructuresSegmentIdx();
     ProgramHeader* ELFSectionSegment = (*loadSegments)[0];
 
-    // for each section that is contained within the ELF Section segment, 
+    // for each segment that is contained within the ELF Section segment, 
     // update its address to reflect the new base address of the ELF Section 
     // segment
     // Segments can also be called program headers
