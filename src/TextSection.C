@@ -53,6 +53,26 @@ uint32_t FreeText::getNumberOfInstructions(){
     return numberOfInstructions;
 }
 
+uint32_t FreeText::getNumberOfAnchors() {
+    uint32_t counter = 0;
+    for (uint32_t i = 0; i < blocks.size(); i++) {
+        if (blocks[i]->getType() == PebilClassType_BasicBlock ||
+            blocks[i]->getType() == PebilClassType_CodeBlock) {
+
+            CodeBlock* curBlock = ((CodeBlock*)blocks[i]);
+            // Should below be refactored into a function inside of the class
+            // codeblock under getNumberOfAnchors?? Leaving as is for now
+            for (uint32_t j = 0; j < curBlock->getNumberOfInstructions(); j++) {
+                X86Instruction* curInsn = curBlock->getInstruction(j);
+                if (curInsn->getAddressAnchor() != NULL) {
+                    counter++;
+                }
+            }
+        }
+    }
+    return counter;
+}
+
 // Return name of function
 char* TextObject::getName() {
     if (symbol) {
@@ -119,6 +139,28 @@ uint32_t FreeText::getAllInstructions(X86Instruction** allinsts, uint32_t nexti)
     return instructionCount;
 }
 
+void FreeText::getAllAnchors(std::set<AddressAnchor*>* dest) {
+    for (uint32_t i = 0; i < blocks.size(); i++) {
+        CodeBlock* curBlock;
+        if (blocks[i]->getType() == PebilClassType_BasicBlock) {
+            curBlock = (CodeBlock*)blocks[i];
+        } else if (blocks[i]->getType() == PebilClassType_CodeBlock) {
+            curBlock = (CodeBlock*)blocks[i];
+        } else {
+            // do not handle any other types.
+            continue;
+        }
+        uint32_t numInsns = curBlock->getNumberOfInstructions();
+        for (uint32_t j = 0; j < numInsns; j++) {
+            X86Instruction* curInsn = curBlock->getInstruction(j);
+            AddressAnchor* curAnchor = curInsn->getAddressAnchor();
+            if (curAnchor != NULL) {
+                dest->insert(curAnchor);
+            }
+        }
+    }
+}
+
 TextObject* TextSection::getObjectWithAddress(uint64_t addr){
     for (uint32_t i = 0; i < sortedTextObjects.size(); i++){
         if(sortedTextObjects[i]->inRange(addr)) {
@@ -131,10 +173,17 @@ TextObject* TextSection::getObjectWithAddress(uint64_t addr){
 uint32_t TextSection::getAllInstructions(X86Instruction** allinsts, uint32_t nexti){
     uint32_t instructionCount = 0;
     for (uint32_t i = 0; i < sortedTextObjects.size(); i++){
-        instructionCount += sortedTextObjects[i]->getAllInstructions(allinsts, instructionCount+nexti);
+        instructionCount += sortedTextObjects[i]->getAllInstructions(allinsts, 
+          instructionCount+nexti);
     }
     ASSERT(instructionCount == getNumberOfInstructions());
     return instructionCount;
+}
+
+void TextSection::getAllAnchors(std::set<AddressAnchor*>* dest) {
+    for (uint32_t i = 0; i < sortedTextObjects.size(); i++) {
+        sortedTextObjects[i]->getAllAnchors(dest);
+    }
 }
 
 Function* TextSection::replaceFunction(uint32_t idx, Function* replacementFunction){
@@ -161,9 +210,18 @@ uint32_t TextSection::getNumberOfBasicBlocks(){
 uint32_t TextSection::getNumberOfInstructions(){
     uint32_t numberOfInstructions = 0;
     for (uint32_t i = 0; i < sortedTextObjects.size(); i++){
-        numberOfInstructions += sortedTextObjects[i]->getNumberOfInstructions();
+        TextObject* curObj = sortedTextObjects[i];
+        numberOfInstructions += curObj->getNumberOfInstructions();
     }
     return numberOfInstructions;
+}
+
+uint32_t TextSection::getNumberOfAnchors() {
+    uint32_t counter = 0;
+    for (uint32_t i = 0; i < sortedTextObjects.size(); i++) {
+        counter += sortedTextObjects[i]->getNumberOfAnchors();
+    }
+    return counter;
 }
 
 uint32_t TextSection::getNumberOfMemoryOps(){
@@ -371,8 +429,9 @@ bool TextSection::inRange(uint64_t addr) {
     return elfFile->getSectionHeader(sectionIndex)->inRange(addr); 
 }
 
-TextSection::TextSection(char* filePtr, uint64_t size, uint16_t scnIdx, uint32_t idx, ElfFile* elf, ByteSources src) :
-    RawSection(PebilClassType_TextSection,filePtr,size,scnIdx,elf)
+TextSection::TextSection(char* filePtr, uint64_t size, uint16_t scnIdx, 
+  uint32_t idx, ElfFile* elf, ByteSources src) 
+  : RawSection(PebilClassType_TextSection,filePtr,size,scnIdx,elf)
 {
     index = idx;
     source = src;
@@ -649,12 +708,13 @@ void TextSection::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
 
     if (sortedTextObjects.size()) {
         for (uint32_t i = 0; i < sortedTextObjects.size() - 1; i++){
-            ASSERT(sortedTextObjects[i] && "The functions in this text section should be initialized");
+            ASSERT(sortedTextObjects[i] && 
+              "The functions in this text section should be initialized");
             sortedTextObjects[i]->dump(binaryOutputFile, offset + currByte);
             
             // functions can overlap! this puts the function in the correct
             // original spot
-	    // If the very first object is not a function (sometimes there
+            // If the very first object is not a function (sometimes there
             // are nops at the beginning that are not in an actual function)
             // just use the given size 
             uint32_t actualFunctionSize = 0;

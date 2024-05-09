@@ -163,7 +163,9 @@ uint32_t ThreadRegisterMap::getThreadRegister(BasicBlock* bb) {
         case ThreadRegisterMapType_None:
             return X86_REG_INVALID;
         case ThreadRegisterMapType_Loop:
-            for(std::map<Loop*, uint32_t>::iterator it = loopRegisters.begin(); it != loopRegisters.end(); ++it) {
+            for(std::map<Loop*, uint32_t>::iterator it = loopRegisters.begin();
+              it != loopRegisters.end(); ++it) {
+
                 Loop* l = it->first;
                 if(l->isBlockIn(bb->getIndex()))
                     return it->second;
@@ -179,12 +181,17 @@ void ThreadRegisterMap::setThreadRegister(Loop* l, uint32_t reg) {
     loopRegisters[l] = reg;
 }
 
-// returns a map of function addresses and the scratch register used to hold the thread data address
-// (X86_REG_INVALID if no such register is available)
-std::map<uint64_t, ThreadRegisterMap*>* InstrumentationTool::threadReadyCode(std::set<Base*>& objectsToInst){
-    std::map<uint64_t, ThreadRegisterMap*>* functionThreading = new std::map<uint64_t, ThreadRegisterMap*>();
+// returns a map of function addresses and the scratch register used to hold the
+// thread data address (X86_REG_INVALID if no such register is available)
+std::map<uint64_t, ThreadRegisterMap*>* InstrumentationTool::threadReadyCode(
+  std::set<Base*>& objectsToInst) {
 
-    for (std::set<Base*>::iterator it = objectsToInst.begin(); it != objectsToInst.end(); it++){
+    std::map<uint64_t, ThreadRegisterMap*>* functionThreading = 
+      new std::map<uint64_t, ThreadRegisterMap*>();
+
+    for (std::set<Base*>::iterator it = objectsToInst.begin(); 
+      it != objectsToInst.end(); it++) {
+
         Function* f;
         if ((*it)->getType() == PebilClassType_Function){
             f = (Function*)(*it);
@@ -220,14 +227,16 @@ Vector<X86Instruction*>* InstrumentationTool::atomicIncrement(uint32_t dest, uin
     // mov $bufstr,%sr1
     fill->append(X86InstructionFactory64::emitMoveImmToReg(memaddr, scratch));
     // [lock] xadd %sr2,%sr1
-    fill->append(X86InstructionFactory64::emitExchangeAdd(dest, scratch, isThreadedMode()));
+    fill->append(X86InstructionFactory64::emitExchangeAdd(dest, scratch, 
+      getUsePIC()));
 
     return fill;
 }
 
 
-void InstrumentationTool::setThreadingRegister(uint32_t d, X86Instruction* ins, InstLocations loc, bool borrow)
-{
+void InstrumentationTool::setThreadingRegister(uint32_t d, X86Instruction* ins, 
+  InstLocations loc, bool borrow) {
+
     // select a scratch register, preferably a dead register
     // if the register isn't dead, pebil will have to protect it
     BitSet<uint32_t>* inv = new BitSet<uint32_t>(X86_ALU_REGS);
@@ -302,7 +311,7 @@ static void analyzeRegisters(X86Instruction** instructions, uint32_t nIns, BitSe
     }
 }
 
-ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
+ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func) {
 
     // If function has a dead register throughough, then use it to store the 
     // thread data at the function entry only 
@@ -316,6 +325,7 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
 
         for(uint32_t i = 0; i < numberOfInstructions; ++i) {
             X86Instruction* entry = allInstructions[i];
+
             if (i == 0 || entry->isCall()) {
                 InstLocations loc = InstLocation_after;
                 if (i == 0 && !entry->isCall()) {
@@ -388,8 +398,8 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
             analyzeRegisters(allInstructions, numberOfInstructions, deadRegs, 
               unusedRegs);
 
-            if((!unusedRegs->empty() && !isThreadedMode() && !isMultiImage()) 
-              || !deadRegs->empty()) {
+            if (!unusedRegs->empty() && !getUsePIC() || !deadRegs->empty() ) {
+
                 uint32_t u;
                 bool borrow = true;
 
@@ -596,12 +606,16 @@ ThreadRegisterMap* InstrumentationTool::instrumentForThreading(Function* func){
                     setThreadingRegister(u, interp->getExitInstruction(), 
                       InstLocation_prior, borrow);
 
-                    //fprintf(stderr, "Instrumenting source interposition from 0x%llx to 0x%llx\n", source->getBaseAddress(), head->getBaseAddress());
+                    //fprintf(stderr, 
+                      //"Instrumenting source interposition from 0x%llx to 0x%llx\n", 
+                      //source->getBaseAddress(), head->getBaseAddress());
                 }
 
                 retval->setThreadRegister(l, u);
                 coveredLoops.push_back(l);
-                //fprintf(stderr, "Using unused/dead register %d in loop 0x%llx\n", u, l->getHead()->getBaseAddress());
+                //fprintf(stderr, 
+                  //"Using unused/dead register %d in loop 0x%llx\n", u,
+                  //l->getHead()->getBaseAddress());
             }
             delete[] allInstructions;
         }
@@ -686,7 +700,10 @@ bool InstrumentationTool::hasThreadEvidence(){
     if (threadCalls->size() > 0){
         for (uint32_t i = 0; i < threadCalls->size(); i++){
             Symbol* functionSymbol = getElfFile()->lookupFunctionSymbol((*threadCalls)[i]->getTargetAddress());
-            PRINT_WARN(20, "Found call to an apparent thread-related function (%s) at address %#lx", functionSymbol->getSymbolName(), (*threadCalls)[i]->getBaseAddress());
+            PRINT_WARN(20, 
+              "Found call to an apparent thread-related function (%s) at "
+              "address %#lx", functionSymbol->getSymbolName(), 
+              (*threadCalls)[i]->getBaseAddress());
         }
         delete threadCalls;
         return true;
@@ -709,8 +726,10 @@ void InstrumentationTool::declare(){
     initWrapperF = declareFunction(MPI_INIT_WRAPPER_FBIND);
     initTWrapperC = declareFunction(MPI_INIT_THREAD_WRAPPER_CBIND);
     initTWrapperF = declareFunction(MPI_INIT_THREAD_WRAPPER_FBIND);
-    ASSERT(initWrapperC && "Cannot find MPI_Init function, are you sure it was declared?");
-    ASSERT(initWrapperF && "Cannot find MPI_Init function, are you sure it was declared?");
+    ASSERT(initWrapperC && 
+      "Cannot find MPI_Init function, are you sure it was declared?");
+    ASSERT(initWrapperF &&
+      "Cannot find MPI_Init function, are you sure it was declared?");
 #endif //HAVE_MPI
 #ifdef HAVE_SHMEM
     this->declareShmem();
@@ -730,7 +749,8 @@ void InstrumentationTool::declareShmem(){
 void InstrumentationTool::instrument(){
     if (!isThreadedMode()){
         if (hasThreadEvidence()){
-            PRINT_ERROR("This image shows evidence of being threaded, but you ran pebil without --threaded.");
+            PRINT_ERROR( "This image shows evidence of being threaded, but you "
+              "ran pebil without --threaded.");
         }
     }
 
@@ -745,14 +765,16 @@ void InstrumentationTool::instrument(){
     dynamicSize = reserveDataOffset(sizeof(uint64_t));
     dynamicPointArray = reserveDataOffset(sizeof(DynamicInst*));
     isThreadedModeFlag = reserveDataOffset(sizeof(bool));
-    bool isThreadedModeFlag_Val = isThreadedMode();
-    initializeReservedData(getInstDataAddress() + isThreadedModeFlag, sizeof(bool), &isThreadedModeFlag_Val);
+    bool isThreadedModeFlag_Val = getUsePIC();
+    initializeReservedData(getInstDataAddress() + isThreadedModeFlag, 
+      sizeof(bool), &isThreadedModeFlag_Val);
     dynamicInit->addArgument(dynamicSize);
     dynamicInit->addArgument(dynamicPointArray);
     dynamicInit->addArgument(isThreadedModeFlag);
 
     // ALL_FUNC_ENTER
-    if (isMultiImage()){
+    // don't need isPieMode here as we only enter from one spot for non multiImage
+    if (isMultiImage() && !isMasterCheck()){
         for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
             Function* f = getExposedFunction(i);
 
@@ -988,13 +1010,17 @@ void InstrumentationTool::wrapShmemCalls(){
     return;
 }
 
-Vector<X86Instruction*>* InstrumentationTool::storeThreadData(uint32_t scratch, uint32_t dest){
+Vector<X86Instruction*>* InstrumentationTool::storeThreadData(
+  uint32_t scratch, uint32_t dest){
+
     return storeThreadData(scratch, dest, false, 0);
 }
 
 // Looks up thread data in thread data table
 // puts ThreadData address into dest
-Vector<X86Instruction*>* InstrumentationTool::storeThreadData(uint32_t scratch, uint32_t dest, bool storeToStack, uint32_t stackPatch){
+Vector<X86Instruction*>* InstrumentationTool::storeThreadData(
+  uint32_t scratch, uint32_t dest, bool storeToStack, uint32_t stackPatch){
+
     ASSERT(scratch < X86_64BIT_GPRS);
     ASSERT(dest < X86_64BIT_GPRS);
     ASSERT(scratch != dest);
@@ -1007,7 +1033,11 @@ Vector<X86Instruction*>* InstrumentationTool::storeThreadData(uint32_t scratch, 
     // and ThreadHashMod,%d
     insns->append(X86InstructionFactory64::emitImmAndReg(ThreadHashMod, dest));
     // lea $ThreadTable,%sr ; scratch = ThreadTable
-    insns->append(linkInstructionToData(X86InstructionFactory64::emitLoadRipImmReg(0, scratch), getInstDataAddress() + threadHash, false));
+    insns->append(linkInstructionToData(
+      X86InstructionFactory64::emitLoadRipImmReg(0, scratch), 
+      getInstDataAddress() + threadHash, false)
+    );
+
     // sll $4,%d ; dest = threadIndex
     insns->append(X86InstructionFactory64::emitShiftLeftLogical(4, dest));
     // lea [$0x08+$offset](0,%d,%sr),%d ; dest = ThreadTable[threadIndex].data
@@ -1028,7 +1058,9 @@ Vector<X86Instruction*>* InstrumentationTool::storeThreadData(uint32_t scratch, 
     return insns;
 }
 
-InstrumentationPoint* InstrumentationTool::insertInlinedTripCounter(uint64_t counterOffset, X86Instruction* bestinst, bool add, uint32_t threadReg, InstLocations loc, BitSet<uint32_t>* useRegs, uint32_t val){
+InstrumentationPoint* InstrumentationTool::insertInlinedTripCounter(
+  uint64_t counterOffset, X86Instruction* bestinst, bool add, uint32_t threadReg, 
+  InstLocations loc, BitSet<uint32_t>* useRegs, uint32_t val) {
 
     uint32_t regLimit = X86_32BIT_GPRS;
     if (getElfFile()->is64Bit()){
@@ -1038,7 +1070,7 @@ InstrumentationPoint* InstrumentationTool::insertInlinedTripCounter(uint64_t cou
     uint32_t sr1 = regLimit;
     uint32_t sr2 = regLimit;
 
-    if (useRegs){
+    if (useRegs) {
         for (uint32_t i = 0; i < regLimit; i++){
             if (useRegs->contains(i)){
                 if (sr1 == regLimit){
@@ -1091,9 +1123,9 @@ InstrumentationPoint* InstrumentationTool::insertInlinedTripCounter(uint64_t cou
     snip->setOverflowable(false);
 
     // snippet contents, in this case just increment a counter
-    if (is64Bit()){
-        // any threaded FIXME-- should this include multi image?
-        if (isThreadedMode() || isMultiImage()){
+    if (is64Bit()) {
+        // any PIC code, includes, threaded, multi image, or wedged code.
+        if (getUsePIC()) {
             // load thread data base addr into %sr1
             if (threadReg == (uint32_t)X86_REG_INVALID) {
                 /*
@@ -1117,62 +1149,76 @@ InstrumentationPoint* InstrumentationTool::insertInlinedTripCounter(uint64_t cou
                 sr1 = threadReg;
             }
             if (add){
-                snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToRegaddrImm(val, sr1, counterOffset));
+                snip->addSnippetInstruction(
+                  X86InstructionFactory64::emitAddImmToRegaddrImm(
+                  val, sr1, counterOffset));
             } else {
-                snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToRegaddrImm(-1 * val, sr1, counterOffset));
+                snip->addSnippetInstruction(
+                  X86InstructionFactory64::emitAddImmToRegaddrImm(
+                  -1 * val, sr1, counterOffset));
             }
         }
         // non-threaded executable
-        else if (getElfFile()->isExecutable()){
-            if (add){
-                snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToMem(val, getInstDataAddress() + counterOffset));
-            } else {
-                snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToMem(-1 * val, getInstDataAddress() + counterOffset));
-            }
-        }
-        // non-threaded shared library
         else {
-            snip->addSnippetInstruction(linkInstructionToData(X86InstructionFactory64::emitLoadRipImmReg(0, sr1), getInstDataAddress() + counterOffset, false));
-
             if (add){
-                snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToRegaddrImm(val, sr1, 0));
+                snip->addSnippetInstruction(
+                  X86InstructionFactory64::emitAddImmToMem(val, 
+                  getInstDataAddress() + counterOffset));
             } else {
-                snip->addSnippetInstruction(X86InstructionFactory64::emitAddImmToRegaddrImm(-1 * val, sr1, 0));
+                snip->addSnippetInstruction(
+                  X86InstructionFactory64::emitAddImmToMem(-1 * val, 
+                  getInstDataAddress() + counterOffset));
             }
         }
     } else {
         ASSERT(getElfFile()->isExecutable());
-        ASSERT(!isThreadedMode());
+        ASSERT(!getUsePIC());
         uint32_t v = val;
         while (v > 0x7f){
             if (add){
-                snip->addSnippetInstruction(X86InstructionFactory32::emitAddImmByteToMem(0x7f, getInstDataAddress() + counterOffset));
+                snip->addSnippetInstruction(
+                  X86InstructionFactory32::emitAddImmByteToMem(0x7f, 
+                  getInstDataAddress() + counterOffset));
             } else {
-                snip->addSnippetInstruction(X86InstructionFactory32::emitSubImmByteToMem(0x7f, getInstDataAddress() + counterOffset));
+                snip->addSnippetInstruction(
+                  X86InstructionFactory32::emitSubImmByteToMem(0x7f, 
+                  getInstDataAddress() + counterOffset));
             }
             v -= 0x7f;
         }
         if (add){
-            snip->addSnippetInstruction(X86InstructionFactory32::emitAddImmByteToMem(v, getInstDataAddress() + counterOffset));
+            snip->addSnippetInstruction(
+              X86InstructionFactory32::emitAddImmByteToMem(v, 
+              getInstDataAddress() + counterOffset));
         } else {
-            snip->addSnippetInstruction(X86InstructionFactory32::emitSubImmByteToMem(v, getInstDataAddress() + counterOffset));
+            snip->addSnippetInstruction(
+              X86InstructionFactory32::emitSubImmByteToMem(v, 
+              getInstDataAddress() + counterOffset));
         }
     }
 
-    InstrumentationPoint* p = addInstrumentationPoint(bestinst, snip, InstrumentationMode_inline, loc);
+    InstrumentationPoint* p = addInstrumentationPoint(bestinst, snip, 
+      InstrumentationMode_inline, loc);
 
     return p;
 }
 
-InstrumentationPoint* InstrumentationTool::insertBlockCounter(uint64_t counterOffset, Base* within){
+InstrumentationPoint* InstrumentationTool::insertBlockCounter(
+  uint64_t counterOffset, Base* within){
+
     return insertBlockCounter(counterOffset, within, true, -1);
 }
 
-InstrumentationPoint* InstrumentationTool::insertBlockCounter(uint64_t counterOffset, Base* within, bool add, uint32_t threadReg){
+InstrumentationPoint* InstrumentationTool::insertBlockCounter(
+  uint64_t counterOffset, Base* within, bool add, uint32_t threadReg){
+
     return insertBlockCounter(counterOffset, within, add, threadReg, 1);
 }
 
-InstrumentationPoint* InstrumentationTool::insertBlockCounter(uint64_t counterOffset, Base* within, bool add, uint32_t threadReg, uint32_t inc){
+InstrumentationPoint* InstrumentationTool::insertBlockCounter(
+  uint64_t counterOffset, Base* within, bool add, uint32_t threadReg, 
+  uint32_t inc){
+
     BasicBlock* scope = NULL;
 
     if (within->getType() == PebilClassType_BasicBlock){
@@ -1208,7 +1254,8 @@ InstrumentationPoint* InstrumentationTool::insertBlockCounter(uint64_t counterOf
 
     bestinst = scope->findBestInstPoint(&loc, validRegs, useRegs, true);
 
-    InstrumentationPoint* p = insertInlinedTripCounter(counterOffset, bestinst, add, threadReg, loc, useRegs, inc);
+    InstrumentationPoint* p = insertInlinedTripCounter(counterOffset, bestinst, 
+      add, threadReg, loc, useRegs, inc);
 
     delete validRegs;
     delete useRegs;

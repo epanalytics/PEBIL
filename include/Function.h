@@ -122,6 +122,7 @@ public:
     uint32_t getNumberOfBytes();
 
     uint32_t getAllInstructions(X86Instruction** allinsts, uint32_t nexti);
+    void getAllAnchors(std::set<AddressAnchor*>* dest);
 
     void printInstructions();
 

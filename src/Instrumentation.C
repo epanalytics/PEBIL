@@ -225,12 +225,14 @@ int compareInstSourceAddress(const void* arg1,const void* arg2){
     return 0;
 }
 
-uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* insts, uint64_t textBaseAddress, uint64_t offset, 
-                                                    uint64_t returnOffset, bool doReloc, uint64_t regStorageBase, uint64_t currentOffset){
-    ASSERT(!trampolineInstructions.size() && "Cannot generate trampoline instructions more than once");
+uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* insts, 
+  uint64_t textBaseAddress, uint64_t offset, uint64_t returnOffset, bool doReloc, 
+  uint64_t regStorageBase, uint64_t currentOffset){
+
+    ASSERT(!trampolineInstructions.size() && 
+      "Cannot generate trampoline instructions more than once");
 
     trampolineOffset = offset;
-
     uint32_t trampolineSize = 0;
 
 #ifdef PROTECT_RAW_SNIPPETS
@@ -244,8 +246,11 @@ uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* ins
     if (f->hasLeafOptimization() || bb->isEntry()){
         stackIsSafe = false;
     }
-    if (getSaveAll() || (instrumentation->getType() == PebilClassType_InstrumentationFunction &&
-        ((InstrumentationFunction*)instrumentation)->hasSkipWrapper())){
+
+    if (getSaveAll() 
+        || (instrumentation->getType() == PebilClassType_InstrumentationFunction 
+        && ((InstrumentationFunction*)instrumentation)->hasSkipWrapper())) {
+
         stackIsSafe = true;
     } 
 
@@ -269,7 +274,8 @@ uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* ins
     }
 
     if (protectStack){
-        trampolineInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, -1*Size__trampoline_autoinc, X86_REG_SP));
+        trampolineInstructions.append(X86InstructionFactory64::emitLoadRegImmReg(
+          X86_REG_SP, -1*Size__trampoline_autoinc, X86_REG_SP));
         trampolineSize += trampolineInstructions.back()->getSizeInBytes();
     }
 
@@ -298,7 +304,10 @@ uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* ins
     }
 
     if (!instrumentation->requiresDistinctTrampoline()){
-        PRINT_DEBUG_INST("Generating inlined instructions for trampoline %#llx + %d, %#llx", textBaseAddress+offset, trampolineSize, textBaseAddress+getTargetOffset());
+        PRINT_DEBUG_INST(
+          "Generating inlined instructions for trampoline %#llx + %d, %#llx", 
+          textBaseAddress+offset, trampolineSize, textBaseAddress+getTargetOffset());
+
         while (instrumentation->hasMoreCoreInstructions()){
             trampolineInstructions.append(instrumentation->removeNextCoreInstruction());
             trampolineSize += trampolineInstructions.back()->getSizeInBytes();
@@ -359,7 +368,10 @@ uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* ins
             if ((*insts)[i]->isControl() && !(*insts)[i]->isReturn()){
                 numberOfBranches++;
                 if ((*insts)[i]->bytesUsedForTarget() < sizeof(uint32_t)){
-                    PRINT_DEBUG_FUNC_RELOC("This instruction uses %d bytes for target calculation", (*insts)[i]->bytesUsedForTarget());
+                    PRINT_DEBUG_FUNC_RELOC(
+                      "This instruction uses %d bytes for target calculation",
+                      (*insts)[i]->bytesUsedForTarget());
+
                     (*insts)[i]->convertTo4ByteTargetOperand();
                 }
             }
@@ -372,16 +384,21 @@ uint32_t InstrumentationPoint64::generateTrampoline(Vector<X86Instruction*>* ins
             }
         }
         
-        ASSERT(numberOfBranches < 2 && "Cannot have multiple branches in a basic block");
+        ASSERT(numberOfBranches < 2 
+          && "Cannot have multiple branches in a basic block");
 
-        trampolineInstructions.append(X86InstructionFactory::emitJumpRelative(offset+trampolineSize,returnOffset));
+        trampolineInstructions.append(X86InstructionFactory::emitJumpRelative(
+          offset+trampolineSize,returnOffset));
         trampolineSize += trampolineInstructions.back()->getSizeInBytes();
     }
     return trampolineSize;
 }
 
-uint32_t InstrumentationPoint32::generateTrampoline(Vector<X86Instruction*>* insts, uint64_t textBaseAddress, uint64_t offset, 
-                                                    uint64_t returnOffset, bool doReloc, uint64_t regStorageBase, uint64_t currentOffset){
+uint32_t InstrumentationPoint32::generateTrampoline(
+  Vector<X86Instruction*>* insts, uint64_t textBaseAddress, uint64_t offset, 
+  uint64_t returnOffset, bool doReloc, uint64_t regStorageBase,
+  uint64_t currentOffset){
+
     __FUNCTION_NOT_IMPLEMENTED;
     uint32_t trampolineSize = 0;
     return trampolineSize;
@@ -451,7 +468,9 @@ uint32_t InstrumentationFunction::addArgument(uint64_t offset){
     return arguments.size();
 }
 
-void InstrumentationFunction::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset, uint64_t addr){
+void InstrumentationFunction::dump(BinaryOutputFile* binaryOutputFile, 
+  uint32_t offset, uint64_t addr){
+
     uint32_t currentOffset = procedureLinkOffset;
     if (!isStaticLinked()){
         for (uint32_t i = 0; i < procedureLinkInstructions.size(); i++){
@@ -485,8 +504,11 @@ uint64_t InstrumentationSnippet::getEntryPoint(){
 }
 
 
-uint32_t InstrumentationFunction64::generateProcedureLinkInstructions(uint64_t textBaseAddress, uint64_t dataBaseAddress, uint64_t realPLTAddress){
-    ASSERT(!procedureLinkInstructions.size() && "This array should not be initialized");
+uint32_t InstrumentationFunction64::generateProcedureLinkInstructions(
+  uint64_t textBaseAddress, uint64_t dataBaseAddress, uint64_t realPLTAddress) {
+
+    ASSERT(!procedureLinkInstructions.size() 
+      && "This array should not be initialized");
 
     if (isStaticLinked()){
         ASSERT(!realPLTAddress);
@@ -494,7 +516,10 @@ uint32_t InstrumentationFunction64::generateProcedureLinkInstructions(uint64_t t
     }
 
     uint64_t procedureLinkAddress = textBaseAddress + procedureLinkOffset;
-    procedureLinkInstructions.append(X86InstructionFactory64::emitIndirectRelativeJump(procedureLinkAddress,dataBaseAddress + globalDataOffset));
+    procedureLinkInstructions.append(
+      X86InstructionFactory64::emitIndirectRelativeJump(
+      procedureLinkAddress,dataBaseAddress + globalDataOffset));
+
     if (pltHooks.size()){
         ASSERT(skipWrapper);
         procedureLinkInstructions.back()->setBaseAddress(procedureLinkAddress);
@@ -1229,10 +1254,13 @@ void InstrumentationPoint64::insertStateProtection(){
             instrumentation->appendCoreInstruction(X86InstructionFactory::emitPopEflags());
             countProt++;
         } else if (protectionMethod == FlagsProtectionMethod_light){
-            instrumentation->prependCoreInstruction(X86InstructionFactory64::emitLoadAHFromFlags());
-            instrumentation->prependCoreInstruction(X86InstructionFactory64::emitStackPush(X86_REG_AX));
+            instrumentation->prependCoreInstruction(
+              X86InstructionFactory64::emitLoadAHFromFlags());
+            instrumentation->prependCoreInstruction(
+              X86InstructionFactory64::emitStackPush(X86_REG_AX));
 
-            instrumentation->appendCoreInstruction(X86InstructionFactory64::emitStoreAHToFlags());
+            instrumentation->appendCoreInstruction(
+              X86InstructionFactory64::emitStoreAHToFlags());
             instrumentation->appendCoreInstruction(X86InstructionFactory64::emitStackPop(X86_REG_AX));
 
             countProt++;
@@ -1255,8 +1283,12 @@ void InstrumentationPoint64::insertStateProtection(){
             }
         }
         if (protectStack && countProt > 0){
-            instrumentation->prependCoreInstruction(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, -1*Size__trampoline_autoinc, X86_REG_SP));
-            instrumentation->appendCoreInstruction(X86InstructionFactory64::emitLoadRegImmReg(X86_REG_SP, Size__trampoline_autoinc, X86_REG_SP));
+            instrumentation->prependCoreInstruction(
+              X86InstructionFactory64::emitLoadRegImmReg(
+              X86_REG_SP, -1*Size__trampoline_autoinc, X86_REG_SP));
+            instrumentation->appendCoreInstruction(
+              X86InstructionFactory64::emitLoadRegImmReg(
+              X86_REG_SP, Size__trampoline_autoinc, X86_REG_SP));
         }
 #endif // PROTECT_RAW_SNIPPETS
 
@@ -1279,9 +1311,10 @@ void InstrumentationPoint64::insertStateProtection(){
     ASSERT(numberOfBytes);
 }
 
-InstrumentationPoint64::InstrumentationPoint64(Base* pt, Instrumentation* inst, InstrumentationModes instMode, InstLocations loc) :
-    InstrumentationPoint(pt, inst, instMode, loc)
-{
+InstrumentationPoint64::InstrumentationPoint64(Base* pt, Instrumentation* inst, 
+  InstrumentationModes instMode, InstLocations loc) :
+  InstrumentationPoint(pt, inst, instMode, loc) {
+
     numberOfBytes = 0;
 }
 

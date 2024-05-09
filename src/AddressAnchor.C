@@ -23,13 +23,17 @@
 #include <BinaryFile.h>
 #include <X86Instruction.h>
 #include <RawSection.h>
+#include <TextSection.h>
 
 uint64_t AddressAnchor::getLinkOffset(){
     ASSERT(linkedParent);
     ASSERT(link);
-    switch (linkClass){
+    uint64_t retVal = 0;
+    switch (linkClass) {
     case LinkClass_InstructionRelative:
-        return link->getBaseAddress() - linkedParent->getBaseAddress() - linkedParent->getSizeInBytes();
+        retVal = link->getBaseAddress() - linkedParent->getBaseAddress();
+        retVal -= linkedParent->getSizeInBytes();
+        return retVal;
         break;
     case LinkClass_InstructionImmediate:
     case LinkClass_DataReference:
@@ -120,14 +124,21 @@ void AddressAnchor::dump16(BinaryOutputFile* binaryOutputFile, uint32_t offset, 
     binaryOutputFile->copyBytes((char*)&value,sizeof(uint16_t),offset);
 }
 
-void AddressAnchor::dump32(BinaryOutputFile* binaryOutputFile, uint32_t offset, uint32_t value){
-    ASSERT((uint32_t)(getLinkValue() - value) == 0 && "Need more than 32 bits for relative immediate");
+void AddressAnchor::dump32(BinaryOutputFile* binaryOutputFile, uint32_t offset, 
+  uint32_t value){
+
+    ASSERT((uint32_t)(getLinkValue() - value) == 0 && 
+      "Need more than 32 bits for relative immediate");
+
     binaryOutputFile->copyBytes((char*)&value,sizeof(uint32_t),offset);
 }
 
-void AddressAnchor::dump64(BinaryOutputFile* binaryOutputFile, uint32_t offset, uint64_t value){
-    ASSERT((uint64_t)(getLinkValue() - value) == 0 && "Need more than 64 bits for relative immediate");
-    binaryOutputFile->copyBytes((char*)&value,sizeof(uint64_t),offset);
+void AddressAnchor::dump64(BinaryOutputFile* binaryOutputFile, uint32_t offset,
+  uint64_t value){
+
+    ASSERT((uint64_t)(getLinkValue() - value) == 0 
+      && "Need more than 64 bits for relative immediate");
+    binaryOutputFile->copyBytes((char*)&value, sizeof(uint64_t), offset);
 }
 
 void AddressAnchor::dumpDataReference(BinaryOutputFile* binaryOutputFile, uint32_t offset){
@@ -143,10 +154,13 @@ void AddressAnchor::dumpDataReference(BinaryOutputFile* binaryOutputFile, uint32
     }
 }
 
-void AddressAnchor::dumpInstruction(BinaryOutputFile* binaryOutputFile, uint32_t offset){
+void AddressAnchor::dumpInstruction(BinaryOutputFile* binaryOutputFile, 
+  uint32_t offset){
+
     ASSERT(linkedParent);
     ASSERT(linkedParent->getType() == PebilClassType_X86Instruction);
-    ASSERT(linkClass == LinkClass_InstructionRelative || linkClass == LinkClass_InstructionImmediate);
+    ASSERT(linkClass == LinkClass_InstructionRelative 
+                     || linkClass == LinkClass_InstructionImmediate);
 
     X86Instruction* linkedInstruction = (X86Instruction*)linkedParent;
 
@@ -161,7 +175,7 @@ void AddressAnchor::dumpInstruction(BinaryOutputFile* binaryOutputFile, uint32_t
                 overwrite = true;
             }
 
-            if (overwrite){
+            if (overwrite) {
                 if (op->getBytesUsed() == sizeof(uint8_t)){
                     uint8_t value = (uint8_t)getLinkValue();
                     dump8(binaryOutputFile, offset + op->getBytePosition(), value);
@@ -221,6 +235,50 @@ AddressAnchor::AddressAnchor(Base* lnk, Base* par){
 AddressAnchor::~AddressAnchor(){
 }
 
+// Update AddressAnchors that were missed by other elf structures wedge code
+void AddressAnchor::updateAnchorsPostWedge(ElfFile* elfFile, uint32_t shamt) {
+    Base* link = getLink();
+    Base* linkedParent = getLinkedParent();
+    
+    // link type should either be X86_Instruction or DataRef
+    // Algo for checking DataReference
+    if (link->getType() != PebilClassType_X86Instruction) {
+        DataReference* linkRef = (DataReference*)link;
+        RawSection* section = linkRef->getSection();
+        if (section == nullptr) {
+            link->baseAddress += shamt;
+        } else if (!section->getWasWedged()) {
+            link->baseAddress += shamt;
+        } else {
+            // it was already shifted.
+        }
+    // else Algo for checking X86_Instruction
+    } else {
+        X86Instruction* linkInsn = (X86Instruction*)(link);
+        // Update only if function was in shifted section.
+        if (linkInsn->getContainer()->isFunction()) {
+            if (linkInsn->getContainer()->getTextSection()->getWasWedged()) {
+                linkInsn->baseAddress += shamt;
+            }
+        }
+    }
+
+    // now for the parent 
+    // for non instructions
+    if (linkedParent->getType() != PebilClassType_X86Instruction) {
+        linkedParent->baseAddress += shamt;
+    // else for instruction
+    } else {
+        X86Instruction* parentInsn = (X86Instruction*)(linkedParent);
+        // Update only if function was in shifted section.
+        if (parentInsn->getContainer()->isFunction()) {
+            if (parentInsn->getContainer()->getTextSection()->getWasWedged()) {
+                parentInsn->baseAddress += shamt;
+            }
+        }
+    }
+}
+
 bool AddressAnchor::verify(){
     if (!link->containsProgramBits()){
         PRINT_ERROR("Address link not allowed to be type %d", link->getType());
@@ -231,19 +289,19 @@ bool AddressAnchor::verify(){
         return false;
     }
 
-    if (link->getType() == PebilClassType_X86Instruction){
-    } else if (link->getType() == PebilClassType_DataReference){
-    } else {
+    if ( (link->getType() != PebilClassType_X86Instruction) &&
+         (link->getType() != PebilClassType_DataReference) ) {
         PRINT_ERROR("Address link cannot have type %d", link->getType());
         return false;
     }
 
     if (linkBaseAddress != link->getBaseAddress()){
-        PRINT_ERROR("Link base address %#lx cached does not match actual value %#llx", linkBaseAddress, link->getBaseAddress());
+        PRINT_ERROR("Link base address %#lx cached does not match actual value %#llx", 
+          linkBaseAddress, link->getBaseAddress());
         return false;
     }
 
-    if (linkClass <= LinkClass_Undefined || linkClass >= LinkClass_TotalTypes){
+    if (linkClass <= LinkClass_Undefined || linkClass >= LinkClass_TotalTypes) {
         PRINT_ERROR("Invalid link class");
         return false;
     }

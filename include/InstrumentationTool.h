@@ -104,11 +104,13 @@ protected:
     void assignStoragePrior(InstrumentationPoint* pt, uint32_t value, uint8_t reg);
 
     Vector<X86Instruction*>* storeThreadData(uint32_t scratch, uint32_t dest);
-    Vector<X86Instruction*>* storeThreadData(uint32_t scratch, uint32_t dest, bool storeToStack, uint32_t stackPatch);
+    Vector<X86Instruction*>* storeThreadData(uint32_t scratch, uint32_t dest,
+       bool storeToStack, uint32_t stackPatch);
     void threadAllEntryPoints(Function* f, uint32_t threadReg);
 
     std::map<uint64_t, ThreadRegisterMap*>* threadReadyCode(std::set<Base*>& objectsToInst);
-    void setThreadingRegister(uint32_t d, X86Instruction* ins, InstLocations loc, bool borrow=false);
+    void setThreadingRegister(uint32_t d, X86Instruction* ins, InstLocations loc,
+      bool borrow=false);
     ThreadRegisterMap* instrumentForThreading(Function* func);
 
     InstrumentationFunction* imageInit;

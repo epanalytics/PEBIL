@@ -363,8 +363,10 @@ protected:
     uint32_t sizeInBytes;
     uint32_t fileOffset;
 
-    Base() : type(PebilClassType_no_type),sizeInBytes(0),fileOffset(invalidOffset),baseAddress(0) {}
-    Base(PebilClassTypes t) : type(t),sizeInBytes(0),fileOffset(invalidOffset),baseAddress(0) {}
+    Base() : type(PebilClassType_no_type), sizeInBytes(0), 
+      fileOffset(invalidOffset), baseAddress(0) {}
+    Base(PebilClassTypes t) : type(t), sizeInBytes(0), fileOffset(invalidOffset),
+      baseAddress(0) {}
     virtual ~Base() {}
 
 public:
@@ -385,16 +387,22 @@ public:
     bool includesFileOffset(uint32_t offset);
 
 
-    bool containsProgramBits() { return (type == PebilClassType_X86Instruction          || 
-                                         type == PebilClassType_BasicBlock              || 
-                                         type == PebilClassType_Function                || 
-                                         type == PebilClassType_TextSection             ||
-                                         type == PebilClassType_InstrumentationSnippet  ||
-                                         type == PebilClassType_InstrumentationFunction ||
-                                         type == PebilClassType_DataReference
-                                         ); }
-    virtual Vector<X86Instruction*>* swapInstructions(uint64_t addr, Vector<X86Instruction*>* replacements) { __SHOULD_NOT_ARRIVE; return NULL; }
-    virtual uint64_t findInstrumentationPoint(uint32_t size, InstLocations loc) { __SHOULD_NOT_ARRIVE; return 0; }
+    bool containsProgramBits() { 
+      return (type == PebilClassType_X86Instruction  || 
+      type == PebilClassType_BasicBlock              || 
+      type == PebilClassType_Function                || 
+      type == PebilClassType_TextSection             ||
+      type == PebilClassType_InstrumentationSnippet  ||
+      type == PebilClassType_InstrumentationFunction ||
+      type == PebilClassType_DataReference
+      ); }
+
+    virtual Vector<X86Instruction*>* swapInstructions(uint64_t addr, 
+      Vector<X86Instruction*>* replacements) { __SHOULD_NOT_ARRIVE; return NULL; }
+
+    virtual uint64_t findInstrumentationPoint(uint32_t size, InstLocations loc) 
+      { __SHOULD_NOT_ARRIVE; return 0; }
+
     virtual uint64_t getBaseAddress() { __SHOULD_NOT_ARRIVE; }
 };
 
@@ -447,10 +455,15 @@ private:
     inline bool hasBlock()         { return (entry.fields.block       != INVALID_FIELD); }
     inline bool hasInstruction()   { return (entry.fields.instruction != INVALID_FIELD); }
 
-    inline static bool validSection(uint32_t s)        { return ((0 <= s) && (s < (0x1 << 8))); }
-    inline static bool validFunction(uint32_t f)       { return ((0 <= f) && (f < ((0x1 << 16) - 1))); }
-    inline static bool validBlock(uint32_t b)          { return ((0 <= b) && (b < ((0x1 << 16) - 1))); }
-    inline static bool validInstruction(uint32_t i)    { return ((0 <= i) && (i < ((0x1 << 16) - 1))); }
+    inline static bool validSection(uint32_t s)
+      { return ((0 <= s) && (s < (0x1 << 8))); }
+    inline static bool validFunction(uint32_t f)
+      { return ((0 <= f) && (f < ((0x1 << 16) - 1))); }
+    inline static bool validBlock(uint32_t b)
+      { return ((0 <= b) && (b < ((0x1 << 16) - 1))); }
+    inline static bool validInstruction(uint32_t i)
+      { return ((0 <= i) && (i < ((0x1 << 16) - 1))); }
+
 public:
 
     inline uint64_t getValue(){ return entry.bits; }
@@ -464,16 +477,25 @@ public:
     HashCode(uint32_t s,uint32_t f,uint32_t b);
     HashCode(uint32_t s,uint32_t f,uint32_t b,uint32_t i);
 
-    inline bool isSection()     { return (hasSection() && !hasFunction() && !hasBlock() && !hasInstruction()); }
-    inline bool isFunction()    { return (hasSection() &&  hasFunction() && !hasBlock() && !hasInstruction()); }
-    inline bool isBlock()       { return (hasSection() &&  hasFunction() &&  hasBlock() && !hasInstruction()); }
-    inline bool isInstruction() { return (hasSection() &&  hasFunction() &&  hasBlock() &&  hasInstruction()); }
-    inline bool isValid()       { return (isSection() || isFunction() || isBlock() || isInstruction()); }
+    inline bool isSection() { return
+      (hasSection() && !hasFunction() && !hasBlock() && !hasInstruction()); }
+    inline bool isFunction() { return 
+      (hasSection() &&  hasFunction() && !hasBlock() && !hasInstruction()); }
+    inline bool isBlock() { return 
+      (hasSection() &&  hasFunction() &&  hasBlock() && !hasInstruction()); }
+    inline bool isInstruction() { return 
+      (hasSection() &&  hasFunction() &&  hasBlock() &&  hasInstruction()); }
+    inline bool isValid() 
+      { return (isSection() || isFunction() || isBlock() || isInstruction()); }
 
-    inline uint32_t getSection()     { return (hasSection() ? (entry.fields.section - 1) : INVALID_FIELD); }
-    inline uint32_t getFunction()    { return (hasFunction() ? (entry.fields.function - 1) : INVALID_FIELD); }
-    inline uint32_t getBlock()       { return (hasBlock() ? (entry.fields.block - 1) : INVALID_FIELD); }
-    inline uint32_t getInstruction() { return (hasInstruction() ? (entry.fields.instruction - 1) : INVALID_FIELD); }
+    inline uint32_t getSection()     
+      { return (hasSection() ? (entry.fields.section - 1) : INVALID_FIELD); }
+    inline uint32_t getFunction()    
+      { return (hasFunction() ? (entry.fields.function - 1) : INVALID_FIELD); }
+    inline uint32_t getBlock()       
+      { return (hasBlock() ? (entry.fields.block - 1) : INVALID_FIELD); }
+    inline uint32_t getInstruction() { return 
+      (hasInstruction() ? (entry.fields.instruction - 1) : INVALID_FIELD); }
 
 };
 
@@ -530,6 +552,6 @@ char* sha1sum(char* buffer, uint32_t size, uint64_t* first64);
 
 extern double timer();
 
-#define WEDGE_SHAMT 0x180000
+#define WEDGE_SHAMT 0x200000
 
 #endif

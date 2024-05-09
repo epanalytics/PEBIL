@@ -1759,7 +1759,9 @@ X86Instruction* X86InstructionFactory64::emitLoadRipImmReg(uint64_t imm, uint8_t
 }
 
 X86Instruction* X86InstructionFactory64::emitInstructionBase(uint32_t sz, char* buff){
-    X86Instruction* ret = new X86Instruction(NULL, 0, buff, ByteSource_Instrumentation, 0, true, sz);
+    X86Instruction* ret = new X86Instruction(NULL, 0, buff, 
+      ByteSource_Instrumentation, 0, true, sz);
+
     if (ret->getSizeInBytes() != sz){
         fprintf(stderr, "emitInstructionBase:\n");
         ret->print();
@@ -2205,7 +2207,9 @@ X86Instruction* X86InstructionFactory64::emitRegOrReg(uint32_t src, uint32_t src
     return emitInstructionBase(len,buff);
 }
 
-X86Instruction* X86InstructionFactory::emitMoveImmToRegaddrImm(uint64_t immval, uint32_t idx, uint64_t immoff){
+X86Instruction* X86InstructionFactory::emitMoveImmToRegaddrImm(uint64_t immval, 
+  uint32_t idx, uint64_t immoff){
+
     ASSERT(idx < X86_32BIT_GPRS && "Illegal register index given");
     uint32_t len = 10;
     if (idx == X86_REG_SP){
@@ -2282,7 +2286,9 @@ X86Instruction* X86InstructionFactory64::emitMoveImmToRegaddrImm(
     return emitInstructionBase(len, buff);
 }
 
-X86Instruction* X86InstructionFactory64::emitMoveImmToRegaddrImm(uint64_t val, uint32_t idx, uint64_t off){
+X86Instruction* X86InstructionFactory64::emitMoveImmToRegaddrImm(uint64_t val, 
+  uint32_t idx, uint64_t off){
+
     ASSERT(idx < X86_64BIT_GPRS && "Illegal register index given");
     uint32_t len = 11;
     uint32_t immoff = 3;
@@ -2314,7 +2320,8 @@ X86Instruction* X86InstructionFactory64::emitMoveImmToRegaddrImm(uint64_t val, u
     return emitInstructionBase(len,buff);
 }
 
-X86Instruction* X86InstructionFactory64::emitMoveRegaddrImmToReg(uint32_t idxsrc, uint64_t imm, uint32_t idxdest){
+X86Instruction* X86InstructionFactory64::emitMoveRegaddrImmToReg(uint32_t idxsrc,
+  uint64_t imm, uint32_t idxdest){
     ASSERT(idxsrc < X86_64BIT_GPRS && "Illegal register index given");
     ASSERT(idxdest < X86_64BIT_GPRS && "Illegal register index given");    
     uint32_t len = 7;
