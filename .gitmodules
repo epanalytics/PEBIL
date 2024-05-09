@@ -5,4 +5,4 @@
 [submodule "external/epa-inst-libs"]
 	path = external/epa-inst-libs
 	url = git@bitbucket.org:epanalyticsrepos/epa-inst-libs.git
-	branch = bugfix/LOAD_segments
+	branch = development
