@@ -57,7 +57,8 @@ bool ElfFile::isAVX512Binary() {
 #endif
 }
 
-// get the smallest virtual address of all loadable segments (ie, the base address for the program)
+// get the smallest virtual address of all loadable segments (ie, the base 
+// address for the program)
 uint64_t ElfFile::getProgramBaseAddress(){
     uint64_t segmentBase = -1;
 
@@ -74,6 +75,12 @@ uint64_t ElfFile::getProgramBaseAddress(){
     return segmentBase;
 }
 
+uint64_t ElfFile::getProgramStartAddress() {
+    return fileHeader->GET(e_entry);
+}
+
+
+// if address is > 0, aka a valid address, return true, else return false.
 bool ElfFile::isWedgeAddress(uint64_t addr){
     if (addr > 0){
         return true;
@@ -81,11 +88,13 @@ bool ElfFile::isWedgeAddress(uint64_t addr){
     return false;
 }
 
+// If the address we are checking falls in the text segment or the Data segment,
+// return true. If the address is the 1st instruction in a function, return 
+// true. Otherwise return false.
 bool ElfFile::isDataWedgeAddress(uint64_t addr){
 
     // The textSegmentIdx and dataSegmentIdx may have changed!
     // See the verify function for more information
-    ASSERT(false);
 
     //PRINT_INFOR("Checking %lx", addr);
 
@@ -108,7 +117,8 @@ bool ElfFile::isDataWedgeAddress(uint64_t addr){
 
     // if addr is the 1st instruction in a function
     uint64_t searchAddr = addr;
-    void* link = bsearch(&searchAddr, wedgeInstructions, wedgeInstructionCount, sizeof(X86Instruction*), searchBaseAddressExact);
+    void* link = bsearch(&searchAddr, wedgeInstructions, wedgeInstructionCount, 
+      sizeof(X86Instruction*), searchBaseAddressExact);
     if (link != NULL){
         X86Instruction* x = *(X86Instruction**)link;
         TextObject* container = x->getContainer();
@@ -117,12 +127,14 @@ bool ElfFile::isDataWedgeAddress(uint64_t addr){
             return true;
         } else if (container->isFunction()){
             Function* f = (Function*)x->getContainer();
-            //PRINT_INFOR("\t\tComparing function %#lx to instruction %#lx", f->getBaseAddress(), x->getBaseAddress());
+            //PRINT_INFOR("\t\tComparing function %#lx to instruction %#lx", 
+            //  f->getBaseAddress(), x->getBaseAddress());
             if (f->getBaseAddress() == x->getBaseAddress()){
                 return true;
             }
         } else {
-            PRINT_ERROR("Cannot have container type %s", PebilClassTypeNames[container->getType()]);
+            PRINT_ERROR("Cannot have container type %s", 
+              PebilClassTypeNames[container->getType()]);
         }
     }
 
@@ -131,6 +143,7 @@ bool ElfFile::isDataWedgeAddress(uint64_t addr){
 
 void ElfFile::prepareWedge(){
     ASSERT(wedgeInstructions == NULL);
+    ASSERT(wedgeAnchors == NULL);
     wedgeInstructionCount = 0;
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
         wedgeInstructionCount += getTextSection(i)->getNumberOfInstructions();
@@ -138,20 +151,37 @@ void ElfFile::prepareWedge(){
 
     wedgeInstructions = new X86Instruction*[wedgeInstructionCount];
     wedgeInstructionCount = 0;
+    wedgeAnchors = new std::set<AddressAnchor*>();
 
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
-        wedgeInstructionCount += getTextSection(i)->getAllInstructions(wedgeInstructions, wedgeInstructionCount);
+        wedgeInstructionCount += getTextSection(i)->getAllInstructions(
+          wedgeInstructions, wedgeInstructionCount);
+        getTextSection(i)->getAllAnchors(wedgeAnchors);
     }
-    qsort(wedgeInstructions, wedgeInstructionCount, sizeof(X86Instruction*), compareBaseAddress);
+    qsort(wedgeInstructions, wedgeInstructionCount, sizeof(X86Instruction*), 
+      compareBaseAddress);
+
 
     ASSERT(wedgeInstructions);
 }
+
 void ElfFile::destroyWedge(){
     if (wedgeInstructions){
         delete[] wedgeInstructions;
     }
 }
 
+// The point of wedging is to move parts of the original binary further down in
+// the address space so that we may place code important for instrumentation 
+// where the moved code originally was. This code should be invoked if the 
+// program base address is less then a predetermined amount (currently 
+// 0x200000). However, if the base address is below this amount, that usually 
+// means this image is either a linked library or an image compiled without 
+// no-pie. If this is the case, the binary needs to be instrumented with 
+// --images if it is a linked library. If the binary is compiled with -pie, 
+// wedging should happen automatically. Works by going segment by segment and 
+// checking if the start address falls before the wedge amount, and if it is 
+// before that to copy the bytes by the wedge amount.
 void ElfFile::wedge(uint32_t shamt){
 
     prepareWedge();
@@ -165,6 +195,11 @@ void ElfFile::wedge(uint32_t shamt){
         sectionHeaders[i]->wedge(this, shamt);
         rawSections[i]->wedge(shamt);
     }
+
+    for (auto it = wedgeAnchors->begin();it != wedgeAnchors->end();it++) {
+        (*it)->updateAnchorsPostWedge(this, shamt);
+    }
+
     destroyWedge();
 }
 
@@ -383,11 +418,13 @@ void ElfFile::getLoadSegments(Vector<ProgramHeader*>* vec) {
 }
 
 uint16_t ElfFile::getELFStructuresSegmentIdx(){
-    // We assume the the first LOAD segment is the 3rd segment overall
-    // if this assumption fails a nonsense value is returned that should 
-    // alert us if that doesn't happen
-    if (getProgramHeader(2)->GET(p_type) == PT_LOAD) {
-        return 2;
+    // Returns the first LOAD segment (should be the first or third segment for
+    // the most part, return a nonsense value to alert if this has gone wrong.
+    uint32_t numOfPHs = getNumberOfPrograms();
+    for (uint32_t i = 0;i< numOfPHs;i++){
+        if (getProgramHeader(i)->GET(p_type) == PT_LOAD) {
+            return i;
+        }
     }
     return (uint16_t)-1;
 }
@@ -513,23 +550,16 @@ bool ElfFile::verify(){
     bool flag = false;
     for (uint32_t i = 0; i < getNumberOfPrograms(); i++) {
         ProgramHeader* phdr = getProgramHeader(i);
-        if (i < 2 && phdr->GET(p_type) == PT_LOAD){
-            PRINT_ERROR("LOAD Segments do not start at index 2");
-            return false;
-        }
-        if (i == 2 && phdr->GET(p_type) != PT_LOAD) {
-            PRINT_ERROR("LOAD Segments do not start at index 2");
-            return false;
-        } else {
+        if (phdr->GET(p_type) == PT_LOAD){
             flag = true;
         }
-        if (i > 2 && flag == true){
+        if (flag == true){
             if (phdr->GET(p_type) != PT_LOAD){
                 flag = false;
                 continue;
             }
         }
-        if (i > 2 && flag == false) {
+        if (flag == false) {
             if (phdr->GET(p_type) == PT_LOAD) {
                 PRINT_ERROR("LOAD Segments not all continous");
             }
@@ -563,7 +593,8 @@ bool ElfFile::verify(){
         }
     }
 
-    PriorityQueue<uint64_t,uint64_t> addrs = PriorityQueue<uint64_t,uint64_t>(getNumberOfSections()+3);
+    PriorityQueue<uint64_t,uint64_t> addrs = PriorityQueue<uint64_t,uint64_t>(
+     getNumberOfSections()+3);
     addrs.insert(fileHeader->GET(e_ehsize),0); 
     addrs.insert(fileHeader->GET(e_phentsize)*fileHeader->GET(e_phnum),fileHeader->GET(e_phoff));
     addrs.insert(fileHeader->GET(e_shentsize)*fileHeader->GET(e_shnum),fileHeader->GET(e_shoff));
@@ -817,7 +848,8 @@ uint64_t ElfFile::addSection(uint16_t idx, PebilClassTypes classtype,
     sectionHeaders[idx]->setSectionType();
 
     if (classtype == PebilClassType_TextSection){
-        textSections.append(new TextSection(bytes, size, idx, getNumberOfTextSections(), this, ByteSource_Instrumentation));
+        textSections.append(new TextSection(bytes, size, idx, 
+          getNumberOfTextSections(), this, ByteSource_Instrumentation));
         rawSections.insert((RawSection*)textSections.back(), idx);
     } else if (classtype == PebilClassType_DataSection){
         dataSections.append(new DataSection(bytes, size, idx, this));
@@ -881,11 +913,13 @@ void ElfFile::sortSectionHeaders(){
 
 void ElfFile::initSectionFilePointers(bool sanitize){
 
-    char* stringTablePtr = ((StringTable*)rawSections[fileHeader->GET(e_shstrndx)])->getFilePointer();
+    char* stringTablePtr = ((StringTable*)rawSections[fileHeader->
+      GET(e_shstrndx)])->getFilePointer();
 
     // skip first section header since it is reserved and its values are null
     for (uint32_t i = 1; i < getNumberOfSections(); i++){
-        ASSERT(sectionHeaders[i]->getSectionNamePtr() == NULL && "Section Header name shouldn't already be set");
+        ASSERT(sectionHeaders[i]->getSectionNamePtr() == NULL 
+          && "Section Header name shouldn't already be set");
         uint32_t sectionNameOffset = sectionHeaders[i]->GET(sh_name);
         sectionHeaders[i]->setSectionNamePtr(stringTablePtr + sectionNameOffset);
     }
@@ -893,21 +927,28 @@ void ElfFile::initSectionFilePointers(bool sanitize){
     // delineate the various dwarf sections
     uint32_t lineInfoIdx = 0;
     for (uint32_t i = 1; i < getNumberOfSections(); i++){
-        ASSERT(sectionHeaders[i]->getSectionNamePtr() && "Section header name should be set");
-        if (!strcmp(sectionHeaders[i]->getSectionNamePtr(),DWARF_LINE_INFO_SCN_NAME)){
-            ASSERT(!lineInfoIdx && "Cannot have multiple line information sections");
+        ASSERT(sectionHeaders[i]->getSectionNamePtr() 
+          && "Section header name should be set");
+        if (!strcmp(sectionHeaders[i]->getSectionNamePtr(),
+          DWARF_LINE_INFO_SCN_NAME)){
+
+            ASSERT(!lineInfoIdx && 
+              "Cannot have multiple line information sections");
             lineInfoIdx = i;
         }
     }
     if (lineInfoIdx){
-        char* sectionFilePtr = binaryInputFile->fileOffsetToPointer(sectionHeaders[lineInfoIdx]->GET(sh_offset));
+        char* sectionFilePtr = binaryInputFile->fileOffsetToPointer(
+          sectionHeaders[lineInfoIdx]->GET(sh_offset));
         uint64_t sectionSize = (uint64_t)sectionHeaders[lineInfoIdx]->GET(sh_size);
 
-        ASSERT(sectionHeaders[lineInfoIdx]->getSectionType() == PebilClassType_RawSection);
+        ASSERT(sectionHeaders[lineInfoIdx]->getSectionType() 
+          == PebilClassType_RawSection);
         uint32_t dwarfIdx = rawSections[lineInfoIdx]->getSectionIndex();
         delete rawSections[lineInfoIdx];
 
-        lineInfoSection = new DwarfLineInfoSection(sectionFilePtr,sectionSize,lineInfoIdx,dwarfIdx,this);
+        lineInfoSection = new DwarfLineInfoSection(sectionFilePtr, sectionSize,
+          lineInfoIdx,dwarfIdx, this);
         lineInfoSection->read(binaryInputFile);
         rawSections[lineInfoIdx] = lineInfoSection;
     }
@@ -963,12 +1004,14 @@ void ElfFile::initDynamicFilePointers(){
     dynamicSymtabIdx = getNumberOfSymbolTables();
     for (uint32_t i = 0; i < getNumberOfSymbolTables(); i++){
         if (getSymbolTable(i)->isDynamic()){
-            ASSERT(dynamicSymtabIdx == getNumberOfSymbolTables() && "Cannot have multiple dynamic symbol tables");
+            ASSERT(dynamicSymtabIdx == getNumberOfSymbolTables() 
+              && "Cannot have multiple dynamic symbol tables");
             dynamicSymtabIdx = i;
         }
 
     }
-    ASSERT(dynamicSymtabIdx != getNumberOfSymbolTables() && "Cannot analyze a file if it doesn't have a dynamic symbol table");
+    ASSERT(dynamicSymtabIdx != getNumberOfSymbolTables() && 
+      "Cannot analyze a file if it doesn't have a dynamic symbol table");
 
     char* sectionFilePtr;
     uint64_t sectionSize;
@@ -983,7 +1026,9 @@ void ElfFile::initDynamicFilePointers(){
     }
     ASSERT(dynamicSegmentIdx && "Cannot find a segment for the dynamic table");
     dynamicSectionAddress = getProgramHeader(dynamicSegmentIdx)->GET(p_vaddr);
-    ASSERT(getProgramHeader(dynamicSegmentIdx)->GET(p_vaddr) == dynamicSectionAddress && "Dynamic segment address from symbol and programHeader don't match");
+    ASSERT(getProgramHeader(dynamicSegmentIdx)->GET(p_vaddr) 
+      == dynamicSectionAddress && 
+      "Dynamic segment address from symbol and programHeader don't match");
 
     /*
     dynamicSectionAddress = 0;
@@ -1401,7 +1446,9 @@ void ElfFile::parse(){
  
     if (ISELFMAGIC(e_ident[EI_MAG0],e_ident[EI_MAG1],e_ident[EI_MAG2],e_ident[EI_MAG3])){
     } else {
-        PRINT_ERROR("The file magic number [%02hhx%02hhx%02hhx%02hhx] is not a valid one",e_ident[EI_MAG0],e_ident[EI_MAG1],e_ident[EI_MAG2],e_ident[EI_MAG3]);
+        PRINT_ERROR(
+          "The file magic number [%02hhx%02hhx%02hhx%02hhx] is not a valid one",
+          e_ident[EI_MAG0],e_ident[EI_MAG1],e_ident[EI_MAG2],e_ident[EI_MAG3]);
     }
 
     if(ISELF64BIT(e_ident[EI_CLASS])){
@@ -1513,7 +1560,8 @@ void ElfFile::readRawSections(){
     ASSERT(sectionHeaders.size() && "We should have read the section headers already");
 
     for (uint32_t i = 0; i < getNumberOfSections(); i++){
-        char* sectionFilePtr = binaryInputFile->fileOffsetToPointer(sectionHeaders[i]->GET(sh_offset));
+        char* sectionFilePtr = binaryInputFile->fileOffsetToPointer(
+          sectionHeaders[i]->GET(sh_offset));
         uint64_t sectionSize = (uint64_t)sectionHeaders[i]->GET(sh_size);
 
         switch(sectionHeaders[i]->getSectionType()){
@@ -1564,7 +1612,8 @@ void ElfFile::readRawSections(){
             dataSections.append((DataSection*)rawSections.back());
             break;
         default:
-            rawSections.append(new RawSection(PebilClassType_RawSection, sectionFilePtr, sectionSize, i, this));
+            rawSections.append(new RawSection(PebilClassType_RawSection, 
+              sectionFilePtr, sectionSize, i, this));
             break;
         }
     }
@@ -1692,8 +1741,12 @@ Vector<AddressAnchor*>* ElfFile::searchAddressAnchors(uint64_t addr){
 
 #ifdef VALIDATE_ANCHOR_SEARCH
     if ((*binaryUpdate).size() != (*linearUpdate).size()){
-        PRINT_DEBUG_ANCHOR("Mismatch in binary/linear anchor search results for %#llx...", addr);
-        PRINT_DEBUG_ANCHOR("Binary search yields %d hits -- see entry %d", (*binaryUpdate).size(), binIdx);
+        PRINT_DEBUG_ANCHOR(
+          "Mismatch in binary/linear anchor search results for %#llx...", addr);
+        PRINT_DEBUG_ANCHOR(
+          "Binary search yields %d hits -- see entry %d", 
+          (*binaryUpdate).size(), binIdx);
+
         for (uint32_t i = 0; i < (*binaryUpdate).size(); i++){
             PRINT_DEBUG_ANCHOR("\tbinary[%d] = %#llx", i, (*binaryUpdate)[i]->linkBaseAddress);
         }
@@ -1707,8 +1760,8 @@ Vector<AddressAnchor*>* ElfFile::searchAddressAnchors(uint64_t addr){
         }
 
     }
-    ASSERT(0 && (*addressAnchors).isSorted(compareLinkBaseAddress));
-    ASSERT((*binaryUpdate).size() == (*linearUpdate).size());
+    ASSERT(addressAnchors->isSorted(compareLinkBaseAddress) && " not sorted\n");
+    ASSERT(binaryUpdate->size() == linearUpdate->size() && " wrong size\n");
 #endif //VALIDATE_ANCHOR_SEARCH
 
     PRINT_DEBUG_ANCHOR("search done... %#llx", addr);
@@ -1731,7 +1784,9 @@ uint32_t ElfFile::anchorProgramElements(){
     PRINT_DEBUG_ANCHOR("Found %d text sections", getNumberOfTextSections());
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
         instructionCount += getTextSection(i)->getNumberOfInstructions();
-        PRINT_DEBUG_ANCHOR("\tTextSection %d is section %d with %d instructions", i, getTextSection(i)->getSectionIndex(), getTextSection(i)->getNumberOfInstructions());
+        PRINT_DEBUG_ANCHOR("\tTextSection %d is section %d with %d instructions",
+          i, getTextSection(i)->getSectionIndex(),
+          getTextSection(i)->getNumberOfInstructions());
     }
     PRINT_DEBUG_ANCHOR("Found %d instructions in all sections", instructionCount);
 
@@ -1739,15 +1794,17 @@ uint32_t ElfFile::anchorProgramElements(){
     instructionCount = 0;
     PRINT_DEBUG_ANCHOR("allinst address %lx", allInstructions);
     for (uint32_t i = 0; i < getNumberOfTextSections(); i++){
-        instructionCount += getTextSection(i)->getAllInstructions(allInstructions, instructionCount);
+        instructionCount += getTextSection(i)->getAllInstructions(allInstructions, 
+          instructionCount);
     }
-    qsort(allInstructions, instructionCount, sizeof(X86Instruction*), compareBaseAddress);
+    qsort(allInstructions, instructionCount, sizeof(X86Instruction*), 
+      compareBaseAddress);
 
     DEBUG_ANCHOR(
     for (uint32_t i = 0; i < instructionCount; i++){
         allInstructions[i]->print();
     }
-    )
+    )// DEBUG_ANCHOR
 
     // Check for any instructions without base addresses
     for (uint32_t i = 0; i < instructionCount; i++){
@@ -1763,7 +1820,9 @@ uint32_t ElfFile::anchorProgramElements(){
             allInstructions[i]->print();
             allInstructions[i+1]->print();
         }
-        ASSERT(allInstructions[i]->getBaseAddress() < allInstructions[i+1]->getBaseAddress() && "Problem with qsort");
+        // shouldn't this be <=? or should the above be just <?
+        ASSERT(allInstructions[i]->getBaseAddress() 
+          < allInstructions[i+1]->getBaseAddress() && "Problem with qsort");
     }
     )
 
@@ -1784,7 +1843,8 @@ uint32_t ElfFile::anchorProgramElements(){
         for (uint32_t j = 0; j < MAX_OPERANDS; j++){
             OperandX86* op = currentInstruction->getOperand(j);
 
-            // Search for any immediate operands that look like addresses of instructions in this section
+            // Search for any immediate operands that look like addresses of 
+            // instructions in this section
             if (op != NULL &&
                 op->GET(type) == UD_OP_IMM &&
                 op->GET(base) == UD_NONE &&
@@ -1792,13 +1852,17 @@ uint32_t ElfFile::anchorProgramElements(){
                 op->GET(scale) == 0 &&
                 op->GET(offset) == 0 &&
                 textHeader->inRange(op->GET_A(uqword, lval))
-                ){
+            ) {
+
                 uint64_t immAddress = op->GET_A(uqword, lval);
 
                 // search for instructions at that address
-                void* link = bsearch(&immAddress, allInstructions, instructionCount, sizeof(X86Instruction*), searchBaseAddressExact);
+                void* link = bsearch(&immAddress, allInstructions, 
+                  instructionCount, sizeof(X86Instruction*), 
+                  searchBaseAddressExact);
                 if (link != NULL){
-                    // skip the link if the instruction doesn't appear to be in a function or is the first instruction in a function
+                    // skip the link if the instruction doesn't appear to be in 
+                    // a function or is the first instruction in a function
                     X86Instruction* linkedInstruction = *(X86Instruction**)link;
                     if (!linkedInstruction->getContainer()->isFunction()){
                         continue;

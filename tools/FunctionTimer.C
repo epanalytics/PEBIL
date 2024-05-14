@@ -72,6 +72,7 @@ void FunctionTimer::declare(){
     // Instrument the entry block
 void FunctionTimer::instrumentEntry(BasicBlock* bb, uint32_t
   functionEntryIndexRegister, uint32_t functionIndex) { 
+
     FlagsProtectionMethods prot = FlagsProtectionMethod_full;
     X86Instruction* bestinst = bb->getExitInstruction();
     InstLocations loc = InstLocation_prior;
@@ -100,8 +101,8 @@ void FunctionTimer::instrument(){
     PAPIStats funcInfo;
     uint64_t functionInfoStruct = reserveDataOffset(sizeof(PAPIStats));
 
-    funcInfo.timerStats.master = getElfFile()->isExecutable();
-
+    funcInfo.timerStats.master = isMasterCheck();
+    
     char* appName = getElfFile()->getAppName();
     uint64_t app = reserveDataOffset(strlen(appName) + 1);
     initializeReservedPointer(app, functionInfoStruct + 
@@ -169,7 +170,7 @@ void FunctionTimer::instrument(){
     functionExit->addArgument(imageKey);
     
     // Add program-entry instrumentation
-    if (isMultiImage()) {
+    if (isMultiImage() && !isMasterCheck()) {
         for (uint32_t i = 0; i < getNumberOfExposedFunctions(); ++i) {
             Function* f = getExposedFunction(i);
             InstrumentationPoint* p = addInstrumentationPoint(f, programEntry,

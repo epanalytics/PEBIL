@@ -26,6 +26,7 @@
 
 void SectionHeader::wedge(ElfFile* elfFile, uint32_t shamt){
     if (elfFile->isWedgeAddress(GET(sh_addr))){
+        setWasWedged();
         INCREMENT(sh_addr, shamt);
     }
 }

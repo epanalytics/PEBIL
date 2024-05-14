@@ -29,7 +29,9 @@
 
 void DynamicTable::wedge(uint32_t shamt){
     for (uint32_t i = 0; i < dynamics.size(); i++){
-        if (dynamics[i]->getValueType() == DynamicValueType_pointer && elfFile->isWedgeAddress(dynamics[i]->GET_A(d_ptr, d_un))){
+        if (dynamics[i]->getValueType() == DynamicValueType_pointer 
+          && elfFile->isWedgeAddress(dynamics[i]->GET_A(d_ptr, d_un))){
+
             dynamics[i]->INCREMENT_A(d_ptr, d_un, shamt);
         }
     }
@@ -39,7 +41,8 @@ uint32_t DynamicTable::prependEntry(uint32_t type, uint32_t strOffset){
 
     // find empty table slot
     uint32_t emptyDynamicIdx = findEmptyDynamic();
-    ASSERT(emptyDynamicIdx < getNumberOfDynamics() && "No free entries found in the dynamic table");
+    ASSERT(emptyDynamicIdx < getNumberOfDynamics() 
+      && "No free entries found in the dynamic table");
 
     // if any DT_RUNPATH entries are present we must use DT_RUNPATH since DT_RPATH entries will be overrun by DT_RUNPATH entries
     // if no DT_RUNPATH are present, we must not use DT_RPATH since using DT_RUNPATH would overrun the DT_RPATH entries

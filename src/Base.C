@@ -273,11 +273,11 @@ uint32_t searchFileList(Vector<char*>* list, char* name){
             return i;
         }
     }
-    return (*list).size();
+    return list->size();
 }
 
 uint32_t initializeFileList(char* fileName, Vector<char*>* list){
-    ASSERT(!(*list).size());
+    ASSERT(list->size() == 0);
 
     FILE* inFile = NULL;
     inFile = fopen(fileName, "r");
@@ -293,13 +293,13 @@ uint32_t initializeFileList(char* fileName, Vector<char*>* list){
         if (strlen(line) && line[0] == '#'){
             delete[] line;
         } else {
-            (*list).append(line);
+            list->append(line);
         }
     }
     delete[] inBuffer;
     fclose(inFile);
 
-    return (*list).size();
+    return list->size();
 }
 
 void printBufferPretty(char* buff, uint32_t sizeInBytes, uint64_t baseAddress, uint32_t bytesPerWord, uint32_t bytesPerLine){

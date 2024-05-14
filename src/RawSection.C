@@ -69,16 +69,26 @@ void RawSection::wedge(uint32_t shamt){
     }
     //printBufferPretty(charStream(), getSizeInBytes(), getSectionHeader()->GET(sh_offset), 0, 0);
 
-    if (elfFile->is64Bit()){
+    if (elfFile->is64Bit()) {
+
+        setWasWedged();
         uint32_t inc = sizeof(uint64_t);
-        for (uint32_t current = intro; current+sizeof(uint64_t) <= getSizeInBytes(); current += inc){
+        for (uint32_t current = intro; 
+          current+sizeof(uint64_t) <= getSizeInBytes(); current += inc){
+
             uint64_t data;
             char* cs = charStream();
+            // copy from charStream (+ current offset) the size of uint64_t
+            // into data
+            // for ACC this line below was segfaulting but on further reflection
+            // I reverted the change I made as it actualy had huge impacts on
+            // how the code could theoretically execute.
             memcpy(&data, cs + current, sizeof(uint64_t));
             if (data && elfFile->isDataWedgeAddress(data + shamt)){
                 data += shamt;
                 memcpy(cs + current, &data, sizeof(uint64_t));
-                //PRINT_INFOR("\t\tpatching @ %#lx: %#lx -> %#lx", getSectionHeader()->GET(sh_addr) + current, data - shamt, data);
+                //PRINT_INFOR("\t\tpatching @ %#lx: %#lx -> %#lx", 
+                //  getSectionHeader()->GET(sh_addr) + current, data - shamt, data);
             }
         }
     }
@@ -225,12 +235,15 @@ void DataReference::dump(BinaryOutputFile* b, uint32_t offset){
 }
 
 
-RawSection::RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size, uint16_t scnIdx, ElfFile* elf)
-    : Base(classType),rawDataPtr(rawPtr),sectionIndex(scnIdx),elfFile(elf)
-{ 
+RawSection::RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size, 
+  uint16_t scnIdx, ElfFile* elf)
+  : Base(classType),rawDataPtr(rawPtr),sectionIndex(scnIdx),elfFile(elf) { 
+
+    wasWedged = false;
     sizeInBytes = size; 
     hashCode = HashCode((uint32_t)sectionIndex);
-    PRINT_DEBUG_HASHCODE("Section %d Hashcode: 0x%04llx", (uint32_t)sectionIndex, hashCode.getValue());
+    PRINT_DEBUG_HASHCODE("Section %d Hashcode: 0x%04llx", 
+      (uint32_t)sectionIndex, hashCode.getValue());
 
     verify();
 }

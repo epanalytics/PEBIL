@@ -21,7 +21,7 @@ include ../VERSION
 
 AR            = ar cru
 CXX           = @CXX@
-CXXFLAGS      = @CXXFLAGS@ @MPI_FLAGS@ -DPEBIL_VER="\"$(PEBIL_FULL_VER)\"" @PEBIL_DEBUG@ -w 
+CXXFLAGS      = @CXXFLAGS@ @SHMEM_FLAGS@  @MPI_FLAGS@ -DPEBIL_VER="\"$(PEBIL_FULL_VER)\"" @PEBIL_DEBUG@ -w 
 SHARED_OPT    = -fPIC
 SHARED_LIB    = -shared
 STATIC_OPT    = -DSTATIC_BUILD

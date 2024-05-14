@@ -23,6 +23,8 @@
 
 #include <Base.h>
 
+class ElfFile;
+
 extern int searchLinkBaseAddressExact(const void* arg1, const void* arg2);
 extern int searchLinkBaseAddress(const void* arg1, const void* arg2);
 extern int compareLinkBaseAddress(const void* arg1,const void* arg2);
@@ -71,6 +73,8 @@ public:
     uint32_t getIndex() { return index; }
 
     void setIndex(uint32_t idx) { index = idx; }
+
+    void updateAnchorsPostWedge(ElfFile* elfFile, uint32_t shamt);
 
     bool verify();
     void print();
