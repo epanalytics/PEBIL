@@ -93,10 +93,20 @@ void AddressStreamIntercept::allocateAddressStreamStats(uint64_t extra) {
 
 }
 
+// Insert instrumentation to collect data about the number of instructions
+// executed before this memory instruction
+// I.e., fill and INSN_COUNT buffer entry
+void AddressStreamIntercept::collectInsnCountEntry(BasicBlock* bb,
+  X86Instruction* memop, uint32_t threadReg, AddressStreamStats& stats,
+  uint32_t blockSeq, uint32_t& bufferIndex, uint64_t numNonMemops) {
+    // Regular Address Stream Collection does not use this. Just return.
+    return;
+}
+
 // Fills a MEM_ENTRY buffer entry
 void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction* 
   memop, uint32_t threadReg, AddressStreamStats& stats, uint32_t blockSeq,  
-  uint32_t memopSeq, uint32_t memopIdInBlock, uint8_t swpfflag, uint8_t 
+  uint32_t memopSeq, uint32_t bufferIndex, uint8_t swpfflag, uint8_t
   loadstoreflag){
 
     // First we build the actual instrumentation point
@@ -135,8 +145,7 @@ void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction*
     // we already have increased __buf_current. We set __buf_oldPosition to
     // be where __buf_current was before the increase. This makes assembly 
     // a little easier and makes threading (with ProcessAllBuffers) possible
-    int32_t bufferIndex = memopIdInBlock + 1;
-    setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, bufferIndex);
+    setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, bufferIndex + 1);
 
     writeBufferEntry(snip, memopSeq, sr2, sr3, MEM_ENTRY, swpfflag,
       loadstoreflag);
@@ -193,6 +202,11 @@ uint32_t AddressStreamIntercept::getNumberOfBlocksToInstrument() {
     // and the initialization SHOULD handle if the block exists
     // in the binary. So, for now, just use size
     return blocksToInst.size();
+}
+
+// Get the number of buffer elements that will be inserted in this block
+uint64_t AddressStreamIntercept::getNumberOfBufferElements(BasicBlock* bb) {
+    return getNumberOfMemopsToInstrument(bb);
 }
 
 // Get number of groups created
@@ -1030,7 +1044,7 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
 // instrumentation for each type
 void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb, 
   X86Instruction* memop, uint32_t threadReg, AddressStreamStats& stats, 
-  uint32_t blockSeq, uint32_t memopSeq, uint32_t memopIdInBlock) {
+  uint32_t blockSeq, uint32_t memopSeq, uint32_t bufferIndex) {
 
     uint8_t normalOrSWPF = NORMAL;
 
@@ -1049,23 +1063,23 @@ void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb,
     // KNL implementation (not KNC)
     if (memop->isScatterGatherOp()) { 
         collectVectorEntry(bb, memop, threadReg, stats, blockSeq, memopSeq, 
-          memopIdInBlock, normalOrSWPF);
+          bufferIndex, normalOrSWPF);
         memopSeq++;
-        memopIdInBlock++;
+        bufferIndex++;
         return;
     } 
   
     if(memop->isLoad() && ifInstrumentingLoads()) {
         collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
-          memopIdInBlock, normalOrSWPF, LOAD);
-        memopIdInBlock++;
+          bufferIndex, normalOrSWPF, LOAD);
+        bufferIndex++;
         memopSeq++;
     }
 
     if(memop->isStore() && ifInstrumentingStores()) {
         collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
-          memopIdInBlock, normalOrSWPF, STORE);
-        memopIdInBlock++;
+          bufferIndex, normalOrSWPF, STORE);
+        bufferIndex++;
         memopSeq++;
     } 
 
@@ -1148,8 +1162,12 @@ void AddressStreamIntercept::instrument(){
           "Address Stream Intercept found a scatter-gather block like "
           "that of KNC code. This code is deprecated.");
 
-        uint32_t memopIdInBlock = 0;
-        uint64_t numMemopsInBlock = getNumberOfMemopsToInstrument(bb);
+        // Keep track of which entry needs to be filled out
+        uint32_t bufferIndex = 0;
+        uint64_t numBufferElements = getNumberOfBufferElements(bb);
+        // Keep track of the number of non-memory instructions between memory
+        // instructions -- reset to 0 at each memop
+        uint64_t numNonMemops = 0;
         for (uint32_t insIndex = 0; insIndex < bb->getNumberOfInstructions(); 
           insIndex++){
             X86Instruction* memop = bb->getInstruction(insIndex);
@@ -1159,7 +1177,7 @@ void AddressStreamIntercept::instrument(){
                 //   1. Insert a counter for this block
                 //   2. Insert runtime code to check to see if this block will
                 //      overflow the buffer (this will call the memBufferFunc)
-                if ((memopIdInBlock == 0)){
+                if ((bufferIndex == 0)){
                     uint32_t counterSeq = blockSeq;
                     if (isPerInstruction()){
                         counterSeq = memopSeq;
@@ -1173,17 +1191,33 @@ void AddressStreamIntercept::instrument(){
                       true, threadReg);
 
                     insertBufferClear(memop, InstLocation_prior, threadReg,
-                     stats, blockSeq, numMemopsInBlock);
+                     stats, blockSeq, numBufferElements);
                 }
+                // Collect number of non memory ops executed before this
+                // instruction
+                // Note: this function should increase buffer index as needed
+                collectInsnCountEntry(bb, memop, threadReg, stats, blockSeq,
+                  bufferIndex, numNonMemops);
                 // Collect addresses from this instruction     
                 insertAddressCollection(bb, memop, threadReg, stats, blockSeq,
-                  memopSeq, memopIdInBlock);
+                  memopSeq, bufferIndex);
                 
-                // Increment memopSeq and memopIdInBlock
+                // Increment memopSeq and bufferIndex
                 uint64_t numMemopsInInsn = getNumberOfMemopsToInstrument(memop);
                 memopSeq += numMemopsInInsn;
-                memopIdInBlock += numMemopsInInsn;
-            } 
+                bufferIndex += numMemopsInInsn;
+
+                // Reset non-memop count
+                numNonMemops = 0;
+            } else {
+                numNonMemops++;
+            }
+
+            // If this is the last instruction in the block, then insert the
+            // number of non memory instructions since the last memory insn
+            if (insIndex == bb->getNumberOfInstructions() - 1)
+                collectInsnCountEntry(bb, memop, threadReg, stats, blockSeq,
+                  bufferIndex, numNonMemops);
         }
         blockSeq++;
     } // for each block
@@ -1488,7 +1522,7 @@ void AddressStreamIntercept::initializeLineInfo(AddressStreamStats& stats,
 // TODO To be implemented later
 void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
   vectorIns, uint32_t threadReg, AddressStreamStats& stats, uint32_t blockSeq,
-  uint32_t memseq, uint32_t memopIdInBlock, uint8_t swpfflag) {
+  uint32_t memseq, uint32_t bufferIndex, uint8_t swpfflag) {
 
     // First we build the actual instrumentation point
     InstrumentationSnippet* snip = addInstrumentationSnippet();
@@ -1517,8 +1551,7 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
     // we already have increased __buf_current. We set __buf_oldPosition to
     // be where __buf_current was before the increase. This makes assembly 
     // a little easier and makes threading (with ProcessAllBuffers) possible
-    int32_t bufferIndex = memopIdInBlock + 1;
-    setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, bufferIndex);
+    setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, bufferIndex + 1);
     int8_t loadstoreflag;
     if(vectorIns->isLoad())
         loadstoreflag = LOAD;

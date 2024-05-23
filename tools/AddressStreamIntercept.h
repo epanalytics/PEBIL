@@ -28,7 +28,7 @@
 
 
 class AddressStreamIntercept : public InstrumentationTool {
-private:
+protected:
     // Runtime Library Functions
     InstrumentationFunction* memBufferFunc;
     InstrumentationFunction* exitFunc;
@@ -56,6 +56,8 @@ private:
     void allocateAddressStreamStats(uint64_t);
 
     // Functions to create different kinds of memops
+    virtual void collectInsnCountEntry(BasicBlock*, X86Instruction*, uint32_t,
+      AddressStreamStats&, uint32_t, uint32_t&, uint64_t);
     void collectMemEntry(BasicBlock*, X86Instruction*, uint32_t, 
       AddressStreamStats&, uint32_t, uint32_t, uint32_t, uint8_t, uint8_t);
     void collectVectorEntry(BasicBlock*, X86Instruction*, uint32_t,
@@ -63,6 +65,7 @@ private:
 
     uint64_t getNullLineInfoValue();
     uint32_t getNumberOfBlocksToInstrument();
+    virtual uint64_t getNumberOfBufferElements(BasicBlock* bb);
     uint64_t getNumberOfGroups();
     uint64_t getNumberOfMemopsToInstrument();
     uint64_t getNumberOfMemopsToInstrument(BasicBlock*);
