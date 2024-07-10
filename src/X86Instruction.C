@@ -1993,6 +1993,13 @@ void X86Instruction::dump(BinaryOutputFile* binaryOutputFile, uint32_t offset){
 
     binaryOutputFile->copyBytes((char*)GET(insn_bytes), sizeInBytes, offset);
 
+    // For now, do *not* update changes made to __lib_csu_init. This will
+    // prevent errors when sections used by it get moved around. This may not
+    // work with the wedge algorithm. If it doesn't, we will have to come up
+    // with a more general fix
+    if (getContainer() && !(strcmp(getContainer()->getName(),
+      "__libc_csu_init")))
+        return;
     // the anchor will now overwrite any original instruction bytes that relate to relative addresses
     if (addressAnchor){
         addressAnchor->dump(binaryOutputFile,offset);
