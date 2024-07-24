@@ -470,7 +470,8 @@ uint16_t ElfFile::findInitialTextSectionIdx() {
         return initIdx - 1;
     if (initIdx == 0)
         return rodataIdx - 1;
-    if (rodataIdx < initIdx)
+    if (getSectionHeader(rodataIdx)->GET(sh_addr) < getSectionHeader(initIdx)
+      ->GET(sh_addr))
         return rodataIdx - 1;
     return initIdx - 1;
 }
