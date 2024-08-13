@@ -40,8 +40,8 @@ extern "C" {
 // executed before this memory instruction
 // I.e., fill and INSN_COUNT buffer entry
 void ArielIntercept::collectInsnCountEntry(BasicBlock* bb, X86Instruction*
-  memop, uint32_t threadReg, AddressStreamStats& stats, uint32_t blockSeq,
-  uint32_t& bufferIndex, uint64_t numNonMemops) {
+  memop, uint32_t threadReg, AddressStreamStats& stats, uint64_t blockSeq,
+  uint64_t& numNonMemops, uint64_t bufferIndex) {
 
     // Note: Even if there are no non memops, we still need to insert a buffer
     // entry because we moved the pointer to __buf_current in insertBufferClear
@@ -86,16 +86,10 @@ void ArielIntercept::collectInsnCountEntry(BasicBlock* bb, X86Instruction*
 
     // Fill memopSeq, prefetch flag, and load store flag with 0s. They
     // shouldn't be used
-    writeBufferEntry(snip, 0, sr2, sr3, INSN_COUNT, 0, 0);
+    writeBufferEntry(snip, 0, sr2, sr3, numNonMemops, INSN_COUNT, 0, 0);
 
-    // set address to numNonMemops
-    snip->addSnippetInstruction(X86InstructionFactory64::emitMoveImm64ToReg(
-      numNonMemops, sr3));
-    snip->addSnippetInstruction(X86InstructionFactory64::
-      emitMoveRegToRegaddrImm(sr3, sr2, offsetof(BufferEntry, address), true)); 
-
-    // Update the buffer index
-    bufferIndex++;
+//    // Update the buffer index
+//    bufferIndex++;
 }
 
 // Get the number of buffer elements that will be inserted in this block
@@ -107,11 +101,11 @@ uint64_t ArielIntercept::getNumberOfBufferElements(BasicBlock* bb) {
     // the number of memopry operations (to the address collection)
     // +
     // 1 (for the buffer entry for the end of the block)
-    for (auto i = 0; i < bb->getNumberOfInstructions(); i++) {
-        X86Instruction* memop = bb->getInstruction(i);
-        if (getNumberOfMemopsToInstrument(memop) > 0)
-            numEntries++;
-    }
+//    for (auto i = 0; i < bb->getNumberOfInstructions(); i++) {
+//        X86Instruction* memop = bb->getInstruction(i);
+//        if (getNumberOfMemopsToInstrument(memop) > 0)
+//            numEntries++;
+//    }
 
     numEntries += getNumberOfMemopsToInstrument(bb);
     numEntries += 1;

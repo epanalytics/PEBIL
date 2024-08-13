@@ -98,16 +98,16 @@ void AddressStreamIntercept::allocateAddressStreamStats(uint64_t extra) {
 // I.e., fill and INSN_COUNT buffer entry
 void AddressStreamIntercept::collectInsnCountEntry(BasicBlock* bb,
   X86Instruction* memop, uint32_t threadReg, AddressStreamStats& stats,
-  uint32_t blockSeq, uint32_t& bufferIndex, uint64_t numNonMemops) {
+  uint64_t blockSeq, uint64_t& numInsns, uint64_t bufferIndex) {
     // Regular Address Stream Collection does not use this. Just return.
     return;
 }
 
 // Fills a MEM_ENTRY buffer entry
-void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction* 
-  memop, uint32_t threadReg, AddressStreamStats& stats, uint32_t blockSeq,  
-  uint32_t memopSeq, uint32_t bufferIndex, uint8_t swpfflag, uint8_t
-  loadstoreflag){
+void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction*
+  memop, uint32_t threadReg, AddressStreamStats& stats, uint64_t blockSeq,
+  uint64_t memopSeq, uint64_t& numInsns, uint64_t bufferIndex,
+  uint8_t swpfflag, uint8_t loadstoreflag){
 
     // First we build the actual instrumentation point
     InstrumentationSnippet* snip = addInstrumentationSnippet();
@@ -147,7 +147,7 @@ void AddressStreamIntercept::collectMemEntry(BasicBlock* bb, X86Instruction*
     // a little easier and makes threading (with ProcessAllBuffers) possible
     setSr2ToBufferEntry(stats, snip, sr1, sr2, sr3, bufferIndex + 1);
 
-    writeBufferEntry(snip, memopSeq, sr2, sr3, MEM_ENTRY, swpfflag,
+    writeBufferEntry(snip, memopSeq, sr2, sr3, numInsns, MEM_ENTRY, swpfflag,
       loadstoreflag);
 
     // set address
@@ -1044,7 +1044,8 @@ void AddressStreamIntercept::insertBufferClear(X86Instruction* inst,
 // instrumentation for each type
 void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb, 
   X86Instruction* memop, uint32_t threadReg, AddressStreamStats& stats, 
-  uint32_t blockSeq, uint32_t memopSeq, uint32_t bufferIndex) {
+  uint64_t blockSeq, uint64_t memopSeq, uint64_t& numInsns,
+  uint64_t bufferIndex) {
 
     uint8_t normalOrSWPF = NORMAL;
 
@@ -1062,8 +1063,8 @@ void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb,
 
     // KNL implementation (not KNC)
     if (memop->isScatterGatherOp()) { 
-        collectVectorEntry(bb, memop, threadReg, stats, blockSeq, memopSeq, 
-          bufferIndex, normalOrSWPF);
+        collectVectorEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
+          numInsns, bufferIndex, normalOrSWPF);
         memopSeq++;
         bufferIndex++;
         return;
@@ -1071,14 +1072,14 @@ void AddressStreamIntercept::insertAddressCollection(BasicBlock* bb,
   
     if(memop->isLoad() && ifInstrumentingLoads()) {
         collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
-          bufferIndex, normalOrSWPF, LOAD);
+          numInsns, bufferIndex, normalOrSWPF, LOAD);
         bufferIndex++;
         memopSeq++;
     }
 
     if(memop->isStore() && ifInstrumentingStores()) {
         collectMemEntry(bb, memop, threadReg, stats, blockSeq, memopSeq,
-          bufferIndex, normalOrSWPF, STORE);
+          numInsns, bufferIndex, normalOrSWPF, STORE);
         bufferIndex++;
         memopSeq++;
     } 
@@ -1194,22 +1195,22 @@ void AddressStreamIntercept::instrument(){
                     insertBufferClear(memop, InstLocation_prior, threadReg,
                      stats, blockSeq, numBufferElements);
                 }
-                // Collect number of non memory ops executed before this
-                // instruction
-                // Note: this function should increase buffer index as needed
-                collectInsnCountEntry(bb, memop, threadReg, stats, blockSeq,
-                  bufferIndex, numNonMemops);
+                //// Collect number of non memory ops executed before this
+                //// instruction
+                //// Note: this function should increase buffer index as needed
+                //collectInsnCountEntry(bb, memop, threadReg, stats, blockSeq,
+                //  bufferIndex, numNonMemops);
                 // Collect addresses from this instruction     
                 insertAddressCollection(bb, memop, threadReg, stats, blockSeq,
-                  memopSeq, bufferIndex);
+                  memopSeq, numNonMemops, bufferIndex);
                 
                 // Increment memopSeq and bufferIndex
                 uint64_t numMemopsInInsn = getNumberOfMemopsToInstrument(memop);
                 memopSeq += numMemopsInInsn;
                 bufferIndex += numMemopsInInsn;
 
-                // Reset non-memop count
-                numNonMemops = 0;
+                //// Reset non-memop count
+                //numNonMemops = 0;
             } else {
                 numNonMemops++;
             }
@@ -1218,7 +1219,7 @@ void AddressStreamIntercept::instrument(){
             // number of non memory instructions since the last memory insn
             if (insIndex == bb->getNumberOfInstructions() - 1)
                 collectInsnCountEntry(bb, memop, threadReg, stats, blockSeq,
-                  bufferIndex, numNonMemops);
+                  numNonMemops, bufferIndex);
         }
         blockSeq++;
     } // for each block
@@ -1390,8 +1391,8 @@ void AddressStreamIntercept::setSr2ToBufferEntry(AddressStreamStats& stats,
 }
 
 void AddressStreamIntercept::writeBufferEntry(InstrumentationSnippet* snip, 
-  uint32_t memseq, uint32_t sr2, uint32_t sr3, enum EntryType type, 
-  uint8_t swpfflag, uint8_t loadstoreflag) {
+  uint64_t memseq, uint32_t sr2, uint32_t sr3, uint64_t& numInsns,
+  enum EntryType type, uint8_t swpfflag, uint8_t loadstoreflag) {
 
     // set entry type
     snip->addSnippetInstruction(X86InstructionFactory64::
@@ -1418,6 +1419,15 @@ void AddressStreamIntercept::writeBufferEntry(InstrumentationSnippet* snip,
     // set memseq
     snip->addSnippetInstruction(X86InstructionFactory64::
       emitMoveImmToRegaddrImm(memseq, sr2, offsetof(BufferEntry, memseq)));
+
+    // set regularInsns
+    snip->addSnippetInstruction(X86InstructionFactory64::
+      emitMoveImmToRegaddrImm(numInsns, sr2, offsetof(BufferEntry,
+      regularinsns)));
+
+    // Reset the number of regular instructions back to 0 so it doesn't get
+    // counted twice
+    numInsns = 0;
 }
 
 void AddressStreamIntercept::writeStaticFile() {
@@ -1522,8 +1532,8 @@ void AddressStreamIntercept::initializeLineInfo(AddressStreamStats& stats,
 
 // TODO To be implemented later
 void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
-  vectorIns, uint32_t threadReg, AddressStreamStats& stats, uint32_t blockSeq,
-  uint32_t memseq, uint32_t bufferIndex, uint8_t swpfflag) {
+  vectorIns, uint32_t threadReg, AddressStreamStats& stats, uint64_t blockSeq,
+  uint64_t memseq, uint64_t& numInsns, uint64_t bufferIndex, uint8_t swpfflag) {
 
     // First we build the actual instrumentation point
     InstrumentationSnippet* snip = addInstrumentationSnippet();
@@ -1560,7 +1570,7 @@ void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
         loadstoreflag = STORE;
     else
         assert(0);
-    writeBufferEntry(snip, memseq, sr2, sr3, VECTOR_ENTRY, swpfflag,
+    writeBufferEntry(snip, memseq, sr2, sr3, numInsns, VECTOR_ENTRY, swpfflag,
       loadstoreflag);
 
     OperandX86* regOp = NULL;

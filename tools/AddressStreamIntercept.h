@@ -57,11 +57,12 @@ protected:
 
     // Functions to create different kinds of memops
     virtual void collectInsnCountEntry(BasicBlock*, X86Instruction*, uint32_t,
-      AddressStreamStats&, uint32_t, uint32_t&, uint64_t);
+      AddressStreamStats&, uint64_t, uint64_t&, uint64_t);
     void collectMemEntry(BasicBlock*, X86Instruction*, uint32_t, 
-      AddressStreamStats&, uint32_t, uint32_t, uint32_t, uint8_t, uint8_t);
+      AddressStreamStats&, uint64_t, uint64_t, uint64_t&, uint64_t, uint8_t,
+      uint8_t);
     void collectVectorEntry(BasicBlock*, X86Instruction*, uint32_t,
-      AddressStreamStats&, uint32_t, uint32_t, uint32_t, uint8_t);
+      AddressStreamStats&, uint64_t, uint64_t, uint64_t&, uint64_t, uint8_t);
 
     uint64_t getNullLineInfoValue();
     uint32_t getNumberOfBlocksToInstrument();
@@ -92,7 +93,7 @@ protected:
     void insertBufferClear(X86Instruction*, InstLocations, uint32_t, 
       AddressStreamStats&, uint64_t, uint32_t);
     void insertAddressCollection(BasicBlock*, X86Instruction*, uint32_t,
-      AddressStreamStats&, uint32_t, uint32_t, uint32_t);
+      AddressStreamStats&, uint64_t, uint64_t, uint64_t&, uint64_t);
     void instrumentEntryPoint();
     void instrumentExitPoint();
 
@@ -104,8 +105,8 @@ protected:
     void setSr2ToBufferEntry(AddressStreamStats&, InstrumentationSnippet*, 
       uint32_t, uint32_t, uint32_t, int32_t);
     inline bool usePIC() { return getUsePIC(); }
-    void writeBufferEntry(InstrumentationSnippet*, uint32_t, uint32_t, uint32_t,
-      enum EntryType, uint8_t, uint8_t);
+    void writeBufferEntry(InstrumentationSnippet*, uint64_t, uint32_t, uint32_t,
+      uint64_t& numInsns, enum EntryType, uint8_t, uint8_t);
 
     void writeStaticFile();
 
