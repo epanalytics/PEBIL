@@ -30,7 +30,7 @@
 class ArielIntercept : public AddressStreamIntercept {
 protected:
     void collectInsnCountEntry(BasicBlock*, X86Instruction*, uint32_t,
-      AddressStreamStats&, uint32_t, uint32_t&, uint64_t);
+      AddressStreamStats&, uint64_t, uint64_t&, uint64_t);
     uint64_t getNumberOfBufferElements(BasicBlock* bb);
 
 public:
