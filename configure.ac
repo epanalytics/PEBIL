@@ -30,20 +30,24 @@ m4_include([m4/ax_compile_stdcxx_0x.m4])
 m4_include([m4/ax_check_x86_features.m4])
 m4_include([m4/ax_gcc_x86_cpu_supports.m4])
 
+# Checks for programs.
+AC_PROG_CXX
+AC_PROG_CC
+AC_PROG_FC
+AC_PROG_CPP
+
 # Check if avx512f instruction set is present
+# NOTE: Requires gcc
+SAVECC=$CC
+CC=gcc
 AX_GCC_X86_CPU_SUPPORTS(avx512f, has_avx512="yes", has_avx512="no")
+CC=$SAVECC
 if test "$has_avx512" = "yes"; then
     PEBIL_BUILD_FOR_AVX512="-DHAS_AVX512_SET"
 else
     PEBIL_BUILD_FOR_AVX512=""
 fi
 AC_SUBST(PEBIL_BUILD_FOR_AVX512)
-
-# Checks for programs.
-AC_PROG_CXX
-AC_PROG_CC
-AC_PROG_FC
-AC_PROG_CPP
 
 AC_ARG_ENABLE(shmem, AC_HELP_STRING([--enable-shmem], [Use shmem compiler when building instrumentation libraries [yes]]), shmem_ok=$enableval)
 if test "$shmem_ok" = "yes"; then
@@ -108,7 +112,7 @@ fi
 
 #Allow debug option
 AC_ARG_ENABLE(debug, AC_HELP_STRING([--debug], [Print debugging information [no]]),debug_ok=$enableval)
-if test "$debug_ok" !="yes"; then
+if test "x$debug_ok" != "xyes"; then
     PEBIL_DEBUG="-DWARNING_SEVERITY=20"
 else
     PEBIL_DEBUG="-DINFORM"
