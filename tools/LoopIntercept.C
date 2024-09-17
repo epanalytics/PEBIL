@@ -359,7 +359,11 @@ void LoopIntercept::instrument() {
     loopExit->addArgument(imageKey);
 
     // Add program-entry instrumentation
-    if (isMultiImage()) {
+    if (isMainImage()) {
+        InstrumentationPoint* p = addInstrumentationPoint(
+          getProgramEntryBlock(), programEntry, InstrumentationMode_tramp);
+        ASSERT(p);
+    } else {
         for (uint32_t i = 0; i < getNumberOfExposedFunctions(); ++i) {
             Function* f = getExposedFunction(i);
             InstrumentationPoint* p = addInstrumentationPoint(f, programEntry,
@@ -369,10 +373,6 @@ void LoopIntercept::instrument() {
             dynamicPoint(p, GENERATE_KEY(getElfFile()->getUniqueId(),
               PointType_inits), true);
         }
-    } else {
-        InstrumentationPoint* p = addInstrumentationPoint(
-          getProgramEntryBlock(), programEntry, InstrumentationMode_tramp);
-        ASSERT(p);
     }
 
     // Add program-exit instrumentation

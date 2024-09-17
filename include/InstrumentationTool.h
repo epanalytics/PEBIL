@@ -73,7 +73,6 @@ private:
 class InstrumentationTool : public ElfFileInst {
 private:
     char* extension;
-    bool isMaster;
 
     bool singleArgCheck(void* arg, uint32_t mask, const char* name);
     bool hasThreadEvidence();
@@ -178,8 +177,6 @@ public:
     bool verifyArgs();
     virtual uint32_t allowsArgs() { return PEBIL_OPT_ALL; }
     virtual uint32_t requiresArgs() { return PEBIL_OPT_NON; }
-    bool isMasterImage();
-    void setMasterImage(bool isMaster);
     void setSanitize(bool);
     bool sanitize=false;
 };

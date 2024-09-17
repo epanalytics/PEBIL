@@ -101,7 +101,7 @@ void FunctionTimer::instrument(){
     PAPIStats funcInfo;
     uint64_t functionInfoStruct = reserveDataOffset(sizeof(PAPIStats));
 
-    funcInfo.timerStats.master = isMasterCheck();
+    funcInfo.timerStats.master = isMainImage();
     
     char* appName = getElfFile()->getAppName();
     uint64_t app = reserveDataOffset(strlen(appName) + 1);
@@ -170,7 +170,11 @@ void FunctionTimer::instrument(){
     functionExit->addArgument(imageKey);
     
     // Add program-entry instrumentation
-    if (isMultiImage() && !isMasterCheck()) {
+    if (isMainImage()) {
+        InstrumentationPoint* p = addInstrumentationPoint(
+          getProgramEntryBlock(), programEntry, InstrumentationMode_tramp);
+        ASSERT(p);
+    } else {
         for (uint32_t i = 0; i < getNumberOfExposedFunctions(); ++i) {
             Function* f = getExposedFunction(i);
             InstrumentationPoint* p = addInstrumentationPoint(f, programEntry,
@@ -180,10 +184,6 @@ void FunctionTimer::instrument(){
             dynamicPoint(p, GENERATE_KEY(getElfFile()->getUniqueId(),
               PointType_inits), true);
         }
-    } else {
-        InstrumentationPoint* p = addInstrumentationPoint(
-          getProgramEntryBlock(), programEntry, InstrumentationMode_tramp);
-        ASSERT(p);
     }
 
     // Add program-exit instrumentation
