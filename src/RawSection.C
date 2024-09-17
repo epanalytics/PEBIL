@@ -63,6 +63,10 @@ void RawSection::wedge(uint32_t shamt){
         return;
     }
 
+    if (sec->GET(sh_type) == SHT_NOBITS) {
+        return;
+    }
+
     uint32_t intro = containsIntroString();
     if (intro){
         //PRINT_INFOR("INTRO STRING (%d) %s", intro, charStream());
