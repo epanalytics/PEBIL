@@ -43,7 +43,14 @@ BLACKLIST = scripts/inputlist/autogen-system.func
 include VERSION
 DISTDIR = PEBIL-$(PEBIL_FULL_VER)
 
-.PHONY: subdirs $(SUBDIRS) clean all install blacklist depend docs
+# Build will require that PEBIL be sourced. Check for that here.
+ifndef PEBIL_ROOT
+  $(error ERROR: $\PEBIL_ROOT was not set; did you source PEBIL?)
+endif
+
+.PHONY: default subdirs $(SUBDIRS) clean all install blacklist depend docs
+
+default: all install
 
 # specify some explicit dependencies to order operations
 tools: src external/udis86-1.7 external/epa-inst-libs/ReuseDistance
