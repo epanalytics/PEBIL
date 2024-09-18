@@ -1188,9 +1188,10 @@ void AddressStreamIntercept::instrumentEntryPoint() {
             getProgramEntryBlock(), entryFunc, InstrumentationMode_tramp);
         ASSERT(point);
         point->setPriority(InstPriority_sysinit);
-        if (!point->getInstBaseAddress())
+        if (!point->getInstBaseAddress()) {
             PRINT_ERROR("Cannot find an instrumentation point at the entry "
               "function");
+        }
     } else {
         for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++) {
             Function* f = getExposedFunction(i);
@@ -1199,9 +1200,10 @@ void AddressStreamIntercept::instrumentEntryPoint() {
                 f, entryFunc, InstrumentationMode_tramp, InstLocation_prior);
             ASSERT(point);
             point->setPriority(InstPriority_sysinit);
-            if (!point->getInstBaseAddress())
+            if (!point->getInstBaseAddress()) {
                 PRINT_ERROR("Cannot find an instrumentation point at the entry "
                   "function");
+            }
 
             dynamicPoint(point, GENERATE_KEY(getElfFile()->getUniqueId(), 
               PointType_inits), true);
