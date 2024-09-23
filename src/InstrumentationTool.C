@@ -80,14 +80,6 @@
 #define DYNAMIC_INST_INIT "tool_dynamic_init"
 
 
-void InstrumentationTool::setMasterImage(bool isMaster){
-    this->isMaster = isMaster;
-}
-
-bool InstrumentationTool::isMasterImage(){
-    return isMaster;
-}
-
 uint64_t InstrumentationTool::reserveDynamicPoints(){
     return reserveDataOffset(sizeof(DynamicInst) * dynamicPoints.size());
 }
@@ -713,10 +705,7 @@ bool InstrumentationTool::hasThreadEvidence(){
 }
 
 InstrumentationTool::InstrumentationTool(ElfFile* elf)
-    : ElfFileInst(elf)
-{
-    this->isMaster = elf->isExecutable();
-}
+    : ElfFileInst(elf) {}
 
 void InstrumentationTool::declare(){
 #ifdef HAVE_MPI
@@ -772,30 +761,36 @@ void InstrumentationTool::instrument(){
     dynamicInit->addArgument(dynamicPointArray);
     dynamicInit->addArgument(isThreadedModeFlag);
 
-    // ALL_FUNC_ENTER
-    // don't need isPieMode here as we only enter from one spot for non multiImage
-    if (isMultiImage() && !isMasterCheck()){
-        for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+    // If this is the main image, add call to tool_dynamic_init at program
+    // entry point
+    if (isMainImage()) {
+        InstrumentationPoint* p = addInstrumentationPoint(
+          getProgramEntryBlock(), dynamicInit, InstrumentationMode_tramp);
+        ASSERT(p);
+        p->setPriority(InstPriority_sysinit);
+        if (!p->getInstBaseAddress()){
+            PRINT_ERROR("Cannot find an instrumentation point at the entry "
+              "function");
+        }
+    // If this is a shared library, add call to every function
+    } else {
+        for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++) {
             Function* f = getExposedFunction(i);
 
-            InstrumentationPoint* p = addInstrumentationPoint(f, dynamicInit, InstrumentationMode_tramp, InstLocation_prior);
+            InstrumentationPoint* p = addInstrumentationPoint(f, dynamicInit,
+              InstrumentationMode_tramp, InstLocation_prior);
             ASSERT(p);
             p->setPriority(InstPriority_sysinit);
             if (!p->getInstBaseAddress()){
-                PRINT_ERROR("Cannot find an instrumentation point at the entry function");
+                PRINT_ERROR("Cannot find an instrumentation point at the entry "
+                  "function");
             }            
 
             dynamicPoint(p, GENERATE_KEY(getElfFile()->getUniqueId(), 
               PointType_inits), true);
         }
-    } else {
-        InstrumentationPoint* p = addInstrumentationPoint(getProgramEntryBlock(), dynamicInit, InstrumentationMode_tramp);
-        ASSERT(p);
-        p->setPriority(InstPriority_sysinit);
-        if (!p->getInstBaseAddress()){
-            PRINT_ERROR("Cannot find an instrumentation point at the entry function");
-        }
     }
+
 #ifdef HAVE_SHMEM
     this->wrapShmemCalls();
 #endif
