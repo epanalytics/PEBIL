@@ -103,7 +103,7 @@ protected:
       uint32_t*, uint32_t*);
     void setSr2ToBufferEntry(AddressStreamStats&, InstrumentationSnippet*, 
       uint32_t, uint32_t, uint32_t, int32_t);
-    inline bool usePIC() { return isThreadedMode() || isMultiImage(); }
+    inline bool usePIC() { return getUsePIC(); }
     void writeBufferEntry(InstrumentationSnippet*, uint32_t, uint32_t, uint32_t,
       enum EntryType, uint8_t, uint8_t);
 

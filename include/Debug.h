@@ -59,10 +59,10 @@
 //#define TURNOFF_FUNCTION_BLOAT
 //#define SWAP_MOD_OFF 0
 //#define SWAP_MOD     2
-#define SWAP_VERBOSE
+//#define SWAP_VERBOSE
 //#define SWAP_FUNCTION_ONLY "raise"
 //#define TURNOFF_INSTRUCTION_SWAP
-#define ANCHOR_SEARCH_BINARY
+//#define ANCHOR_SEARCH_BINARY
 //#define PRINT_INSTRUCTION_DETAIL 
 //#define VALIDATE_ANCHOR_SEARCH
 //#define FILL_RELOCATED_WITH_INTERRUPTS
@@ -326,9 +326,13 @@ static char** _backtraceStrings;
 static long unsigned int _arrayBacktraceIterator;
 
 #define ASSERT(__str) \
-    if (!(__str)){ _backtraceSize = backtrace(_backtraceArray, BACKTRACE_SIZE); _backtraceStrings = backtrace_symbols(_backtraceArray, _backtraceSize); \
-        fprintf(stderr, "assert fail at line %d in file %s, function %s\n", __LINE__, __FILE__,__FUNCTION__); \
-        for (_arrayBacktraceIterator = 0; _arrayBacktraceIterator < _backtraceSize; _arrayBacktraceIterator++){ fprintf(stderr, "\t%s\n", _backtraceStrings[_arrayBacktraceIterator]); } \
+    if (!(__str)){ _backtraceSize = backtrace(_backtraceArray, BACKTRACE_SIZE); \
+        _backtraceStrings = backtrace_symbols(_backtraceArray, _backtraceSize); \
+        fprintf(stderr, "assert fail at line %d in file %s, function %s\n", \
+          __LINE__, __FILE__,__FUNCTION__); \
+        for (_arrayBacktraceIterator = 0; _arrayBacktraceIterator < \
+          _backtraceSize; _arrayBacktraceIterator++){ fprintf(stderr, \
+            "\t%s\n", _backtraceStrings[_arrayBacktraceIterator]); } \
         free(_backtraceStrings);\
         assert(__str); }
 //#define ASSERT(__str)

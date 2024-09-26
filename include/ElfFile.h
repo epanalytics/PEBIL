@@ -26,6 +26,7 @@
 #include <ProgramHeader.h>
 #include <Vector.h>
 #include <map>
+#include <set>
 
 class AddressAnchor;
 class BasicBlock;
@@ -82,6 +83,8 @@ private:
     Vector<AddressAnchor*>* addressAnchors;
     bool anchorsAreSorted;
     std::map<uint64_t, DataReference*> specialDataRefs;
+    std::set<AddressAnchor*>* wedgeAnchors;
+    
 
     uint16_t sectionNameStrTabIdx;
     uint16_t dynamicSymtabIdx;
@@ -130,7 +133,11 @@ public:
    
     uint64_t getUniqueId();
     char* getSHA1Sum();
+// get the smallest virtual address of all loadable segments (ie, the base 
+// address for the program)
     uint64_t getProgramBaseAddress();
+// get the first virtual address of the first executable instruction
+    uint64_t getProgramStartAddress();
 
     bool isMicBinary();
     bool isAVX512Binary();

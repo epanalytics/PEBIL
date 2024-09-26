@@ -879,6 +879,15 @@ uint32_t CodeBlock::getAllInstructions(X86Instruction** allinsts, uint32_t nexti
     return instructionCount;
 }
 
+void CodeBlock::getAllAnchors(std::set<AddressAnchor*>* dest) {
+    for (uint32_t i = 0; i < getNumberOfInstructions(); i++) {
+        X86Instruction* curInsn = getInstruction(i);
+        if (curInsn->getAddressAnchor() != NULL) {
+            dest->insert(curInsn->getAddressAnchor());
+        }
+    }
+}
+
 
 void CodeBlock::setBaseAddress(uint64_t newBaseAddr){
     baseAddress = newBaseAddr;

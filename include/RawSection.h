@@ -66,16 +66,23 @@ protected:
     HashCode hashCode;
 
     Vector<DataReference*> dataReferences;
+    // For keeping track of what sections were shifted and weren't shifted to 
+    // make room for instrumentation code.
+    bool wasWedged;
 
 public:
-    RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size, uint16_t scnIdx, ElfFile* elf);
+    RawSection(PebilClassTypes classType, char* rawPtr, uint32_t size, 
+      uint16_t scnIdx, ElfFile* elf);
     ~RawSection();
 
     virtual void read(BinaryInputFile* b);
     virtual void print() { __SHOULD_NOT_ARRIVE; }
     virtual bool verify();
 
-    char* charStream(uint32_t offset) { ASSERT(offset < sizeInBytes); return (char*)(rawDataPtr+offset); }
+    // is pointer to input file
+    char* charStream(uint32_t offset) { 
+        ASSERT(offset < sizeInBytes); return (char*)(rawDataPtr+offset); 
+    }
     virtual char* charStream() { return rawDataPtr; }
     char* getFilePointer() { return rawDataPtr; }
     char* getStreamAtAddress(uint64_t addr);
@@ -93,6 +100,9 @@ public:
 
     HashCode getHashCode() { return hashCode; }
     uint32_t containsIntroString();
+
+    void setWasWedged() { wasWedged = true; }
+    bool getWasWedged() { return wasWedged; }
 };
 
 class DataSection : public RawSection {

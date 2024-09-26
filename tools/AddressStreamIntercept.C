@@ -789,7 +789,7 @@ void AddressStreamIntercept::initializeAddressStreamStats(AddressStreamStats&
         stats.BlockCount = getNumberOfBlocksToInstrument();
     }
     stats.LoopInclusion = loopIncl;
-    stats.Master = isMasterImage();
+    stats.Master = isMasterCheck();
     stats.Phase = phaseNo;
     stats.MemopCount = getNumberOfMemopsToInstrument();
     stats.GroupCount = getNumberOfGroups();
@@ -1170,6 +1170,7 @@ void AddressStreamIntercept::instrument(){
         uint64_t numNonMemops = 0;
         for (uint32_t insIndex = 0; insIndex < bb->getNumberOfInstructions(); 
           insIndex++){
+
             X86Instruction* memop = bb->getInstruction(insIndex);
   
             if (ifInstrumentingInstruction(memop)) {
