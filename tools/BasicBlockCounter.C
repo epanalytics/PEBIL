@@ -189,7 +189,7 @@ void BasicBlockCounter::instrument() {
     CounterArray ctrs;
     ctrs.Initialized = true;
     ctrs.PerInstruction = isPerInstruction();
-    ctrs.Master = isMasterImage();
+    ctrs.Master = isMainImage();
 
     // Get all the points we will instrument (Size)
     // Get all the loops we will instrument
@@ -248,8 +248,16 @@ void BasicBlockCounter::instrument() {
     entryFunc->addArgument(counterStruct);
     entryFunc->addArgument(imageKey);
     entryFunc->addArgument(threadHash);
-    if (isMultiImage() && !isMasterCheck()) {
-        for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+    if (isMainImage()) {
+        p = addInstrumentationPoint(getProgramEntryBlock(), entryFunc,
+          InstrumentationMode_tramp, InstLocation_prior);
+        p->setPriority(InstPriority_userinit);
+        if (!p->getInstBaseAddress()) {
+            PRINT_ERROR("Cannot find an instrumentation point at the entry "
+              "block");
+        }
+    } else {
+        for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++) {
             Function* f = getExposedFunction(i);
 
             p = addInstrumentationPoint(f, entryFunc, InstrumentationMode_tramp,
@@ -262,14 +270,6 @@ void BasicBlockCounter::instrument() {
 
             dynamicPoint(p, GENERATE_KEY(getElfFile()->getUniqueId(), 
               PointType_inits), true);
-        }
-    } else {
-        p = addInstrumentationPoint(getProgramEntryBlock(), entryFunc, 
-          InstrumentationMode_tramp, InstLocation_prior);
-        p->setPriority(InstPriority_userinit);
-        if (!p->getInstBaseAddress()) {
-            PRINT_ERROR("Cannot find an instrumentation point at the entry "
-              "block");
         }
     }
 

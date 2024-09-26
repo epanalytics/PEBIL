@@ -789,7 +789,7 @@ void AddressStreamIntercept::initializeAddressStreamStats(AddressStreamStats&
         stats.BlockCount = getNumberOfBlocksToInstrument();
     }
     stats.LoopInclusion = loopIncl;
-    stats.Master = isMasterCheck();
+    stats.Master = isMainImage();
     stats.Phase = phaseNo;
     stats.MemopCount = getNumberOfMemopsToInstrument();
     stats.GroupCount = getNumberOfGroups();
@@ -1238,30 +1238,30 @@ uint64_t AddressStreamIntercept::GetBufferEntries() {
 // Instrument the program entry with a function to initialize the Address 
 // stream tool
 void AddressStreamIntercept::instrumentEntryPoint() {
-     if (isMultiImage()){
-        for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
-            Function* f = getExposedFunction(i);
-
-            InstrumentationPoint* point = addInstrumentationPoint(
-                f, entryFunc, InstrumentationMode_tramp, InstLocation_prior);
-
-            ASSERT(point);
-            point->setPriority(InstPriority_sysinit);
-            if (!point->getInstBaseAddress()){
-                PRINT_ERROR("Cannot find an instrumentation point at the entry "
-                  "function");
-            }            
-            dynamicPoint(point, GENERATE_KEY(getElfFile()->getUniqueId(), 
-              PointType_inits), true);
-        }
-    } else {
+    if (isMainImage()) {
         InstrumentationPoint* point = addInstrumentationPoint(
             getProgramEntryBlock(), entryFunc, InstrumentationMode_tramp);
         ASSERT(point);
         point->setPriority(InstPriority_sysinit);
-        if (!point->getInstBaseAddress()){
+        if (!point->getInstBaseAddress()) {
             PRINT_ERROR("Cannot find an instrumentation point at the entry "
               "function");
+        }
+    } else {
+        for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++) {
+            Function* f = getExposedFunction(i);
+
+            InstrumentationPoint* point = addInstrumentationPoint(
+                f, entryFunc, InstrumentationMode_tramp, InstLocation_prior);
+            ASSERT(point);
+            point->setPriority(InstPriority_sysinit);
+            if (!point->getInstBaseAddress()) {
+                PRINT_ERROR("Cannot find an instrumentation point at the entry "
+                  "function");
+            }
+
+            dynamicPoint(point, GENERATE_KEY(getElfFile()->getUniqueId(), 
+              PointType_inits), true);
         }
     }
 }
