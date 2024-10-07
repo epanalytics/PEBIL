@@ -87,26 +87,15 @@ void ArielIntercept::collectInsnCountEntry(BasicBlock* bb, X86Instruction*
     // Fill memopSeq, prefetch flag, and load store flag with 0s. They
     // shouldn't be used
     writeBufferEntry(snip, 0, sr2, sr3, numNonMemops, INSN_COUNT, 0, 0);
-
-//    // Update the buffer index
-//    bufferIndex++;
 }
 
 // Get the number of buffer elements that will be inserted in this block
 uint64_t ArielIntercept::getNumberOfBufferElements(BasicBlock* bb) {
     uint64_t numEntries = 0;
     // The number of buffer entries is:
-    // the number of memory instructions (for the insn count)
-    // +
-    // the number of memopry operations (to the address collection)
+    // the number of memory operations (to the address collection)
     // +
     // 1 (for the buffer entry for the end of the block)
-//    for (auto i = 0; i < bb->getNumberOfInstructions(); i++) {
-//        X86Instruction* memop = bb->getInstruction(i);
-//        if (getNumberOfMemopsToInstrument(memop) > 0)
-//            numEntries++;
-//    }
-
     numEntries += getNumberOfMemopsToInstrument(bb);
     numEntries += 1;
     return numEntries;

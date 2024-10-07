@@ -1195,12 +1195,8 @@ void AddressStreamIntercept::instrument(){
                     insertBufferClear(memop, InstLocation_prior, threadReg,
                      stats, blockSeq, numBufferElements);
                 }
-                //// Collect number of non memory ops executed before this
-                //// instruction
-                //// Note: this function should increase buffer index as needed
-                //collectInsnCountEntry(bb, memop, threadReg, stats, blockSeq,
-                //  bufferIndex, numNonMemops);
                 // Collect addresses from this instruction     
+                // Note: This sill reset numNonMemops to zero
                 insertAddressCollection(bb, memop, threadReg, stats, blockSeq,
                   memopSeq, numNonMemops, bufferIndex);
                 
@@ -1208,9 +1204,7 @@ void AddressStreamIntercept::instrument(){
                 uint64_t numMemopsInInsn = getNumberOfMemopsToInstrument(memop);
                 memopSeq += numMemopsInInsn;
                 bufferIndex += numMemopsInInsn;
-
-                //// Reset non-memop count
-                //numNonMemops = 0;
+            // If not a memop insn
             } else {
                 numNonMemops++;
             }
@@ -1530,7 +1524,6 @@ void AddressStreamIntercept::initializeLineInfo(AddressStreamStats& stats,
       func->getName()) + 1, (void*)func->getName());
 }
 
-// TODO To be implemented later
 void AddressStreamIntercept::collectVectorEntry(BasicBlock* bb, X86Instruction*
   vectorIns, uint32_t threadReg, AddressStreamStats& stats, uint64_t blockSeq,
   uint64_t memseq, uint64_t& numInsns, uint64_t bufferIndex, uint8_t swpfflag) {
