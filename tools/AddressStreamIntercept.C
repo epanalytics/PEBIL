@@ -1166,6 +1166,7 @@ void AddressStreamIntercept::instrument(){
         // Keep track of which entry needs to be filled out
         uint32_t bufferIndex = 0;
         uint64_t numBufferElements = getNumberOfBufferElements(bb);
+        bool hasMemop = false;
         // Keep track of the number of non-memory instructions between memory
         // instructions -- reset to 0 at each memop
         uint64_t numNonMemops = 0;
@@ -1175,6 +1176,7 @@ void AddressStreamIntercept::instrument(){
             X86Instruction* memop = bb->getInstruction(insIndex);
   
             if (ifInstrumentingInstruction(memop)) {
+                hasMemop = true;
                 // If this is the beginning of a new block, then we need to:
                 //   1. Insert a counter for this block
                 //   2. Insert runtime code to check to see if this block will
@@ -1209,11 +1211,31 @@ void AddressStreamIntercept::instrument(){
                 numNonMemops++;
             }
 
+            // TODO: This probably needs to be updated so that it is not done
+            //       for normal runs
             // If this is the last instruction in the block, then insert the
             // number of non memory instructions since the last memory insn
-            if (insIndex == bb->getNumberOfInstructions() - 1)
+            if (insIndex == bb->getNumberOfInstructions() - 1) {
+                if (!hasMemop) {
+                    uint32_t counterSeq = blockSeq;
+                    if (isPerInstruction()){
+                        counterSeq = memopSeq;
+                    } 
+                    uint64_t counterOffset = (uint64_t)stats.Counters + 
+                      (counterSeq * sizeof(uint64_t));
+                    if (usePIC()) { 
+                        counterOffset -= simulationStruct;
+                    }
+                    InstrumentationTool::insertBlockCounter(counterOffset, bb, 
+                      true, threadReg);
+
+                    insertBufferClear(memop, InstLocation_prior, threadReg,
+                     stats, blockSeq, numBufferElements);
+
+                }
                 collectInsnCountEntry(bb, memop, threadReg, stats, blockSeq,
                   numNonMemops, bufferIndex);
+            }
         }
         blockSeq++;
     } // for each block
