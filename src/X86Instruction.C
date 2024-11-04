@@ -698,6 +698,12 @@ uint32_t X86Instruction::getNumberOfMemoryBytes(){
                 }
             }
         } else { // isExplicitMemoryOperation()
+            int32_t m = GET(mnemonic);
+            // vaddsd only loads 8 bytes, but current static analysis defaults
+            // the size to the "destination" which is 16 bytes. Hard-code this
+            // here until we can update static analysis
+            if (m == UD_Ivaddsd)
+                return 64/8;
             OperandX86* op = getMemoryOperand();
             ASSERT(op);
             if (op->GET(size)){

@@ -738,6 +738,12 @@ void AddressStreamIntercept::initializePerMemopData(AddressStreamStats& stats) {
                 // analysis revamp
             }
             uint32_t dataSize = memop->getNumberOfMemoryBytes();
+            // getNumberOfMemoryBytes does not take vector information into
+            // account so update it if necessary
+            if (memop->isVectorInstruction()) {
+                VectorInfo vecinf = memop->getVectorInfo();
+                dataSize = vecinf.elementSize * vecinf.nElements;
+            }
             for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
             {
                 uint64_t initialBlockId = blockSeq;
