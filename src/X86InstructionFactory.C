@@ -722,7 +722,7 @@ X86Instruction* X86InstructionFactory64::emitMoveZmmToAlignedRegaddrImm(
 /*
  * vmovdqu32 ymm1, mem
  */
-// | c5 | R vvvv L pp
+// | c4 | R X B mmmmm | W vvvv L pp
 X86Instruction* X86InstructionFactory64::emitMoveYmmToUnalignedRegaddrImm(
         uint32_t ymm_in,
         uint32_t base_in,
@@ -736,28 +736,35 @@ X86Instruction* X86InstructionFactory64::emitMoveYmmToUnalignedRegaddrImm(
     uint8_t ymm = ymm_in - X86_FPREG_YMM0;
     uint8_t base = base_in - X86_REG_AX;
 
-    uint32_t len = 8;
+    // Note: There is a 2-byte version that can be used for some versions
+    // (really, if the base register is not r8-r15). Rather than make this
+    // more complicated by doing 2-bytes for some and 3-bytes for others,
+    // we are just going to implement the more general 3-byte encoding.
+    uint32_t len = 9;
     char* buff = new char[len];
 
     // addressing mode is [base]+disp32
     //   mod = 10
     // base is encoded in ~X:~B:rm
 
-    // R is 1 for 0-7
-    // R is 0 for 9-15
-    uint8_t R = (~ymm & 0x08) << 4;
-    uint8_t RvvvvLpp =  R | 0x7e; // R 1111 1 10
+    // R=1, X=1, mmmmm=00001
+    // B=1 for base 0-7
+    // B=0 for base 8-15
+    uint8_t RXBmmmmm =  0xc1;  // 1 1 0 00001
+    if (base_in < X86_REG_R8)
+        RXBmmmmm =  0xe1;      // 1 1 1 00001
 
     uint8_t mod = 1 << 7;
     uint8_t reg = (ymm & 0x07) << 3;
     uint8_t rm = (base & 0x07);
     uint8_t modrm = mod | reg | rm;
 
-    buff[0] = 0xc5;
-    buff[1] = RvvvvLpp;
-    buff[2] = 0x7f;       
-    buff[3] = modrm; 
-    memcpy(buff+4, &disp, sizeof(disp));
+    buff[0] = 0xc4;
+    buff[1] = RXBmmmmm; // R=1 X=1 B=0 mmmmm=00001
+    buff[2] = 0x7e; // W ignored so set to 0: 0 1111 1 10
+    buff[3] = 0x7f;
+    buff[4] = modrm;
+    memcpy(buff+5, &disp, sizeof(disp));
 
     return emitInstructionBase(len, buff);
 }
