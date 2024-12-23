@@ -355,7 +355,10 @@ void AddressStreamIntercept::initializeBlocksToInst(){
     if (!strcmp("+", inputFile)){
         for (uint32_t i = 0; i < getNumberOfExposedBasicBlocks(); i++){
             BasicBlock* bb = getExposedBasicBlock(i);
-            blocksToInstHash.insert(bb->getHashCode().getValue(), bb);
+            Function* func = (Function*)bb->getLeader()->getContainer();
+            if (strcmp("_fini", func->getName()))
+                blocksToInstHash.insert(bb->getHashCode().getValue(), bb);
+
         }
     } else {
         Vector<char*> fileLines;
@@ -742,11 +745,35 @@ void AddressStreamIntercept::initializePerMemopData(AddressStreamStats& stats) {
             // account so update it if necessary
             if (memop->isVectorInstruction()) {
                 VectorInfo vecinf = memop->getVectorInfo();
-                dataSize = vecinf.elementSize * vecinf.nElements;
+                if (memop->isScatterGatherOp())
+                    dataSize = vecinf.elementSize;
+                else
+                    dataSize = vecinf.elementSize * vecinf.nElements;
+
+                switch (memop->GET(mnemonic)) {
+                    case UD_Icvttps2pi:
+                    case UD_Imovhpd:
+                    case UD_Ivmovhpd:
+                    case UD_Imovlpd:
+                    case UD_Ivmovlpd:
+                        dataSize = 8;
+                        break;
+                    case UD_Ivinserti128:
+                    case UD_Ivinserti32x4:
+                    case UD_Ivinserti64x2:
+                        dataSize = 16;
+                        break;
+                    case UD_Ivinserti32x8:
+                    case UD_Ivinserti64x4:
+                        dataSize = 32;
+                        break;
+                }
+
             }
             for (uint64_t m = 0; m < getNumberOfMemopsToInstrument(memop); m++)
             {
                 uint64_t initialBlockId = blockSeq;
+                uint64_t instptr = memop->getBaseAddress();
                 if (isPerInstruction()) {
                     initialBlockId = memopSeq;
                 }
@@ -762,6 +789,9 @@ void AddressStreamIntercept::initializePerMemopData(AddressStreamStats& stats) {
                 initializeReservedData(getInstDataAddress() +
                   (uint64_t)stats.SizeInBytes + memopSeq * sizeof(uint32_t),
                   sizeof(uint32_t), &dataSize);
+                initializeReservedData(getInstDataAddress() +
+                  (uint64_t)stats.Addresses + memopSeq * sizeof(uint64_t),
+                  sizeof(uint64_t), &instptr);
                 memopSeq++;
             }
         }
@@ -842,6 +872,7 @@ void AddressStreamIntercept::initializeAddressStreamStats(AddressStreamStats&
     INIT_INSN_ELEMENT(bool, IsDP);
     INIT_INSN_ELEMENT(bool, IsFP);
     INIT_INSN_ELEMENT(uint32_t, SizeInBytes);
+    INIT_INSN_ELEMENT(uint64_t, Addresses);
 
     // Initialize per-memop data
     initializePerMemopData(stats);
@@ -862,7 +893,7 @@ void AddressStreamIntercept::initializeAddressStreamStats(AddressStreamStats&
     INIT_BLOCK_ELEMENT(char*, Functions);
     INIT_BLOCK_ELEMENT(uint64_t, Hashes);
     // TODO ACC UNUSED
-    INIT_BLOCK_ELEMENT(uint64_t, Addresses);
+//    INIT_BLOCK_ELEMENT(uint64_t, Addresses);
     INIT_BLOCK_ELEMENT(uint64_t, GroupIds);
 
     // Initialize per-block data

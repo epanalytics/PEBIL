@@ -981,15 +981,19 @@ static unsigned int resolve_operand_size( const struct ud * u, unsigned int s )
         }
         return s;
     case SZ_V:
-        //PEBIL_DEBUG("\t\tresolve_operand_size: s = SZ_V");
+        PEBIL_DEBUG("\t\tresolve_operand_size: s = SZ_V");
         return ( u->opr_mode );
     case SZ_Z:  
+        PEBIL_DEBUG("\t\tresolve_operand_size: s = SZ_Z");
         return ( u->opr_mode == 16 ) ? 16 : 32;
     case SZ_P:  
+        PEBIL_DEBUG("\t\tresolve_operand_size: s = SZ_P");
         return ( u->opr_mode == 16 ) ? SZ_WP : SZ_DP;
     case SZ_MDQ:
+        PEBIL_DEBUG("\t\tresolve_operand_size: s = SZ_MDQ");
         return ( u->opr_mode == 16 ) ? 32 : u->opr_mode;
     case SZ_RDQ:
+        PEBIL_DEBUG("\t\tresolve_operand_size: s = SZ_RDQ");
         return ( u->dis_mode == 64 ) ? 64 : 32;
     //case SZ_X:
     //    PEBIL_DEBUG("\t\tresolve_operand_size: s = SZ_X");
@@ -1021,6 +1025,7 @@ static unsigned int resolve_operand_size( const struct ud * u, unsigned int s )
     //        assert(0);
     //    }
     default:
+        PEBIL_DEBUG("\t\tresolve_operand_size: s = default");
         return s;
     }
 }

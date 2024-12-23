@@ -684,6 +684,12 @@ uint32_t X86Instruction::getNumberOfMemoryBytes(){
             if (!op){
                 return GET(adr_mode)/8;
             }
+            // In 64-bit mode, pushes and pops are supposed to be 64-bit memory
+            // operations. There are certainly exceptions to this, but for now
+            // it seems better to hard-code this until we can improve static
+            // anlysis
+            if (isStackPush() || isStackPop())
+                return 64/8;
             ASSERT(op);
             if (op->GET(size)){
                 return op->GET(size)/8;
@@ -702,8 +708,40 @@ uint32_t X86Instruction::getNumberOfMemoryBytes(){
             // vaddsd only loads 8 bytes, but current static analysis defaults
             // the size to the "destination" which is 16 bytes. Hard-code this
             // here until we can update static analysis
-            if (m == UD_Ivaddsd)
-                return 64/8;
+            switch (m) {
+                case UD_Icvttss2si:
+                case UD_Ivcvttss2si:
+                    return 32/8;
+                    break;
+                case UD_Ivbroadcastsd:
+                case UD_Icomisd:
+                case UD_Ivcomisd:
+                case UD_Icvttsd2si:
+                case UD_Ivcvttsd2si:
+                case UD_Ivaddsd:
+                case UD_Ivsubsd:
+                case UD_Ivmulsd:
+                case UD_Ivdivsd:
+                case UD_Ivmaxsd:
+                case UD_Ivminsd:
+                case UD_Ivfmadd132sd:
+                case UD_Ivfmadd213sd:
+                case UD_Ivfmadd231sd:
+                case UD_Ivfnmadd132sd:
+                case UD_Ivfnmadd213sd:
+                case UD_Ivfnmadd231sd:
+                case UD_Ivfmsub132sd:
+                case UD_Ivfmsub213sd:
+                case UD_Ivfmsub231sd:
+                case UD_Ivfnmsub132sd:
+                case UD_Ivfnmsub213sd:
+                case UD_Ivfnmsub231sd:
+                case UD_Ivmovq:
+                case UD_Ivpinsrq:
+                    return 64/8;
+                    break;
+            }
+
             OperandX86* op = getMemoryOperand();
             ASSERT(op);
             if (op->GET(size)){
