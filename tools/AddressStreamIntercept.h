@@ -118,7 +118,7 @@ public:
     AddressStreamIntercept(ElfFile* elf);
     ~AddressStreamIntercept();
 
-    void declare();
+    virtual void declare();
     void instrument();
 
     uint64_t GetBufferEntries();

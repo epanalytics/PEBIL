@@ -37,6 +37,8 @@ public:
     ArielIntercept(ElfFile* elf) : AddressStreamIntercept(elf) {}
     ~ArielIntercept() {}
 
+    void declare();
+
     const char* briefName() { return "ArielIntercept"; }
     const char* defaultExtension() { return "arielinst"; }
     uint32_t allowsArgs() { return PEBIL_OPT_LPI | PEBIL_OPT_DTL | PEBIL_OPT_PHS | PEBIL_OPT_DFP; }

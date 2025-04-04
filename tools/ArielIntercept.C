@@ -89,6 +89,26 @@ void ArielIntercept::collectInsnCountEntry(BasicBlock* bb, X86Instruction*
     writeBufferEntry(snip, 0, sr2, sr3, numNonMemops, INSN_COUNT, 0, 0);
 }
 
+// Declare libraries and runtime functions (--threaded apps will need openmp)
+void ArielIntercept::declare() {
+    InstrumentationTool::declare();
+
+    // Declare the instrumentation functions
+    memBufferFunc = declareFunction("process_buffer");
+    ASSERT(memBufferFunc && "Cannot find memory print function, are you sure it was declared?");
+    exitFunc = declareFunction("tool_image_fini");
+    ASSERT(exitFunc && "Cannot find exit function, are you sure it was declared?");
+    entryFunc = declareFunction("tool_image_init");
+    ASSERT(entryFunc && "Cannot find entry function, are you sure it was declared?");
+
+    // Declare library name based on presence of --threaded
+    if (isThreadedMode())
+        declareLibrary("libaddressstream_omp.so");
+    else
+        declareLibrary("libaddressstream.so");
+
+}
+
 // Get the number of buffer elements that will be inserted in this block
 uint64_t ArielIntercept::getNumberOfBufferElements(BasicBlock* bb) {
     uint64_t numEntries = 0;
