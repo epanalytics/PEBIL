@@ -51,10 +51,21 @@ Here are configure options to consider:
       tools. Must also use `--with-sst-elements`.
   * `--with-sst-elements=/path/to/sst-elements` : To build SST-related
       instrumentation. Must also use `--with-sst-core`.
-  * `--disable-mpicxxbind` : If using a version of MPI that doesn't call
+  * `--enable-mpicxxbind` : If using a version of MPI that calls
       C++ bindings.
   * `--prefix=/path/to/install` : The default location for a PEBIL install is
       the PEBIL directory. Use this parameter to change that.
+
+It is best practice to use the same C/C++ compilers that you use to build 
+your executable. If there are multiple compilers in your environment or the 
+configure script is not picking up the compilers, set them with:
+  * `CC=<C compiler>` : Specify the C compiler
+  * `CXX=<C++ compiler>` : Specify the C++ compiler
+  * `FC=<Fortran compiler>` : Specify the fortran compiler
+  * `MPICC=<MPI C compiler>` : Specify the MPI wrapper for the C compiler
+  * `MPICXX=<MPI C++ compiler>` : Specify the MPI wrapper for the C++ compiler
+  * `MPIFC=<MPI Fortran compiler>` : Specify the MPI wrapper for the fortran
+      compiler
 
 ### Make
 
@@ -203,8 +214,6 @@ your include/exclude lists to instrument the entire function.
 
 **Include + Exclude**
 At this time, there is no way to ust both an include list and an exclude list.
-
-**TODO: Function Coverage tool?**
 
 #### Specifying Blocks (the --inp option)
 
