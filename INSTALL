@@ -1,6 +1,6 @@
 This document contains a basic outline for how to install the
-EP Analytics characterization tools using the PEBIL binary instrumentation package. 
-Direct any questions or comments to allysonc@epanalytics.com
+EP Analytics characterization tools using the PEBIL binary instrumentation
+package. Direct any questions or comments to allysonc@epanalytics.com
 
 1. System Requirements
 
@@ -10,12 +10,21 @@ Direct any questions or comments to allysonc@epanalytics.com
 
 2. Make sure you have all the files. PEBIL uses git submodules:
 
-  $ git submodule init
+  $ git submodule init external/epa-inst-libs
+  $ git submodule update
+
+  Note: external/epa-pebil-tools is a private submodule. github users will
+        not be able to access this submodule, but it is not necessary to use
+        PEBIL.
 
 3. PEBIL can be built using autoconf configure script and the resulting makefile.
-   A. run the configure script using the flags to define MPICC, MPICXX, CC, & CXX.
-   Other useful flags:
-       --disable-mpicxxbind if using openmpi gnu
+   A. run the configure script using the flags to define MPICC, MPICXX, CC, &
+      CXX.
+      Other useful flags:
+          --disable-mpicxxbind if using openmpi gnu
+      To use with SST:
+          --with-sst-core=/path/to/sst-core
+          --with-sst-elements=/path/to/sst-elements
 
    $ ./configure [MPICC=...] [--enable-mpi=no] [--disable-mpicxxbind]
    Example with Intel Compilers and Intel MPI:
