@@ -19,7 +19,7 @@ Direct any questions or comments to allysonc@epanalytics.com
 
 ### Set Up
 
-1. Clone PEBIL from https://github.com/epanalytics/PEBIL.
+1. Clone PEBIL from https://github.com/epanalytics/PEBIL
 
 2. Checkout the `feature/sst` branch.
 
@@ -51,14 +51,17 @@ Here are configure options to consider:
       tools. Must also use `--with-sst-elements`.
   * `--with-sst-elements=/path/to/sst-elements` : To build SST-related
       instrumentation. Must also use `--with-sst-core`.
+  * `--disable-mpi` : To build and instrument applications without MPI (not
+                      recommended)
   * `--enable-mpicxxbind` : If using a version of MPI that calls
       C++ bindings.
-  * `--prefix=/path/to/install` : The default location for a PEBIL install is
-      the PEBIL directory. Use this parameter to change that.
 
-It is best practice to use the same C/C++ compilers that you use to build 
+Note that the configure expects an MPI compiler.
+
+It is best practice to use the same C/C++/MPI compilers that you use to build 
 your executable. If there are multiple compilers in your environment or the 
 configure script is not picking up the compilers, set them with:
+
   * `CC=<C compiler>` : Specify the C compiler
   * `CXX=<C++ compiler>` : Specify the C++ compiler
   * `FC=<Fortran compiler>` : Specify the fortran compiler
