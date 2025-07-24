@@ -5,4 +5,4 @@
 [submodule "external/epa-inst-libs"]
 	path = external/epa-inst-libs
 	url = git@github.com:epanalytics/epa-inst-libs.git
-	branch = feature/sst
+	branch = bugfix/updateAddrStream
