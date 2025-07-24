@@ -2,6 +2,8 @@ This document contains the basics for running and using the
 PEBIL binary instrumentation package with EP Analytics characterization
 tools.. Direct any questions or comments to allysonc@epanalytics.com
 
+SST users, please use the README_FOR_SST.md file instead.
+
 1. Installation - Please see /path/to/pebil/INSTALL
 
 2. Source PEBIL - Bring the PEBIL into your environment:
@@ -9,17 +11,20 @@ tools.. Direct any questions or comments to allysonc@epanalytics.com
       cd /path/to/pebil
       source bashrc
 
-NOTE: To get line information the application must be compiled with -g, recompile
-       before instrumenting application.
+NOTE: To get line information the application must be compiled with -g,
+      recompile before instrumenting application. This is not necessary for
+      SST.
 
 3. Instrument the application:
 
       pebil --tool <ChosenTool> --app <YourApplication> --saveall
 
-   See below for detailed tool descriptions but suggested initial instrumentation tools:
+   See below for detailed tool descriptions but suggested initial
+   instrumentation tools:
         pebil --tool FunctionCoverage --app <APP> --saveall
         pebil --tool BasicBlockCounter --app <APP> --saveall
         pebil --tool FunctionTimer --app <APP> --lnc libtimer.so --saveall
+        pebil --tool ArielIntercept --app <APP> --inp + --saveall
        
 
    Other options to consider:
@@ -28,8 +33,8 @@ NOTE: To get line information the application must be compiled with -g, recompil
 
      --sanitize    option to sanitize function names for sensitive apps
 
-     --fbl <file>  option if you would like to blacklist or 
-                   whitelist certain functions 
+     --fbl <file>  option if you would like to exclude or 
+                   include certain functions 
                    (See below details on how and when to use)
 
 4. Set tool parameters through the environment.
@@ -42,8 +47,8 @@ NOTE: To get line information the application must be compiled with -g, recompil
    is available below.
 
 5. Run the instrumented binary as you would the application. 
-   PEBIL will produce an instrumented binary which is the name of the application 
-   followed by a special suffix (e.g.  <YourApplication>.jbbinst). 
+   PEBIL will produce an instrumented binary which is the name of the
+   application followed by a special suffix (e.g.  <YourApplication>.jbbinst). 
 
    For example, if you normally run your application like:
 
@@ -52,17 +57,18 @@ NOTE: To get line information the application must be compiled with -g, recompil
    You would run the instrumented application like: 
 
         mpirun -np 32 ./theApp.jbbinst -x 4 -y 4 -z 2 < input.txt
-        NOTE that pebil environment set by step 2 must be included in any run/batch script.
+        NOTE that pebil environment set by step 2 must be included in any
+        run/batch script.
 
 *********************************************************************
-Blacklist or whitelist functions: 
-BLACKLIST:
-Often in performing detailed characterization of large binarys there will
+Exclude list or  include list functions: 
+EXCLUDE LIST:
+Often in performing detailed characterization of large binaries there will
 be functions that cause instrumentation issues, this is common for certain
 Intel compiler-inserted functions, for example. 
-To avoid these issues you can add these to a blacklist
+To avoid these issues you can add these to an exclude list
 where they will not be instrumented.
-         For a blacklist, create a file with the functions
+         For an exclude list, create a file with the functions
          you don't want instrumented, one on each line:
 
              function1
@@ -70,11 +76,12 @@ where they will not be instrumented.
              function3
              ...
 
-WHITELIST:
-Similar to the blacklist you can specify only those functions you want to instrument.
-This can be helpful to reduce the size of the instrumented binary for only user defined
-functions or only user defined functions that are utilized for a given input. 
-        For a whitelist, create a file with the functions
+INCLUDE LIST:
+Similar to the exclude list you can specify only those functions you want to
+instrument. This can be helpful to reduce the size of the instrumented binary
+for only user defined functions or only user defined functions that are
+utilized for a given input. 
+        For an include list, create a file with the functions
         you want instrumented, one on each line, and add
         a * at the top of the file:
 
@@ -104,10 +111,12 @@ instrumented with the current flags.
    RANK_NUM is represented as an eight digit decimal number with 0's 
    padded; same is true for the TOTAL_RANKS.
 
-   If one desires to create a whitelist of ONLY those functions that were executed:
-   cat <APP>.r0*fcinst | grep ^BLK | awk '{print $5}' | sort -u > whitelist.txt
+   If one desires to create an include list of ONLY those functions that were
+   executed:
 
-   DO NOT FORGET to add a "*" at the top of the "whitelist.txt" file. 
+   cat <APP>.r0*fcinst | grep ^BLK | awk '{print $5}' | sort -u > inclist.txt
+
+   DO NOT FORGET to add a "*" at the top of the "inclist.txt" file. 
 
 2. Basic Block Counting
    A low-impact tool that reports how often code was executed. 

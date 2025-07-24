@@ -56,7 +56,7 @@
 
 #define MPI_INIT_WRAPPER_CBIND   "MPI_Init_pebil_wrapper"
 #define MPI_INIT_LIST_CBIND_PREF "PMPI_Init"
-#define MPI_INIT_LIST_CBIND      "MPI_Init"
+#define MPI_INIT_LIST_CBIND      "MPI_Init:hypre_MPI_Init"
 #define MPI_FINI_WRAPPER_CBIND   "MPI_Finalize_pebil_wrapper"
 #define MPI_FINI_LIST_CBIND_PREF "PMPI_Finalize"
 #define MPI_FINI_LIST_CBIND      "MPI_Finalize"
