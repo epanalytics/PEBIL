@@ -1,8 +1,8 @@
 [submodule "external/epa-pebil-tools"]
 	path = external/epa-pebil-tools
 	url = git@bitbucket.org:epanalyticsrepos/epa-pebil-tools.git
-	branch = development
+	branch = release/1.0.0
 [submodule "external/epa-inst-libs"]
 	path = external/epa-inst-libs
-	url = git@github.com:epanalytics/epa-inst-libs.git
-	branch = bugfix/updateAddrStream
+	url = git@bitbucket.org:epanalyticsrepos/epa-inst-libs.git
+	branch = release/1.0.0
