@@ -28,7 +28,7 @@
 
 
 class AddressStreamIntercept : public InstrumentationTool {
-private:
+protected:
     // Runtime Library Functions
     InstrumentationFunction* memBufferFunc;
     InstrumentationFunction* exitFunc;
@@ -56,13 +56,17 @@ private:
     void allocateAddressStreamStats(uint64_t);
 
     // Functions to create different kinds of memops
+    virtual void collectInsnCountEntry(BasicBlock*, X86Instruction*, uint32_t,
+      AddressStreamStats&, uint64_t, uint64_t&, uint64_t);
     void collectMemEntry(BasicBlock*, X86Instruction*, uint32_t, 
-      AddressStreamStats&, uint32_t, uint32_t, uint32_t, uint8_t, uint8_t);
+      AddressStreamStats&, uint64_t, uint64_t, uint64_t&, uint64_t, uint8_t,
+      uint8_t);
     void collectVectorEntry(BasicBlock*, X86Instruction*, uint32_t,
-      AddressStreamStats&, uint32_t, uint32_t, uint32_t, uint8_t);
+      AddressStreamStats&, uint64_t, uint64_t, uint64_t&, uint64_t, uint8_t);
 
     uint64_t getNullLineInfoValue();
     uint32_t getNumberOfBlocksToInstrument();
+    virtual uint64_t getNumberOfBufferElements(BasicBlock* bb);
     uint64_t getNumberOfGroups();
     uint64_t getNumberOfMemopsToInstrument();
     uint64_t getNumberOfMemopsToInstrument(BasicBlock*);
@@ -89,7 +93,7 @@ private:
     void insertBufferClear(X86Instruction*, InstLocations, uint32_t, 
       AddressStreamStats&, uint64_t, uint32_t);
     void insertAddressCollection(BasicBlock*, X86Instruction*, uint32_t,
-      AddressStreamStats&, uint32_t, uint32_t, uint32_t);
+      AddressStreamStats&, uint64_t, uint64_t, uint64_t&, uint64_t);
     void instrumentEntryPoint();
     void instrumentExitPoint();
 
@@ -101,8 +105,8 @@ private:
     void setSr2ToBufferEntry(AddressStreamStats&, InstrumentationSnippet*, 
       uint32_t, uint32_t, uint32_t, int32_t);
     inline bool usePIC() { return getUsePIC(); }
-    void writeBufferEntry(InstrumentationSnippet*, uint32_t, uint32_t, uint32_t,
-      enum EntryType, uint8_t, uint8_t);
+    void writeBufferEntry(InstrumentationSnippet*, uint64_t, uint32_t, uint32_t,
+      uint64_t& numInsns, enum EntryType, uint8_t, uint8_t);
 
     void writeStaticFile();
 
@@ -114,7 +118,7 @@ public:
     AddressStreamIntercept(ElfFile* elf);
     ~AddressStreamIntercept();
 
-    void declare();
+    virtual void declare();
     void instrument();
 
     uint64_t GetBufferEntries();

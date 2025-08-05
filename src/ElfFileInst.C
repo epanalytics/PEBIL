@@ -70,7 +70,7 @@ X86Instruction* ElfFileInst::linkInstructionToData(X86Instruction* ins,
 bool ElfFileInst::getUsePIC() {
     bool needsWedge = elfFile->getProgramBaseAddress() < WEDGE_SHAMT;
 
-    return (threadedMode || multipleImages || needsWedge);
+    return (threadedMode || !mainImage || needsWedge);
 }
 
 void ElfFileInst::computeVectorMasks()
@@ -635,7 +635,12 @@ uint32_t ElfFileInst::relocateAndBloatFunction(Function* operatedFunction,
     return displacedFunction->getNumberOfBytes();
 }
 
-BasicBlock* ElfFileInst::getProgramEntryBlock(){
+BasicBlock* ElfFileInst::getProgramEntryBlock() {
+    // If this hasn't been set yet, set it now
+    // Shared libraries do not have a program entry block
+    if ((programEntryBlock == NULL) && isMainImage())
+        programEntryBlock = getDotTextSection()->getBasicBlockAtAddress(
+          elfFile->getFileHeader()->GET(e_entry));
     return programEntryBlock;
 }
 
@@ -1289,18 +1294,23 @@ void ElfFileInst::functionSelect(){
 
     PRINT_INFOR("Total hidden from instrumentation (bytes):\t%d/%d (%.2f%)", missingBytes, numberOfBytes, ((float)((float)missingBytes*100)/((float)numberOfBytes)));
 
-    bool entryIsExposed = false;
-    for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
-        if (getExposedFunction(i)->inRange(programEntryBlock->getBaseAddress())){
-            entryIsExposed = true;
-            break;
+    if (isMainImage()) {
+        BasicBlock* entryBlock = getProgramEntryBlock();
+        bool entryIsExposed = false;
+        for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
+            if (getExposedFunction(i)->inRange(entryBlock->getBaseAddress())){
+                entryIsExposed = true;
+                break;
+            }
         }
+        if (!entryIsExposed){
+            PRINT_ERROR("The entry block is in function %s, which is hidden to "
+              "PEBIL. Either something in this function counldn't be "
+              "understood or it appears in the list passed to --fbl",
+              entryBlock->getLeader()->getContainer()->getName());
+        }
+        ASSERT(entryIsExposed);
     }
-    if (!entryIsExposed){
-        PRINT_ERROR("The entry block is in function %s, which is hidden to PEBIL. Either something in this function counldn't be understood or it appears in the list passed to --fbl", 
-                    programEntryBlock->getLeader()->getContainer()->getName());
-    }
-    ASSERT(entryIsExposed);
 }
 
 void ElfFileInst::computeInstrumentationOffsets(){
@@ -1394,26 +1404,17 @@ void ElfFileInst::phasedInstrumentation(){
     functionSelect();
 
     // Setup bootstrap instrumentation
-    // automatically set the 1st instrumentation point to go to the bootstrap code
-    InstrumentationPoint* p = addInstrumentationPoint(getProgramEntryBlock(), instrumentationSnippets[INST_SNIPPET_BOOTSTRAP_BEGIN], InstrumentationMode_tramp, InstLocation_prior);
-    p->setPriority(InstPriority_sysinit);
+    if (isMainImage()) {
+        InstrumentationPoint* p = addInstrumentationPoint(
+          getProgramEntryBlock(),
+          instrumentationSnippets[INST_SNIPPET_BOOTSTRAP_BEGIN],
+          InstrumentationMode_tramp, InstLocation_prior);
+        p->setPriority(InstPriority_sysinit);
 
-    // Add bootstrap instrumentation to every function for multi-image
-    // We use isMultiImage instead of isPieMode as this check is specifically
-    // for wether an image is multi image or not.
-    // NOTE may need to remove the !isMasterCheck for specific issue where 
-    // binary goes into std library code before calling functions in our binary.
-    // Removing the isMasterCheck and adding the --images flag to add image 
-    // initialization to every function entry for this particular case.
-    if (isMultiImage() && !isMasterCheck()) {
-        
+    // Add bootstrap instrumentation to every function for other images
+    } else {
         for (uint32_t i = 0; i < getNumberOfExposedFunctions(); i++){
             Function* f = getExposedFunction(i);
-
-            // program entry already has this
-            if (f->getBaseAddress() == getProgramEntryBlock()->getBaseAddress()){
-                continue;
-            }
 
             InstrumentationPoint* p = addInstrumentationPoint(f, 
               instrumentationSnippets[INST_SNIPPET_BOOTSTRAP_BEGIN],
@@ -2157,9 +2158,9 @@ ElfFileInst::ElfFileInst(ElfFile* elf){
     instrumentationPoints = new Vector<InstrumentationPoint*>();
     ASSERT(instrumentationPoints);
 
-    // find the entry point of the program
-    programEntryBlock = getDotTextSection()->getBasicBlockAtAddress(elfFile->getFileHeader()->GET(e_entry));
-    assert(programEntryBlock);
+    // This will be the entry block for main images (shared libraries don't
+    // have entry points) -- We will set this in getProgramEntryBlock()
+    programEntryBlock = NULL;
 
     regStorageOffset = 0;
     fxStorageOffset = sizeof(uint64_t) * X86_64BIT_GPRS;
@@ -2172,8 +2173,7 @@ ElfFileInst::ElfFileInst(ElfFile* elf){
     flags = InstrumentorFlag_none;
     allowStatic = false;
     threadedMode = false;
-    multipleImages = false;
-    masterImage = false;
+    mainImage = false;
     perInstruction = false;
     libraryList = NULL;
     saveAll = false;

@@ -20,8 +20,8 @@
 # * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # */
 
-AC_PREREQ([2.63])
-AC_INIT([FULL-PACKAGE-NAME], [VERSION], [BUG-REPORT-ADDRESS])
+AC_PREREQ([2.71])
+AC_INIT([FULL-PACKAGE-NAME],[VERSION],[BUG-REPORT-ADDRESS])
 AC_CONFIG_SRCDIR([src/ElfFileInst.C])
 AC_CONFIG_MACRO_DIR([m4])
 m4_include([m4/acx_mpi.m4])
@@ -61,7 +61,7 @@ else
 fi
 AC_SUBST(SHMEM_FLAGS)
 
-AC_ARG_ENABLE(mpi, AC_HELP_STRING([--enable-mpi], [Use mpi compiler when building instrumentation libraries [yes]]), mpi_ok=$enableval)
+AC_ARG_ENABLE(mpi, AS_HELP_STRING([--enable-mpi], [Use mpi compiler when building instrumentation libraries [yes]]), mpi_ok=$enableval)
 if test "$mpi_ok" = "no"; then
    MPICC="$CC"
    MPIFC="$FC"
@@ -120,7 +120,7 @@ fi
 AC_SUBST(PEBIL_DEBUG)
 
 # Pebil Slicer Debug Output
-AC_ARG_ENABLE(verbose-slicer, AC_HELP_STRING([--enable-verbose-slicer], 
+AC_ARG_ENABLE(verbose-slicer, AS_HELP_STRING([--enable-verbose-slicer], 
   [PEBIL Slicer should print output in pause/restart]]), 
   verbose_slicer_ok=$enableval)
 if test "$verbose_slicer_ok" == "yes"; then
@@ -130,7 +130,7 @@ else
 fi
 AC_SUBST(PEBIL_VERBOSE_SLICER)
 
-AC_ARG_ENABLE(static, AC_HELP_STRING([--enable-static], [Build a statically-linked pebil executable in addition to a dynamically-linked executable [yes]]), static_ok=$enableval)
+AC_ARG_ENABLE(static, AS_HELP_STRING([--enable-static], [Build a statically-linked pebil executable in addition to a dynamically-linked executable [yes]]), static_ok=$enableval)
 if test "$static_ok" == "yes"; then
    PEBIL_STATIC_BUILD="yes"
 else
@@ -138,15 +138,15 @@ else
 fi
 AC_SUBST(PEBIL_STATIC_BUILD)
 
-AC_ARG_ENABLE(mpicxxbind, AC_HELP_STRING([--enable-mpicxxbind], [Assume C++ bindings during build [yes]]), mpicxxbind_ok=$enableval)
-if test "$mpicxxbind_ok" != "no"; then
-  PEBIL_CXX_BINDINGS="yes"
-else
+AC_ARG_ENABLE(mpicxxbind, AS_HELP_STRING([--disable-mpicxxbind], [Assume C++ bindings during build [no]]), mpicxxbind_ok=$enableval)
+if test "$mpicxxbind_ok" != "yes"; then
   PEBIL_CXX_BINDINGS="no"
+else
+  PEBIL_CXX_BINDINGS="yes"
 fi
 AC_SUBST(PEBIL_CXX_BINDINGS)
 
-AC_ARG_ENABLE(adamant, AC_HELP_STRING([--enable-adamant], [enable adamant [yes]]), adamant_ok=$enableval)
+AC_ARG_ENABLE(adamant, AS_HELP_STRING([--enable-adamant], [enable adamant [yes]]), adamant_ok=$enableval)
 AC_CHECK_HEADERS([adm.h],
   [
     if test "$adamant_ok" == "yes"; 
@@ -162,7 +162,7 @@ AC_CHECK_HEADERS([adm.h],
 AC_SUBST(ADAMANT_HEADER_FLAGS)
 AC_SUBST(ADAMANT_LIBS_BUILD)  
 
-AC_ARG_ENABLE(mpiinit_check, AC_HELP_STRING([--enable-mpiinit-check], [Disable output file printing in inst libraries unless mpi_init is executed [no]]), mpiinit_check_ok=$enableval)
+AC_ARG_ENABLE(mpiinit_check, AS_HELP_STRING([--enable-mpiinit-check], [Disable output file printing in inst libraries unless mpi_init is executed [no]]), mpiinit_check_ok=$enableval)
 if test "$mpiinit_check_ok" = "yes"; then
    MPI_FLAGS="$MPI_FLAGS -DMPI_INIT_REQUIRED"
 fi
@@ -170,15 +170,23 @@ AC_SUBST(MPI_FLAGS)
 AC_SUBST(MPI_CXXFLAGS)
 
 
-#AC_ARG_ENABLE(epa_tools, [AC_HELP_STRING([--disable-epa-tools], 
-#  [do not use/compile EP Analytics tools @<:@default=yes@:>@])], 
-#  epa_tools_ok=$enableval, epa_tools_ok=yes)
-
+# Check for epa-pebil-tools submodule. It is not required.
 AC_ARG_WITH(epa_tools, [AS_HELP_STRING([--with-epa-tools=<path>],
   [specify path to epa tools])], [epa_tools=$withval], [epa_tools=default])
 
+if test "x$epa_tools" = "xdefault"; then
+    AC_MSG_CHECKING([for epa-pebil-tools submodule])
+    if test -f "external/epa-pebil-tools/instcode/CoverageFunctions.hpp"; then
+        AC_MSG_RESULT([found])
+    else
+        AC_MSG_RESULT([not found])
+        epa_tools="no"
+        AC_MSG_NOTICE([Could not find the epa-pebil-tools submodule. Continuing without it])
+    fi
+fi
+
 if test "x$epa_tools" != "xno"; then
-        PEBIL_EPA_TOOLS_AVAILABLE="yes"
+    PEBIL_EPA_TOOLS_AVAILABLE="yes"
     if test "x$epa_tools" = "xdefault"; then
         PEBIL_BUILD_EPA_TOOLS="yes"
         PEBIL_EPA_TOOLS_PATH="external/epa-pebil-tools"
@@ -206,7 +214,7 @@ fi
 AC_SUBST(PEBIL_SUBDIR_EPA_TOOLS_PATH)
 AC_SUBST(PEBIL_ENV_EPA_TOOLS_PATH)
 
-AC_ARG_ENABLE(papi, AC_HELP_STRING([--with-papi=<path>], [Build with PAPI hardware counter support [yes]]), [papi=$withval], [papi=no])
+AC_ARG_ENABLE(papi, AS_HELP_STRING([--with-papi=<path>], [Build with PAPI hardware counter support [yes]]), [papi=$withval], [papi=no])
 PEBIL_PAPI_PATH=""
 if test "x$papi" != "xno"; then
     PEBIL_PAPI_BUILD="yes"
@@ -221,6 +229,14 @@ AC_SUBST(PEBIL_PAPI_PATH)
 
 # Set where to place bins and libs produced by epa-inst-libs
 EPA_INST_LIBS_PATH="$(pwd)/external/epa-inst-libs"
+AC_MSG_CHECKING([for epa-inst-libs submodule])
+if test -f "${EPA_INST_LIBS_PATH}/DataManager.hpp"; then
+    AC_MSG_RESULT([yes])
+else
+    AC_MSG_RESULT([no])
+    AC_MSG_ERROR([The epa-inst-libs submodule appears to be missing. Please initialize it with `git submodule init external/epa-inst-libs; git submodule update`])
+fi
+
 AC_SUBST(EPA_INST_LIBS_PATH)
 INST_LIBS_LIBDIR="\$(PEBIL_ROOT)/lib"
 INST_LIBS_BINDIR="\$(PEBIL_ROOT)/bin"
