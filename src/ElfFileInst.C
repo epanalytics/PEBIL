@@ -1760,8 +1760,9 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
             // it. Skip if it's the interp section.
             if (lowestDataAddress > elfFile->getSectionHeader(i)->GET(sh_addr)
               && i != interpIdx) {
-                ASSERT(lowestDataAddress == (uint64_t)-1 && 
-                  "Data section addresses should appear in increasing order");
+                // Note: nvhpc sometimes generates the section header table out
+                // of order, so the lowest data section might not have the
+                // smallest index
                 lowestDataAddress = elfFile->getSectionHeader(i)->GET(sh_addr);
                 lowestDataSectionIdx = i;
             }
@@ -1778,7 +1779,8 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
 
     // Set "lowestTextSection" to the lower of the two:
     // lowestDataSection and lowestTextSection
-    if (lowestDataSectionIdx < lowestTextSectionIdx) {
+    if (lowestDataSectionIdx < lowestTextSectionIdx &&
+      lowestDataAddress < lowestTextAddress) {
         lowestTextAddress = lowestDataAddress;
         lowestTextSectionIdx = lowestDataSectionIdx;
     }
@@ -1865,10 +1867,8 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
     // the code will be put in the correct location within the text segment.
     for (uint32_t i = 1; i < elfFile->getNumberOfSections(); i++){
         SectionHeader* sHdr = elfFile->getSectionHeader(i);
-        if (i < lowestTextSectionIdx){
-            ASSERT( elfFile->getSectionHeader(i)->GET(sh_addr) 
-              < lowestTextAddress && 
-"No section that occurs before the first text section should have a larger address");
+        if (i < lowestTextSectionIdx && elfFile->getSectionHeader(i)->
+          GET(sh_addr) < lowestTextAddress) {
 
             // strictly speaking the loader doesn't use these, but for 
             // consistency we change them anyway
@@ -1900,7 +1900,8 @@ void ElfFileInst::extendTextSection(uint64_t totalSize, uint64_t headerSize){
 
     // reserve space for the program header at the front of the file
     for (uint32_t i = 1; i < elfFile->getNumberOfSections(); i++){
-        if (i < lowestTextSectionIdx){
+        if (i < lowestTextSectionIdx && elfFile->getSectionHeader(i)->
+          GET(sh_addr) < lowestTextAddress) {
             elfFile->getSectionHeader(i)->INCREMENT(sh_offset, headerSize);
             elfFile->getSectionHeader(i)->INCREMENT(sh_addr, headerSize);
         }

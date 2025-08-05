@@ -470,7 +470,8 @@ uint16_t ElfFile::findInitialTextSectionIdx() {
         return initIdx - 1;
     if (initIdx == 0)
         return rodataIdx - 1;
-    if (rodataIdx < initIdx)
+    if (getSectionHeader(rodataIdx)->GET(sh_addr) < getSectionHeader(initIdx)
+      ->GET(sh_addr))
         return rodataIdx - 1;
     return initIdx - 1;
 }
@@ -1564,6 +1565,14 @@ void ElfFile::readRawSections(){
           sectionHeaders[i]->GET(sh_offset));
         uint64_t sectionSize = (uint64_t)sectionHeaders[i]->GET(sh_size);
 
+        // If the section is empty, just create a raw section
+        if (sectionSize == 0) {
+            rawSections.append(new RawSection(PebilClassType_RawSection,
+              sectionFilePtr, sectionSize, i, this));
+            continue;
+        }
+
+        // Otherwise, create a section based on the type
         switch(sectionHeaders[i]->getSectionType()){
         case PebilClassType_StringTable:
             rawSections.append(new StringTable(sectionFilePtr, sectionSize, i, getNumberOfStringTables(), this));
