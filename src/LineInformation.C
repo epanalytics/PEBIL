@@ -167,8 +167,12 @@ LineInfoFinder::LineInfoFinder(DwarfLineInfoSection* dwarf){
     PRINT_DEBUG_LINEINFO("Using %d lineinfos", sortedLineInfos.size());
     qsort(sortedLineInfos.array(),sortedLineInfos.size(),sizeof(LineInfo*),compareLineInfoAddress);    
 
-    for (uint32_t i = 0; i < sortedLineInfos.size()-1; i++){
-        sortedLineInfos[i]->setAddressSpan(sortedLineInfos[i+1]->GET(lr_address)-sortedLineInfos[i]->GET(lr_address));
+    if (!sortedLineInfos.empty()) {
+        for (uint32_t i = 0; i < sortedLineInfos.size()-1; i++){
+            sortedLineInfos[i]->setAddressSpan(sortedLineInfos[i+1]->GET(lr_address)-sortedLineInfos[i]->GET(lr_address));
+        }
+    } else {
+        PRINT_WARN(20, "Could not find line information!\n");
     }
 
     verify();
