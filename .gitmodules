@@ -4,5 +4,5 @@
 	branch = release/epax/1.0.0
 [submodule "external/epa-inst-libs"]
 	path = external/epa-inst-libs
-	url = git@bitbucket.org:epanalyticsrepos/epa-inst-libs.git
-	branch = release/1.0.0
+	url = git@github.com:epanalytics/epa-inst-libs.git
+	branch = feature/sst
